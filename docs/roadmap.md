@@ -5,8 +5,11 @@ and one manual example. Tooling starts at Phase 5.
 
 ## Current phase
 
-Phases 1–5 are shipped. Phase 6 (renderer) and Phase 7 (visual diff)
-are next. Until those land, every skill in
+All seven phases of the project plan are shipped. The remaining
+gate before fixtures can be promoted out of `needs-validation` is
+external: GraphCompose 1.6 needs to be reachable from a Maven repo
+so the `render` subcommand of `preview-renderer` can flip from
+skeleton to functional. Until that happens, every skill in
 [`skill-manifest.json`](../skills/skill-manifest.json) stays at
 `status: needs-validation` and every revision's `output.pdf` /
 `output.png` are listed under `pendingArtifacts`.
@@ -15,11 +18,11 @@ are next. Until those land, every skill in
 |---|---|
 | 1 — Documentation MVP | shipped |
 | 2 — Versioned Skills MVP | shipped |
-| 3 — Manual Example | shipped |
-| 4 — Skill Validation Fixtures | shipped (discipline + scaffolds; execution waits on Phase 6/7) |
+| 3 — Manual Example | shipped (binary artifacts pending Phase 6 render) |
+| 4 — Skill Validation Fixtures | shipped (discipline + scaffolds; execution waits on Phase 6) |
 | 5 — Revision Helper Tool | shipped |
-| 6 — Render and Preview Workflow | not started |
-| 7 — Visual Diff Experiment | not started |
+| 6 — Render and Preview Workflow | shipped (`preview` works; `render` skeleton, waits on GraphCompose Maven coordinate) |
+| 7 — Visual Diff Experiment | shipped |
 
 ## Phase 1 — Documentation MVP
 
@@ -200,12 +203,18 @@ Goal: introduce basic visual comparison.
 Tasks:
 
 ```text
-[ ] Add visual-diff placeholder
-[ ] Compare reference.png and output.png
-[ ] Generate diff image
-[ ] Generate visual-review scaffold
-[ ] Classify differences manually or semi-automatically
+[x] Add visual-diff placeholder                (working CLI, not just a placeholder)
+[x] Compare reference.png and output.png       (pngjs + pixelmatch)
+[x] Generate diff image
+[x] Generate visual-review scaffold            (visual-review-classification.md snippet)
+[x] Classify differences manually or semi-automatically  (auto by mismatch %; thresholds in classify.ts)
 ```
+
+Built with Node 20 + TypeScript + Commander + pixelmatch + pngjs +
+vitest. 21 tests green. See [`tools/visual-diff/README.md`](../tools/visual-diff/README.md)
+for usage. The `ACCEPTED_LIMITATION` label is never assigned
+automatically -- it always requires a human note in
+[`visual-review.md`](../examples/invoice-reference/revisions/revision-001/visual-review.md).
 
 Commit:
 
