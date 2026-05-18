@@ -1,0 +1,10 @@
+{
+  "skillsVersion": "0.1.0",
+  "targetLibrary": "GraphCompose",
+  "supportedGraphComposeVersions": [
+    "1.6.x"
+  ],
+  "defaultGraphComposeVersion": "1.6.x",
+  "skills": [],
+  "notes": "Phase 1: documentation skeleton only. Skills are listed here when Phase 2 ships."
+}

@@ -1,0 +1,44 @@
+# Java / Kotlin build output
+target/
+build/
+out/
+*.class
+
+# Maven
+.mvn/
+dependency-reduced-pom.xml
+
+# Gradle
+.gradle/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+build.log
+render.log
+
+# Node (reserved for future tools/)
+node_modules/
+*.log.*
+npm-debug.log*
+
+# Private working notes (convention: gitignored)
+docs/private/
+
+# Local environment
+.env
+.env.local
+
+# Top-level temp render artifacts only.
+# Do NOT blanket-ignore *.pdf or *.png — revision artifacts under examples/
+# are committed on purpose and must remain tracked.
+/output.pdf
+/output.png
