@@ -2,24 +2,21 @@
 
 ## Summary
 
-Render artifacts are pending Phase 6, so this review describes the
-*expected* result based on the template structure committed in
-[`./generated-template.java`](./generated-template.java) and the
-reference description in
-[`../../reference/reference.md`](../../reference/reference.md).
-Once the Phase 6 render and preview tool ships, the Visual Review
-Agent will rerun this analysis against the real `output.png` and
-this document will be regenerated. The classification labels used
-below come from
+Render artifacts now exist: [`./output.pdf`](./output.pdf) and
+[`./output.png`](./output.png). This review is still provisional
+because the example has a textual reference
+[`../../reference/reference.md`](../../reference/reference.md) but no
+committed `reference.png` baseline for pixel comparison. The
+classification labels used below come from
 [`../../../../docs/visual-accuracy-contract.md`](../../../../docs/visual-accuracy-contract.md).
 
 ## Reference Parity Score
 
 `0-100`
 
-pending &mdash; renderer not yet wired (Phase 6). A concrete score
-will be filled in once the Visual Review Agent has run against the
-real `output.png`.
+pending &mdash; `output.png` exists, but no `reference.png` baseline
+exists yet. A concrete score will be filled in once visual-diff can
+compare two rendered images.
 
 ## Critical Mismatches
 
@@ -157,10 +154,11 @@ the line-items table." This sets up `revision-002`.
 
 `APPROVE / REVISE / REJECT`
 
-REVISE. Real preview comparison has not run yet; the Visual Review
-Agent must rerun this analysis against the actual `output.png`
-before the Revision Manager Agent can approve the revision. Once
-the renderer is wired and the minor mismatches above are
-confirmed, the next pass is expected to be either an APPROVE (if
-the deltas are within the documented tolerance) or a small REVISE
-addressing the alignment of the summary block.
+REVISE. A real preview now exists, but comparison against a
+reference image has not run yet because `reference.png` is absent.
+The Visual Review Agent must rerun this analysis against the actual
+`output.png` and a real visual baseline before the Revision Manager
+Agent can approve the revision. The next pass is expected to be
+either an APPROVE (if the deltas are within the documented
+tolerance) or a small REVISE addressing the alignment of the summary
+block.

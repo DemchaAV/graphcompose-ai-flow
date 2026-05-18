@@ -34,28 +34,29 @@ section.
 - [`./generated-test.java`](./generated-test.java)
 - [`./patch.diff`](./patch.diff)
 - [`./layout-snapshot.json`](./layout-snapshot.json)
+- [`./output.pdf`](./output.pdf)
+- [`./output.png`](./output.png)
 - [`./visual-review.md`](./visual-review.md)
 - [`./test-result.md`](./test-result.md)
 - [`./status.md`](./status.md) (this file)
 
-The binary render artifacts (`output.pdf`, `output.png`) are
-recorded in `revision.json` under `pendingArtifacts`; they are
-produced by the Phase 6 render and preview tool. Until then,
-visual confirmation against the reference is deferred, and this
-revision cannot be approved &mdash; the same blocker that holds
-[`../revision-001/status.md`](../revision-001/status.md) at
-`DRAFT`.
+The binary render artifacts (`output.pdf`, `output.png`) are now
+present and `pendingArtifacts` is empty in
+[`./revision.json`](./revision.json). Visual confirmation against a
+reference image is still deferred because this example has only
+[`../../reference/reference.md`](../../reference/reference.md), not a
+committed `reference.png` baseline.
 
 ## Next options
 
-The Revision Manager Agent is waiting on the Phase 6 renderer for
-visual confirmation, then on human approval. From this DRAFT the
-user has four mechanical paths:
+The Revision Manager Agent is waiting on visual confirmation, then
+on human approval. From this DRAFT the user has four mechanical
+paths:
 
-- **APPROVE** &mdash; once `output.pdf` and `output.png` exist and
-  the Visual Review Agent reruns with no `CRITICAL` or unaccepted
-  `MAJOR` mismatches, the Revision Manager Agent flips this
-  revision to `APPROVED` and updates
+- **APPROVE** &mdash; once a visual baseline exists and the Visual
+  Review Agent reruns with no `CRITICAL` or unaccepted `MAJOR`
+  mismatches, the Revision Manager Agent flips this revision to
+  `APPROVED` and updates
   `currentApprovedRevisionId` in
   [`../../template-project.json`](../../template-project.json).
 - **REJECT** &mdash; the user discards revision-002. The folder
@@ -73,12 +74,12 @@ user has four mechanical paths:
   [`./visual-review.md#recommended-next-revision`](./visual-review.md#recommended-next-revision)
   section suggests two candidate tweaks (verifying the `TOTAL`
   label weight and raising the divider stroke width above the
-  total) once render artifacts exist.
+  total) against the rendered artifact.
 
 The Revision Manager Agent must not approve this revision until:
 
-1. the Phase 6 renderer ships and produces `output.pdf` and
-   `output.png` in this folder
+1. a real `reference.png` is committed or another explicit visual
+   baseline is approved
 2. the Visual Review Agent reruns against the real `output.png`
    and produces a concrete Reference Parity Score
 3. no `CRITICAL` or unaccepted `MAJOR` mismatches remain per the

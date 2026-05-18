@@ -29,8 +29,5 @@
     "testResult": "test-result.md",
     "status": "status.md"
   },
-  "pendingArtifacts": [
-    "output.pdf",
-    "output.png"
-  ]
+  "pendingArtifacts": []
 }

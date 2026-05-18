@@ -32,15 +32,18 @@ no prior approved or draft revision existed.
 - [`./generated-template.java`](./generated-template.java)
 - [`./generated-test.java`](./generated-test.java)
 - [`./layout-snapshot.json`](./layout-snapshot.json)
+- [`./output.pdf`](./output.pdf)
+- [`./output.png`](./output.png)
 - [`./visual-review.md`](./visual-review.md)
 - [`./test-result.md`](./test-result.md)
 - [`./status.md`](./status.md) (this file)
 
-The binary render artifacts (`output.pdf`, `output.png`) are
-recorded in `revision.json` under `pendingArtifacts`; they are
-produced by the Phase 6 render and preview tool. Until then,
-visual confirmation against the reference is deferred, and the
-revision cannot be approved.
+The binary render artifacts (`output.pdf`, `output.png`) are now
+present and `pendingArtifacts` is empty in
+[`./revision.json`](./revision.json). Visual confirmation against a
+reference image is still deferred because this example has only
+[`../../reference/reference.md`](../../reference/reference.md), not a
+committed `reference.png` baseline.
 
 ## Next agent
 
@@ -55,8 +58,8 @@ line-items table.
 
 The Revision Manager Agent must not approve this revision until:
 
-1. the Phase 6 renderer ships and produces `output.pdf` and
-   `output.png` in this folder
+1. a real `reference.png` is committed or another explicit visual
+   baseline is approved
 2. the Visual Review Agent reruns against the real `output.png`
    and produces a concrete Reference Parity Score
 3. no `CRITICAL` or unaccepted `MAJOR` mismatches remain per the

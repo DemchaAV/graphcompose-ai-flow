@@ -74,11 +74,10 @@ The Revision Manager Agent then collects the artifacts, writes
 
 ## Expected output
 
-A `revision-002` folder with all text artifacts populated, a
-`patch.diff` describing the structural change, and `status = DRAFT`.
-The binary artifacts `output.pdf` and `output.png` are again
-recorded in `revision.json` under `pendingArtifacts`; they remain
-the responsibility of the Phase 6 render and preview tool described
-in [`../../../../docs/roadmap.md`](../../../../docs/roadmap.md).
-The Revision Manager Agent must not approve this revision until the
-binaries exist and the Visual Review Agent has run against them.
+A `revision-002` folder with all artifacts populated, a `patch.diff`
+describing the structural change, and `status = DRAFT`. The binary
+artifacts `output.pdf` and `output.png` are now produced by the
+render-runner flow described in
+[`../../README.md`](../../README.md#re-render-locally). The Revision
+Manager Agent must not approve this revision until a visual baseline
+exists and the Visual Review Agent has run against it.

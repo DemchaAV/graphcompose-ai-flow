@@ -24,9 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
  *       {@code compose(...)}, asserting the call does not throw.</li>
  * </ul>
  *
- * <p>Deferred checks, enabled when the Phase 6 renderer ships:</p>
+ * <p>Deferred checks, enabled by the next validation-runner pass:</p>
  * <ul>
- *   <li>PDF byte-size sanity ({@code output.pdf} exists and is not empty).</li>
  *   <li>preview-image diff against {@code reference/reference.png}.</li>
  *   <li>layout-snapshot regression against {@code layout-snapshot.json}.</li>
  *   <li>pagination expectation test for a synthetic 50-line invoice.</li>
@@ -38,10 +37,10 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
  * the line-items table and into a dedicated {@code Summary} section. The
  * layout snapshot is therefore expected to change for the LineItems and
  * Summary regions, and the visual regression baseline must be refreshed
- * once the Phase 6 renderer ships. Until then this test only enforces
- * the compose-does-not-throw smoke contract; the structural change is
- * exercised by the committed {@code layout-snapshot.json} and the
- * visual review.</p>
+ * once a real reference image is available. Until then this test only
+ * enforces the compose-does-not-throw smoke contract; the structural
+ * change is exercised by the committed {@code layout-snapshot.json},
+ * {@code output.png}, and the visual review.</p>
  */
 class GeneratedInvoiceTemplateTest {
 

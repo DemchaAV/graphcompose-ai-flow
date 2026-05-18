@@ -10,17 +10,17 @@ is reachable for fixture validation through JitPack as
 `com.github.DemchaAV:GraphCompose:v1.6.0`, and the five skill
 fixtures compile and run against it. `preview-renderer render` can
 now execute compiled template classes, write `output.pdf`, generate
-`output.png`, and clear pending artifacts. The remaining gate before
-skills can be promoted out of `needs-validation` is the full
-validation orchestration: compile generated templates, provide sample
-specs for data-driven templates, and feed visual-diff against a
-committed baseline.
+`output.png`, and clear pending artifacts. The invoice reference
+example has a render-runner and committed binary outputs. The
+remaining gate before skills can be promoted out of
+`needs-validation` is visual validation orchestration: produce real
+layout snapshots and feed visual-diff against committed baselines.
 
 | Phase | Status |
 |---|---|
 | 1 — Documentation MVP | shipped |
 | 2 — Versioned Skills MVP | shipped |
-| 3 — Manual Example | shipped (binary artifacts pending Phase 6 render) |
+| 3 — Manual Example | shipped (binary artifacts generated; reference image still absent) |
 | 4 — Skill Validation Fixtures | shipped (discipline + scaffolds + compile/run smoke) |
 | 5 — Revision Helper Tool | shipped |
 | 6 — Render and Preview Workflow | shipped (`preview` works; `render` executes compiled templates when runtime is on classpath) |
@@ -104,11 +104,11 @@ Tasks:
 [x] Add revision-001 architecture-plan.md
 [x] Add generated-template.java
 [x] Add generated-test.java
-[ ] Add output.pdf                         (pending Phase 6 renderer)
-[ ] Add output.png                         (pending Phase 6 renderer)
+[x] Add output.pdf
+[x] Add output.png
 [x] Add layout-snapshot.json               (illustrative, not engine-produced)
-[x] Add visual-review.md                   (expected-outcome; refreshed by Phase 6 run)
-[x] Add test-result.md                     (expected-outcome; refreshed by Phase 6 run)
+[x] Add visual-review.md                   (provisional; waits on reference.png for visual-diff)
+[x] Add test-result.md                     (refreshed with real render output)
 [x] Add revision-002 with a small user-request patch
 ```
 

@@ -102,7 +102,8 @@ public final class PreviewRenderer {
         stream.println("usage:");
         stream.println("  preview-renderer preview --pdf <path> --out <png-path> [--dpi <int>] [--page <int>]");
         stream.println("  preview-renderer render  --revision <revision-folder> --template-class <fqcn>");
-        stream.println("                           --classpath <paths> [--spec-provider <fqcn>]");
+        stream.println("                           [--classpath <paths>] [--classpath-file <path>]");
+        stream.println("                           [--spec-provider <fqcn>]");
         stream.println("                           [--output <pdf-path>] [--preview <png-path>]");
         stream.println("                           [--dpi <int>] [--page <int>]");
         stream.println();

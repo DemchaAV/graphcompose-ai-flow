@@ -1,7 +1,7 @@
 {
   "document": "InvoiceTemplate",
   "version": "1.6.0",
-  "notes": "Illustrative layout snapshot for the documentation example. Bounding boxes are computed from the textual reference description rather than from a real engine run; numbers in mm reflect intent, not measured output. Once the Phase 6 renderer ships, this file will be regenerated from the real layout engine and the notes field will be removed.",
+  "notes": "Illustrative layout snapshot for the documentation example. Bounding boxes are computed from the textual reference description rather than from a real engine run; numbers in mm reflect intent, not measured output. Once snapshot extraction is wired into the render-runner, this file will be regenerated from the real layout engine and the notes field will be removed.",
   "page": {
     "size": "A4",
     "orientation": "portrait",

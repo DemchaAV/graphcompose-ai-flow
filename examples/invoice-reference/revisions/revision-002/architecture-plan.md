@@ -135,9 +135,8 @@ The `compose` method now reads:
   [`./layout-snapshot.json`](./layout-snapshot.json) is expected
   to change in the `LineItems` and `Summary` regions; an
   illustrative snapshot is committed reflecting the new shape.
-- The visual regression test will need a fresh baseline once the
-  Phase 6 renderer ships and the `output.png` artifact is
-  produced.
+- The visual regression test will need a fresh baseline once a real
+  `reference.png` artifact is supplied.
 
 ## Visual Risks
 

@@ -52,7 +52,7 @@ absolute path of the written PNG is printed to stdout and the process exits 0.
 java -jar target/preview-renderer.jar render \
   --revision examples/invoice-reference/revisions/revision-001 \
   --template-class com.demcha.examples.invoice.GeneratedInvoiceTemplate \
-  --classpath "target/classes;/path/to/GraphCompose-v1.6.0.jar" \
+  --classpath-file target/runtime-classpath.txt \
   --spec-provider com.demcha.examples.invoice.SampleInvoiceSpecProvider \
   --output output.pdf \
   --preview output.png \
@@ -65,10 +65,13 @@ The expected jar name is `GraphCompose-v1.6.0.jar` (resolved by Maven from
 `https://jitpack.io`), and the canary classpath check looks for
 `com.demcha.compose.document.api.DocumentSession` inside it.
 
-`--classpath` must include both the compiled template classes and the
-GraphCompose runtime/dependencies. This tool does not compile
-`generated-template.java` by itself; compilation belongs to the Test + Render
-agent before this command runs.
+`--classpath` or `--classpath-file` must include both the compiled template
+classes and the GraphCompose runtime/dependencies. `--classpath-file` is useful
+on Windows because GraphCompose's transitive classpath can exceed the command
+line length limit. If both flags are present, their entries are joined with the
+platform classpath separator. This tool does not compile `generated-template.java`
+by itself; compilation belongs to the Test + Render agent before this command
+runs.
 
 Templates with `compose(DocumentSession)` need no spec provider. Templates with
 `compose(DocumentSession, Spec)` must pass `--spec-provider <fqcn>`. The provider

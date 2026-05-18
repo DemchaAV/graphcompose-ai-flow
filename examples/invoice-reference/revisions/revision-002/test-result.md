@@ -8,46 +8,42 @@ and better checks below come from the project plan (§5.7) and
 
 | Check | Status | Notes |
 |---|---|---|
-| Template compiles | PASS (claimed) | The agent claims the generated Java would compile against GraphCompose 1.6.0; no automated build has been run in Phase 3, so this is the same claim-only PASS that revision-001 reported. The claim is based on the template using only the primitives the loaded skill pack documents and on every uncertain method (including the new `column-mirror` binding for the `Summary` section) being tagged `TODO(visual-review)` instead of being invented. |
-| PDF file is generated | PENDING (Phase 6) | The render and preview tool is not yet shipped; see [`../../../../docs/roadmap.md`](../../../../docs/roadmap.md). |
-| PDF file is not empty | PENDING (Phase 6) | Same blocker as above. |
-| Preview image is generated | PENDING (Phase 6) | Same blocker. |
+| Template compiles | PASS | `node ../../../../scripts/render-invoice-reference.mjs revision-002` compiled this revision through `examples/invoice-reference/render-runner`. |
+| PDF file is generated | PASS | [`./output.pdf`](./output.pdf) was written by `tools/preview-renderer render`. |
+| PDF file is not empty | PASS | The committed PDF has a valid `%PDF-` header and non-zero size. |
+| Preview image is generated | PASS | [`./output.png`](./output.png) was rasterized from the generated PDF at 150 DPI. |
 | Layout snapshot is generated | PRESENT (illustrative) | [`./layout-snapshot.json`](./layout-snapshot.json) is committed with the new `Summary` region inserted between `LineItems` and `Footer`; the bounding boxes are still computed from the textual reference description rather than from a real engine run. The `notes` field at the top of the file makes that explicit. |
-| Render does not throw | PENDING (Phase 6) | The smoke test in [`./generated-test.java`](./generated-test.java) is written to enforce this once the renderer is wired. |
+| Render does not throw | PASS | The shared render command completed successfully for this revision. |
 
-The "PASS (claimed)" status above continues to be a claim-only
-PASS. The compile result is what the Template Coder Agent reports
-based on the generated code alone; it is not the output of an
-automated build. The Test + Render Agent must rerun this check
-against a real toolchain before the Revision Manager Agent can
-approve the revision.
+The remaining caveat is visual, not render-related: the example still
+has only a textual reference description, so no pixel diff against
+`reference.png` has been run.
 
 ## Better checks
 
 | Check | Status |
 |---|---|
-| Layout snapshot regression test | PENDING (Phase 6) |
-| Visual comparison test | PENDING (Phase 7) |
-| Pagination expectation test | PENDING (Phase 6) |
-| Component-level snapshot test | PENDING (Phase 6) |
-| Render output size sanity check | PENDING (Phase 6) |
-| Missing page check | PENDING (Phase 6) |
+| Layout snapshot regression test | PENDING (snapshot runner) |
+| Visual comparison test | PENDING (reference.png absent) |
+| Pagination expectation test | PENDING |
+| Component-level snapshot test | PENDING |
+| Render output size sanity check | PASS |
+| Missing page check | PASS |
 
 The single-page reference does not exercise pagination in this
 revision either, but the line-items table still configures its
 repeated header so the test will be meaningful once a real overflow
-case is exercised by the Phase 6 fixtures.
+case is exercised by validation fixtures.
 
 ## Logs
 
-Not attached in this documentation example. When the render and
-preview tool is wired up, the Test + Render Agent will write
-`build.log` and `render.log` next to this file and the table above
-will reference them inline. Until then, no logs exist.
+`render.log` is produced locally by the render command but ignored by
+the repository log policy. The committed proof is the generated PDF,
+preview PNG, and the empty `pendingArtifacts` array in
+[`./revision.json`](./revision.json).
 
 ## Conclusion
 
-This revision is suitable for review as a documentation artifact
-but is not suitable for approval. The Revision Manager Agent must
-keep the revision in `DRAFT` status until the renderer ships and
-the minimum checks above are converted from PENDING to PASS.
+This revision now has real render artifacts, but it is still not
+suitable for approval because no `reference.png` baseline exists for
+visual-diff and the user has not approved it.

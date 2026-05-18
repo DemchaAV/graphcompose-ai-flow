@@ -133,7 +133,13 @@ class RenderCommandTest {
         Path tempDir = Files.createTempDirectory("preview-renderer-render-spec-");
         try {
             Path revision = createRevision(tempDir);
-            Map<String, String> flags = baseRenderFlags(revision, SpecAwareSmokeTemplate.class.getName());
+            Path classpathFile = tempDir.resolve("runtime-classpath.txt");
+            Files.writeString(classpathFile, testRuntimeClasspath(), StandardCharsets.UTF_8);
+
+            Map<String, String> flags = new LinkedHashMap<>();
+            flags.put("revision", revision.toString());
+            flags.put("template-class", SpecAwareSmokeTemplate.class.getName());
+            flags.put("classpath-file", classpathFile.toString());
             flags.put("spec-provider", SmokeSpecProvider.class.getName());
 
             ByteArrayOutputStream outBytes = new ByteArrayOutputStream();

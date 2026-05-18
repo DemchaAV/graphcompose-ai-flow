@@ -10,25 +10,21 @@ the page flow. The Summary section composes its own 4-column inner
 table that mirrors the `LineItems` column spec exactly
 (`auto + 54 + 96 + 96` pt), so the totals end up under the `Amount`
 column above.
-Render artifacts are still pending Phase 6, so this review continues
-to describe the *expected* outcome based on the template structure
-committed in
-[`./generated-template.java`](./generated-template.java) and the
-reference description in
-[`../../reference/reference.md`](../../reference/reference.md).
-Once the Phase 6 render and preview tool ships, the Visual Review
-Agent will rerun this analysis against the real `output.png` and
-this document will be regenerated. The classification labels used
-below come from
+Render artifacts now exist: [`./output.pdf`](./output.pdf) and
+[`./output.png`](./output.png). This review is still provisional
+because the example has a textual reference
+[`../../reference/reference.md`](../../reference/reference.md) but no
+committed `reference.png` baseline for pixel comparison. The
+classification labels used below come from
 [`../../../../docs/visual-accuracy-contract.md`](../../../../docs/visual-accuracy-contract.md).
 
 ## Reference Parity Score
 
 `0-100`
 
-pending &mdash; renderer not yet wired (Phase 6). A concrete score
-will be filled in once the Visual Review Agent has run against the
-real `output.png`.
+pending &mdash; `output.png` exists, but no `reference.png` baseline
+exists yet. A concrete score will be filled in once visual-diff can
+compare two rendered images.
 
 ## Critical Mismatches
 
@@ -131,7 +127,7 @@ rather than re-deriving its own. Risks: the `column-mirror`
 builder is uncertain (tagged `TODO(visual-review)` in the
 template) and the rendered right-edge alignment between the
 section and the `Amount` column is the primary observable to
-verify once the Phase 6 renderer ships.
+verify against the committed preview.
 
 ### Footer
 
@@ -140,23 +136,21 @@ Unchanged from
 
 ## Recommended Next Revision
 
-Once the Phase 6 renderer is wired, verify that the `TOTAL` label
-weight matches the reference (the helper currently switches to
-`theme.headingMedium()` for the emphasised row; if the rendered
-weight reads light against the navy figure, the next revision
-should bump the weight or substitute a heavier token). In the same
-pass, consider raising the divider stroke width above the `TOTAL`
-line by approximately 1 point if the current divider looks weak in
-the rendered preview. Both adjustments would be one-line changes
-to `renderSummaryRow` and would not affect the page flow.
+Verify that the `TOTAL` label weight matches the reference once a
+reference image is available for comparison. In the same pass,
+consider raising the divider stroke width above the `TOTAL` line by
+approximately 1 point if the current divider looks weak in the
+rendered preview. Both adjustments would stay inside
+`renderSummaryBlock` and would not affect the page flow.
 
 ## Approval Recommendation
 
 `APPROVE / REVISE / REJECT`
 
-REVISE. Real preview comparison has not run yet; the Visual Review
-Agent must rerun this analysis against the actual `output.png`
-before the Revision Manager Agent can approve the revision. The
-structural change in revision-002 directly addresses the
-parent revision's "Recommended Next Revision" suggestion, but the
-new right-edge alignment cannot be confirmed without binaries.
+REVISE. A real preview now exists, but comparison against a
+reference image has not run yet because `reference.png` is absent.
+The Visual Review Agent must rerun this analysis against the actual
+`output.png` and a real visual baseline before the Revision Manager
+Agent can approve the revision. The structural change in
+revision-002 directly addresses the parent revision's "Recommended
+Next Revision" suggestion.

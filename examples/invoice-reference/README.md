@@ -7,9 +7,10 @@ follow-up revision (`revision-002`).
 
 ## Status
 
-Phase 3 of the project roadmap (manual example). The example is
-documentation-grade: every text artifact a real run would produce is
-included, but the binary render artifacts are intentionally absent.
+Phase 3 of the project roadmap (manual example), now refreshed with
+real render artifacts through the local render runner. Every text
+artifact a real run would produce is included, and both committed
+revisions now have `output.pdf` plus `output.png`.
 
 | Artifact | Present here | Comes from |
 |---|---|---|
@@ -23,18 +24,21 @@ included, but the binary render artifacts are intentionally absent.
 | `generated-template.java` | yes | Template Coder |
 | `generated-test.java` | yes | Template Coder |
 | `layout-snapshot.json` | yes (illustrative) | Test + Render |
-| `output.pdf` | pending Phase 6 | Test + Render |
-| `output.png` | pending Phase 6 | Test + Render |
+| `output.pdf` | yes | Test + Render |
+| `output.png` | yes | Test + Render |
 | `visual-review.md` | yes (describes expected outcome) | Visual Review |
 | `test-result.md` | yes (describes expected outcome) | Test + Render |
 | `status.md` | yes | Revision Manager |
 | `patch.diff` (revision-002 only) | yes | Template Coder |
 
-The binary render artifacts (`output.pdf`, `output.png`) ship when the
-Phase 6 render-and-preview tool is in place. Until then, `visual-review.md`
-and `test-result.md` document the *expected* outcome for the template in
-the revision; once the renderer is wired, those documents will be
-regenerated from the real run.
+The binary render artifacts were generated with
+[`../../scripts/render-invoice-reference.mjs`](../../scripts/render-invoice-reference.mjs),
+which compiles the selected revision template through
+[`render-runner/`](render-runner/) and invokes
+[`../../tools/preview-renderer`](../../tools/preview-renderer/).
+`visual-review.md` still remains provisional because this example has
+only a textual reference (`reference/reference.md`), not a committed
+`reference.png` baseline for visual-diff.
 
 ## Layout
 
@@ -45,6 +49,7 @@ examples/invoice-reference/
   reference/
     README.md
     reference.md          # textual description of the reference document
+  render-runner/          # Maven project used to compile selected revisions
   revisions/
     revision-001/         # initial generation (DRAFT)
     revision-002/         # follow-up tweak (DRAFT, builds on revision-001)
@@ -60,6 +65,17 @@ examples/invoice-reference/
    would have written.
 4. Then look at [`revisions/revision-002/`](revisions/revision-002/) and
    compare its `patch.diff` against `revision-001/generated-template.java`.
+
+## Re-render locally
+
+```powershell
+node ..\..\scripts\render-invoice-reference.mjs revision-001
+node ..\..\scripts\render-invoice-reference.mjs revision-002
+```
+
+The script builds `tools/preview-renderer`, compiles the selected
+revision through `render-runner`, writes `output.pdf` / `output.png`,
+and clears those names from the revision's `pendingArtifacts`.
 
 ## What this example does not claim
 

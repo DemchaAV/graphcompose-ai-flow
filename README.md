@@ -106,12 +106,12 @@ Approved revisions are never overwritten directly. See
 A documentation-grade manual revision cycle for an invoice reference
 lives under [`examples/invoice-reference/`](examples/invoice-reference/).
 It ships two revisions with every text artifact the workflow produces.
-The binary render artifacts (`output.pdf`, `output.png`) are listed
-under `pendingArtifacts` in each `revision.json`. The shared
-[`tools/preview-renderer`](tools/preview-renderer/) command can now
-render compiled template classes, but the example still needs a
-compiled template project plus a sample invoice spec provider before
-those binary artifacts are refreshed.
+The binary render artifacts (`output.pdf`, `output.png`) are now
+committed for both example revisions. They are produced by
+[`scripts/render-invoice-reference.mjs`](scripts/render-invoice-reference.mjs),
+which compiles the selected revision through
+[`examples/invoice-reference/render-runner`](examples/invoice-reference/render-runner/)
+and then calls [`tools/preview-renderer`](tools/preview-renderer/).
 
 ## Limitations
 
@@ -141,13 +141,12 @@ with passing test suites and are wired to GitHub Actions CI.
 GraphCompose 1.6.0 is reachable for fixture validation through
 JitPack as `com.github.DemchaAV:GraphCompose:v1.6.0`. The five
 fixture projects under [`examples/skill-fixtures/`](examples/skill-fixtures/)
-compile and run against that artifact. The remaining gate is now the
-full validation orchestration: compile generated templates into a
-classpath, provide sample specs for data-driven templates, render
-`output.pdf`/`output.png`, and run visual-diff against committed
-baselines. Until that full render/visual pass exists, every skill in
-the manifest stays at `status: needs-validation` and the invoice
-example's binary artifacts remain listed under `pendingArtifacts`.
+compile and run against that artifact. The invoice reference example
+also renders through the shared preview-renderer path. The remaining
+gate is now visual validation orchestration: produce real layout
+snapshots and run visual-diff against committed baselines. Until that
+full visual pass exists, every skill in the manifest stays at
+`status: needs-validation`.
 See [`AUDIT.md`](AUDIT.md) for the historical audit and
 [`docs/implementation-status.md`](docs/implementation-status.md) for
 the current claim-vs-reality matrix.

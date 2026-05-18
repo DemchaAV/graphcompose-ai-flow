@@ -114,12 +114,12 @@ GraphCompose 1.6.0 is reachable through JitPack as
 projects under [`examples/skill-fixtures/`](../examples/skill-fixtures/)
 compile and run against that artifact. `preview-renderer render` now
 executes compiled template classes and produces PDF/PNG artifacts
-when the runtime is on the classpath. The remaining gate is full
-validation orchestration: compile generated templates, provide sample
-specs for data-driven templates, and feed the visual-diff step. Until
-that full loop lands, every skill in the manifest stays at
-`status: needs-validation` and the invoice example's binary artifacts
-stay listed under `pendingArtifacts`. See
+when the runtime is on the classpath. The invoice reference example
+uses that path through its render-runner and now has committed
+PDF/PNG outputs. The remaining gate is visual validation
+orchestration: generate real layout snapshots and feed the visual-diff
+step against committed image baselines. Until that full loop lands,
+every skill in the manifest stays at `status: needs-validation`. See
 [roadmap.md](roadmap.md) for the per-phase table,
 [implementation-status.md](implementation-status.md) for the honest
 claim-vs-reality matrix, and [limitations.md](limitations.md) for

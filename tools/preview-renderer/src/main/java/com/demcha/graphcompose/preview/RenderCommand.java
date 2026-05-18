@@ -58,7 +58,7 @@ final class RenderCommand {
     static int run(Map<String, String> flags, PrintStream out, PrintStream err) throws Exception {
         Path revisionFolder = Paths.get(requireFlag(flags, "revision"));
         String templateClass = requireFlag(flags, "template-class");
-        String rawClasspath = flags.getOrDefault("classpath", "");
+        String rawClasspath = resolveClasspath(flags);
         String specProviderClass = flags.get("spec-provider");
         Path outputPdf = resolveRevisionPath(revisionFolder, flags.get("output"), "output.pdf");
         Path outputPng = resolveRevisionPath(revisionFolder, flags.get("preview"), "output.png");
@@ -309,6 +309,22 @@ final class RenderCommand {
         } catch (ClassNotFoundException | NoClassDefFoundError missing) {
             return false;
         }
+    }
+
+    private static String resolveClasspath(Map<String, String> flags) throws Exception {
+        String rawClasspath = flags.getOrDefault("classpath", "");
+        String classpathFile = flags.get("classpath-file");
+        if (classpathFile == null || classpathFile.isBlank()) {
+            return rawClasspath;
+        }
+        String fromFile = Files.readString(Paths.get(classpathFile), StandardCharsets.UTF_8).trim();
+        if (rawClasspath == null || rawClasspath.isBlank()) {
+            return fromFile;
+        }
+        if (fromFile.isBlank()) {
+            return rawClasspath;
+        }
+        return rawClasspath + System.getProperty("path.separator") + fromFile;
     }
 
     private static Path resolveRevisionPath(Path revisionFolder, String rawValue, String fallbackName) {

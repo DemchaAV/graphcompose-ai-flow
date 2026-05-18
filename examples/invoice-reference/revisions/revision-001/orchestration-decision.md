@@ -58,11 +58,9 @@ approval is performed.
 
 ## Expected output
 
-A `revision-001` folder with all text artifacts populated and the
-status set to `DRAFT`. The binary artifacts `output.pdf` and
-`output.png` are recorded in `revision.json` under
-`pendingArtifacts`; they are produced by the Phase 6 render and
-preview tool described in
-[`../../../../docs/roadmap.md`](../../../../docs/roadmap.md). The
-Revision Manager Agent must not approve this revision until the
-binaries exist and the Visual Review Agent has run against them.
+A `revision-001` folder with all artifacts populated and the status
+set to `DRAFT`. The binary artifacts `output.pdf` and `output.png`
+are now produced by the render-runner flow described in
+[`../../README.md`](../../README.md#re-render-locally). The Revision
+Manager Agent must not approve this revision until a visual baseline
+exists and the Visual Review Agent has run against it.

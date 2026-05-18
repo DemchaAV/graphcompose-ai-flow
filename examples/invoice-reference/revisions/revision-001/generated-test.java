@@ -24,10 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
  *       {@code compose(...)}, asserting the call does not throw.</li>
  * </ul>
  *
- * <p>Deferred checks, enabled when the Phase 6 renderer ships:</p>
+ * <p>Deferred checks, enabled by the next validation-runner pass:</p>
  * <ul>
- *   <li>PDF byte-size sanity ({@code output.pdf} exists and is not
- *       empty).</li>
  *   <li>preview-image diff against {@code reference/reference.png}
  *       with a tolerance budget documented in {@code visual-review.md}.</li>
  *   <li>layout-snapshot regression against the committed
@@ -38,9 +36,9 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
  * </ul>
  *
  * <p>These deferred checks live here intentionally so that the test
- * file evolves in lock-step with the template; when the renderer
- * pipeline lands, this file is the place to turn the comments above
- * into real assertions.</p>
+ * file evolves in lock-step with the template; when visual validation
+ * lands, this file is the place to turn the comments above into real
+ * assertions.</p>
  */
 class GeneratedInvoiceTemplateTest {
 

@@ -187,9 +187,9 @@ selective rollback contract in
 - Layout snapshot test &mdash; capture the layout produced by the
   template for a representative `InvoiceSpec` and compare against
   the committed [`./layout-snapshot.json`](./layout-snapshot.json).
-- Visual regression test &mdash; deferred until the Phase 6
-  renderer ships. Once the renderer is wired, the test will
-  compare `output.png` to `reference.png` and report differences
+- Visual regression test &mdash; deferred until a real
+  `reference.png` exists. The test will compare `output.png` to
+  `reference.png` and report differences
   per
   [`../../../../docs/visual-review-loop.md`](../../../../docs/visual-review-loop.md).
 - Unit test for `InvoiceSpec` totals &mdash; assert that the

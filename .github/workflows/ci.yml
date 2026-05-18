@@ -77,6 +77,9 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
           cache: 'maven'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
       - run: mvn -B -q -DskipTests=false test
       - run: mvn -B -q -DskipTests=true package
       - name: smoke (render without GraphCompose classpath)
@@ -89,6 +92,12 @@ jobs:
           out="$(java -jar target/preview-renderer.jar render --revision "$tmp/revision" --template-class com.example.Whatever --classpath "" 2>&1)"
           echo "$out"
           echo "$out" | grep -q 'graphcompose runtime not detected on classpath'
+      - name: smoke (invoice reference render)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          node scripts/render-invoice-reference.mjs revision-001
+          node scripts/render-invoice-reference.mjs revision-002
 
   skill-fixtures:
     name: skill-fixtures (GraphCompose 1.6 via JitPack)
