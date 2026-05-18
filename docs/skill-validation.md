@@ -1,10 +1,14 @@
 # Skill Validation
 
 Skills must be tested against real library behavior. This page
-documents the planned validation discipline. The actual `validation/`
-folder and the fixture projects ship in Phase 4 of the roadmap — see
-[roadmap.md](roadmap.md). For Phase 1 this page exists as a contract
-for what validation must look like once it is in place.
+documents the validation discipline. Phase 4 has shipped the
+[`validation/`](../validation/) folder (templates, checklists, the
+baseline report) and the
+[`examples/skill-fixtures/`](../examples/skill-fixtures/) projects.
+Phase 6 (renderer) and Phase 7 (visual diff) wire the fixtures up to
+real GraphCompose output so the checklist statuses can be promoted
+out of `needs-validation`. See [roadmap.md](roadmap.md) for the phase
+ordering.
 
 ## Skill validation rule
 
@@ -133,10 +137,29 @@ FAILED / NEEDS UPDATE / FIXED
 
 ## Phase status
 
-The actual `validation/` folder, the skill-fixture projects under
-`examples/skill-fixtures/`, and the CI to run them ship in Phase 4 of
-the roadmap. For now this page documents the planned discipline so
-that skill authors and prompt authors can write skills that will pass
-validation when it is wired up. See [versioned-skills.md](versioned-skills.md)
-for the manifest, statuses, and the no-invented-API rule that
-validation enforces.
+Phase 4 has shipped:
+
+- [`validation/README.md`](../validation/README.md),
+  [`validation/skill-validation.md`](../validation/skill-validation.md),
+  [`validation/api-compatibility-checklist.md`](../validation/api-compatibility-checklist.md),
+  [`validation/known-limitations.md`](../validation/known-limitations.md),
+  [`validation/verified-examples.md`](../validation/verified-examples.md),
+  [`validation/skill-fix-template.md`](../validation/skill-fix-template.md),
+  [`validation/validation-report-template.md`](../validation/validation-report-template.md)
+- [`validation/reports/phase-4-baseline.md`](../validation/reports/phase-4-baseline.md) —
+  the honest baseline report: nothing has been executed yet, all 14
+  skills remain `needs-validation`.
+- Five fixture projects under
+  [`examples/skill-fixtures/`](../examples/skill-fixtures/):
+  `row-basic`, `section-basic`, `table-basic`, `layer-stack-badge`,
+  `shape-container-card`. The plan also lists `table-repeated-header`,
+  `invoice-layout`, and `pagination-basic` as future fixtures; those
+  are not part of the Phase 4 scope.
+
+Phase 4 deliberately does NOT execute the fixtures against the real
+GraphCompose runtime. That happens once Phase 6 (renderer) and Phase 7
+(visual diff) ship. Until then every skill in
+[`skill-manifest.json`](../skills/skill-manifest.json) stays at
+`status: needs-validation`. See
+[versioned-skills.md](versioned-skills.md) for the manifest, statuses,
+and the no-invented-API rule that validation enforces.

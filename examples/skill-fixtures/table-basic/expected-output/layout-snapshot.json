@@ -1,0 +1,56 @@
+{
+  "document": "TableBasicFixture",
+  "version": "1.6.0",
+  "notes": "Illustrative layout snapshot for the table-basic fixture. Column weights, header config, and the three data rows describe the intended shape of the layout, not values a real engine has measured. Once the Phase 6 renderer ships, this file will be regenerated from the real layout engine and the notes field will be removed.",
+  "page": {
+    "size": "A4",
+    "orientation": "portrait",
+    "widthMm": 210,
+    "heightMm": 297,
+    "margins": 18,
+    "contentArea": {
+      "x": 18,
+      "y": 18,
+      "width": 174,
+      "height": 261
+    }
+  },
+  "theme": {
+    "tableHeaderBackground": "#1F4E79",
+    "tableHeaderText": "#FFFFFF",
+    "zebraAlternate": "#F8F8FA"
+  },
+  "regions": [
+    {
+      "name": "LineItems",
+      "kind": "table",
+      "bbox": { "x": 18, "y": 18, "width": 174, "height": 36 },
+      "columns": [
+        { "name": "Description", "weight": 0.60, "align": "left" },
+        { "name": "Qty", "weight": 0.15, "align": "right" },
+        { "name": "Amount", "weight": 0.25, "align": "right" }
+      ],
+      "header": {
+        "background": "tableHeaderBackground",
+        "textColor": "tableHeaderText"
+      },
+      "zebra": { "alt": "zebraAlternate" },
+      "rowCount": 2,
+      "rows": [
+        {
+          "index": 0,
+          "zebra": false,
+          "cells": ["Design discovery", "4", "$ 1,200.00"]
+        },
+        {
+          "index": 1,
+          "zebra": true,
+          "cells": ["Implementation", "8", "$ 2,400.00"]
+        }
+      ]
+    }
+  ],
+  "componentMap": {
+    "renderLineItems": "LineItems"
+  }
+}

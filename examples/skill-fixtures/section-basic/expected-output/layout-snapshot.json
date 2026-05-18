@@ -1,0 +1,40 @@
+{
+  "document": "SectionBasicFixture",
+  "version": "1.6.0",
+  "notes": "Illustrative layout snapshot for the section-basic fixture. Bounding boxes and the panel background colour describe the intended shape of the layout, not values a real engine has measured. Once the Phase 6 renderer ships, this file will be regenerated from the real layout engine and the notes field will be removed.",
+  "page": {
+    "size": "A4",
+    "orientation": "portrait",
+    "widthMm": 210,
+    "heightMm": 297,
+    "margins": 18,
+    "contentArea": {
+      "x": 18,
+      "y": 18,
+      "width": 174,
+      "height": 261
+    }
+  },
+  "theme": {
+    "panelBackground": "#F4F4F6"
+  },
+  "regions": [
+    {
+      "name": "Callout",
+      "kind": "section",
+      "bbox": { "x": 18, "y": 18, "width": 174, "height": 24 },
+      "background": "panelBackground",
+      "padding": 8,
+      "children": [
+        {
+          "kind": "text",
+          "bbox": { "x": 26, "y": 26, "width": 158, "height": 8 },
+          "content": "Payment is due within 30 days of the invoice date."
+        }
+      ]
+    }
+  ],
+  "componentMap": {
+    "renderCallout": "Callout"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "document": "LayerStackBadgeFixture",
+  "version": "1.6.0",
+  "notes": "Illustrative layout snapshot for the layer-stack-badge fixture. Layer order, anchor placement, and bounding boxes describe the intended shape of the layout, not values a real engine has measured. Once the Phase 6 renderer ships, this file will be regenerated from the real layout engine and the notes field will be removed.",
+  "page": {
+    "size": "A4",
+    "orientation": "portrait",
+    "widthMm": 210,
+    "heightMm": 297,
+    "margins": 18,
+    "contentArea": {
+      "x": 18,
+      "y": 18,
+      "width": 174,
+      "height": 261
+    }
+  },
+  "regions": [
+    {
+      "name": "CardWithBadge",
+      "kind": "section",
+      "bbox": { "x": 18, "y": 18, "width": 174, "height": 36 },
+      "children": [
+        {
+          "name": "CardWithBadgeStack",
+          "kind": "LayerStack",
+          "bbox": { "x": 18, "y": 18, "width": 174, "height": 36 },
+          "layers": [
+            {
+              "z": 0,
+              "name": "CardBody",
+              "kind": "section",
+              "bbox": { "x": 18, "y": 18, "width": 174, "height": 36 },
+              "children": [
+                { "kind": "text", "content": "Invoice 2026-0001" },
+                { "kind": "text", "content": "Issued 2026-05-18" }
+              ]
+            },
+            {
+              "z": 1,
+              "name": "NewBadge",
+              "kind": "section",
+              "anchor": "topRight",
+              "bbox": { "x": 168, "y": 14, "width": 18, "height": 8 },
+              "children": [
+                { "kind": "text", "content": "NEW" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "componentMap": {
+    "renderCardWithBadge": "CardWithBadge",
+    "renderStack": "CardWithBadge.CardWithBadgeStack"
+  }
+}
