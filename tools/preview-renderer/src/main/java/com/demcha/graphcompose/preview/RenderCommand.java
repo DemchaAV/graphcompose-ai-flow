@@ -64,6 +64,7 @@ final class RenderCommand {
         Path outputPng = resolveRevisionPath(revisionFolder, flags.get("preview"), "output.png");
         int dpi = parseIntOrDefault(flags, "dpi", DEFAULT_DPI);
         int page = parseIntOrDefault(flags, "page", DEFAULT_PAGE);
+        boolean guideLines = parseBoolFlag(flags, "guide-lines");
 
         if (!Files.isDirectory(revisionFolder)) {
             err.println("revision folder not found: " + revisionFolder);
@@ -104,6 +105,7 @@ final class RenderCommand {
                     outputPng,
                     dpi,
                     page,
+                    guideLines,
                     classpathLoader,
                     out);
         }
@@ -117,6 +119,7 @@ final class RenderCommand {
             Path outputPng,
             int dpi,
             int page,
+            boolean guideLines,
             URLClassLoader classpathLoader,
             PrintStream out) throws Exception {
         Class<?> documentSessionType = Class.forName(DOCUMENT_SESSION_FQCN, true, classpathLoader);
@@ -131,7 +134,7 @@ final class RenderCommand {
         createParentDirectory(outputPdf);
         createParentDirectory(outputPng);
 
-        Object documentSession = createDocumentSession(classpathLoader, outputPdf);
+        Object documentSession = createDocumentSession(classpathLoader, outputPdf, guideLines);
         try {
             invoke(composeMethod, template, composeArguments(documentSession, spec, composeMethod));
             invoke(documentSessionType.getMethod("buildPdf"), documentSession);
@@ -160,6 +163,7 @@ final class RenderCommand {
                 "outputPng=" + outputPng.toAbsolutePath(),
                 "dpi=" + dpi,
                 "page=" + page,
+                "guideLines=" + guideLines,
                 "status=rendered"));
         return 0;
     }
@@ -173,9 +177,18 @@ final class RenderCommand {
         return constructor.newInstance();
     }
 
-    private static Object createDocumentSession(ClassLoader loader, Path outputPdf) throws Exception {
+    private static Object createDocumentSession(ClassLoader loader, Path outputPdf, boolean guideLines)
+            throws Exception {
         Class<?> graphComposeType = Class.forName(GRAPH_COMPOSE_FQCN, true, loader);
         Object builder = invoke(graphComposeType.getMethod("document", Path.class), null, outputPdf);
+        if (guideLines) {
+            // GraphCompose.document(...).guideLines(true) — paints page-margin,
+            // row-column, section, and atomic-band guides on the PDF. Layout
+            // geometry and the snapshot are unchanged; only the convenience
+            // PDF gets the overlay.
+            Method method = builder.getClass().getMethod("guideLines", boolean.class);
+            invoke(method, builder, true);
+        }
         return invoke(builder.getClass().getMethod("create"), builder);
     }
 
@@ -352,6 +365,25 @@ final class RenderCommand {
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException("--" + name + " must be an integer, got: " + value);
         }
+    }
+
+    /**
+     * Parses a CLI boolean flag. Accepts the flag with no value
+     * ({@code --guide-lines}) as {@code true}, or with an explicit
+     * {@code true} / {@code false} value. Absent flag yields {@code false}.
+     */
+    private static boolean parseBoolFlag(Map<String, String> flags, String name) {
+        if (!flags.containsKey(name)) {
+            return false;
+        }
+        String value = flags.get(name);
+        if (value == null || value.isEmpty() || "true".equalsIgnoreCase(value)) {
+            return true;
+        }
+        if ("false".equalsIgnoreCase(value)) {
+            return false;
+        }
+        throw new IllegalArgumentException("--" + name + " accepts only true/false or no value; got: " + value);
     }
 
     private static void writeRenderLog(Path revisionFolder, List<String> lines) throws Exception {

@@ -144,9 +144,15 @@ if (fs.existsSync(sourceFontsDir)) {
 }
 
 for (const [src, dest] of [
-  ["output.pdf",         "output.pdf"],
-  ["output.png",         "output-page-1.png"],
-  ["output-page-2.png",  "output-page-2.png"],
+  ["output.pdf",                  "output.pdf"],
+  ["output.png",                  "output-page-1.png"],
+  ["output-page-2.png",           "output-page-2.png"],
+  // Debug variants — let downstream consumers SEE the GraphCompose
+  // guide-line overlay so they can reason about layout when
+  // customizing. Same render, just guides on.
+  ["output-debug.pdf",            "output-debug.pdf"],
+  ["output-debug.png",            "output-debug-page-1.png"],
+  ["output-debug-page-2.png",     "output-debug-page-2.png"],
 ]) {
   const sourcePath = path.join(revisionDir, src);
   if (fs.existsSync(sourcePath)) {

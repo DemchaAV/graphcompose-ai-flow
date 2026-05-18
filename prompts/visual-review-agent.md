@@ -8,12 +8,24 @@ You compare the rendered output against the visual reference and classify every 
 
 ```text
 reference.png
-output.png
+output.png                  ← clean current render
+output-page-N.png           ← additional pages
+output-debug.pdf            ← same render with guide-line overlays
+output-debug.png            ← debug page-1 preview
+output-debug-page-N.png     ← debug page-N previews
 previous-output.png
 layout-snapshot.json
 visual-analysis.md
 architecture-plan.md
 ```
+
+The clean `output.png` is the parity target. The debug PDF + previews
+are diagnostic tools: when explaining why a region landed where it did
+or why a mismatch is classified MAJOR rather than MINOR, reference the
+guide lines visible on `output-debug*.png` ("the page-2 grid right
+column extends X pt past the section padding line"). The debug pass
+never produces evidence for or against parity itself — only for
+explanation.
 
 ## Outputs
 

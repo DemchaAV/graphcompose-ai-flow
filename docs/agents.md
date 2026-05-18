@@ -304,8 +304,13 @@ expected artifacts.
 Inputs: `generated-template.java`, `generated-test.java`, reference
 image, project config.
 
-Outputs: `output.pdf`, `output.png`, `layout-snapshot.json`,
-`test-result.md`, `build.log`, `render.log`.
+Outputs: `output.pdf`, `output.png`, `output-page-N.png`,
+`output-debug.pdf`, `output-debug.png`, `output-debug-page-N.png`,
+`layout-snapshot.json`, `test-result.md`, `build.log`, `render.log`.
+The debug PDF + previews come from a second render pass through
+`GraphCompose.document(...).guideLines(true).create()`; layout
+geometry and the layout snapshot are unchanged between the two
+passes — only the convenience PDF gets the guide-line overlay.
 
 Responsibilities:
 

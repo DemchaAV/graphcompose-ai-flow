@@ -234,8 +234,14 @@ folder.
   Google Fonts list.
 - `generated-template.java`, `generated-test.java`, `patch.diff`,
   `changed-components.md` — written by the Template Coder.
-- `output.pdf`, `output.png`, `layout-snapshot.json`, `test-result.md`,
-  `build.log`, `render.log` — written by the Test + Render agent.
+- `output.pdf`, `output.png`, `output-page-N.png` — clean render
+  written by the Test + Render agent (customer-facing).
+- `output-debug.pdf`, `output-debug.png`, `output-debug-page-N.png` —
+  same render with GraphCompose `guideLines(true)` overlays.
+  Used by the Visual Review Agent to explain layout choices and
+  reason about parity mismatches without altering layout geometry.
+- `layout-snapshot.json`, `test-result.md`, `build.log`, `render.log` —
+  written by the Test + Render agent.
 - `visual-review.md` — written by the Visual Review Agent after
   comparison.
 - `revision.json`, `status.md` — written by the Revision Manager to

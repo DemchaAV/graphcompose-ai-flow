@@ -80,17 +80,37 @@ mismatches remain and all required artifacts exist. See
 
 The workflow runs: detect task type, resolve GraphCompose version, load and
 validate the matching skill pack, analyze the reference, plan the
-architecture, generate the template, compile, render, compare against the
-reference, write a visual review, and then approve, reject, or roll back.
-Every change creates a new revision. See [docs/workflow.md](docs/workflow.md).
+architecture, resolve external design assets (icons + fonts), generate the
+template, compile, render twice (clean + debug-with-guidelines), compare
+against the reference, write a visual review, then approve, reject, or
+roll back. On approval the publisher emits a polished bundle under
+[`templates/`](templates/). Every change creates a new revision. See
+[docs/workflow.md](docs/workflow.md).
 
 ## Agent architecture
 
-Nine agents form a strict chain: Orchestrator, Version + Skill Resolver,
-Skill Validator, Visual Analyzer, Architecture Mapper, Template Coder,
-Test + Render, Visual Review, and Revision Manager. Each agent has a fixed
-set of inputs, outputs, and forbidden behaviors. See
+Eleven agents form a strict chain: Orchestrator, Version + Skill Resolver,
+Skill Validator, Visual Analyzer, Architecture Mapper, **Asset Resolver**
+(icons + fonts), Template Coder, Test + Render, Visual Review, Revision
+Manager, and **Template Publisher** (publish-quality bundles on APPROVE).
+Each agent has a fixed set of inputs, outputs, and forbidden behaviors. See
 [docs/agents.md](docs/agents.md) and [AGENTS.md](AGENTS.md).
+
+## Data, assets, and published templates
+
+- **Asset Resolver** lives in [`tools/asset-resolver/`](tools/asset-resolver/)
+  and downloads Iconify icons (SVG → PNG via ImageMagick) and validates
+  Google Fonts against the GraphCompose bundled set. Output is a
+  per-revision `assets-manifest.json` plus the icon bundle.
+- **Data-driven templates** keep visible content in a per-revision
+  JSON file (e.g. `cv-data.json`) and a typed Java spec record loaded
+  through a `--spec-provider`. Editing content is one file change, no
+  Java edits.
+- **Template Publisher** runs only on APPROVE: it copies the polished
+  template, the spec record, the example data, the asset bundle, the
+  clean preview PDF, and the debug preview PDF (with GraphCompose
+  guide-line overlays) into [`templates/<template-id>/`](templates/). The
+  bundle is what downstream consumers copy into their own projects.
 
 ## Versioned skills
 
@@ -121,10 +141,16 @@ which compiles the selected revision through
 and then calls [`tools/preview-renderer`](tools/preview-renderer/).
 
 A second worked reference under
-[`examples/cv-reference/`](examples/cv-reference/) shows the same flow
-for a two-page graphic-designer CV screenshot pair. It keeps both source
-reference pages, renders semantic template drafts, and writes page
-previews through [`scripts/render-cv-reference.mjs`](scripts/render-cv-reference.mjs).
+[`examples/cv-reference/`](examples/cv-reference/) shows the full flow
+end-to-end for a two-page graphic-designer CV screenshot pair —
+asset-resolver-managed Iconify icons (`mdi:phone-outline`,
+`entypo-social:*-with-circle`, ...), bundled `Poppins`, data-driven
+content via [`cv-data.json`](examples/cv-reference/revisions/revision-006/cv-data.json),
+clickable contact and social links, and references with `mailto:`
+hyperlinks. The approved baseline is published as
+[`templates/mint-editorial-cv/`](templates/mint-editorial-cv/), a
+self-contained bundle (Java + data + assets + previews + README) that
+can be dropped into another project.
 
 ## Limitations
 

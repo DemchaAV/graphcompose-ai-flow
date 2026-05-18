@@ -66,6 +66,7 @@ if (specProviderArgs.length > 0) {
   console.log(`> spec-provider skipped (no ${path.relative(repoRoot, cvDataFile)})`);
 }
 
+// Render pass 1: clean PDF + previews (what the published bundle ships).
 run("java", [
   `-Dgraphcompose.revision.dir=${revisionDir}`,
   "-jar",
@@ -96,6 +97,52 @@ run("java", [
   outputPdf,
   "--out",
   pageTwoPreview,
+  "--dpi",
+  "150",
+  "--page",
+  "1",
+], repoRoot);
+
+// Render pass 2: debug PDF with GraphCompose guide-line overlays.
+// Same revision dir, same spec, same assets — only the convenience PDF
+// gains the overlay. The layout snapshot and clean PDF are unchanged.
+const debugPdf = path.join(revisionDir, "output-debug.pdf");
+const debugPagePreview = path.join(revisionDir, "output-debug.png");
+const debugPageTwoPreview = path.join(revisionDir, "output-debug-page-2.png");
+
+console.log("> rendering debug pass with --guide-lines");
+run("java", [
+  `-Dgraphcompose.revision.dir=${revisionDir}`,
+  "-jar",
+  previewRendererJar,
+  "render",
+  "--revision",
+  revisionDir,
+  "--template-class",
+  "com.demcha.examples.cv.GeneratedCvTemplate",
+  ...specProviderArgs,
+  "--classpath-file",
+  renderClasspathFile,
+  "--output",
+  "output-debug.pdf",
+  "--preview",
+  "output-debug.png",
+  "--dpi",
+  "150",
+  "--page",
+  "0",
+  "--guide-lines",
+  "true",
+], repoRoot);
+
+run("java", [
+  "-jar",
+  previewRendererJar,
+  "preview",
+  "--pdf",
+  debugPdf,
+  "--out",
+  debugPageTwoPreview,
   "--dpi",
   "150",
   "--page",

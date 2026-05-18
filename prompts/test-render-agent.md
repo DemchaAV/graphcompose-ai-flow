@@ -16,8 +16,12 @@ project config
 ## Outputs
 
 ```text
-output.pdf
-output.png
+output.pdf                 ← clean, customer-facing
+output.png                 ← clean page-1 preview
+output-page-2.png          ← clean page-2 preview (multi-page docs)
+output-debug.pdf           ← same render, GraphCompose guide-lines on
+output-debug.png           ← debug page-1 preview
+output-debug-page-2.png    ← debug page-2 preview
 layout-snapshot.json
 test-result.md
 build.log
@@ -28,8 +32,9 @@ render.log
 
 - compile generated code
 - run template test
-- render PDF
-- generate preview PNG
+- render PDF (clean) and PDF-with-guidelines (debug) — two passes,
+  identical inputs except the guideLines flag on the document builder
+- generate preview PNG for every rendered page on both passes
 - generate layout snapshot
 - report failure clearly
 - preserve failed revision artifacts
@@ -39,11 +44,23 @@ render.log
 ### Minimum checks
 
 - template compiles
-- PDF file is generated
-- PDF file is not empty
-- preview image is generated
+- clean PDF is generated and non-empty
+- debug PDF is generated and non-empty (`output-debug.pdf`)
+- preview image is generated for every rendered page on both
+  the clean and the debug pass
 - layout snapshot is generated
-- render does not throw unexpected exceptions
+- render does not throw unexpected exceptions on either pass
+
+### Why the debug pass
+
+The debug PDF is rendered through GraphCompose's built-in
+`guideLines(true)` overlay (see
+`com.demcha.compose.GraphCompose.DocumentBuilder#guideLines`). It paints
+page-margin, row, column, section, and atomic-band guides on the
+convenience PDF without altering layout geometry or the snapshot. The
+Visual Review Agent uses the debug PDF to ground its parity findings:
+"this section is at X because the row was clipped at Y" is a much
+stronger claim when the agent can point at the actual guide.
 
 ### Better checks
 

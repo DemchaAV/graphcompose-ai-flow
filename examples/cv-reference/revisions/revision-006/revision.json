@@ -25,6 +25,9 @@
     "pdf": "output.pdf",
     "preview": "output.png",
     "previewPage2": "output-page-2.png",
+    "debugPdf": "output-debug.pdf",
+    "debugPreview": "output-debug.png",
+    "debugPreviewPage2": "output-debug-page-2.png",
     "visualReview": "visual-review.md",
     "status": "status.md"
   },

@@ -105,7 +105,7 @@ public final class PreviewRenderer {
         stream.println("                           [--classpath <paths>] [--classpath-file <path>]");
         stream.println("                           [--spec-provider <fqcn>]");
         stream.println("                           [--output <pdf-path>] [--preview <png-path>]");
-        stream.println("                           [--dpi <int>] [--page <int>]");
+        stream.println("                           [--dpi <int>] [--page <int>] [--guide-lines true|false]");
         stream.println();
         stream.println("notes:");
         stream.println("  - 'preview' uses Apache PDFBox to rasterize a single page to PNG.");
