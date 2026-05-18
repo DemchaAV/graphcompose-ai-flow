@@ -1,0 +1,33 @@
+{
+  "id": "revision-001",
+  "parentRevisionId": null,
+  "status": "DRAFT",
+  "userRequest": "Create a two-page graphic designer CV template from the supplied reference screenshots.",
+  "targetGraphComposeVersion": "1.6.0",
+  "skillPack": "skills/versions/graphcompose-1.6",
+  "changedComponents": [
+    "Header",
+    "Sidebar",
+    "Main",
+    "PageTwo"
+  ],
+  "createdAt": "2026-05-18T20:46:39.654Z",
+  "artifacts": {
+    "userRequest": "user-request.md",
+    "orchestrationDecision": "orchestration-decision.md",
+    "versionResolution": "version-resolution.md",
+    "skillValidation": "skill-validation-report.md",
+    "visualAnalysis": "visual-analysis.md",
+    "architecturePlan": "architecture-plan.md",
+    "template": "generated-template.java",
+    "test": "generated-test.java",
+    "layoutSnapshot": "layout-snapshot.json",
+    "pdf": "output.pdf",
+    "preview": "output.png",
+    "previewPage2": "output-page-2.png",
+    "visualReview": "visual-review.md",
+    "testResult": "test-result.md",
+    "status": "status.md"
+  },
+  "pendingArtifacts": []
+}

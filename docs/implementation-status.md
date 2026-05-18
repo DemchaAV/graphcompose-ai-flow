@@ -19,7 +19,8 @@ com.github.DemchaAV:GraphCompose:v1.6.0
 ```
 
 GraphCompose 1.6.0 is compiled for Java 21, so GraphCompose-backed
-Maven jobs run on Java 21 in CI.
+Maven jobs run on Java 21 in CI. The invoice and CV reference examples
+both render through local render-runner projects.
 
 The remaining gap is narrower: `preview-renderer render` can now
 execute compiled GraphCompose templates from the supplied classpath
@@ -38,6 +39,7 @@ visual review loop completes against committed baselines.
 | Agent prompt pack | 10 prompt files under `prompts/` | REAL |
 | Versioned skill pack | 14 files under `skills/versions/graphcompose-1.6/` with manifest/frontmatter checks | REAL, still `needs-validation` |
 | Manual invoice example | Three revisions under `examples/invoice-reference/`, render-runner, committed `output.pdf`/`output.png` | REAL-WITH-CAVEAT: visual baseline absent |
+| Manual CV example | One two-page draft under `examples/cv-reference/`, render-runner, committed `output.pdf`, `output.png`, and `output-page-2.png` | REAL-WITH-CAVEAT: visual baseline absent |
 | Revision statuses | `DRAFT`, `APPROVED`, `REJECTED`, `SUPERSEDED`, `FAILED`, `REVERTED` in `tools/revision-manager/src/types.ts` | REAL |
 | `graphcompose-flow fail` | Implemented in `tools/revision-manager/src/commands/fail.ts` | REAL |
 | Revision manager CLI | `init`, `status`, `new-revision`, `approve`, `reject`, `fail`, `undo`, `revert-approved`, `restore-component`, `history`, `diff` | REAL, 27 tests |

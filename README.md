@@ -120,6 +120,12 @@ which compiles the selected revision through
 [`examples/invoice-reference/render-runner`](examples/invoice-reference/render-runner/)
 and then calls [`tools/preview-renderer`](tools/preview-renderer/).
 
+A second worked reference under
+[`examples/cv-reference/`](examples/cv-reference/) shows the same flow
+for a two-page graphic-designer CV screenshot pair. It keeps both source
+reference pages, renders a first semantic template draft, and writes page
+previews through [`scripts/render-cv-reference.mjs`](scripts/render-cv-reference.mjs).
+
 ## Limitations
 
 This project does not promise perfect screenshot-to-code conversion. Human

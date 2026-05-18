@@ -1,0 +1,12 @@
+{
+  "projectName": "cv-reference",
+  "referenceImage": "reference/reference.png",
+  "referenceDescription": "reference/reference.md",
+  "targetGraphComposeVersion": "1.6.0",
+  "skillPack": "skills/versions/graphcompose-1.6",
+  "currentApprovedRevisionId": null,
+  "currentDraftRevisionId": "revision-001",
+  "createdAt": "2026-05-18T20:46:39.532Z",
+  "updatedAt": "2026-05-18T20:46:39.658Z",
+  "notes": "Two-page CV reference created from supplied screenshots. reference.png points to page 1 for compatibility; reference-page-1.png and reference-page-2.png preserve both source pages."
+}
