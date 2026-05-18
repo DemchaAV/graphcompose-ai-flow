@@ -1,0 +1,12 @@
+{
+  "projectName": "invoice-reference",
+  "referenceImage": "reference/reference.png",
+  "referenceDescription": "reference/reference.md",
+  "targetGraphComposeVersion": "1.6.0",
+  "skillPack": "skills/versions/graphcompose-1.6",
+  "currentApprovedRevisionId": null,
+  "currentDraftRevisionId": "revision-002",
+  "createdAt": "2026-05-18T12:00:00Z",
+  "updatedAt": "2026-05-18T15:30:00Z",
+  "notes": "Phase 3 example. reference.png is not yet supplied; reference.md describes the reference textually. revision-001 and revision-002 are DRAFT; nothing is APPROVED yet. Once a renderer is in place (Phase 6), the visual-review documents in each revision will be regenerated from the real output."
+}

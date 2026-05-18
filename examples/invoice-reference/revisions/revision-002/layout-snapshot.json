@@ -1,0 +1,95 @@
+{
+  "document": "InvoiceTemplate",
+  "version": "1.6.0",
+  "notes": "Illustrative layout snapshot for the documentation example. Bounding boxes are computed from the textual reference description rather than from a real engine run; numbers in mm reflect intent, not measured output. Revision-002 lifts the three summary rows out of the LineItems table footer into a dedicated Summary region; the table now ends after its data rows and Summary appears between LineItems and Footer. Once the Phase 6 renderer ships, this file will be regenerated from the real layout engine and the notes field will be removed.",
+  "page": {
+    "size": "A4",
+    "orientation": "portrait",
+    "widthMm": 210,
+    "heightMm": 297,
+    "margins": 18,
+    "contentArea": {
+      "x": 18,
+      "y": 18,
+      "width": 174,
+      "height": 261
+    }
+  },
+  "theme": {
+    "accentPrimary": "#1F4E79",
+    "panelBackground": "#F4F4F6",
+    "zebraAlternate": "#F8F8FA",
+    "bodyText": "#1A1A1A",
+    "mutedText": "#6B6B6B",
+    "tableHeaderBackground": "#1F4E79",
+    "tableHeaderText": "#FFFFFF"
+  },
+  "regions": [
+    {
+      "name": "Header",
+      "kind": "row",
+      "bbox": { "x": 18, "y": 18, "width": 174, "height": 32 },
+      "children": "Two equal sections: HeaderLeft (logo + company name + muted address) and HeaderRight (INVOICE title + invoice number + issue date)."
+    },
+    {
+      "name": "Hero",
+      "kind": "section",
+      "bbox": { "x": 18, "y": 56, "width": 174, "height": 38 },
+      "background": "panelBackground",
+      "accentStrip": { "side": "left", "color": "accentPrimary", "widthMm": 2 },
+      "padding": 8,
+      "cornerRadius": 4,
+      "children": "Two-column row: TotalDue (TOTAL DUE label + large amount $ 4,820.00) and DueBy (DUE BY label + 2026-06-11)."
+    },
+    {
+      "name": "Parties",
+      "kind": "row",
+      "bbox": { "x": 18, "y": 100, "width": 174, "height": 40 },
+      "children": "Two equal sections. BillTo renders the recipient contact block. From renders the company contact block. Both columns use the shared renderContactBlock helper."
+    },
+    {
+      "name": "LineItems",
+      "kind": "table",
+      "bbox": { "x": 18, "y": 146, "width": 174, "height": 72 },
+      "columns": [
+        { "name": "Description", "weight": 0.50, "align": "left" },
+        { "name": "Qty", "weight": 0.10, "align": "right" },
+        { "name": "Unit Price", "weight": 0.20, "align": "right" },
+        { "name": "Amount", "weight": 0.20, "align": "right" }
+      ],
+      "header": { "background": "tableHeaderBackground", "textColor": "tableHeaderText" },
+      "zebra": { "alt": "zebraAlternate" },
+      "repeatHeader": true,
+      "rowCount": 5
+    },
+    {
+      "name": "Summary",
+      "kind": "section",
+      "bbox": { "x": 122, "y": 222, "width": 70, "height": 18 },
+      "alignment": "right",
+      "columnMirror": "LineItems",
+      "rows": [
+        { "label": "Subtotal", "emphasised": false },
+        { "label": "Tax (8%)", "emphasised": false },
+        { "label": "TOTAL", "emphasised": true, "dividerAbove": true }
+      ],
+      "notes": "Right-aligned section that mirrors the LineItems column proportions (50/10/20/20) so its right edge matches the Amount column. Width equals Unit Price + Amount (40% of content width = 70 mm); height equals three rows of body text."
+    },
+    {
+      "name": "Footer",
+      "kind": "section",
+      "bbox": { "x": 18, "y": 244, "width": 174, "height": 35 },
+      "children": "Payment instructions paragraph, IBAN/SWIFT monospace line, faint divider, contact line in muted text."
+    }
+  ],
+  "componentMap": {
+    "renderHeader": "Header",
+    "renderHero": "Hero",
+    "renderParties": "Parties",
+    "renderLineItems": "LineItems",
+    "renderSummaryBlock": "Summary",
+    "renderFooter": "Footer",
+    "renderContactBlock": ["Parties.BillTo", "Parties.From"],
+    "renderSummaryRow": ["Summary.Subtotal", "Summary.Tax (8%)", "Summary.TOTAL"]
+  }
+}
