@@ -22,6 +22,10 @@ artifacts from `revision.json`.
 
 ## Build
 
+Java 21 or newer is required when the GraphCompose-backed render tests
+are enabled because the GraphCompose 1.6.0 JitPack artifact is compiled
+for Java 21.
+
 ```bash
 cd tools/preview-renderer
 mvn -q -B clean test

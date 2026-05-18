@@ -65,7 +65,7 @@ jobs:
           echo "$out" | grep -q '"parityScore": 100'
 
   preview-renderer:
-    name: preview-renderer (Java 17 + Maven)
+    name: preview-renderer (Java 21 + Maven)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -75,7 +75,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
           cache: 'maven'
       - uses: actions/setup-node@v4
         with:
@@ -117,7 +117,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
           cache: 'maven'
       - run: mvn -B test
         working-directory: examples/skill-fixtures/${{ matrix.fixture }}

@@ -18,6 +18,9 @@ GraphCompose 1.6.0 through JitPack using:
 com.github.DemchaAV:GraphCompose:v1.6.0
 ```
 
+GraphCompose 1.6.0 is compiled for Java 21, so GraphCompose-backed
+Maven jobs run on Java 21 in CI.
+
 The remaining gap is narrower: `preview-renderer render` can now
 execute compiled GraphCompose templates from the supplied classpath
 and write `output.pdf` plus `output.png`. The invoice reference

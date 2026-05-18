@@ -16,7 +16,7 @@ Use it for three things:
 
 Install these first:
 
-- Java 17 or newer
+- Java 21 or newer
 - Maven
 - Node.js 20 or newer
 - Git
@@ -36,6 +36,9 @@ GraphCompose 1.6.0 is resolved by Maven through JitPack as:
 ```text
 com.github.DemchaAV:GraphCompose:v1.6.0
 ```
+
+That artifact is compiled for Java 21, so Java 17 is not enough for
+GraphCompose-backed renders or fixture validation.
 
 ## Install the Tooling
 

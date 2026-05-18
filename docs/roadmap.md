@@ -188,7 +188,7 @@ Tasks:
 [x] Attach artifacts to revision               (ArtifactUpdater clears pendingArtifacts in revision.json)
 ```
 
-Built with Java 17 + Maven + Apache PDFBox 3 + JUnit 5. 9 tests
+Built with Java 21 + Maven + Apache PDFBox 3 + JUnit 5. 9 tests
 green. See [`tools/preview-renderer/README.md`](../tools/preview-renderer/README.md)
 for usage. The `render` subcommand keeps the non-fatal skipped
 message when GraphCompose is absent. When GraphCompose is present on
