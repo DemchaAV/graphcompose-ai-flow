@@ -5,7 +5,21 @@ and one manual example. Tooling starts at Phase 5.
 
 ## Current phase
 
-Phase 1 — Documentation MVP. In progress. First commit pending.
+Phases 1–5 are shipped. Phase 6 (renderer) and Phase 7 (visual diff)
+are next. Until those land, every skill in
+[`skill-manifest.json`](../skills/skill-manifest.json) stays at
+`status: needs-validation` and every revision's `output.pdf` /
+`output.png` are listed under `pendingArtifacts`.
+
+| Phase | Status |
+|---|---|
+| 1 — Documentation MVP | shipped |
+| 2 — Versioned Skills MVP | shipped |
+| 3 — Manual Example | shipped |
+| 4 — Skill Validation Fixtures | shipped (discipline + scaffolds; execution waits on Phase 6/7) |
+| 5 — Revision Helper Tool | shipped |
+| 6 — Render and Preview Workflow | not started |
+| 7 — Visual Diff Experiment | not started |
 
 ## Phase 1 — Documentation MVP
 
@@ -15,20 +29,20 @@ clearly.
 Tasks:
 
 ```text
-[ ] Create README.md
-[ ] Create LICENSE
-[ ] Create CONTRIBUTING.md
-[ ] Create AGENTS.md
-[ ] Create docs/workflow.md
-[ ] Create docs/visual-accuracy-contract.md
-[ ] Create docs/agents.md
-[ ] Create docs/revision-model.md
-[ ] Create docs/rollback.md
-[ ] Create docs/versioned-skills.md
-[ ] Create docs/limitations.md
-[ ] Create prompts/*.md
-[ ] Create skills/README.md
-[ ] Create skills/skill-manifest.json
+[x] Create README.md
+[x] Create LICENSE
+[x] Create CONTRIBUTING.md
+[x] Create AGENTS.md
+[x] Create docs/workflow.md
+[x] Create docs/visual-accuracy-contract.md
+[x] Create docs/agents.md
+[x] Create docs/revision-model.md
+[x] Create docs/rollback.md
+[x] Create docs/versioned-skills.md
+[x] Create docs/limitations.md
+[x] Create prompts/*.md
+[x] Create skills/README.md
+[x] Create skills/skill-manifest.json
 ```
 
 Commit:
@@ -45,18 +59,23 @@ version.
 Tasks:
 
 ```text
-[ ] Create skills/versions/graphcompose-1.6/
-[ ] Add graphcompose-basics.md
-[ ] Add visual-to-graphcompose-mapping.md
-[ ] Add layout-primitives.md
-[ ] Add tables.md
-[ ] Add themes-and-colors.md
-[ ] Add spacing-and-alignment.md
-[ ] Add visual-regression.md
-[ ] Add revision-discipline.md
-[ ] Add skill metadata headers
-[ ] Link skills from skill-manifest.json
+[x] Create skills/versions/graphcompose-1.6/
+[x] Add graphcompose-basics.md
+[x] Add visual-to-graphcompose-mapping.md
+[x] Add layout-primitives.md
+[x] Add tables.md
+[x] Add themes-and-colors.md
+[x] Add spacing-and-alignment.md
+[x] Add visual-regression.md
+[x] Add revision-discipline.md
+[x] Add skill metadata headers
+[x] Link skills from skill-manifest.json
 ```
+
+(Phase 2 also shipped six additional skills not listed in the
+original task list: typography, backgrounds-and-panels,
+layer-stacks-and-overlays, shapes-and-containers, pagination,
+troubleshooting. All 14 skills are at `status: needs-validation`.)
 
 Commit:
 
@@ -71,20 +90,20 @@ Goal: show one full revision cycle manually.
 Tasks:
 
 ```text
-[ ] Add examples/invoice-reference/
-[ ] Add reference/reference.png
-[ ] Add template-project.json
-[ ] Add revision-001 user-request.md
-[ ] Add revision-001 visual-analysis.md
-[ ] Add revision-001 architecture-plan.md
-[ ] Add generated-template.java
-[ ] Add generated-test.java
-[ ] Add output.pdf
-[ ] Add output.png
-[ ] Add layout-snapshot.json
-[ ] Add visual-review.md
-[ ] Add test-result.md
-[ ] Add revision-002 with a small user-request patch
+[x] Add examples/invoice-reference/
+[ ] Add reference/reference.png            (replaced by reference.md until a real reference image lands)
+[x] Add template-project.json
+[x] Add revision-001 user-request.md
+[x] Add revision-001 visual-analysis.md
+[x] Add revision-001 architecture-plan.md
+[x] Add generated-template.java
+[x] Add generated-test.java
+[ ] Add output.pdf                         (pending Phase 6 renderer)
+[ ] Add output.png                         (pending Phase 6 renderer)
+[x] Add layout-snapshot.json               (illustrative, not engine-produced)
+[x] Add visual-review.md                   (expected-outcome; refreshed by Phase 6 run)
+[x] Add test-result.md                     (expected-outcome; refreshed by Phase 6 run)
+[x] Add revision-002 with a small user-request patch
 ```
 
 Commit:
@@ -100,14 +119,15 @@ Goal: prove that skills are not fantasy documentation.
 Tasks:
 
 ```text
-[ ] Add validation/ docs
-[ ] Add skill-fix-template.md
-[ ] Add examples/skill-fixtures/row-basic
-[ ] Add examples/skill-fixtures/section-basic
-[ ] Add examples/skill-fixtures/table-basic
-[ ] Add examples/skill-fixtures/layer-stack-badge
-[ ] Add examples/skill-fixtures/shape-container-card
-[ ] Add validation reports
+[x] Add validation/ docs
+[x] Add skill-fix-template.md
+[x] Add examples/skill-fixtures/row-basic
+[x] Add examples/skill-fixtures/section-basic
+[x] Add examples/skill-fixtures/table-basic
+[x] Add examples/skill-fixtures/layer-stack-badge
+[x] Add examples/skill-fixtures/shape-container-card
+[x] Add validation reports                  (phase-4-baseline.md)
+[ ] Execute fixtures against the runtime    (waits on Phase 6)
 ```
 
 Commit:
@@ -123,17 +143,22 @@ Goal: introduce the file-based revision manager.
 Tasks:
 
 ```text
-[ ] Add tools/revision-manager
-[ ] Implement init
-[ ] Implement status
-[ ] Implement new revision
-[ ] Implement approve
-[ ] Implement reject
-[ ] Implement undo
-[ ] Implement revert-approved
-[ ] Implement history
-[ ] Implement diff
+[x] Add tools/revision-manager
+[x] Implement init
+[x] Implement status
+[x] Implement new-revision
+[x] Implement approve
+[x] Implement reject
+[x] Implement undo
+[x] Implement revert-approved
+[x] Implement restore-component             (file-level; see tool README)
+[x] Implement history
+[x] Implement diff                          (in-tree LCS unified diff)
 ```
+
+Built with Node 20 + TypeScript + Commander + vitest. 22 tests
+green. See [`tools/revision-manager/README.md`](../tools/revision-manager/README.md)
+for usage and the smoke-test sequence.
 
 Commit:
 
@@ -204,11 +229,13 @@ The first public version is ready when:
 
 ## Note on future tooling
 
-The CLI commands described in the plan — `graphcompose-flow init`,
-`new-revision`, `approve`, `reject`, `undo`, `revert-approved`,
-`restore-component`, `status`, `history`, `diff`, `validate-skills`,
-`validate-skill`, `list-skills`, `check-version`,
-`report-skill-drift`, `render`, `compare` — are planned for Phase 5
-and later. They are documented here for design continuity but they
-are not part of Phase 1. See [limitations.md](limitations.md) for the
-honest "not a tool, yet" framing.
+The revision commands — `init`, `new-revision`, `approve`, `reject`,
+`undo`, `revert-approved`, `restore-component`, `status`, `history`,
+`diff` — are now shipped in
+[`tools/revision-manager/`](../tools/revision-manager/).
+
+The skill-validation commands (`validate-skills`, `validate-skill`,
+`list-skills`, `check-version`, `report-skill-drift`) and the render
+commands (`render`, `compare`) are still planned for Phase 6 and
+later. See [limitations.md](limitations.md) for the honest
+"not a tool, yet" framing of the pieces that have not landed.
