@@ -58,7 +58,7 @@ example revisions under
 They surface the uncertain method bindings the example template
 could not resolve from the skill pack alone. Each one is a
 candidate skill-drift discovery once the renderer and visual-diff
-land.
+are run against the invoice example.
 
 - Shape-container builder for the logo. The exact builder name for
   the rounded-corner logo container is uncertain in the

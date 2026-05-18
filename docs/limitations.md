@@ -33,12 +33,12 @@ Three tools ship under [`../tools/`](../tools/) and pass CI:
   orchestrators that need a rollback marker.
 - [`preview-renderer`](../tools/preview-renderer/) implements
   `preview` (PDF → PNG via PDFBox 3) functionally. The `render`
-  subcommand (template → PDF) is a skeleton: it loads the supplied
-  classpath, looks up the GraphCompose `DocumentSession` canary
-  class, and exits with a clear "graphcompose runtime not detected"
-  message when the canary cannot be loaded. When GraphCompose is
-  present, it detects the runtime but still stops before template
-  execution.
+  subcommand loads the supplied classpath, keeps the clear
+  "graphcompose runtime not detected" skip path when the runtime is
+  absent, and executes compiled GraphCompose templates when the
+  runtime is present. It supports both `compose(DocumentSession)` and
+  data-driven `compose(DocumentSession, Spec)` through
+  `--spec-provider`.
 - [`visual-diff`](../tools/visual-diff/) implements pixel comparison
   with pixelmatch, the parity-score formula, and the classification
   rules from [visual-accuracy-contract.md](visual-accuracy-contract.md).
@@ -50,10 +50,11 @@ Three tools ship under [`../tools/`](../tools/) and pass CI:
 
 What is intentionally NOT in this repository today:
 
-- a full template-to-PDF renderer. The
-  [render path](../tools/preview-renderer/) detects GraphCompose on a
-  supplied classpath, but it does not yet instantiate generated
-  templates or write `output.pdf`.
+- a compiler for raw `generated-template.java` artifacts or an
+  automatic business-data generator. The
+  [render path](../tools/preview-renderer/) expects compiled template
+  classes on `--classpath` and, for data-driven templates, an
+  explicit `--spec-provider`.
 - full skill validation. Fixture compile/run smoke exists, but no
   fixture has completed the full render + preview + visual-diff cycle
   against a committed visual baseline. All 14 skills in the manifest

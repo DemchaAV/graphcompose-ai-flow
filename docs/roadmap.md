@@ -8,10 +8,12 @@ and one manual example. Tooling starts at Phase 5.
 All seven phases of the project plan are shipped. GraphCompose 1.6.0
 is reachable for fixture validation through JitPack as
 `com.github.DemchaAV:GraphCompose:v1.6.0`, and the five skill
-fixtures compile and run against it. The remaining gate before skills
-can be promoted out of `needs-validation` is now internal:
-`preview-renderer render` must instantiate templates, write
-`output.pdf`, generate `output.png`, and feed visual-diff against a
+fixtures compile and run against it. `preview-renderer render` can
+now execute compiled template classes, write `output.pdf`, generate
+`output.png`, and clear pending artifacts. The remaining gate before
+skills can be promoted out of `needs-validation` is the full
+validation orchestration: compile generated templates, provide sample
+specs for data-driven templates, and feed visual-diff against a
 committed baseline.
 
 | Phase | Status |
@@ -21,7 +23,7 @@ committed baseline.
 | 3 — Manual Example | shipped (binary artifacts pending Phase 6 render) |
 | 4 — Skill Validation Fixtures | shipped (discipline + scaffolds + compile/run smoke) |
 | 5 — Revision Helper Tool | shipped |
-| 6 — Render and Preview Workflow | shipped (`preview` works; `render` detects runtime but does not execute templates yet) |
+| 6 — Render and Preview Workflow | shipped (`preview` works; `render` executes compiled templates when runtime is on classpath) |
 | 7 — Visual Diff Experiment | shipped |
 
 ## Phase 1 — Documentation MVP
@@ -179,19 +181,21 @@ Tasks:
 
 ```text
 [x] Add preview-renderer tool
-[ ] Render template through GraphCompose       (runtime detection exists; template execution pending)
-[ ] Generate output.pdf                        (waits on template execution)
+[x] Render compiled template through GraphCompose
+[x] Generate output.pdf
 [x] Convert PDF to output.png                  (preview command, Apache PDFBox 3)
 [x] Save logs                                  (build.log, render.log in the revision folder)
 [x] Attach artifacts to revision               (ArtifactUpdater clears pendingArtifacts in revision.json)
 ```
 
-Built with Java 17 + Maven + Apache PDFBox 3 + JUnit 5. 7 tests
+Built with Java 17 + Maven + Apache PDFBox 3 + JUnit 5. 9 tests
 green. See [`tools/preview-renderer/README.md`](../tools/preview-renderer/README.md)
-for usage. The `render` subcommand currently detects GraphCompose
-absence and exits with a clear message. When GraphCompose is present
-on the classpath, it detects the runtime and stops at the TODO that
-will instantiate and execute the template.
+for usage. The `render` subcommand keeps the non-fatal skipped
+message when GraphCompose is absent. When GraphCompose is present on
+the classpath, it instantiates the compiled template class, supports
+data-driven `compose(DocumentSession, Spec)` templates through
+`--spec-provider`, writes `output.pdf`, converts it to `output.png`,
+and updates `revision.json`.
 
 Commit:
 
@@ -254,6 +258,6 @@ The revision commands — `init`, `new-revision`, `approve`, `reject`,
 
 The skill-validation commands (`validate-skills`, `validate-skill`,
 `list-skills`, `check-version`, `report-skill-drift`) and full
-template execution in `render` are still planned follow-ups. See
-[limitations.md](limitations.md) for the honest framing of the pieces
-that have not landed.
+fixture visual-baseline orchestration are still planned follow-ups.
+See [limitations.md](limitations.md) for the honest framing of the
+pieces that have not landed.

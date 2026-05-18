@@ -10,13 +10,15 @@ plus fixtures can and cannot guarantee today.
 ## Rendering
 
 Fixture smoke tests compile and run against GraphCompose 1.6.0 from
-JitPack, so the covered API calls are no longer theoretical. The
-full render step is still not automated through `preview-renderer
-render`: fixture projects may create PDFs in their own Maven test
-run, but the shared renderer does not yet instantiate templates or
-refresh committed outputs. Mitigation: every fixture keeps an
-`expected-output/` folder so the render runner has a baseline to diff
-against once it is wired.
+JitPack, so the covered API calls are no longer theoretical.
+`preview-renderer render` can now execute compiled template classes
+and refresh `output.pdf` / `output.png` when the classpath includes
+GraphCompose and the template classes. What is still missing is the
+fixture-level orchestration that compiles generated sources, supplies
+sample specs for data-driven templates, and refreshes committed
+outputs. Mitigation: every fixture keeps an `expected-output/`
+folder so the render runner has a baseline to diff against once that
+orchestration is wired.
 
 ## Fonts
 
@@ -71,7 +73,7 @@ that requirement explicitly in their `README.md`.
   project does not commit to closing them in this skill pack.
 - Unresolved limitations are surface gaps that the current smoke pass
   does not close:
-  - No shared `preview-renderer render` template execution yet.
+  - No automated fixture visual-baseline refresh yet.
   - No automated visual-diff against fixture baselines yet.
   - The four `TODO(visual-review)` method-binding markers in the
     example revisions (shape-container logo builder, SectionBuilder

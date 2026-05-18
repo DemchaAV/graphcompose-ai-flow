@@ -107,10 +107,11 @@ A documentation-grade manual revision cycle for an invoice reference
 lives under [`examples/invoice-reference/`](examples/invoice-reference/).
 It ships two revisions with every text artifact the workflow produces.
 The binary render artifacts (`output.pdf`, `output.png`) are listed
-under `pendingArtifacts` in each `revision.json`. They will be
-generated once the `render` command of
-[`tools/preview-renderer`](tools/preview-renderer/) moves from
-classpath detection to full template execution.
+under `pendingArtifacts` in each `revision.json`. The shared
+[`tools/preview-renderer`](tools/preview-renderer/) command can now
+render compiled template classes, but the example still needs a
+compiled template project plus a sample invoice spec provider before
+those binary artifacts are refreshed.
 
 ## Limitations
 
@@ -131,20 +132,21 @@ Phases 1 through 7 of the project plan have shipped. The
 [`tools/`](tools/) folder hosts three modules: a Node revision-manager
 CLI ([`revision-manager`](tools/revision-manager/)), a Java + Maven
 preview-renderer ([`preview-renderer`](tools/preview-renderer/) with a
-working `preview` PDF→PNG subcommand and a `render` skeleton that
-detects whether GraphCompose 1.6 is on the classpath), and a Node
+working `preview` PDF→PNG subcommand and a `render` path that executes
+compiled GraphCompose templates when the runtime is on the classpath),
+and a Node
 visual-diff CLI ([`visual-diff`](tools/visual-diff/)). All three ship
 with passing test suites and are wired to GitHub Actions CI.
 
 GraphCompose 1.6.0 is reachable for fixture validation through
 JitPack as `com.github.DemchaAV:GraphCompose:v1.6.0`. The five
 fixture projects under [`examples/skill-fixtures/`](examples/skill-fixtures/)
-compile and run against that artifact. The remaining gate is now
-inside this repository: `preview-renderer render` still needs to
-instantiate templates and produce `output.pdf`, after which the
-preview and visual-diff tools can close the full validation loop.
-Until that full render/visual pass exists, every skill in the
-manifest stays at `status: needs-validation` and the invoice
+compile and run against that artifact. The remaining gate is now the
+full validation orchestration: compile generated templates into a
+classpath, provide sample specs for data-driven templates, render
+`output.pdf`/`output.png`, and run visual-diff against committed
+baselines. Until that full render/visual pass exists, every skill in
+the manifest stays at `status: needs-validation` and the invoice
 example's binary artifacts remain listed under `pendingArtifacts`.
 See [`AUDIT.md`](AUDIT.md) for the historical audit and
 [`docs/implementation-status.md`](docs/implementation-status.md) for

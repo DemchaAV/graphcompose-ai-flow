@@ -92,8 +92,10 @@ and the steps to file the report.
 
 A single validation run for one fixture proceeds as follows. Step 2
 is now runnable and has passed for the five committed fixtures
-against GraphCompose 1.6.0 from JitPack. Steps 3 and 4 still require
-the full render + preview + visual-diff loop.
+against GraphCompose 1.6.0 from JitPack. Step 3 can now use
+`preview-renderer render` for compiled template classes, but the
+fixture runner still has to provide the compiled classpath and sample
+spec providers.
 
 1. Load the fixture from `../examples/skill-fixtures/<fixture-id>`.
    Confirm `pom.xml`, the test source, and `expected-output/` are
@@ -101,9 +103,10 @@ the full render + preview + visual-diff loop.
 2. Run `mvn test` against the fixture. This compiles the fixture and
    runs its JUnit test class against the real GraphCompose artifact.
    This is the current smoke gate.
-3. Convert the fresh `output.pdf` to `output.png` and produce a
-   `layout-snapshot.json`. This waits on the shared
-   `preview-renderer render` path.
+3. Run `preview-renderer render` against the compiled fixture
+   template class to produce fresh `output.pdf` and `output.png`;
+   produce a `layout-snapshot.json` through the fixture test harness
+   or a follow-up snapshot command.
 4. Diff the freshly rendered `output.png` against the committed
    baseline `expected-output/output.png` with `tools/visual-diff`.
 5. Classify any mismatch against the visual-mismatch policy in

@@ -161,9 +161,10 @@ Phase 4 has shipped:
 
 The current fixture smoke proves that the covered DSL calls compile
 and run against the real 1.6.0 artifact. It does not yet prove visual
-parity: the renderer still needs to write `output.pdf`, generate
-`output.png`, and run visual-diff against committed baselines. Until
-that full pass exists, every skill in
+parity: the validation runner still needs to compile fixture
+templates into a classpath, call `preview-renderer render`, produce
+layout snapshots, and run visual-diff against committed baselines.
+Until that full pass exists, every skill in
 [`skill-manifest.json`](../skills/skill-manifest.json) stays at
 `status: needs-validation`. See
 [versioned-skills.md](versioned-skills.md) for the manifest,

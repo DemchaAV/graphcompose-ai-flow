@@ -55,9 +55,11 @@ preview + visual-diff loop passes.
 
 ## Follow-Up
 
-- Wire `tools/preview-renderer render` to instantiate templates and
-  write `output.pdf`.
-- Generate `output.png` through the existing `preview` command.
+- Compile fixture templates into a classpath that
+  `tools/preview-renderer render` can load.
+- Provide sample spec providers for data-driven templates.
+- Generate `output.pdf` and `output.png` through the shared render
+  command.
 - Run `tools/visual-diff` against fixture baselines.
 - Promote covered skills only after the full report has no critical
   or major mismatches.

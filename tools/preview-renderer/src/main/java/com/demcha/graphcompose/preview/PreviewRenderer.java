@@ -13,8 +13,8 @@ import java.util.logging.Logger;
  * <ul>
  *   <li>{@code preview} — convert a PDF page to a PNG image (functional).</li>
  *   <li>{@code render}  — invoke a generated GraphCompose template to produce a PDF
- *       (skeleton; falls back to a detection message when GraphCompose is absent
- *       from the supplied classpath).</li>
+ *       when GraphCompose is present on the supplied classpath, otherwise emit
+ *       the non-fatal detection message.</li>
  * </ul>
  *
  * <p>Argument parsing is intentionally hand-rolled: this tool keeps its
@@ -101,11 +101,14 @@ public final class PreviewRenderer {
     private static void printUsage(PrintStream stream) {
         stream.println("usage:");
         stream.println("  preview-renderer preview --pdf <path> --out <png-path> [--dpi <int>] [--page <int>]");
-        stream.println("  preview-renderer render  --revision <revision-folder> --template-class <fqcn> --classpath <paths>");
+        stream.println("  preview-renderer render  --revision <revision-folder> --template-class <fqcn>");
+        stream.println("                           --classpath <paths> [--spec-provider <fqcn>]");
+        stream.println("                           [--output <pdf-path>] [--preview <png-path>]");
+        stream.println("                           [--dpi <int>] [--page <int>]");
         stream.println();
         stream.println("notes:");
         stream.println("  - 'preview' uses Apache PDFBox to rasterize a single page to PNG.");
-        stream.println("  - 'render' is a skeleton: it prints a detection message and exits 0");
-        stream.println("    when GraphCompose is not on --classpath. See README.md.");
+        stream.println("  - 'render' exits 0 with a skipped message when GraphCompose is not on --classpath.");
+        stream.println("  - data-driven templates must provide --spec-provider <fqcn>.");
     }
 }

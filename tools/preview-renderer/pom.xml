@@ -13,8 +13,16 @@
     <maven.compiler.target>17</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <pdfbox.version>3.0.3</pdfbox.version>
+    <graphcompose.version>v1.6.0</graphcompose.version>
     <junit.version>5.10.2</junit.version>
   </properties>
+
+  <repositories>
+    <repository>
+      <id>jitpack.io</id>
+      <url>https://jitpack.io</url>
+    </repository>
+  </repositories>
 
   <dependencies>
     <dependency>
@@ -26,6 +34,12 @@
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
       <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.github.DemchaAV</groupId>
+      <artifactId>GraphCompose</artifactId>
+      <version>${graphcompose.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

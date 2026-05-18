@@ -18,12 +18,14 @@ GraphCompose 1.6.0 through JitPack using:
 com.github.DemchaAV:GraphCompose:v1.6.0
 ```
 
-The remaining gap is narrower: the `preview-renderer render`
-subcommand still stops at runtime detection, and the fixtures do not
-yet have an automated visual baseline refresh (`output.pdf`,
-`output.png`, `layout-snapshot.json`, visual diff). Because of that,
-skills remain `status: needs-validation` until render + visual review
-complete the loop.
+The remaining gap is narrower: `preview-renderer render` can now
+execute compiled GraphCompose templates from the supplied classpath
+and write `output.pdf` plus `output.png`. The fixtures still do not
+have an automated visual baseline refresh (`output.pdf`,
+`output.png`, `layout-snapshot.json`, visual diff), and the invoice
+example still needs a compiled template project plus sample spec
+provider. Because of that, skills remain `status: needs-validation`
+until render + visual review complete the loop.
 
 ## Deliverables
 
@@ -36,7 +38,7 @@ complete the loop.
 | Revision statuses | `DRAFT`, `APPROVED`, `REJECTED`, `SUPERSEDED`, `FAILED`, `REVERTED` in `tools/revision-manager/src/types.ts` | REAL |
 | `graphcompose-flow fail` | Implemented in `tools/revision-manager/src/commands/fail.ts` | REAL |
 | Revision manager CLI | `init`, `status`, `new-revision`, `approve`, `reject`, `fail`, `undo`, `revert-approved`, `restore-component`, `history`, `diff` | REAL, 27 tests |
-| Preview renderer | PDF to PNG `preview`, artifact updater, classpath-aware `render` skeleton | REAL-WITH-CAVEAT, 7 tests |
+| Preview renderer | PDF to PNG `preview`, artifact updater, classpath-aware `render` for compiled templates, `--spec-provider` support | REAL-WITH-CAVEAT, 9 tests |
 | Visual diff CLI | Pixel comparison, classification, diff image, revision artifact update | REAL, 21 tests |
 | Repository contract | Checks skill frontmatter, revision artifacts, markdown links, and fake GraphCompose imports | REAL |
 | Skill fixtures | `row-basic`, `section-basic`, `table-basic`, `layer-stack-badge`, `shape-container-card` | SMOKE-VERIFIED: `mvn test` passes locally against JitPack |
@@ -49,7 +51,7 @@ The current tree has been checked with:
 ```text
 npm test                         # tools/revision-manager, 27 tests
 npm test                         # tools/visual-diff, 21 tests
-mvn test                         # tools/preview-renderer, 7 tests
+mvn test                         # tools/preview-renderer, 9 tests
 node .github/scripts/repository-contract.mjs
 mvn test                         # each examples/skill-fixtures/* project
 ```
@@ -58,9 +60,9 @@ All commands passed on 2026-05-18.
 
 ## Remaining Gaps
 
-- `tools/preview-renderer render` detects GraphCompose on the
-  supplied classpath but does not yet instantiate templates and write
-  `output.pdf`.
+- `tools/preview-renderer render` executes compiled template classes
+  from the supplied classpath, but it does not compile raw
+  `generated-template.java` files or generate business data/specs.
 - Fixture smoke tests prove the documented API calls compile and run,
   but they do not yet compare rendered PDFs/PNGs to committed visual
   baselines.

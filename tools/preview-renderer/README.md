@@ -2,23 +2,23 @@
 
 A small Java/Maven module that drives the GraphCompose AI Flow render-and-preview
 loop. It converts a generated PDF into a PNG preview (functional today) and
-provides a skeleton entry point for invoking a generated GraphCompose template
-to produce that PDF (skeleton-with-detection today; waits on GraphCompose 1.6
-being available on a reachable Maven repository).
+invokes compiled GraphCompose template classes to produce that PDF when the
+GraphCompose runtime is present on the supplied classpath.
 
 ## Status
 
-| Subcommand | Function                            | Status                                                                            |
-|------------|-------------------------------------|-----------------------------------------------------------------------------------|
-| `preview`  | PDF page -> PNG via Apache PDFBox   | Functional, unit-tested.                                                          |
-| `render`   | GraphCompose template -> PDF        | Skeleton with classpath detection. Falls back to a "skipped" message and exit 0.  |
+| Subcommand | Function                            | Status                                                                 |
+|------------|-------------------------------------|------------------------------------------------------------------------|
+| `preview`  | PDF page -> PNG via Apache PDFBox   | Functional, unit-tested.                                               |
+| `render`   | GraphCompose template -> PDF + PNG  | Functional for compiled templates on `--classpath`; skips if absent.  |
 
-The render subcommand cannot do useful work until GraphCompose 1.6 is published
-to a Maven repository this machine can reach. Until then, it documents the
-contract by attempting to resolve `com.demcha.compose.document.api.DocumentSession`
-(the canonical FQCN of the real GraphCompose 1.6 session class) on the
-supplied `--classpath` and emitting a clear message when that class is
-absent. This is by design, not a bug.
+The render subcommand attempts to resolve
+`com.demcha.compose.document.api.DocumentSession` (the canonical FQCN of the
+real GraphCompose 1.6 session class) on the supplied `--classpath`. If the
+runtime is absent, it emits the historical skipped message and exits 0. If the
+runtime is present, it creates a `DocumentSession`, invokes the template's
+`compose(...)` method, writes the PDF, renders the PNG preview, and clears those
+artifacts from `revision.json`.
 
 ## Build
 
@@ -46,19 +46,41 @@ java -jar target/preview-renderer.jar preview \
 `--dpi` defaults to 150, `--page` defaults to 0 (first page). On success the
 absolute path of the written PNG is printed to stdout and the process exits 0.
 
-### render (template -> PDF, skeleton)
+### render (template -> PDF + PNG)
 
 ```bash
 java -jar target/preview-renderer.jar render \
   --revision examples/invoice-reference/revisions/revision-001 \
   --template-class com.demcha.examples.invoice.GeneratedInvoiceTemplate \
-  --classpath "/path/to/GraphCompose-v1.6.0.jar"
+  --classpath "target/classes;/path/to/GraphCompose-v1.6.0.jar" \
+  --spec-provider com.demcha.examples.invoice.SampleInvoiceSpecProvider \
+  --output output.pdf \
+  --preview output.png \
+  --dpi 150 \
+  --page 0
 ```
 
 GraphCompose 1.6.0 ships through JitPack as `com.github.DemchaAV:GraphCompose:v1.6.0`.
 The expected jar name is `GraphCompose-v1.6.0.jar` (resolved by Maven from
 `https://jitpack.io`), and the canary classpath check looks for
 `com.demcha.compose.document.api.DocumentSession` inside it.
+
+`--classpath` must include both the compiled template classes and the
+GraphCompose runtime/dependencies. This tool does not compile
+`generated-template.java` by itself; compilation belongs to the Test + Render
+agent before this command runs.
+
+Templates with `compose(DocumentSession)` need no spec provider. Templates with
+`compose(DocumentSession, Spec)` must pass `--spec-provider <fqcn>`. The provider
+class is loaded from the same classpath and may expose one of these shapes:
+
+- public static `create()` or `spec()`
+- public instance `create()` or `spec()`
+- `java.util.function.Supplier`
+
+`--output` and `--preview` default to `output.pdf` and `output.png` inside the
+revision folder. Relative paths are resolved from the revision folder.
+`--dpi` defaults to 150, and `--page` defaults to 0.
 
 When the supplied `--classpath` does not include the GraphCompose runtime, the
 tool prints these two lines verbatim and exits 0:
@@ -76,19 +98,16 @@ tool uses the platform default automatically.
 
 ## How this hands off to other tools
 
-Once `render` is fully wired up (Phase 6 follow-up), it will:
+`render` now:
 
-1. Instantiate the template class through the supplied classpath.
-2. Call its compose method, capture the PDF bytes, and write them to
-   `<revision-folder>/output.pdf`.
-3. Invoke the `preview` code path to write `<revision-folder>/output.png` at
+1. Instantiates the template class through the supplied classpath.
+2. Calls its compose method inside a real GraphCompose `DocumentSession`.
+3. Writes `<revision-folder>/output.pdf` by default.
+4. Invokes the `preview` code path to write `<revision-folder>/output.png` at
    the configured DPI.
-4. Call `ArtifactUpdater.markArtifactsPresent(revisionFolder, ["output.pdf",
+5. Calls `ArtifactUpdater.markArtifactsPresent(revisionFolder, ["output.pdf",
    "output.png"])` to clear those entries from `pendingArtifacts` inside
    `revision.json`.
-
-`ArtifactUpdater` is implemented and tested today, so when the rendering step
-is enabled the bookkeeping just works.
 
 Downstream, the Phase 7 `tools/visual-diff` lane consumes the freshly-written
 `output.png` and compares it against a committed baseline; that tool is built
@@ -100,22 +119,25 @@ in Node and TypeScript and is intentionally out of scope for this module.
 mvn -q -B test
 ```
 
-Three test classes:
+Three production test classes plus render fixture classes:
 
 - `PreviewCommandTest` constructs a real one-page PDF with PDFBox, runs the
   conversion, and asserts the PNG file is written with a valid PNG magic
   header.
 - `RenderCommandTest` runs the render command with an empty `--classpath`,
   asserting the skeleton message is printed, exit status is 0, and
-  `render.log` is created in the revision folder.
+  `render.log` is created in the revision folder. It also runs two real
+  GraphCompose render cases through an isolated URLClassLoader: one
+  `compose(DocumentSession)` template and one
+  `compose(DocumentSession, Spec)` template via `--spec-provider`.
 - `ArtifactUpdaterTest` exercises the JSON patching against the fixture in
   `src/test/resources/sample-revision.json`, including an idempotency check
   and a two-space indentation check.
 
 ## Honesty rule
 
-The render subcommand does not currently render PDFs. It is here so the rest
-of the AI-flow plumbing can talk to a real CLI shape today, and so the
-detection logic is exercised in CI. When GraphCompose 1.6 reaches a reachable
-Maven repository, the `renderWithGraphCompose` method in `RenderCommand.java`
-is the only place that needs new code.
+The render subcommand renders compiled template classes; it does not compile
+raw `generated-template.java` files, generate business data, or decide whether a
+visual match is acceptable. Those steps still belong to the surrounding
+workflow: compile first, provide a spec for data-driven templates, then run
+visual review against the resulting preview.

@@ -105,18 +105,21 @@ The docs site is split into 12 self-contained pages:
 Phases 1 through 7 of the project plan are shipped. The
 [`tools/`](../tools/) folder hosts a Node revision-manager CLI, a
 Java + Maven preview-renderer (with a working `preview` subcommand
-and a `render` skeleton), and a Node visual-diff CLI. All three have
-passing test suites and are wired to GitHub Actions CI.
+and a `render` path for compiled GraphCompose templates), and a Node
+visual-diff CLI. All three have passing test suites and are wired to
+GitHub Actions CI.
 
 GraphCompose 1.6.0 is reachable through JitPack as
 `com.github.DemchaAV:GraphCompose:v1.6.0`, and the five fixture
 projects under [`examples/skill-fixtures/`](../examples/skill-fixtures/)
-compile and run against that artifact. The remaining gate is the
-repository's own render loop: `preview-renderer render` still needs
-to instantiate templates, write `output.pdf`, generate previews, and
-feed the visual-diff step. Until that full loop lands, every skill in
-the manifest stays at `status: needs-validation` and the invoice
-example's binary artifacts stay listed under `pendingArtifacts`. See
+compile and run against that artifact. `preview-renderer render` now
+executes compiled template classes and produces PDF/PNG artifacts
+when the runtime is on the classpath. The remaining gate is full
+validation orchestration: compile generated templates, provide sample
+specs for data-driven templates, and feed the visual-diff step. Until
+that full loop lands, every skill in the manifest stays at
+`status: needs-validation` and the invoice example's binary artifacts
+stay listed under `pendingArtifacts`. See
 [roadmap.md](roadmap.md) for the per-phase table,
 [implementation-status.md](implementation-status.md) for the honest
 claim-vs-reality matrix, and [limitations.md](limitations.md) for
