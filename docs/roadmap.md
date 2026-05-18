@@ -173,13 +173,19 @@ Goal: automate the compile/render/preview loop.
 Tasks:
 
 ```text
-[ ] Add preview-renderer tool
-[ ] Render template through GraphCompose
-[ ] Generate output.pdf
-[ ] Convert PDF to output.png
-[ ] Save logs
-[ ] Attach artifacts to revision
+[x] Add preview-renderer tool
+[ ] Render template through GraphCompose       (skeleton; waits on GraphCompose 1.6 reaching a reachable Maven repo)
+[ ] Generate output.pdf                        (waits on the render path above)
+[x] Convert PDF to output.png                  (preview command, Apache PDFBox 3)
+[x] Save logs                                  (build.log, render.log in the revision folder)
+[x] Attach artifacts to revision               (ArtifactUpdater clears pendingArtifacts in revision.json)
 ```
+
+Built with Java 17 + Maven + Apache PDFBox 3 + JUnit 5. 7 tests
+green. See [`tools/preview-renderer/README.md`](../tools/preview-renderer/README.md)
+for usage. The `render` subcommand currently detects GraphCompose
+absence and exits with a clear message; it becomes fully functional
+once GraphCompose 1.6 is on the classpath.
 
 Commit:
 
