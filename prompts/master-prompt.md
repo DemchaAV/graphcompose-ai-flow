@@ -64,6 +64,12 @@ The agent must not invent GraphCompose APIs.
 
 If the library behavior and skill documentation disagree, the library is the source of truth and the skill must be fixed.
 
+# Design Asset Requirement
+
+If the visual reference needs icons, search/select suitable icons through `https://iconify.design/` and record the icon set/name in the analysis or architecture plan.
+
+If the visual reference needs a custom font, use `https://fonts.google.com/` as the default source when licensing permits. GraphCompose can add fonts to font libraries, so record the font family, weights, source, and PDF-safe fallback before coding.
+
 # Required workflow
 
 Analyze Reference

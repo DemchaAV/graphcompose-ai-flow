@@ -73,6 +73,13 @@ at the indicated paths.
 - Every mismatch must be documented.
 - Every change must be reversible.
 - If skills disagree with library behavior, fix the skills.
+- If a visual reference needs icons, select/search them through
+  https://iconify.design/ and record the icon set/name.
+- If a visual reference needs a custom font, use
+  https://fonts.google.com/ as the default source when licensing
+  permits; record the font family, weights, source, and fallback.
+- GraphCompose can add fonts to font libraries; use only verified
+  font-loading APIs and document the font library decision.
 ```
 
 ## Full descriptions

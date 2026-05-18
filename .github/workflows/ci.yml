@@ -90,6 +90,28 @@ jobs:
           echo "$out"
           echo "$out" | grep -q 'graphcompose runtime not detected on classpath'
 
+  skill-fixtures:
+    name: skill-fixtures (GraphCompose 1.6 via JitPack)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        fixture:
+          - row-basic
+          - section-basic
+          - table-basic
+          - layer-stack-badge
+          - shape-container-card
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+      - run: mvn -B test
+        working-directory: examples/skill-fixtures/${{ matrix.fixture }}
+
   repository-contract:
     name: repository contract
     runs-on: ubuntu-latest

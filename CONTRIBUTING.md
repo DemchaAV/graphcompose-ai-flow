@@ -12,20 +12,22 @@ honest about its limitations.
 Phases 1 through 7 of the project plan are shipped. See
 [docs/roadmap.md](docs/roadmap.md) for the per-phase table and
 [docs/implementation-status.md](docs/implementation-status.md) for the
-honest claim-vs-reality matrix. The remaining external gate is that
-GraphCompose 1.6 has not yet been published to a Maven repository
-reachable from this build, so the `render` subcommand in
-[tools/preview-renderer](tools/preview-renderer/) is a skeleton, every
-skill in the manifest stays at `status: needs-validation`, and the
-committed Java template files in `examples/invoice-reference/` and
-`examples/skill-fixtures/` are documentation-grade illustrations of
-the intent.
+honest claim-vs-reality matrix. GraphCompose 1.6.0 is reachable for
+fixture validation through JitPack as
+`com.github.DemchaAV:GraphCompose:v1.6.0`, and the five committed
+skill fixtures compile and run against it. The remaining gate is that
+the `render` subcommand in
+[tools/preview-renderer](tools/preview-renderer/) is still a
+skeleton: it detects the GraphCompose runtime but does not yet execute
+templates or write `output.pdf`. Until a full render + preview +
+visual-diff pass exists, every skill in the manifest stays at
+`status: needs-validation`.
 
 Open contribution areas:
 
 - documentation fixes and workflow clarifications
-- skill content corrections (the skill files must NOT name concrete
-  GraphCompose API methods until a verified fixture run pins them;
+- skill content corrections (concrete GraphCompose API methods must
+  be backed by the real library or by a passing fixture smoke test;
   see [docs/skill-validation.md](docs/skill-validation.md))
 - skill manifest entries when a new skill is added
 - revision-model and rollback-model corrections
@@ -35,6 +37,8 @@ Open contribution areas:
 - repository-contract checks in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 - bug fixes in any of the three `tools/` modules
 - new fixture scaffolds under `examples/skill-fixtures/`
+- fixture visual baselines once `preview-renderer render` writes
+  `output.pdf` and `output.png`
 
 ## Filing issues
 

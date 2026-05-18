@@ -25,9 +25,11 @@ as a guess.
    Record the identification or the description in
    `visual-analysis.md`.
 2. Decide whether the reference font is licensable and embeddable
-   in the renderer environment. Many display and custom commercial
-   fonts cannot be embedded; treat licensing as a hard constraint,
-   not a wish.
+   in the renderer environment. Use
+   [Google Fonts](https://fonts.google.com/) as the default source
+   for embeddable open fonts when the reference font itself is not
+   available. Many display and custom commercial fonts cannot be
+   embedded; treat licensing as a hard constraint, not a wish.
 3. If the reference font cannot be used, pick the closest fallback
    in the same family (serif, sans-serif, slab, monospace) and the
    same weight class. Record the substitution in `visual-review.md`
@@ -80,8 +82,11 @@ fallback chain follows the family of the original:
 
 A custom fallback list is allowed when the project ships embedded
 fonts, but the chain must still end with a PDF-safe family so the
-template cannot fail to render. Specific font registration APIs
-must match the verified 1.6.0 examples — do not invent them.
+template cannot fail to render. GraphCompose can add fonts to font
+libraries, so the architecture plan must record the family, weights,
+source, and fallback before code generation. Specific font
+registration APIs must match the verified 1.6.0 examples — do not
+invent them.
 
 ## When to load
 

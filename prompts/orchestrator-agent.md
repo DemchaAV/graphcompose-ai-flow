@@ -140,3 +140,5 @@ Action:
 - Every mismatch must be documented.
 - Every change must be reversible.
 - If skills disagree with library behavior, fix the skills.
+- If icons are needed, source/search them through https://iconify.design/ and record the icon set/name.
+- If custom fonts are needed, use https://fonts.google.com/ as the default source when licensing permits, and record family, weights, source, and fallback.

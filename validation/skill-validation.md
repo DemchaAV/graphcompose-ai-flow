@@ -90,25 +90,22 @@ and the steps to file the report.
 
 ## How validation runs
 
-A single validation run for one fixture proceeds as follows. Steps 2
-through 4 require the renderer and visual-diff tools that ship in
-Phase 6 and Phase 7, so this section also describes what is not yet
-runnable in Phase 4.
+A single validation run for one fixture proceeds as follows. Step 2
+is now runnable and has passed for the five committed fixtures
+against GraphCompose 1.6.0 from JitPack. Steps 3 and 4 still require
+the full render + preview + visual-diff loop.
 
 1. Load the fixture from `../examples/skill-fixtures/<fixture-id>`.
    Confirm `pom.xml`, the test source, and `expected-output/` are
    present.
-2. Run `mvnw test` against the fixture. This compiles the template,
-   runs the fixture's test class, and writes a fresh
-   `expected-output/output.pdf`. Phase 6 dependency: the
-   preview-renderer tool must be in place before this step can run
-   automatically.
+2. Run `mvn test` against the fixture. This compiles the fixture and
+   runs its JUnit test class against the real GraphCompose artifact.
+   This is the current smoke gate.
 3. Convert the fresh `output.pdf` to `output.png` and produce a
-   `layout-snapshot.json`. Phase 6 dependency.
+   `layout-snapshot.json`. This waits on the shared
+   `preview-renderer render` path.
 4. Diff the freshly rendered `output.png` against the committed
-   baseline `expected-output/output.png`. Phase 7 dependency: the
-   visual-diff tool must be in place before this step can run
-   automatically.
+   baseline `expected-output/output.png` with `tools/visual-diff`.
 5. Classify any mismatch against the visual-mismatch policy in
    [../docs/visual-accuracy-contract.md](../docs/visual-accuracy-contract.md)
    (`CRITICAL`, `MAJOR`, `MINOR`, `ACCEPTED_LIMITATION`,

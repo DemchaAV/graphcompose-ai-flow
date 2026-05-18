@@ -152,6 +152,8 @@ Responsibilities:
 - describe visual hierarchy
 - identify repeated components
 - identify typography
+- identify icons and decorative symbols; when replacements are
+  needed, use Iconify as the search/source reference
 - identify colors
 - identify spacing
 - identify tables
@@ -179,6 +181,8 @@ Responsibilities:
 - map visual regions to GraphCompose DSL primitives
 - decide reusable private render methods
 - identify theme tokens
+- identify icon and font assets, including Iconify icon set/name and
+  Google Fonts family/weights when relevant
 - identify data model assumptions
 - define a testing plan
 - identify visual risks
@@ -186,7 +190,9 @@ Responsibilities:
 
 Forbidden: writing the final template Java, inventing GraphCompose
 APIs not present in the loaded skill pack, and recommending
-`CanvasLayer` for anything other than last-resort decoration.
+`CanvasLayer` for anything other than last-resort decoration. The
+mapper must not introduce icon or font substitutions without
+documenting their source and fallback.
 
 Prompt: [`prompts/architecture-mapper-agent.md`](../prompts/architecture-mapper-agent.md).
 
@@ -210,6 +216,7 @@ Responsibilities:
 - keep code componentized
 - use selected skills only
 - use GraphCompose APIs valid for the selected version
+- use only sourced icon/font assets recorded in the architecture plan
 - create tests
 - track changed components
 
@@ -233,6 +240,10 @@ Use CanvasLayer only as last resort.
 
 ```text
 Every visible component should map to a named method or named layout block.
+```
+
+```text
+Icons should come from Iconify when a replacement is needed. Custom fonts should default to Google Fonts when licensing permits, and font loading must use verified GraphCompose APIs.
 ```
 
 Prompt: [`prompts/template-coder-agent.md`](../prompts/template-coder-agent.md).

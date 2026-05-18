@@ -18,6 +18,7 @@ users and contributors can plan around it.
 - visual comparison may require manual review
 - unsupported GraphCompose versions require skill updates
 - agent can only use APIs documented in selected skill pack
+- custom icon and font choices must be sourced and documented
 
 ## What the tooling can and cannot do today
 
@@ -25,38 +26,53 @@ Three tools ship under [`../tools/`](../tools/) and pass CI:
 
 - [`revision-manager`](../tools/revision-manager/) implements `init`,
   `status`, `new-revision`, `approve`, `reject`, `undo`,
-  `revert-approved`, `restore-component`, `history`, and `diff`.
-  Verified by 22 unit tests plus a smoke sequence in CI. The
-  `RevisionStatus` union does NOT yet include `FAILED` or `REVERTED`
-  markers; see [implementation-status.md](implementation-status.md)
-  for the gap.
+  `fail`, `revert-approved`, `restore-component`, `history`, and
+  `diff`. Verified by 27 unit tests plus a smoke sequence in CI. The
+  `RevisionStatus` union includes `FAILED` and `REVERTED`; the CLI
+  writes `FAILED` through the `fail` verb and exposes `REVERTED` for
+  orchestrators that need a rollback marker.
 - [`preview-renderer`](../tools/preview-renderer/) implements
   `preview` (PDF → PNG via PDFBox 3) functionally. The `render`
   subcommand (template → PDF) is a skeleton: it loads the supplied
   classpath, looks up the GraphCompose `DocumentSession` canary
   class, and exits with a clear "graphcompose runtime not detected"
-  message when the canary cannot be loaded. The skeleton flips to
-  functional once GraphCompose 1.6 is on a reachable Maven
-  repository.
+  message when the canary cannot be loaded. When GraphCompose is
+  present, it detects the runtime but still stops before template
+  execution.
 - [`visual-diff`](../tools/visual-diff/) implements pixel comparison
   with pixelmatch, the parity-score formula, and the classification
   rules from [visual-accuracy-contract.md](visual-accuracy-contract.md).
   21 unit tests; functional.
+- The five fixture projects under
+  [`../examples/skill-fixtures/`](../examples/skill-fixtures/) compile
+  and run with Maven against GraphCompose 1.6.0 from JitPack:
+  `com.github.DemchaAV:GraphCompose:v1.6.0`.
 
 What is intentionally NOT in this repository today:
 
-- a published Maven coordinate for GraphCompose itself — the
-  [render path](../tools/preview-renderer/) cannot resolve the
-  library because `io.github.demchaav:graphcompose:1.6.0` is not yet
-  on Maven Central / JitPack.
-- skill-validation execution. The discipline lives under
-  [../validation/](../validation/) but no fixture has been
-  executed against the real library. All 14 skills in the manifest
+- a full template-to-PDF renderer. The
+  [render path](../tools/preview-renderer/) detects GraphCompose on a
+  supplied classpath, but it does not yet instantiate generated
+  templates or write `output.pdf`.
+- full skill validation. Fixture compile/run smoke exists, but no
+  fixture has completed the full render + preview + visual-diff cycle
+  against a committed visual baseline. All 14 skills in the manifest
   remain `status: needs-validation`.
 - a hosted CLI, a model adapter, or inference infrastructure.
 - a real reference image at
   `examples/invoice-reference/reference/reference.png` — only the
   textual reference description (`reference.md`) is committed.
+
+## Design asset sourcing
+
+When a reference requires icons, the agent should search/select
+icons through [Iconify](https://iconify.design/) and record the icon
+set/name in `visual-analysis.md` or `architecture-plan.md`. When a
+reference requires a custom font, the agent should use
+[Google Fonts](https://fonts.google.com/) as the default source when
+licensing permits. GraphCompose can add fonts to a font library, so
+the plan must record the font family, weights, source, and fallback
+chain instead of silently substituting a generic PDF base font.
 
 ## Out of scope
 

@@ -108,12 +108,15 @@ Java + Maven preview-renderer (with a working `preview` subcommand
 and a `render` skeleton), and a Node visual-diff CLI. All three have
 passing test suites and are wired to GitHub Actions CI.
 
-The remaining external gate is that GraphCompose 1.6 has not yet
-been published to a Maven repository reachable from this build, so
-the `render` subcommand cannot resolve the real GraphCompose
-classpath today. Until that lands, every skill in the manifest stays
-at `status: needs-validation` and every revision's `output.pdf` and
-`output.png` are listed under `pendingArtifacts`. See
+GraphCompose 1.6.0 is reachable through JitPack as
+`com.github.DemchaAV:GraphCompose:v1.6.0`, and the five fixture
+projects under [`examples/skill-fixtures/`](../examples/skill-fixtures/)
+compile and run against that artifact. The remaining gate is the
+repository's own render loop: `preview-renderer render` still needs
+to instantiate templates, write `output.pdf`, generate previews, and
+feed the visual-diff step. Until that full loop lands, every skill in
+the manifest stays at `status: needs-validation` and the invoice
+example's binary artifacts stay listed under `pendingArtifacts`. See
 [roadmap.md](roadmap.md) for the per-phase table,
 [implementation-status.md](implementation-status.md) for the honest
 claim-vs-reality matrix, and [limitations.md](limitations.md) for

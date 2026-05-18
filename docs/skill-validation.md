@@ -5,9 +5,10 @@ documents the validation discipline. Phase 4 has shipped the
 [`validation/`](../validation/) folder (templates, checklists, the
 baseline report) and the
 [`examples/skill-fixtures/`](../examples/skill-fixtures/) projects.
-Phase 6 (renderer) and Phase 7 (visual diff) wire the fixtures up to
-real GraphCompose output so the checklist statuses can be promoted
-out of `needs-validation`. See [roadmap.md](roadmap.md) for the phase
+The fixture projects now compile and run against GraphCompose 1.6.0
+from JitPack. The remaining validation work is the full render +
+preview + visual-diff loop that promotes skills out of
+`needs-validation`. See [roadmap.md](roadmap.md) for the phase
 ordering.
 
 ## Skill validation rule
@@ -147,8 +148,10 @@ Phase 4 has shipped:
   [`validation/skill-fix-template.md`](../validation/skill-fix-template.md),
   [`validation/validation-report-template.md`](../validation/validation-report-template.md)
 - [`validation/reports/phase-4-baseline.md`](../validation/reports/phase-4-baseline.md) —
-  the honest baseline report: nothing has been executed yet, all 14
-  skills remain `needs-validation`.
+  the historical baseline report from before fixture execution.
+- [`validation/reports/fixture-smoke-2026-05-18.md`](../validation/reports/fixture-smoke-2026-05-18.md) —
+  the first compile/run smoke report against GraphCompose 1.6.0 via
+  JitPack.
 - Five fixture projects under
   [`examples/skill-fixtures/`](../examples/skill-fixtures/):
   `row-basic`, `section-basic`, `table-basic`, `layer-stack-badge`,
@@ -156,10 +159,12 @@ Phase 4 has shipped:
   `invoice-layout`, and `pagination-basic` as future fixtures; those
   are not part of the Phase 4 scope.
 
-Phase 4 deliberately does NOT execute the fixtures against the real
-GraphCompose runtime. That happens once Phase 6 (renderer) and Phase 7
-(visual diff) ship. Until then every skill in
+The current fixture smoke proves that the covered DSL calls compile
+and run against the real 1.6.0 artifact. It does not yet prove visual
+parity: the renderer still needs to write `output.pdf`, generate
+`output.png`, and run visual-diff against committed baselines. Until
+that full pass exists, every skill in
 [`skill-manifest.json`](../skills/skill-manifest.json) stays at
 `status: needs-validation`. See
-[versioned-skills.md](versioned-skills.md) for the manifest, statuses,
-and the no-invented-API rule that validation enforces.
+[versioned-skills.md](versioned-skills.md) for the manifest,
+statuses, and the no-invented-API rule that validation enforces.

@@ -28,6 +28,7 @@ Start from semantic document structure.
 | Accent strip | section accent / shape container |
 | Background panel | section background / soft panel |
 | Floating badge | LayerStack |
+| Icon with semantic label | Iconify-sourced asset + semantic container |
 | Overlapping decorative element | LayerStack / CanvasLayer |
 | Exact geometric decoration | Shape container |
 | Multi-page content | pageFlow + pagination |
@@ -45,6 +46,13 @@ Use low-level drawing only when:
 - the DSL cannot represent it cleanly
 - the visual reference requires exact geometry
 - the low-level element is isolated and documented
+
+When the reference contains icons and the exact source is unknown,
+search/select replacements through [Iconify](https://iconify.design/)
+and record the icon set/name in `visual-analysis.md` or
+`architecture-plan.md`. Do not invent an icon asset or silently draw a
+rough substitute with low-level shapes unless the visual review
+documents that limitation.
 
 ## When to load
 

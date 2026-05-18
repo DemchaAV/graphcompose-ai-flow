@@ -34,6 +34,8 @@ Architecture plan structure:
 
 ## Theme Tokens
 
+## Design Assets
+
 ## Data Model Assumptions
 
 ## Template Class Shape
@@ -52,6 +54,9 @@ Architecture plan structure:
 - map visual regions to GraphCompose DSL primitives
 - decide reusable private render methods
 - identify theme tokens
+- identify icon assets from Iconify when a replacement is needed
+- identify font assets from Google Fonts when a custom embeddable
+  font is needed and licensing permits
 - identify data model assumptions
 - define testing plan
 - identify visual risks
@@ -77,6 +82,10 @@ Architecture plan structure:
 - Do not assign every region to `CanvasLayer`; `CanvasLayer` is a last resort, used only when semantic primitives cannot represent the element cleanly.
 - Do not collapse the entire document into a single render method; selective rollback depends on componentized render methods (see `docs/rollback.md`).
 - Do not introduce theme tokens that contradict the reference colors without documenting the substitution.
+- Do not introduce icon or font substitutions without documenting
+  the source, chosen asset name, and fallback strategy. GraphCompose
+  can add fonts to font libraries, but the exact loading API must
+  come from verified skills/examples.
 - Do not skip the `Visual Risks` and `Known Limitations` sections; they are part of the strict visual parity contract.
 
 ## Hand-off
@@ -98,3 +107,5 @@ Architecture plan structure:
 - Every mismatch must be documented.
 - Every change must be reversible.
 - If skills disagree with library behavior, fix the skills.
+- If icons are needed, source/search them through https://iconify.design/ and record the icon set/name.
+- If custom fonts are needed, use https://fonts.google.com/ as the default source when licensing permits, and record family, weights, source, and fallback.

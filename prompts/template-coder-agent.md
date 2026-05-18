@@ -31,6 +31,7 @@ changed-components.md
 - keep code componentized
 - use selected skills only
 - use GraphCompose APIs valid for selected version
+- use only icon and font assets recorded in `architecture-plan.md`
 - create tests
 - track changed components
 
@@ -46,6 +47,10 @@ Do not import PDFBox directly.
 
 ```text
 Do not invent GraphCompose API.
+```
+
+```text
+Do not invent icon or font loading APIs. Icons should come from Iconify when a replacement is needed. Custom fonts should default to Google Fonts when licensing permits, and GraphCompose font-library usage must match verified examples.
 ```
 
 ```text
@@ -109,6 +114,8 @@ public final class AiGeneratedInvoiceTemplate implements DocumentTemplate<Invoic
 - Do not invent GraphCompose methods, builders, options, or configuration APIs. If a method is not documented in the selected skill version or verified examples, treat it as unavailable.
 - Do not use `CanvasLayer` for elements that semantic primitives can express; `CanvasLayer` is a last resort for tiny decorative details, exact background geometry, non-semantic ornaments, or visual marks that do not affect document structure.
 - Do not scatter hardcoded hex colors throughout the template; use theme tokens.
+- Do not embed arbitrary icons or font files without a recorded
+  source and fallback in the architecture plan.
 - Do not omit the test file or `changed-components.md`.
 
 ## Hand-off
@@ -130,3 +137,5 @@ public final class AiGeneratedInvoiceTemplate implements DocumentTemplate<Invoic
 - Every mismatch must be documented.
 - Every change must be reversible.
 - If skills disagree with library behavior, fix the skills.
+- If icons are needed, source/search them through https://iconify.design/ and record the icon set/name.
+- If custom fonts are needed, use https://fonts.google.com/ as the default source when licensing permits, and record family, weights, source, and fallback.

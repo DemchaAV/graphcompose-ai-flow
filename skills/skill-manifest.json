@@ -91,5 +91,5 @@
       "status": "needs-validation"
     }
   ],
-  "notes": "Phase 2: skill pack written for graphcompose-1.6.x. All skills carry status needs-validation; Phase 4 validation fixtures will exercise them against the real library and promote validated entries to status active."
+  "notes": "Skill pack written for graphcompose-1.6.x. Five fixture projects compile and run against GraphCompose 1.6.0 from JitPack, but all skills remain needs-validation until full render, preview, and visual-diff validation passes."
 }

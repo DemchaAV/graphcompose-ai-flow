@@ -103,7 +103,9 @@ wins. See [skill-validation.md](skill-validation.md).
 Owner: Visual Analyzer Agent ([agents.md](agents.md#visual-analyzer-agent)).
 Input: reference.png, optional reference.pdf, optional user notes.
 Output: visual-analysis.md describing page format, regions, hierarchy,
-typography, colors, spacing, and uncertain parts. The Visual Analyzer
+typography, icons, colors, spacing, and uncertain parts. Icon
+replacement candidates come from Iconify; custom font candidates
+come from Google Fonts when licensing permits. The Visual Analyzer
 never writes code.
 
 ### 6. Create Architecture Plan

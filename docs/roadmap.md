@@ -5,23 +5,23 @@ and one manual example. Tooling starts at Phase 5.
 
 ## Current phase
 
-All seven phases of the project plan are shipped. The remaining
-gate before fixtures can be promoted out of `needs-validation` is
-external: GraphCompose 1.6 needs to be reachable from a Maven repo
-so the `render` subcommand of `preview-renderer` can flip from
-skeleton to functional. Until that happens, every skill in
-[`skill-manifest.json`](../skills/skill-manifest.json) stays at
-`status: needs-validation` and every revision's `output.pdf` /
-`output.png` are listed under `pendingArtifacts`.
+All seven phases of the project plan are shipped. GraphCompose 1.6.0
+is reachable for fixture validation through JitPack as
+`com.github.DemchaAV:GraphCompose:v1.6.0`, and the five skill
+fixtures compile and run against it. The remaining gate before skills
+can be promoted out of `needs-validation` is now internal:
+`preview-renderer render` must instantiate templates, write
+`output.pdf`, generate `output.png`, and feed visual-diff against a
+committed baseline.
 
 | Phase | Status |
 |---|---|
 | 1 — Documentation MVP | shipped |
 | 2 — Versioned Skills MVP | shipped |
 | 3 — Manual Example | shipped (binary artifacts pending Phase 6 render) |
-| 4 — Skill Validation Fixtures | shipped (discipline + scaffolds; execution waits on Phase 6) |
+| 4 — Skill Validation Fixtures | shipped (discipline + scaffolds + compile/run smoke) |
 | 5 — Revision Helper Tool | shipped |
-| 6 — Render and Preview Workflow | shipped (`preview` works; `render` skeleton, waits on GraphCompose Maven coordinate) |
+| 6 — Render and Preview Workflow | shipped (`preview` works; `render` detects runtime but does not execute templates yet) |
 | 7 — Visual Diff Experiment | shipped |
 
 ## Phase 1 — Documentation MVP
@@ -78,7 +78,8 @@ Tasks:
 (Phase 2 also shipped six additional skills not listed in the
 original task list: typography, backgrounds-and-panels,
 layer-stacks-and-overlays, shapes-and-containers, pagination,
-troubleshooting. All 14 skills are at `status: needs-validation`.)
+troubleshooting. All 14 skills remain at `status: needs-validation`
+until visual validation is wired.)
 
 Commit:
 
@@ -130,7 +131,8 @@ Tasks:
 [x] Add examples/skill-fixtures/layer-stack-badge
 [x] Add examples/skill-fixtures/shape-container-card
 [x] Add validation reports                  (phase-4-baseline.md)
-[ ] Execute fixtures against the runtime    (waits on Phase 6)
+[x] Execute fixtures against the runtime    (Maven smoke via JitPack)
+[ ] Compare fixture outputs visually        (waits on full render loop)
 ```
 
 Commit:
@@ -177,8 +179,8 @@ Tasks:
 
 ```text
 [x] Add preview-renderer tool
-[ ] Render template through GraphCompose       (skeleton; waits on GraphCompose 1.6 reaching a reachable Maven repo)
-[ ] Generate output.pdf                        (waits on the render path above)
+[ ] Render template through GraphCompose       (runtime detection exists; template execution pending)
+[ ] Generate output.pdf                        (waits on template execution)
 [x] Convert PDF to output.png                  (preview command, Apache PDFBox 3)
 [x] Save logs                                  (build.log, render.log in the revision folder)
 [x] Attach artifacts to revision               (ArtifactUpdater clears pendingArtifacts in revision.json)
@@ -187,8 +189,9 @@ Tasks:
 Built with Java 17 + Maven + Apache PDFBox 3 + JUnit 5. 7 tests
 green. See [`tools/preview-renderer/README.md`](../tools/preview-renderer/README.md)
 for usage. The `render` subcommand currently detects GraphCompose
-absence and exits with a clear message; it becomes fully functional
-once GraphCompose 1.6 is on the classpath.
+absence and exits with a clear message. When GraphCompose is present
+on the classpath, it detects the runtime and stops at the TODO that
+will instantiate and execute the template.
 
 Commit:
 
@@ -250,7 +253,7 @@ The revision commands — `init`, `new-revision`, `approve`, `reject`,
 [`tools/revision-manager/`](../tools/revision-manager/).
 
 The skill-validation commands (`validate-skills`, `validate-skill`,
-`list-skills`, `check-version`, `report-skill-drift`) and the render
-commands (`render`, `compare`) are still planned for Phase 6 and
-later. See [limitations.md](limitations.md) for the honest
-"not a tool, yet" framing of the pieces that have not landed.
+`list-skills`, `check-version`, `report-skill-drift`) and full
+template execution in `render` are still planned follow-ups. See
+[limitations.md](limitations.md) for the honest framing of the pieces
+that have not landed.

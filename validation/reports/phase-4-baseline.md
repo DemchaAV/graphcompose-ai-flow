@@ -1,5 +1,9 @@
 # Phase 4 Baseline Validation Report
 
+> Historical baseline: this report records the state before fixture
+> execution. The follow-up smoke run is documented in
+> [fixture-smoke-2026-05-18.md](fixture-smoke-2026-05-18.md).
+
 ## Header
 
 - Report id: validation-phase-4-baseline-2026-05-18

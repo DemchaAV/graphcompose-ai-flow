@@ -9,30 +9,27 @@ are listed in
 [known-limitations.md](known-limitations.md) or in
 [../docs/limitations.md](../docs/limitations.md).
 
-## Phase 4 baseline state
+## Current state
 
-No examples are verified yet. The renderer that lets fixtures
-execute against a real GraphCompose runtime ships in Phase 6; the
-visual-diff that confirms the rendered output matches the committed
-baseline ships in Phase 7. The five fixtures the parallel lane is
-producing in Phase 4 are "scaffolded — pending verification": the
-fixture folder, README, project file, test source, and committed
-`expected-output/` exist, but no automated run has confirmed that
-the baseline is reproducible.
+No examples are fully verified yet. The five committed fixtures are
+now smoke-verified: each fixture compiles and runs with Maven against
+GraphCompose 1.6.0 from JitPack. That proves the covered API calls
+exist and execute. It does not yet prove visual parity against the
+committed `expected-output/` baseline.
 
-This page will move fixtures to `verified` only after the Phase 6
-renderer reproduces the committed baseline and the Phase 7
-visual-diff reports no critical or major mismatch.
+This page will move fixtures to `verified` only after the renderer
+reproduces the committed baseline and visual-diff reports no critical
+or major mismatch.
 
 ## Fixture registry
 
 | Fixture | Skills covered | Status |
 |---|---|---|
-| `../examples/skill-fixtures/row-basic` | layout-primitives | scaffolded — pending verification |
-| `../examples/skill-fixtures/section-basic` | layout-primitives, backgrounds-and-panels | scaffolded — pending verification |
-| `../examples/skill-fixtures/table-basic` | tables, themes-and-colors | scaffolded — pending verification |
-| `../examples/skill-fixtures/layer-stack-badge` | layer-stacks-and-overlays | scaffolded — pending verification |
-| `../examples/skill-fixtures/shape-container-card` | shapes-and-containers | scaffolded — pending verification |
+| `../examples/skill-fixtures/row-basic` | layout-primitives | smoke-verified — visual baseline pending |
+| `../examples/skill-fixtures/section-basic` | layout-primitives, backgrounds-and-panels | smoke-verified — visual baseline pending |
+| `../examples/skill-fixtures/table-basic` | tables, themes-and-colors | smoke-verified — visual baseline pending |
+| `../examples/skill-fixtures/layer-stack-badge` | layer-stacks-and-overlays | smoke-verified — visual baseline pending |
+| `../examples/skill-fixtures/shape-container-card` | shapes-and-containers | smoke-verified — visual baseline pending |
 
 When a fixture is verified, update its row to `verified` and record
 the run that approved it in the appropriate report under

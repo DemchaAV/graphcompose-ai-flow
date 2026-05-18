@@ -11,10 +11,10 @@ been executed, and which skills are still pending validation.
   `defaultGraphComposeVersion: 1.6.x`).
 - Skill manifest version: `0.2.0` (see
   [../skills/skill-manifest.json](../skills/skill-manifest.json)).
-- Status: baseline. No fixture has been executed yet. The Phase 6
-  renderer and the Phase 7 visual-diff are not in place, so the
-  `Fixture executed` and `Drift detected` columns cannot move off
-  their baseline values until those phases ship.
+- Status: fixture smoke pass complete for the five committed
+  fixtures. They compile and run against GraphCompose 1.6.0 from
+  JitPack. Full render/preview/visual-diff validation is still
+  pending, so manifest statuses remain `needs-validation`.
 - Last reviewed: 2026-05-18.
 
 ## Per-skill table
@@ -23,21 +23,20 @@ been executed, and which skills are still pending validation.
 |---|---|---|---|---|---|---|
 | graphcompose-basics | 1.6.0 | needs-validation | no | no | unknown | 2026-05-18 |
 | visual-to-graphcompose-mapping | 1.6.0 | needs-validation | no | no | unknown | 2026-05-18 |
-| layout-primitives | 1.6.0 | needs-validation | yes | no | unknown | 2026-05-18 |
-| tables | 1.6.0 | needs-validation | yes | no | unknown | 2026-05-18 |
-| themes-and-colors | 1.6.0 | needs-validation | yes | no | unknown | 2026-05-18 |
+| layout-primitives | 1.6.0 | needs-validation | yes | yes, smoke | no compile drift; visual pending | 2026-05-18 |
+| tables | 1.6.0 | needs-validation | yes | yes, smoke | no compile drift; visual pending | 2026-05-18 |
+| themes-and-colors | 1.6.0 | needs-validation | yes | yes, smoke | no compile drift; visual pending | 2026-05-18 |
 | typography | 1.6.0 | needs-validation | no | no | unknown | 2026-05-18 |
 | spacing-and-alignment | 1.6.0 | needs-validation | no | no | unknown | 2026-05-18 |
-| backgrounds-and-panels | 1.6.0 | needs-validation | yes | no | unknown | 2026-05-18 |
-| layer-stacks-and-overlays | 1.6.0 | needs-validation | yes | no | unknown | 2026-05-18 |
-| shapes-and-containers | 1.6.0 | needs-validation | yes | no | unknown | 2026-05-18 |
+| backgrounds-and-panels | 1.6.0 | needs-validation | yes | yes, smoke | no compile drift; visual pending | 2026-05-18 |
+| layer-stacks-and-overlays | 1.6.0 | needs-validation | yes | yes, smoke | no compile drift; visual pending | 2026-05-18 |
+| shapes-and-containers | 1.6.0 | needs-validation | yes | yes, smoke | no compile drift; visual pending | 2026-05-18 |
 | pagination | 1.6.0 | needs-validation | no | no | unknown | 2026-05-18 |
 | visual-regression | 1.6.0 | needs-validation | no | no | unknown | 2026-05-18 |
 | revision-discipline | 1.6.0 | needs-validation | no | no | unknown | 2026-05-18 |
 | troubleshooting | 1.6.0 | needs-validation | no | no | unknown | 2026-05-18 |
 
-Fixture-to-skill coverage notes for the five fixtures the parallel
-lane is scaffolding under
+Fixture-to-skill coverage notes for the five fixtures under
 [../examples/skill-fixtures/](../examples/skill-fixtures/):
 
 - `row-basic` covers `layout-primitives`.
@@ -80,7 +79,7 @@ land.
   in revision-002 only
   (`TODO(visual-review): confirm the column-mirror binding between ...`).
 
-Once Phase 6 + Phase 7 are wired up, the five scaffolded fixtures
-will be executed and any of these TODOs that turn into real drift
-will produce a `skill-fix-<skill-id>-<date>.md` report under
-[reports/](reports/).
+Once the full render + visual-diff loop is wired up, the five
+smoke-verified fixtures will be visually compared and any of these
+TODOs that turn into real drift will produce a
+`skill-fix-<skill-id>-<date>.md` report under [reports/](reports/).

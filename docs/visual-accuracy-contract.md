@@ -23,8 +23,10 @@ checked:
 - visual hierarchy matches
 - content order matches
 - spacing is visually aligned
-- typography is close or intentionally substituted
+- typography is close or intentionally substituted, with font source
+  and fallback documented when a custom font is used
 - colors are matched or documented
+- icons match the reference or use a documented Iconify replacement
 - tables preserve proportions and structure
 - headers are present
 - footers are present

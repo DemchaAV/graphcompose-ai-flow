@@ -3,6 +3,13 @@
 Date: 2026-05-18
 Auditor: read-only audit subagent
 
+> Historical note: this audit captured an earlier state of the
+> repository. Several findings have since been fixed, including the
+> GraphCompose package imports, JitPack fixture coordinates, the
+> `FAILED`/`REVERTED` revision statuses, and the `fail` CLI verb. See
+> `docs/implementation-status.md` for the current claim-vs-reality
+> matrix.
+
 ## Verdict (one line)
 
 Discipline and revision tooling are real and well-tested; the entire

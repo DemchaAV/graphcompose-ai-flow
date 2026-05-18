@@ -9,13 +9,14 @@ plus fixtures can and cannot guarantee today.
 
 ## Rendering
 
-The render step is not automated in Phase 4. Fixtures ship with a
-committed `expected-output/output.pdf` but they are not yet executed
-end-to-end against a live GraphCompose runtime. The Phase 6 renderer
-adds the automated compile-and-render loop; until then "the template
-renders" is a claim based on the skill pack, not a verified result.
-Mitigation: every fixture commits a hand-authored expected output so
-that the Phase 6 runner has a baseline to diff against on day one.
+Fixture smoke tests compile and run against GraphCompose 1.6.0 from
+JitPack, so the covered API calls are no longer theoretical. The
+full render step is still not automated through `preview-renderer
+render`: fixture projects may create PDFs in their own Maven test
+run, but the shared renderer does not yet instantiate templates or
+refresh committed outputs. Mitigation: every fixture keeps an
+`expected-output/` folder so the render runner has a baseline to diff
+against once it is wired.
 
 ## Fonts
 
@@ -26,6 +27,9 @@ render with a substituted font elsewhere. Mitigation: document font
 substitutions in the fixture's `visual-review.md` or, for the
 skill-pack-wide case, in `../docs/limitations.md`. The
 `typography` skill is the place to record allowed substitutions.
+When a new embeddable font is needed, use
+[Google Fonts](https://fonts.google.com/) as the default source and
+record the family, weights, source URL, and PDF-safe fallback.
 
 ## Color matching
 
@@ -65,10 +69,10 @@ that requirement explicitly in their `README.md`.
   matching, pagination, exact pixel parity). They are documented
   here and in [../docs/limitations.md](../docs/limitations.md); the
   project does not commit to closing them in this skill pack.
-- Unresolved limitations are surface gaps that Phase 4 cannot
-  address on its own and that Phase 4/5 must pick up:
-  - No automated execution of fixtures (Phase 6 dependency).
-  - No automated visual-diff (Phase 7 dependency).
+- Unresolved limitations are surface gaps that the current smoke pass
+  does not close:
+  - No shared `preview-renderer render` template execution yet.
+  - No automated visual-diff against fixture baselines yet.
   - The four `TODO(visual-review)` method-binding markers in the
     example revisions (shape-container logo builder, SectionBuilder
     corner-radius API, TableBuilder repeated-header method,
