@@ -80,10 +80,19 @@ if (args["dry-run"]) {
 mkdirp(targetSrcDir, targetDataDir, targetAssetsDir, targetIconsDir, targetPreviewDir);
 
 const sourceClassFile = path.join(revisionDir, "generated-template.java");
-copyJavaClass(sourceClassFile, path.join(targetSrcDir, `${className}.java`), {
-  oldClassName: "GeneratedCvTemplate",
-  newClassName: className,
-});
+const targetClassFile = path.join(targetSrcDir, `${className}.java`);
+// The template class carries the agent's editorial Javadoc polish on
+// top of the renamed source. Subsequent publishes preserve that work
+// by default — pass --force-template to overwrite (e.g. after a real
+// behavioural change in the revision's generated-template.java).
+if (fs.existsSync(targetClassFile) && !args["force-template"]) {
+  console.log(`[publish-template] ${path.relative(repoRoot, targetClassFile)} already exists; preserving the agent's Javadoc polish. Pass --force-template to overwrite.`);
+} else {
+  copyJavaClass(sourceClassFile, targetClassFile, {
+    oldClassName: "GeneratedCvTemplate",
+    newClassName: className,
+  });
+}
 
 const runnerSrcDir = path.join(projectDir, "render-runner", "src", "main", "java");
 const specClassFqcn = projectMeta.specClass;
@@ -115,6 +124,25 @@ if (fs.existsSync(sourceIconsDir)) {
   }
 }
 
+// Copy custom font files when the revision shipped any. Bundled
+// GraphCompose Google Fonts (DefaultFonts.googleFamilies) load from
+// the JAR's classpath and need no copy here — the asset-resolver
+// records those as source=graphcompose-bundled in the manifest, and
+// the assets/fonts/ directory only exists for source=google-fonts
+// (manual_drop_required) or source=custom roles.
+const sourceFontsDir = path.join(revisionDir, "assets", "fonts");
+const targetFontsDir = path.join(targetAssetsDir, "fonts");
+if (fs.existsSync(sourceFontsDir)) {
+  const fontFiles = fs.readdirSync(sourceFontsDir)
+      .filter((name) => /\.(ttf|otf)$/i.test(name));
+  if (fontFiles.length > 0) {
+    mkdirp(targetFontsDir);
+    for (const entry of fontFiles) {
+      copyFile(path.join(sourceFontsDir, entry), path.join(targetFontsDir, entry));
+    }
+  }
+}
+
 for (const [src, dest] of [
   ["output.pdf",         "output.pdf"],
   ["output.png",         "output-page-1.png"],
@@ -125,6 +153,22 @@ for (const [src, dest] of [
     copyFile(sourcePath, path.join(targetPreviewDir, dest));
   }
 }
+
+// Pull the font roles from the asset manifest so the published bundle
+// surfaces exactly which fonts it needs and how they should be loaded
+// (bundled in the JAR vs file-resource registration vs standard-14).
+const assetsManifest = readJsonIfExists(path.join(revisionDir, "assets-manifest.json"));
+const fontRoles = assetsManifest && assetsManifest.fonts
+  ? Object.entries(assetsManifest.fonts).map(([role, entry]) => ({
+      role,
+      family: entry.family ?? null,
+      fontName: entry.fontName ?? null,
+      source: entry.source ?? null,
+      status: entry.status ?? null,
+      registration: entry.registration ?? null,
+      notes: entry.notes ?? null,
+    }))
+  : null;
 
 const manifest = {
   id: templateId,
@@ -138,6 +182,7 @@ const manifest = {
   docKind,
   schemaVersion: "1.0.0",
   publishedAt: new Date().toISOString(),
+  fonts: fontRoles,
   dependencies: {
     graphcompose: projectMeta.targetGraphComposeVersion ?? null,
     jackson: "2.17.2",
@@ -210,6 +255,18 @@ function pascalCase(s) {
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join("");
+}
+
+function readJsonIfExists(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch (cause) {
+    console.warn(`[publish-template] WARN: could not parse ${path.relative(repoRoot, filePath)}: ${cause.message}`);
+    return null;
+  }
 }
 
 function tryGitHead() {

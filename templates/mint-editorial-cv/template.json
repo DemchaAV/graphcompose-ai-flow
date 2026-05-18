@@ -3,13 +3,42 @@
   "displayName": "Mint Editorial CV",
   "sourceProject": "cv-reference",
   "sourceRevision": "revision-006",
-  "sourceCommit": "abc51048570e1f8bdedcf960cf2d65095bed6128",
+  "sourceCommit": "94c503f5fff384654ef4bd79119bb4ffe3efec92",
   "className": "MintEditorialCvTemplate",
   "specClass": "com.demcha.examples.cv.MintEditorialCvSpec",
   "specProviderClass": "com.demcha.examples.cv.MintEditorialCvSpecProvider",
   "docKind": "cv",
   "schemaVersion": "1.0.0",
-  "publishedAt": "2026-05-18T23:19:08.411Z",
+  "publishedAt": "2026-05-18T23:23:52.131Z",
+  "fonts": [
+    {
+      "role": "heading",
+      "family": "Poppins",
+      "fontName": "POPPINS",
+      "source": "graphcompose-bundled",
+      "status": "ok",
+      "registration": "default-fonts",
+      "notes": null
+    },
+    {
+      "role": "body",
+      "family": "Poppins",
+      "fontName": "POPPINS",
+      "source": "graphcompose-bundled",
+      "status": "ok",
+      "registration": "default-fonts",
+      "notes": null
+    },
+    {
+      "role": "fallback",
+      "family": "Helvetica",
+      "fontName": "HELVETICA",
+      "source": "standard14",
+      "status": "ok",
+      "registration": "standard14",
+      "notes": null
+    }
+  ],
   "dependencies": {
     "graphcompose": "1.6.0",
     "jackson": "2.17.2"

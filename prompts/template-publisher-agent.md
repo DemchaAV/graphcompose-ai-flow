@@ -44,6 +44,12 @@ templates/<template-id>/
   assets/
     asset-request.json           ← reproducible asset spec
     icons/*.png                  ← rasterized icons
+    fonts/*.ttf|*.otf            ← ONLY when the revision shipped
+                                    custom font files (source=google-fonts
+                                    or source=custom in assets-manifest).
+                                    Bundled GraphCompose Google Fonts
+                                    (source=graphcompose-bundled) live in
+                                    the JAR and are not copied here.
   preview/
     output.pdf
     output-page-1.png
@@ -72,6 +78,16 @@ templates/<template-id>/
   fixture to make the "example" status obvious)
 - copy `asset-request.json` and the entire `assets/icons/` folder so
   the bundle is renderable without re-running the asset-resolver
+- copy `assets/fonts/` when the revision shipped custom TTF/OTF
+  files (non-bundled Google Fonts or `source=custom` roles in the
+  manifest). When the template uses only `graphcompose-bundled` or
+  `standard14` families no font files need to be copied — they load
+  from the GraphCompose JAR or are part of the PDF base 14 set.
+- mirror `assets-manifest.json#fonts` into `template.json#fonts` so
+  downstream consumers see at a glance which font roles need
+  explicit setup (`file-resource` → drop TTFs and register via
+  `FontFamilyDefinition.files(...)`, `default-fonts` → reference
+  `FontName.<NAME>` directly, `standard14` → always available).
 - copy `output.pdf` and per-page preview PNGs into `preview/`
 - write `README.md`: what the template does, how to copy it into
   another project (Maven deps, classpath), how to swap fixture data,

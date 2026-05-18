@@ -115,6 +115,36 @@ Clickable links live on the data side:
 - `social[].url` → makes the icon + label clickable as one rectangle.
 - `references[].email` → wrapped in a `mailto:` link automatically.
 
+## Fonts
+
+The template uses **Poppins** for both heading and body. Poppins ships
+inside the GraphCompose JAR (via `DefaultFonts.googleFamilies()`), so
+**no `.ttf` files travel with this bundle** — the GraphCompose
+dependency is enough. `template.json#fonts` exposes the manifest:
+
+```json
+"fonts": [
+  { "role": "heading",  "family": "Poppins",   "fontName": "POPPINS",   "source": "graphcompose-bundled", "registration": "default-fonts" },
+  { "role": "body",     "family": "Poppins",   "fontName": "POPPINS",   "source": "graphcompose-bundled", "registration": "default-fonts" },
+  { "role": "fallback", "family": "Helvetica", "fontName": "HELVETICA", "source": "standard14",           "registration": "standard14" }
+]
+```
+
+To swap typography:
+
+| Replacement family                              | What to do                                                                                                                                                                                                |
+|---|---|
+| Any **bundled GraphCompose** family (Lato, Fira Sans, IBM Plex, Kanit, ...)         | Change `HEADING_FONT` / `BODY_FONT` constants in `MintEditorialCvTemplate.java`. No registration, no file copy.                                                                                            |
+| **Standard 14** (Helvetica / Times / Courier)   | Use `FontName.HELVETICA` / `FontName.TIMES_ROMAN` / `FontName.COURIER`. Always available.                                                                                                                  |
+| **Custom Google font** (e.g. Inter, Roboto Mono) or in-house family | 1. Drop `.ttf`/`.otf` files under `assets/fonts/` (the bundle has the folder waiting if a future revision needs it). 2. Register before opening the session — `FontFamilyDefinition.files(...).boldPath(...).build()` then `FontLibrary.addFont(...)`. 3. Point `HEADING_FONT` / `BODY_FONT` at `FontName.of("Inter")` (etc). |
+
+If you go the custom-font route in a downstream project, add the
+font role to your own `asset-request.json` with
+`"source": "google-fonts"` so the asset-resolver records the
+`manual_drop_required` marker against it. The bundled template here
+ships with NO `assets/fonts/` folder by design — the asset-resolver
+only creates the directory when a non-bundled font role asks for it.
+
 ## Customize visuals
 
 All tuning knobs live in `MintEditorialCvTemplate.java` as

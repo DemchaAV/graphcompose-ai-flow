@@ -85,6 +85,40 @@ import com.demcha.examples.cv.MintEditorialCvSpec.SocialLink;
  * (typically the directory containing this template's
  * {@code data/cv-data.example.json}).
  *
+ * <h3>Fonts</h3>
+ *
+ * The template uses {@code FontName.POPPINS} for both heading and body.
+ * Poppins is part of the GraphCompose bundled Google Fonts list
+ * (see {@code DefaultFonts.googleFamilies()}), so it loads from the
+ * library JAR — the bundle ships NO {@code .ttf} files for it.
+ * {@code template.json#fonts} carries the manifest entry so downstream
+ * tools can audit which fonts the bundle needs.
+ *
+ * <p>To swap typography while staying within the bundle:</p>
+ *
+ * <ul>
+ *   <li><b>Any bundled Google family</b> — change
+ *       {@link #HEADING_FONT} and {@link #BODY_FONT} to
+ *       {@code FontName.LATO}, {@code FontName.FIRA_SANS}, etc.
+ *       No additional registration required.</li>
+ *   <li><b>Standard 14 (Helvetica / Times / Courier)</b> — use
+ *       {@code FontName.HELVETICA} (etc.). Always available, no setup.</li>
+ *   <li><b>A custom non-bundled family (e.g. a Google font outside the
+ *       bundled list, or an in-house typeface)</b> — drop the
+ *       {@code .ttf}/{@code .otf} files into {@code assets/fonts/} in
+ *       your project, register the family before opening the session:
+ *       <pre>{@code
+ *       FontFamilyDefinition inter = FontFamilyDefinition
+ *               .files(FontName.of("Inter"),
+ *                      Path.of("assets/fonts/Inter-Regular.ttf"))
+ *               .boldPath(Path.of("assets/fonts/Inter-Bold.ttf"))
+ *               .build();
+ *       // pass `inter` to the document session set-up so the FontLibrary
+ *       // resolves FontName.of("Inter") at measurement and render time.
+ *       }</pre>
+ *       Then point {@link #HEADING_FONT} at {@code FontName.of("Inter")}.</li>
+ * </ul>
+ *
  * <h3>Customization points</h3>
  *
  * <ul>
@@ -95,12 +129,8 @@ import com.demcha.examples.cv.MintEditorialCvSpec.SocialLink;
  *       {@link #MUTED}, {@link #RULE}. Swap colors here for an
  *       on-brand palette without touching layout.</li>
  *   <li><b>Typography</b> — {@link #HEADING_FONT} and
- *       {@link #BODY_FONT}. Both default to {@link FontName#POPPINS}
- *       from the GraphCompose bundled Google Fonts list. Any other
- *       bundled family (Lato, Fira Sans, IBM Plex Serif, etc.) drops in
- *       without touching layout; custom (non-bundled) fonts require a
- *       {@code FontLibrary.addFont(...)} registration in your session
- *       set-up.</li>
+ *       {@link #BODY_FONT}. See the Fonts section above for the swap
+ *       options.</li>
  *   <li><b>Page geometry</b> — {@link #PAGE_MARGIN_TOP},
  *       {@link #PAGE_MARGIN_SIDE}, {@link #PAGE_MARGIN_BOTTOM},
  *       {@link #COLUMN_GAP}, {@link #SIDEBAR_WIDTH}. Adjust the page
