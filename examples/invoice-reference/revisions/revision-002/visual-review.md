@@ -3,10 +3,13 @@
 ## Summary
 
 Revision-002 lifts the three summary rows (`Subtotal`, `Tax (8%)`,
-`TOTAL`) out of `table.footer(...)` and into a dedicated
+`TOTAL`) out of the line-items table (where revision-001 emitted
+them inline via `TableBuilder.totalRow(...)`) and into a dedicated
 `addSection("Summary", ...)` placed directly after `LineItems` in
-the page flow. The section mirrors the line-items column
-proportions so its right edge sits under the `Amount` column.
+the page flow. The Summary section composes its own 4-column inner
+table that mirrors the `LineItems` column spec exactly
+(`auto + 54 + 96 + 96` pt), so the totals end up under the `Amount`
+column above.
 Render artifacts are still pending Phase 6, so this review continues
 to describe the *expected* outcome based on the template structure
 committed in
@@ -55,19 +58,22 @@ output:
   the template still uses approximately 4 mm and the reference
   does not state a numeric radius. Classification: MINOR until the
   rendered output is compared.
-- Summary section right-edge alignment. The section uses the same
-  column proportions as the line-items table, but the exact pixel
-  offset still depends on the renderer's column-weight resolution
-  and on the verified `column-mirror` builder method (tagged
-  `TODO(visual-review)` in the template). Classification: MINOR,
-  pending render (downgraded from the parent revision's MAJOR-risk
-  reading because the section now declares the same content width
-  as the table).
-- Summary divider weight. The `TOTAL` row still renders with a
-  thin divider above it via `section.divider().color(...)`. If the
-  divider looks weak after render (one-point stroke against a navy
-  total figure), the next revision may need to raise the stroke
-  width. Classification: MINOR until measured.
+- Summary section right-edge alignment. The section builds its own
+  inner table with the same `DocumentTableColumn` spec as the
+  line-items table above (`auto + 54 + 96 + 96` pt), so the
+  rightmost cell shares the `Amount` column's pixel position. The
+  exact alignment still depends on the auto column's resolved
+  width, which the renderer pins from the description widths in
+  each table; if the two tables compute slightly different auto
+  widths, the totals row will drift. Classification: MINOR, pending
+  render (downgraded from the parent revision's MAJOR-risk reading
+  because the section now declares the same column spec as the
+  table).
+- Theme palette difference. Carried over from
+  [`../revision-001/visual-review.md`](../revision-001/visual-review.md);
+  the rewrite uses `BusinessTheme.modern()` (deep teal + warm gold)
+  rather than the reference's `#1F4E79` deep navy. Classification:
+  MINOR (theme swap).
 
 ## Accepted Limitations
 

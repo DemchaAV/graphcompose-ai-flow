@@ -15,8 +15,9 @@ being available on a reachable Maven repository).
 
 The render subcommand cannot do useful work until GraphCompose 1.6 is published
 to a Maven repository this machine can reach. Until then, it documents the
-contract by attempting to resolve `com.demcha.graphcompose.DocumentSession` on
-the supplied `--classpath` and emitting a clear message when that class is
+contract by attempting to resolve `com.demcha.compose.document.api.DocumentSession`
+(the canonical FQCN of the real GraphCompose 1.6 session class) on the
+supplied `--classpath` and emitting a clear message when that class is
 absent. This is by design, not a bug.
 
 ## Build
@@ -51,8 +52,13 @@ absolute path of the written PNG is printed to stdout and the process exits 0.
 java -jar target/preview-renderer.jar render \
   --revision examples/invoice-reference/revisions/revision-001 \
   --template-class com.demcha.examples.invoice.GeneratedInvoiceTemplate \
-  --classpath "/path/to/graphcompose-1.6.0.jar"
+  --classpath "/path/to/GraphCompose-v1.6.0.jar"
 ```
+
+GraphCompose 1.6.0 ships through JitPack as `com.github.DemchaAV:GraphCompose:v1.6.0`.
+The expected jar name is `GraphCompose-v1.6.0.jar` (resolved by Maven from
+`https://jitpack.io`), and the canary classpath check looks for
+`com.demcha.compose.document.api.DocumentSession` inside it.
 
 When the supplied `--classpath` does not include the GraphCompose runtime, the
 tool prints these two lines verbatim and exits 0:

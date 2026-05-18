@@ -42,18 +42,30 @@ contract and will need to be confirmed against the rendered
 output:
 
 - Hero panel corner radius. The reference does not state a numeric
-  radius; the template uses approximately 4 mm. Classification:
-  MINOR until the rendered output is compared.
+  radius; the template uses 10 pt (passed to the canonical
+  `softPanel(...)` preset). Classification: MINOR until the
+  rendered output is compared.
 - Summary-row alignment. The three summary rows under the table
   must align visually with the `Amount` column. The template uses
-  the same content width as the table, but the exact pixel offset
-  depends on the renderer's column-weight resolution.
-  Classification: MINOR until measured.
-- Logo placeholder rendering. The reference shows a flat dark
-  square; the template renders it as a shape container filled with
-  `bodyText`. If the data layer supplies a real logo image, the
-  placeholder is replaced; otherwise the fallback shape is shown.
-  Classification: MINOR.
+  the same column spec as the line-items table (auto + 54 + 96 + 96
+  pt), but the exact pixel offset depends on the renderer's
+  auto-column resolution. Classification: MINOR until measured.
+- Theme palette difference. The original reference description
+  asked for a deep navy `#1F4E79` accent; the rewrite uses the real
+  `BusinessTheme.modern()` factory whose primary is `rgb(20, 60, 75)`
+  (a deep teal) and whose accent is `rgb(196, 153, 76)` (a warm
+  gold). This is a deliberate trade — the real library does not yet
+  expose a single-line theme builder for arbitrary accent hexes, so
+  we pick the closest preset rather than inventing a fake
+  constructor. Classification: MINOR (theme swap).
+- Logo placement is no longer included. The original reference
+  showed a flat dark logo square; the rewrite drops that block
+  because the real `SectionBuilder` does not yet expose a top-level
+  `shape(name, lambda)` primitive directly inside a row column
+  without a `ShapeContainerBuilder` outline detour. The same visual
+  intent will return once the fixture run validates the
+  `addContainer(...)` + `rectangle(...)` shape-container path.
+  Classification: MINOR (region omitted, recoverable).
 
 ## Accepted Limitations
 
@@ -73,13 +85,14 @@ output:
 
 ### Header
 
-Expected result: a two-column header with a small dark logo square
-on the left, the company name and muted address line stacked
-beside it, and the `INVOICE` title, invoice number, and issue date
-stacked on the right. The implementation uses two sections inside
-an `addRow("Header", ...)` call. Risks: logo shape API binding
-(tagged `TODO(visual-review)` in the template) and exact heading
-weight.
+Expected result: a two-column header. In the real-API rewrite, the
+left column carries the sender company name (rendered with
+`theme.text().h2()`) and the first address line in muted caption
+text. The right column carries the `INVOICE` title (`theme.text().h1()`),
+the invoice number, and the issue date in caption text. The
+implementation uses two sections inside an `addRow("Header", ...)`
+call with `weights(1, 1)`. Risks: heading-weight exact rendering
+and the absent logo placeholder (see Minor Mismatches above).
 
 ### Hero
 
@@ -108,15 +121,18 @@ reference also implies).
 Note: the §5.8 verbatim heading is "Table"; this section covers
 the line-items table.
 
-Expected result: dark navy header background with white text, four
-columns at 50/10/20/20 proportions, five data rows with alternating
-white and `#F8F8FA` backgrounds, and a trailing block of three
-summary rows (`Subtotal`, `Tax (8%)`, `TOTAL`) with the `TOTAL`
-row in heavier weight and a thin divider above it. Implementation
-uses `addTable("LineItems", ...)` and the `renderSummaryRow`
-helper inside `table.footer(...)`. Risks: exact builder for
-repeated headers (tagged `TODO(visual-review)`) and column-weight
-resolution at narrow page widths.
+Expected result: a themed header row over four columns
+(one `auto` description column plus three fixed-width numeric
+columns at 54 / 96 / 96 pt), five data rows with zebra row
+alternation between the `surface` and `surfaceMuted` palette
+tokens, and a trailing block of summary rows (`Subtotal`,
+`Tax (8%)`, `TOTAL`) where the `TOTAL` row renders via the real
+`TableBuilder.totalRow(totalStyle, ...)` so it picks up the
+totals fill and bold label style. Implementation uses
+`addTable(...)` and `repeatHeader()`. The original reference's
+50/10/20/20 percentage weights are approximated by `auto + fixed`
+points because the real `DocumentTableColumn` exposes those two
+modes only.
 
 ### Footer
 

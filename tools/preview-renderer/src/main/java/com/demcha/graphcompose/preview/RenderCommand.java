@@ -20,7 +20,8 @@ import java.util.Map;
  * <ol>
  *   <li>Validates the revision folder.</li>
  *   <li>Loads a {@link URLClassLoader} from the supplied {@code --classpath}.</li>
- *   <li>Attempts to resolve {@code com.demcha.graphcompose.DocumentSession}.</li>
+ *   <li>Attempts to resolve {@code com.demcha.compose.document.api.DocumentSession}
+ *       — the canonical FQCN of the real GraphCompose 1.6 session class.</li>
  *   <li>If GraphCompose is absent, prints the skeleton message and exits 0.</li>
  *   <li>If GraphCompose is present, leaves a TODO at the wiring point.</li>
  * </ol>
@@ -38,7 +39,11 @@ final class RenderCommand {
     static final String SKELETON_MESSAGE_LINE_2 =
             "supply --classpath pointing at graphcompose-<version>.jar to enable rendering.";
 
-    private static final String DOCUMENT_SESSION_FQCN = "com.demcha.graphcompose.DocumentSession";
+    // The real GraphCompose 1.6 session class lives at
+    // com.demcha.compose.document.api.DocumentSession. The renderer's own
+    // package name (com.demcha.graphcompose.preview) is independent — it
+    // is this tool's namespace, not the library's.
+    private static final String DOCUMENT_SESSION_FQCN = "com.demcha.compose.document.api.DocumentSession";
 
     private RenderCommand() {
         // command dispatch only

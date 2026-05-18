@@ -58,7 +58,7 @@ columns are repo-relative.
 | `fail` CLI verb | 5 | none | not implemented | GAP (failed revisions cannot be recorded by the tool; the plan §10.4 mandates the FAILED status) |
 | `tools/preview-renderer/` | 6 | README, roadmap | `tools/preview-renderer/` | REAL-WITH-CAVEAT (7/7 tests pass; only the `preview` subcommand is functional) |
 | preview-renderer `preview` | 6 | tool README | `src/main/java/.../PreviewCommand.java` | REAL (Apache PDFBox 3; verified by test) |
-| preview-renderer `render` | 6 | tool README | `src/main/java/.../RenderCommand.java` | PLACEHOLDER (skeleton with `Class.forName` detection; honestly documented as skeleton; CRITICAL: canary FQCN at line 41 is `com.demcha.graphcompose.DocumentSession` which does not exist in the real library, so detection cannot succeed against a real GraphCompose jar) |
+| preview-renderer `render` | 6 | tool README | `src/main/java/.../RenderCommand.java` | PLACEHOLDER (skeleton with `Class.forName` detection; honestly documented as skeleton; canary FQCN updated to the real `com.demcha.compose.document.api.DocumentSession`, so detection will succeed against a real GraphCompose 1.6 jar) |
 | preview-renderer `ArtifactUpdater` | 6 | tool README | `src/main/java/.../ArtifactUpdater.java` | REAL |
 | `tools/visual-diff/` | 7 | README, roadmap | `tools/visual-diff/` | REAL (21/21 tests pass; smoke test against identical fixtures returns IDENTICAL; smoke test against 1-pixel-of-1024 difference returns `mismatchPx: 1`, classification `MINOR`) |
 | visual-diff classification thresholds | 7 | tool README | `src/classify.ts` | REAL (matches README table) |
