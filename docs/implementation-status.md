@@ -22,7 +22,7 @@ The remaining gap is narrower: `preview-renderer render` can now
 execute compiled GraphCompose templates from the supplied classpath
 and write `output.pdf` plus `output.png`. The invoice reference
 example now has a render-runner project and committed binary outputs
-for both revisions. The fixtures still do not have an automated
+for three revisions. The fixtures still do not have an automated
 visual baseline refresh (`layout-snapshot.json`, visual diff).
 Because of that, skills remain `status: needs-validation` until the
 visual review loop completes against committed baselines.
@@ -34,7 +34,7 @@ visual review loop completes against committed baselines.
 | Documentation MVP | README, docs, AGENTS, prompts, contributing guide, limitations, roadmap | REAL |
 | Agent prompt pack | 10 prompt files under `prompts/` | REAL |
 | Versioned skill pack | 14 files under `skills/versions/graphcompose-1.6/` with manifest/frontmatter checks | REAL, still `needs-validation` |
-| Manual invoice example | Two revisions under `examples/invoice-reference/`, render-runner, committed `output.pdf`/`output.png` | REAL-WITH-CAVEAT: visual baseline absent |
+| Manual invoice example | Three revisions under `examples/invoice-reference/`, render-runner, committed `output.pdf`/`output.png` | REAL-WITH-CAVEAT: visual baseline absent |
 | Revision statuses | `DRAFT`, `APPROVED`, `REJECTED`, `SUPERSEDED`, `FAILED`, `REVERTED` in `tools/revision-manager/src/types.ts` | REAL |
 | `graphcompose-flow fail` | Implemented in `tools/revision-manager/src/commands/fail.ts` | REAL |
 | Revision manager CLI | `init`, `status`, `new-revision`, `approve`, `reject`, `fail`, `undo`, `revert-approved`, `restore-component`, `history`, `diff` | REAL, 27 tests |

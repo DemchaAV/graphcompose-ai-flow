@@ -38,6 +38,13 @@ support for undo, revert-to-approved, and selective rollback.
 This is a companion/lab repository for GraphCompose. It does not modify
 GraphCompose core.
 
+## Quickstart
+
+New users should start with [docs/quickstart.md](docs/quickstart.md).
+It explains what this repository is, how to install the local tooling,
+how to render the invoice example, and how to start a new document
+project.
+
 ## Why this exists
 
 AI-generated PDF code tends to drift toward raw coordinates and one-shot

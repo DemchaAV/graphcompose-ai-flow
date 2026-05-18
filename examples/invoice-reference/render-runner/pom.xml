@@ -13,7 +13,7 @@
     <maven.compiler.target>17</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <graphcompose.version>v1.6.0</graphcompose.version>
-    <revision.id>revision-002</revision.id>
+    <revision.id>revision-003</revision.id>
     <revision.generated.sources>${project.build.directory}/generated-sources/revision</revision.generated.sources>
   </properties>
 

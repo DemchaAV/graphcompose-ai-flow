@@ -98,6 +98,7 @@ jobs:
           set -euo pipefail
           node scripts/render-invoice-reference.mjs revision-001
           node scripts/render-invoice-reference.mjs revision-002
+          node scripts/render-invoice-reference.mjs revision-003
 
   skill-fixtures:
     name: skill-fixtures (GraphCompose 1.6 via JitPack)
