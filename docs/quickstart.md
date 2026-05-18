@@ -98,15 +98,15 @@ node scripts\render-invoice-reference.mjs revision-003
 You can also render the two-page CV reference example:
 
 ```powershell
-node scripts\render-cv-reference.mjs revision-001
+node scripts\render-cv-reference.mjs revision-002
 ```
 
 Outputs:
 
 ```text
-examples/cv-reference/revisions/revision-001/output.pdf
-examples/cv-reference/revisions/revision-001/output.png
-examples/cv-reference/revisions/revision-001/output-page-2.png
+examples/cv-reference/revisions/revision-002/output.pdf
+examples/cv-reference/revisions/revision-002/output.png
+examples/cv-reference/revisions/revision-002/output-page-2.png
 ```
 
 ## Inspect the Revision History

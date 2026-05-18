@@ -123,7 +123,7 @@ and then calls [`tools/preview-renderer`](tools/preview-renderer/).
 A second worked reference under
 [`examples/cv-reference/`](examples/cv-reference/) shows the same flow
 for a two-page graphic-designer CV screenshot pair. It keeps both source
-reference pages, renders a first semantic template draft, and writes page
+reference pages, renders semantic template drafts, and writes page
 previews through [`scripts/render-cv-reference.mjs`](scripts/render-cv-reference.mjs).
 
 ## Limitations

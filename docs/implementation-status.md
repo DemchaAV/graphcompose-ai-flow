@@ -39,7 +39,7 @@ visual review loop completes against committed baselines.
 | Agent prompt pack | 10 prompt files under `prompts/` | REAL |
 | Versioned skill pack | 14 files under `skills/versions/graphcompose-1.6/` with manifest/frontmatter checks | REAL, still `needs-validation` |
 | Manual invoice example | Three revisions under `examples/invoice-reference/`, render-runner, committed `output.pdf`/`output.png` | REAL-WITH-CAVEAT: visual baseline absent |
-| Manual CV example | One two-page draft under `examples/cv-reference/`, render-runner, committed `output.pdf`, `output.png`, and `output-page-2.png` | REAL-WITH-CAVEAT: visual baseline absent |
+| Manual CV example | Two two-page drafts under `examples/cv-reference/`, render-runner, committed `output.pdf`, `output.png`, and `output-page-2.png` for the current draft | REAL-WITH-CAVEAT: visual baseline absent |
 | Revision statuses | `DRAFT`, `APPROVED`, `REJECTED`, `SUPERSEDED`, `FAILED`, `REVERTED` in `tools/revision-manager/src/types.ts` | REAL |
 | `graphcompose-flow fail` | Implemented in `tools/revision-manager/src/commands/fail.ts` | REAL |
 | Revision manager CLI | `init`, `status`, `new-revision`, `approve`, `reject`, `fail`, `undo`, `revert-approved`, `restore-component`, `history`, `diff` | REAL, 27 tests |

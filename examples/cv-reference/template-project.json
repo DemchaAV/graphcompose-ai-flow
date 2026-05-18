@@ -5,8 +5,8 @@
   "targetGraphComposeVersion": "1.6.0",
   "skillPack": "skills/versions/graphcompose-1.6",
   "currentApprovedRevisionId": null,
-  "currentDraftRevisionId": "revision-001",
+  "currentDraftRevisionId": "revision-002",
   "createdAt": "2026-05-18T20:46:39.532Z",
-  "updatedAt": "2026-05-18T20:46:39.658Z",
+  "updatedAt": "2026-05-18T21:15:22.084Z",
   "notes": "Two-page CV reference created from supplied screenshots. reference.png points to page 1 for compatibility; reference-page-1.png and reference-page-2.png preserve both source pages."
 }
