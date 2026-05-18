@@ -2,14 +2,15 @@
 
 A worked manual revision cycle for an A4 portrait invoice. This example
 shows the full artifact set the workflow produces for a single document
-project, including a first generation pass (`revision-001`) and a small
-follow-up revision (`revision-002`).
+project, including a first generation pass (`revision-001`), a small
+summary-alignment follow-up (`revision-002`), and a page-margin fix
+(`revision-003`).
 
 ## Status
 
 Phase 3 of the project roadmap (manual example), now refreshed with
 real render artifacts through the local render runner. Every text
-artifact a real run would produce is included, and both committed
+artifact a real run would produce is included, and all three committed
 revisions now have `output.pdf` plus `output.png`.
 
 | Artifact | Present here | Comes from |
@@ -29,7 +30,7 @@ revisions now have `output.pdf` plus `output.png`.
 | `visual-review.md` | yes (describes expected outcome) | Visual Review |
 | `test-result.md` | yes (describes expected outcome) | Test + Render |
 | `status.md` | yes | Revision Manager |
-| `patch.diff` (revision-002 only) | yes | Template Coder |
+| `patch.diff` (revision-002 and revision-003) | yes | Template Coder |
 
 The binary render artifacts were generated with
 [`../../scripts/render-invoice-reference.mjs`](../../scripts/render-invoice-reference.mjs),
@@ -53,6 +54,7 @@ examples/invoice-reference/
   revisions/
     revision-001/         # initial generation (DRAFT)
     revision-002/         # follow-up tweak (DRAFT, builds on revision-001)
+    revision-003/         # page-margin fix (DRAFT, builds on revision-002)
 ```
 
 ## How to read this example
@@ -65,12 +67,16 @@ examples/invoice-reference/
    would have written.
 4. Then look at [`revisions/revision-002/`](revisions/revision-002/) and
    compare its `patch.diff` against `revision-001/generated-template.java`.
+5. Finish with [`revisions/revision-003/`](revisions/revision-003/), which
+   adds root page padding so the rendered output has white space on the
+   top and left edges.
 
 ## Re-render locally
 
 ```powershell
 node ..\..\scripts\render-invoice-reference.mjs revision-001
 node ..\..\scripts\render-invoice-reference.mjs revision-002
+node ..\..\scripts\render-invoice-reference.mjs revision-003
 ```
 
 The script builds `tools/preview-renderer`, compiles the selected

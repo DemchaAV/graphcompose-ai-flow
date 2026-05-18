@@ -68,7 +68,7 @@ run("java", [
 ], repoRoot);
 
 function parseRevisionId(args) {
-  let revision = "revision-002";
+  let revision = "revision-003";
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     if (arg === "--revision" || arg === "-r") {

@@ -105,9 +105,9 @@ Approved revisions are never overwritten directly. See
 
 A documentation-grade manual revision cycle for an invoice reference
 lives under [`examples/invoice-reference/`](examples/invoice-reference/).
-It ships two revisions with every text artifact the workflow produces.
+It ships three revisions with every text artifact the workflow produces.
 The binary render artifacts (`output.pdf`, `output.png`) are now
-committed for both example revisions. They are produced by
+committed for all example revisions. They are produced by
 [`scripts/render-invoice-reference.mjs`](scripts/render-invoice-reference.mjs),
 which compiles the selected revision through
 [`examples/invoice-reference/render-runner`](examples/invoice-reference/render-runner/)

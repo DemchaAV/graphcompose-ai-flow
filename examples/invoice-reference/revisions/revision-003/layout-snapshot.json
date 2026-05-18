@@ -1,0 +1,69 @@
+{
+  "document": "InvoiceTemplate",
+  "version": "1.6.0",
+  "notes": "Illustrative layout snapshot for revision-003. Bounding boxes are still descriptive rather than extracted from the GraphCompose engine. This revision adds root page padding so the rendered content no longer starts at the page origin.",
+  "page": {
+    "size": "A4",
+    "orientation": "portrait",
+    "widthMm": 210,
+    "heightMm": 297,
+    "marginsMm": 8.5,
+    "marginSource": "PAGE_MARGIN = 24 pt",
+    "contentArea": {
+      "xMm": 8.5,
+      "yMm": 8.5,
+      "widthMm": 193,
+      "heightMm": 280
+    }
+  },
+  "theme": {
+    "accentPrimary": "#1F4E79",
+    "panelBackground": "#F4F4F6",
+    "zebraAlternate": "#F8F8FA",
+    "bodyText": "#1A1A1A",
+    "mutedText": "#6B6B6B",
+    "tableHeaderBackground": "#1F4E79",
+    "tableHeaderText": "#FFFFFF"
+  },
+  "regions": [
+    {
+      "name": "Header",
+      "kind": "row",
+      "change": "inset by root page padding"
+    },
+    {
+      "name": "Hero",
+      "kind": "section",
+      "change": "inset by root page padding; metadata remains on one line"
+    },
+    {
+      "name": "Parties",
+      "kind": "row",
+      "change": "inset by root page padding"
+    },
+    {
+      "name": "LineItems",
+      "kind": "table",
+      "change": "revision-002 structure preserved, now inset from the page edge"
+    },
+    {
+      "name": "Summary",
+      "kind": "section",
+      "change": "revision-002 dedicated summary region preserved"
+    },
+    {
+      "name": "Footer",
+      "kind": "section",
+      "change": "inset by root page padding"
+    }
+  ],
+  "componentMap": {
+    "pageFlow": "Page",
+    "renderHeader": "Header",
+    "renderHero": "Hero",
+    "renderParties": "Parties",
+    "renderLineItems": "LineItems",
+    "renderSummaryBlock": "Summary",
+    "renderFooter": "Footer"
+  }
+}
