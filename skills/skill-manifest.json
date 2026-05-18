@@ -1,10 +1,95 @@
 {
-  "skillsVersion": "0.1.0",
+  "skillsVersion": "0.2.0",
   "targetLibrary": "GraphCompose",
   "supportedGraphComposeVersions": [
     "1.6.x"
   ],
   "defaultGraphComposeVersion": "1.6.x",
-  "skills": [],
-  "notes": "Phase 1: documentation skeleton only. Skills are listed here when Phase 2 ships."
+  "skills": [
+    {
+      "id": "graphcompose-basics",
+      "file": "versions/graphcompose-1.6/graphcompose-basics.md",
+      "verifiedAgainst": "1.6.0",
+      "status": "needs-validation"
+    },
+    {
+      "id": "visual-to-graphcompose-mapping",
+      "file": "versions/graphcompose-1.6/visual-to-graphcompose-mapping.md",
+      "verifiedAgainst": "1.6.0",
+      "status": "needs-validation"
+    },
+    {
+      "id": "layout-primitives",
+      "file": "versions/graphcompose-1.6/layout-primitives.md",
+      "verifiedAgainst": "1.6.0",
+      "status": "needs-validation"
+    },
+    {
+      "id": "tables",
+      "file": "versions/graphcompose-1.6/tables.md",
+      "verifiedAgainst": "1.6.0",
+      "status": "needs-validation"
+    },
+    {
+      "id": "themes-and-colors",
+      "file": "versions/graphcompose-1.6/themes-and-colors.md",
+      "verifiedAgainst": "1.6.0",
+      "status": "needs-validation"
+    },
+    {
+      "id": "typography",
+      "file": "versions/graphcompose-1.6/typography.md",
+      "verifiedAgainst": "1.6.0",
+      "status": "needs-validation"
+    },
+    {
+      "id": "spacing-and-alignment",
+      "file": "versions/graphcompose-1.6/spacing-and-alignment.md",
+      "verifiedAgainst": "1.6.0",
+      "status": "needs-validation"
+    },
+    {
+      "id": "backgrounds-and-panels",
+      "file": "versions/graphcompose-1.6/backgrounds-and-panels.md",
+      "verifiedAgainst": "1.6.0",
+      "status": "needs-validation"
+    },
+    {
+      "id": "layer-stacks-and-overlays",
+      "file": "versions/graphcompose-1.6/layer-stacks-and-overlays.md",
+      "verifiedAgainst": "1.6.0",
+      "status": "needs-validation"
+    },
+    {
+      "id": "shapes-and-containers",
+      "file": "versions/graphcompose-1.6/shapes-and-containers.md",
+      "verifiedAgainst": "1.6.0",
+      "status": "needs-validation"
+    },
+    {
+      "id": "pagination",
+      "file": "versions/graphcompose-1.6/pagination.md",
+      "verifiedAgainst": "1.6.0",
+      "status": "needs-validation"
+    },
+    {
+      "id": "visual-regression",
+      "file": "versions/graphcompose-1.6/visual-regression.md",
+      "verifiedAgainst": "1.6.0",
+      "status": "needs-validation"
+    },
+    {
+      "id": "revision-discipline",
+      "file": "versions/graphcompose-1.6/revision-discipline.md",
+      "verifiedAgainst": "1.6.0",
+      "status": "needs-validation"
+    },
+    {
+      "id": "troubleshooting",
+      "file": "versions/graphcompose-1.6/troubleshooting.md",
+      "verifiedAgainst": "1.6.0",
+      "status": "needs-validation"
+    }
+  ],
+  "notes": "Phase 2: skill pack written for graphcompose-1.6.x. All skills carry status needs-validation; Phase 4 validation fixtures will exercise them against the real library and promote validated entries to status active."
 }

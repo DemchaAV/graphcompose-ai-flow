@@ -19,12 +19,17 @@ The authoritative list of skills and their compatibility is in
 [`skill-manifest.json`](skill-manifest.json). Agents must read the manifest
 first and load only the skill files it references.
 
-## Phase 1 status
+## Current status
 
-The first skill pack targets `graphcompose-1.6` and ships in Phase 2. In the
-current phase the `versions/` directory is intentionally empty and the
-`skills` array in the manifest is empty. Phase 2 will populate the directory
-with the skill files listed in the repository structure docs.
+Phase 2 has shipped the first skill pack under
+[`versions/graphcompose-1.6/`](versions/graphcompose-1.6/). It contains 14
+skill files, all listed in [`skill-manifest.json`](skill-manifest.json) with
+`status: needs-validation`. The skills describe GraphCompose 1.6.x
+semantics conceptually; specific method signatures will be exercised against
+the real library by the Phase 4 validation fixtures. Validated entries will
+be promoted to `status: active` at that point. Skills found to conflict
+with the library will be marked `failed-validation` and fixed per the
+[skill drift rule](../docs/skill-validation.md).
 
 ## Skill statuses
 
