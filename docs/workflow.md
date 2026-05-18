@@ -39,6 +39,8 @@ Create Visual Review
 Revise if Needed
   ↓
 Approve / Reject / Rollback
+  ↓
+Publish Template (on APPROVE only)
 ```
 
 The earlier, simpler form was just `Analyze → Plan → Generate →
@@ -195,6 +197,19 @@ marks the draft REJECTED. Rollback is covered in detail in
 [rollback.md](rollback.md). The Revision Manager never overwrites the
 approved revision directly — every change creates a new revision.
 
+### 16. Publish Template
+
+Owner: Template Publisher Agent ([agents.md](agents.md#template-publisher-agent)).
+Runs only when step 15 transitioned the revision to APPROVED.
+Reads `template-project.json` and the approved revision folder,
+rewrites `Generated<X>Template` as `<DisplayName>Template` with
+publish-quality Javadoc, and copies the spec, provider, data file,
+asset bundle, and rendered preview into
+`templates/<template-id>/`. The bundle is the artifact downstream
+consumers copy into their own projects. See
+[`scripts/publish-template.mjs`](../scripts/publish-template.mjs) for
+the deterministic copy step.
+
 ## Artifact lifecycle
 
 This is the order in which artifacts appear in a typical revision
@@ -230,3 +245,20 @@ A FAILED revision still keeps every artifact that was produced before
 the failure point. See [revision-model.md](revision-model.md) for the
 full artifact inventory and the rule about not overwriting approved
 revisions.
+
+After APPROVAL, the Template Publisher Agent additionally emits a
+publish-quality bundle outside the revision folder:
+
+- `templates/<template-id>/README.md`
+- `templates/<template-id>/template.json` (id, displayName,
+  sourceProject, sourceRevision, sourceCommit, schemaVersion,
+  dependencies)
+- `templates/<template-id>/src/<TemplateClass>.java` — renamed
+  from `Generated<X>Template`, with full Javadoc
+- `templates/<template-id>/src/<Spec>.java`
+- `templates/<template-id>/src/<SpecProvider>.java`
+- `templates/<template-id>/data/<doc-kind>-data.example.json`
+- `templates/<template-id>/assets/asset-request.json`
+- `templates/<template-id>/assets/icons/*.png`
+- `templates/<template-id>/preview/output.pdf`
+- `templates/<template-id>/preview/output-page-N.png`

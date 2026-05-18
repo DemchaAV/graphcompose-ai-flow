@@ -79,7 +79,16 @@ Every change creates a new revision.
 
 - Runs after `visual-review-agent.md` has produced `visual-review.md`.
 - Receives approval, rejection, undo, revert-to-approved, and selective-rollback instructions routed by `orchestrator-agent.md`.
-- Produces the final revision state that the user sees. There is no further agent downstream; the next event in the pipeline is the next user request, which re-enters at `orchestrator-agent.md`.
+- On a successful APPROVE — once `revision.json#status` is set to
+  `APPROVED` and `template-project.json#currentApprovedRevisionId`
+  is updated — hands off to `template-publisher-agent.md` to emit
+  the publish-quality bundle under `templates/<template-id>/`.
+  Publish is auto-triggered, not user-requested; the only thing the
+  user does is approve. REJECT, UNDO, REVERT, and SUPERSEDE
+  transitions never trigger publishing.
+- Otherwise produces the final revision state that the user sees and
+  the next event in the pipeline is the next user request, which
+  re-enters at `orchestrator-agent.md`.
 - See `docs/revision-model.md` for revision metadata, statuses, and artifact layout, and `docs/rollback.md` for the rollback semantics.
 
 # Shared Rules

@@ -29,6 +29,10 @@ Visual Review Agent
 Revision Manager Agent
         ↓
 User Approval / Rollback
+        ↓
+Template Publisher Agent (on APPROVE only)
+        ↓
+templates/<template-id>/
 ```
 
 The original simple plan ended at the visual review. The improved
@@ -36,7 +40,9 @@ chain adds explicit version detection, skill resolution, skill
 validation, an Asset Resolver between architecture planning and code
 generation so icons and fonts are downloaded before the Template Coder
 runs, and a separate revision manager so that no agent except the
-Revision Manager can change project metadata.
+Revision Manager can change project metadata. A Template Publisher
+runs after APPROVAL and turns the frozen revision into a
+publish-quality, end-user-friendly bundle under `templates/`.
 
 ## Template Orchestrator Agent
 
@@ -392,3 +398,50 @@ See [revision-model.md](revision-model.md) and [rollback.md](rollback.md)
 for the data model and the rollback flows the Revision Manager
 implements. The shared master prompt that bundles all agents lives at
 [`prompts/master-prompt.md`](../prompts/master-prompt.md).
+
+## Template Publisher Agent
+
+Purpose: promote an APPROVED revision into a publish-quality,
+end-user-friendly bundle under `templates/<template-id>/`. Runs only
+after the Revision Manager Agent flips a revision to APPROVED. The
+bundle is the single artifact a downstream consumer copies into their
+project.
+
+Inputs: `template-project.json`, the approved revision's folder
+(`examples/<project>/revisions/<approved>/`), and the runner-side
+spec sources (`examples/<project>/render-runner/src/main/java/...`).
+
+Outputs: `templates/<template-id>/` containing the polished template
+class (with full Javadoc and renamed class), the spec record and
+provider copied verbatim, an example data file, the asset request +
+icons folder, the preview PDF + per-page PNGs, a `README.md`, and a
+`template.json` manifest pointing at the source revision and commit.
+
+Responsibilities:
+
+- read the approved revision and `template-project.json#displayName`
+- rename the revision's `Generated<X>Template` class to the
+  PascalCase form of the display name
+  (e.g. `"Mint Editorial CV"` → `MintEditorialCvTemplate`)
+- add comprehensive Javadoc that an end user can read without
+  context: class header + per-method docs + "Customization point"
+  callouts on theme tokens, sizes, fonts, and grid widths
+- copy the spec record and provider as-is from the runner; their
+  Javadoc is owned by the Template Coder
+- copy the data file as `<doc-kind>-data.example.json`
+- copy the asset request + `assets/icons/*.png` so the bundle is
+  renderable without an Iconify round-trip
+- copy `output.pdf` and per-page preview PNGs into `preview/`
+- write `README.md` (purpose, copy-into-project instructions, swap
+  data instructions) and `template.json` (`id`, `displayName`,
+  `sourceProject`, `sourceRevision`, `sourceCommit`, `schemaVersion`,
+  `dependencies`)
+
+Forbidden: inventing template content, mutating the source revision
+folder, publishing a non-APPROVED revision, and shipping a partial
+bundle.
+
+Prompt: [`prompts/template-publisher-agent.md`](../prompts/template-publisher-agent.md).
+Helper: [`scripts/publish-template.mjs`](../scripts/publish-template.mjs) is
+the deterministic copy step; the Javadoc polish is the agent's
+editorial work on top.

@@ -1,0 +1,17 @@
+{
+  "id": "mint-editorial-cv",
+  "displayName": "Mint Editorial CV",
+  "sourceProject": "cv-reference",
+  "sourceRevision": "revision-006",
+  "sourceCommit": "abc51048570e1f8bdedcf960cf2d65095bed6128",
+  "className": "MintEditorialCvTemplate",
+  "specClass": "com.demcha.examples.cv.MintEditorialCvSpec",
+  "specProviderClass": "com.demcha.examples.cv.MintEditorialCvSpecProvider",
+  "docKind": "cv",
+  "schemaVersion": "1.0.0",
+  "publishedAt": "2026-05-18T23:19:08.411Z",
+  "dependencies": {
+    "graphcompose": "1.6.0",
+    "jackson": "2.17.2"
+  }
+}

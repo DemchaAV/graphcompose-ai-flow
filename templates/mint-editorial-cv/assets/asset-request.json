@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "1.0.0",
+  "icons": [
+    {
+      "token": "phone",
+      "iconSet": "mdi:phone-outline",
+      "preferredSets": ["mdi", "tabler", "lucide"],
+      "size": 64,
+      "pointSize": 9,
+      "color": "#181818"
+    },
+    {
+      "token": "email",
+      "iconSet": "mdi:email-outline",
+      "preferredSets": ["mdi", "tabler", "lucide"],
+      "size": 64,
+      "pointSize": 9,
+      "color": "#181818"
+    },
+    {
+      "token": "location",
+      "iconSet": "mdi:map-marker-outline",
+      "preferredSets": ["mdi", "tabler", "lucide"],
+      "size": 64,
+      "pointSize": 9,
+      "color": "#181818"
+    },
+    {
+      "token": "website",
+      "iconSet": "mdi:web",
+      "preferredSets": ["mdi", "tabler", "lucide"],
+      "size": 64,
+      "pointSize": 9,
+      "color": "#181818"
+    },
+    {
+      "token": "twitter",
+      "iconSet": "entypo-social:twitter-with-circle",
+      "preferredSets": ["entypo-social", "mdi"],
+      "size": 96,
+      "pointSize": 13,
+      "color": "#181818"
+    },
+    {
+      "token": "facebook",
+      "iconSet": "entypo-social:facebook-with-circle",
+      "preferredSets": ["entypo-social", "mdi"],
+      "size": 96,
+      "pointSize": 13,
+      "color": "#181818"
+    },
+    {
+      "token": "pinterest",
+      "iconSet": "entypo-social:pinterest-with-circle",
+      "preferredSets": ["entypo-social", "mdi"],
+      "size": 96,
+      "pointSize": 13,
+      "color": "#181818"
+    },
+    {
+      "token": "linkedin",
+      "iconSet": "entypo-social:linkedin-with-circle",
+      "preferredSets": ["entypo-social", "mdi"],
+      "size": 96,
+      "pointSize": 13,
+      "color": "#181818"
+    },
+    {
+      "token": "expertise-badge",
+      "iconSet": "mdi:check-circle-outline",
+      "preferredSets": ["mdi", "tabler", "lucide"],
+      "size": 192,
+      "pointSize": 38,
+      "color": "#181818"
+    }
+  ],
+  "fonts": [
+    {
+      "role": "heading",
+      "family": "Poppins",
+      "weights": [400, 700],
+      "source": "graphcompose-bundled"
+    },
+    {
+      "role": "body",
+      "family": "Poppins",
+      "weights": [400, 700],
+      "source": "graphcompose-bundled"
+    },
+    {
+      "role": "fallback",
+      "family": "Helvetica",
+      "weights": [400, 700],
+      "source": "standard14"
+    }
+  ]
+}
