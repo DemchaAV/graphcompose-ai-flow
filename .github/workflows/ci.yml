@@ -1,0 +1,141 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  revision-manager:
+    name: revision-manager (Node 20)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/revision-manager
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: tools/revision-manager/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - name: smoke (init / new-revision / approve / history)
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          cd "$tmp"
+          node "$GITHUB_WORKSPACE/tools/revision-manager/bin/graphcompose-flow.mjs" init demo
+          cd demo
+          node "$GITHUB_WORKSPACE/tools/revision-manager/bin/graphcompose-flow.mjs" status
+          node "$GITHUB_WORKSPACE/tools/revision-manager/bin/graphcompose-flow.mjs" new-revision "first draft"
+          node "$GITHUB_WORKSPACE/tools/revision-manager/bin/graphcompose-flow.mjs" approve
+          node "$GITHUB_WORKSPACE/tools/revision-manager/bin/graphcompose-flow.mjs" history
+
+  visual-diff:
+    name: visual-diff (Node 20)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/visual-diff
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: tools/visual-diff/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - name: smoke (identical fixtures -> IDENTICAL)
+        run: |
+          set -euo pipefail
+          out="$(node bin/visual-diff.mjs fixtures/identical-a.png fixtures/identical-b.png --json)"
+          echo "$out"
+          echo "$out" | grep -q '"classification": "IDENTICAL"'
+          echo "$out" | grep -q '"parityScore": 100'
+
+  preview-renderer:
+    name: preview-renderer (Java 17 + Maven)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/preview-renderer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+      - run: mvn -B -q -DskipTests=false test
+      - run: mvn -B -q -DskipTests=true package
+      - name: smoke (render without GraphCompose classpath)
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          mkdir -p "$tmp/revision"
+          printf '{"id":"revision-001","status":"DRAFT"}\n' > "$tmp/revision/revision.json"
+          touch "$tmp/revision/generated-template.java"
+          out="$(java -jar target/preview-renderer.jar render --revision "$tmp/revision" --template-class com.example.Whatever --classpath "" 2>&1)"
+          echo "$out"
+          echo "$out" | grep -q 'graphcompose runtime not detected on classpath'
+
+  manifest-sanity:
+    name: skill manifest sanity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: every skill in skill-manifest.json exists on disk
+        run: |
+          set -euo pipefail
+          node -e "
+            const fs = require('node:fs');
+            const path = require('node:path');
+            const manifest = JSON.parse(fs.readFileSync('skills/skill-manifest.json', 'utf8'));
+            if (!Array.isArray(manifest.skills)) {
+              console.error('skills field is not an array');
+              process.exit(1);
+            }
+            let bad = 0;
+            for (const skill of manifest.skills) {
+              const p = path.join('skills', skill.file);
+              if (!fs.existsSync(p)) {
+                console.error('missing: ' + p + '  (id: ' + skill.id + ')');
+                bad++;
+              }
+            }
+            console.log('manifest lists ' + manifest.skills.length + ' skill(s)');
+            if (bad > 0) {
+              console.error(bad + ' missing file(s)');
+              process.exit(1);
+            }
+          "
+      - name: every revision.json under examples/ parses as JSON
+        run: |
+          set -euo pipefail
+          find examples -name 'revision.json' -print0 | while IFS= read -r -d '' f; do
+            node -e "JSON.parse(require('node:fs').readFileSync('$f','utf8'))" \
+              || { echo "invalid JSON: $f"; exit 1; }
+            echo "ok: $f"
+          done
+      - name: template-project.json parses for every project under examples/
+        run: |
+          set -euo pipefail
+          find examples -name 'template-project.json' -print0 | while IFS= read -r -d '' f; do
+            node -e "JSON.parse(require('node:fs').readFileSync('$f','utf8'))" \
+              || { echo "invalid JSON: $f"; exit 1; }
+            echo "ok: $f"
+          done

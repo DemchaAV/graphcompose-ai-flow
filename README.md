@@ -1,5 +1,7 @@
 # GraphCompose AI Template Flow
 
+[![ci](https://github.com/DemchaAV/graphcompose-ai-flow/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DemchaAV/graphcompose-ai-flow/actions/workflows/ci.yml)
+
 A strict AI-assisted visual matching workflow for turning document references
 into maintainable GraphCompose Java templates.
 
