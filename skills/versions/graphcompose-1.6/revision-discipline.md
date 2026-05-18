@@ -35,7 +35,7 @@ This rule is non-negotiable. Even a one-line edit to a render method
 produces a fresh `revision-N` folder; the previous revision keeps its
 artifacts intact. The cost is folder count. The benefit is that
 every step is reversible and the rollback flows in
-[`../../docs/rollback.md`](../../docs/rollback.md) become mechanical
+[`../../../docs/rollback.md`](../../../docs/rollback.md) become mechanical
 rather than guesswork.
 
 ## What "creates a revision" means
@@ -54,7 +54,7 @@ Every change produces:
   draft was derived from
 
 The artifact inventory and revision-metadata shape live in
-[`../../docs/revision-model.md`](../../docs/revision-model.md). The
+[`../../../docs/revision-model.md`](../../../docs/revision-model.md). The
 skill defers to that page for the exact JSON.
 
 ## No destructive overwrite of approved revisions
@@ -89,7 +89,7 @@ The revision's `status` is flipped to `FAILED` in its own
 `revision.json`. The next revision is created from the previous good
 draft (or the approved revision), never by editing the failed folder
 in place. See
-[`../../docs/revision-model.md`](../../docs/revision-model.md) for
+[`../../../docs/revision-model.md`](../../../docs/revision-model.md) for
 the failure handling rules.
 
 ## Approval rules
@@ -97,7 +97,7 @@ the failure handling rules.
 Approval flips a `DRAFT` revision to `APPROVED` and updates
 `currentApprovedRevisionId` in `template-project.json`. Approval is
 permitted only when the revision satisfies every condition in
-[`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md):
+[`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md):
 
 - no critical mismatches remain
 - no major mismatches remain unless explicitly accepted
@@ -146,7 +146,7 @@ monolithic `compose` method, selective rollback degrades to manual
 patching. Componentization is therefore part of the rollback
 architecture, not a style preference.
 
-See [`../../docs/rollback.md`](../../docs/rollback.md) for the user
+See [`../../../docs/rollback.md`](../../../docs/rollback.md) for the user
 phrases that trigger each rollback type and the exact procedure.
 
 ## Required artifacts in every revision
@@ -185,11 +185,11 @@ be saved as `FAILED` — see the failed-revision section above.
 
 ## Cross-references
 
-- [`../../docs/revision-model.md`](../../docs/revision-model.md) —
+- [`../../../docs/revision-model.md`](../../../docs/revision-model.md) —
   project and revision metadata, statuses, artifact inventory
-- [`../../docs/rollback.md`](../../docs/rollback.md) — the three
+- [`../../../docs/rollback.md`](../../../docs/rollback.md) — the three
   rollback types and the user phrases that trigger them
-- [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md)
+- [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md)
   — approval rule
 - [`visual-regression`](visual-regression.md) — how visual review
   decisions feed into revision status

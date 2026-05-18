@@ -37,7 +37,7 @@ Load this skill any time:
   color is part of the theme or local to one component
 - visual review work flags color mismatches that need to be
   classified per the visual accuracy contract in
-  [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md)
+  [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md)
 
 This skill is also a prerequisite for [`tables`](tables.md) (for
 header and zebra colors) and for the parallel-lane
@@ -78,7 +78,7 @@ Each substitution must be recorded in `visual-review.md` with:
 - the reason for the substitution (out of gamut, gradient
   unavailable, accessibility constraint, brand alternative)
 - the mismatch classification per
-  [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md):
+  [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md):
   typically `MINOR` for a small shift or `ACCEPTED_LIMITATION` when
   the renderer cannot represent the original
 
@@ -92,7 +92,7 @@ contract.
   into the template. The exact constructor surface is part of the
   verified examples — do not invent setters on it. See the
   no-invented-API rule in
-  [`../../docs/versioned-skills.md`](../../docs/versioned-skills.md).
+  [`../../../docs/versioned-skills.md`](../../../docs/versioned-skills.md).
 - Inside render methods, refer to tokens by name. Do not inline hex
   values. Comments next to the token definition are the right place
   for "reference brand blue, RGB 23 56 120" notes.
@@ -121,5 +121,5 @@ unless the failure makes content unreadable.
 - parallel-lane `backgrounds-and-panels.md` and
   `shapes-and-containers.md` for token usage in panel and shape
   styling
-- [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md)
+- [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md)
   for the classification rules that govern color substitutions

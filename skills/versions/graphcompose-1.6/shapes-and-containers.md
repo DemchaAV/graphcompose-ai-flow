@@ -146,7 +146,7 @@ implications matter:
 - Rendering of exotic clip paths (complex polygons, custom curves)
   may differ across renderers. Document those differences in
   `visual-review.md` and tag them `ACCEPTED_LIMITATION` per
-  [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md).
+  [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md).
 - Anti-aliasing on rounded corners is renderer-dependent. Tiny
   differences (sub-millimetre fringes) usually fall under `MINOR`
   unless the brand explicitly demands a specific corner treatment.

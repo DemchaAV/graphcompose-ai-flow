@@ -35,7 +35,7 @@ not load this skill yet — handle the failure under
 ## Workflow
 
 This skill mirrors the visual review loop documented in
-[`../../docs/visual-review-loop.md`](../../docs/visual-review-loop.md).
+[`../../../docs/visual-review-loop.md`](../../../docs/visual-review-loop.md).
 Read that document for the full pipeline; the steps below are the
 skill-level summary.
 
@@ -51,13 +51,13 @@ skill-level summary.
    revisions.
 4. **Compare reference vs output.** Walk through the required visual
    parity checks in
-   [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md).
+   [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md).
 5. **Classify every difference** using the labels in the contract.
 6. **Compare output vs previous output** when a previous revision
    exists. Confirm the intended change was applied and no unintended
    change was introduced.
 7. **Write `visual-review.md`** following the format in
-   [`../../docs/visual-review-loop.md`](../../docs/visual-review-loop.md).
+   [`../../../docs/visual-review-loop.md`](../../../docs/visual-review-loop.md).
    Include the parity score, the classified mismatches, the
    component-by-component review, and one of the three approval
    recommendations (`APPROVE`, `REVISE`, `REJECT`).
@@ -103,7 +103,7 @@ block approval the same way.
 ## Difference classification
 
 The canonical classification lives in
-[`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md).
+[`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md).
 Quoted here once for convenience — the contract is the source of
 truth:
 
@@ -158,7 +158,7 @@ the difference is reclassified.
 Before recommending `APPROVE` the Visual Review Agent must confirm:
 
 - every required parity check in
-  [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md)
+  [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md)
   has been visited
 - no `CRITICAL` mismatch is open
 - no `MAJOR` mismatch is open unless explicitly accepted by the user
@@ -194,9 +194,9 @@ If any of those is missing, the recommendation is `REVISE` or
 
 ## Cross-references
 
-- [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md)
+- [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md)
   — canonical classification and approval rule
-- [`../../docs/visual-review-loop.md`](../../docs/visual-review-loop.md)
+- [`../../../docs/visual-review-loop.md`](../../../docs/visual-review-loop.md)
   — full review pipeline and `visual-review.md` template
 - [`pagination`](pagination.md) — page-by-page review requirements
 - [`revision-discipline`](revision-discipline.md) — how visual review

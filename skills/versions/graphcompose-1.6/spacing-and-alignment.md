@@ -116,7 +116,7 @@ discipline).
 
 - 1 to 3 pixel drift between renderers is normal. Classify it as
   `MINOR` per
-  [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md)
+  [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md)
   unless it visibly breaks alignment (a column lands a pixel left
   of its neighbor, a footer overlaps the page bottom rule, etc.).
   Document the drift in `visual-review.md` so reviewers know it was
@@ -141,5 +141,5 @@ discipline).
   naming convention
 - [`typography`](typography.md) for line-spacing decisions that
   interact with vertical rhythm
-- [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md)
+- [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md)
   for spacing mismatch classification

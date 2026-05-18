@@ -140,5 +140,5 @@ the selective rollback semantics documented in the parallel-lane
   inside each primitive
 - [`spacing-and-alignment`](spacing-and-alignment.md) for the gaps
   between primitives and the padding inside them
-- [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md)
+- [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md)
   for the parity rules that constrain primitive choices

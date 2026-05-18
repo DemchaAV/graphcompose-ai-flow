@@ -52,7 +52,7 @@ Required response:
 2. Mark the affected skill in the manifest with status
    `failed-validation`.
 3. File a skill fix report following the template in
-   [`../../docs/skill-validation.md`](../../docs/skill-validation.md).
+   [`../../../docs/skill-validation.md`](../../../docs/skill-validation.md).
    Required fields: affected skill file, GraphCompose version,
    problem description, expected behavior according to skill, actual
    library behavior, failing example, required skill update, status
@@ -72,7 +72,7 @@ Required response:
 
 1. Do not invent a substitute primitive or imagine a builder method.
    The no-invented-API rule in
-   [`../../docs/versioned-skills.md`](../../docs/versioned-skills.md)
+   [`../../../docs/versioned-skills.md`](../../../docs/versioned-skills.md)
    applies to skills themselves: if the primitive is not there,
    treat it as unavailable.
 2. Fall back to a conservative composition using primitives that
@@ -82,11 +82,11 @@ Required response:
    shape-container primitives where they exist).
 3. Document the gap in `architecture-plan.md` as a visual risk and
    in `visual-review.md` as an `ACCEPTED_LIMITATION` per
-   [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md).
+   [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md).
 4. File a skill fix report in
    `validation/skill-fix-report.md` describing the missing primitive
    and the conservative fallback that was used. The template lives
-   in [`../../docs/skill-validation.md`](../../docs/skill-validation.md).
+   in [`../../../docs/skill-validation.md`](../../../docs/skill-validation.md).
 
 ### Render failure
 
@@ -104,7 +104,7 @@ Required response:
    `build.log`, `render.log`, the partial
    `generated-template.java`, any intermediate snapshot.
 2. Mark the revision `FAILED` in its `revision.json` per
-   [`../../docs/revision-model.md`](../../docs/revision-model.md).
+   [`../../../docs/revision-model.md`](../../../docs/revision-model.md).
 3. Do not delete the revision folder. The audit trail depends on
    the failed artifacts staying on disk.
 4. Create the next revision from the previous good draft or the
@@ -195,7 +195,7 @@ Every troubleshooting response shares three principles:
 
 - Not every failure mode has a documented response yet. New failure
   modes must be captured in this skill or in
-  [`../../docs/skill-validation.md`](../../docs/skill-validation.md)
+  [`../../../docs/skill-validation.md`](../../../docs/skill-validation.md)
   before they recur.
 - Automated detection of skill drift requires the validation
   fixtures shipped in Phase 4. Until those land, drift detection is
@@ -203,13 +203,13 @@ Every troubleshooting response shares three principles:
 
 ## Cross-references
 
-- [`../../docs/skill-validation.md`](../../docs/skill-validation.md)
+- [`../../../docs/skill-validation.md`](../../../docs/skill-validation.md)
   — skill drift handling and skill fix report template
-- [`../../docs/versioned-skills.md`](../../docs/versioned-skills.md)
+- [`../../../docs/versioned-skills.md`](../../../docs/versioned-skills.md)
   — no-invented-API rule and skill statuses
-- [`../../docs/revision-model.md`](../../docs/revision-model.md) —
+- [`../../../docs/revision-model.md`](../../../docs/revision-model.md) —
   failure handling and the `FAILED` status
-- [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md)
+- [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md)
   — classification of unexpected mismatches
 - [`revision-discipline`](revision-discipline.md) — how failures
   produce new revisions rather than overwriting old ones

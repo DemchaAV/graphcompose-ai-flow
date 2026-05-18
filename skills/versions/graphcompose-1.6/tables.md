@@ -99,7 +99,7 @@ swap propagate everywhere.
   reproduction, and 1 to 3 pixel drift between renderers is normal.
   Document any deliberate proportion adjustments in
   `visual-review.md` and classify them per the rules in
-  [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md).
+  [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md).
 - Complex cell content (icons inline with text, nested badges) may
   need a per-cell render method rather than a plain string. Treat
   the cell content as its own miniature semantic block and reach
@@ -113,7 +113,7 @@ swap propagate everywhere.
 
 When library behavior diverges from anything written here, the
 library is the source of truth. File a skill fix report per
-[`../../docs/skill-validation.md`](../../docs/skill-validation.md)
+[`../../../docs/skill-validation.md`](../../../docs/skill-validation.md)
 and do not silently patch around the skill.
 
 ## Cross-references
@@ -128,5 +128,5 @@ and do not silently patch around the skill.
 - [`spacing-and-alignment`](spacing-and-alignment.md) for padding
   and gutters inside cells
 - parallel-lane `pagination.md` for multi-page table behavior
-- [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md)
+- [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md)
   for the parity contract that table reviews must satisfy

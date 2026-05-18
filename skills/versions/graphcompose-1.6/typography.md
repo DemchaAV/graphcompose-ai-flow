@@ -93,7 +93,7 @@ Load this skill any time:
   fallback
 - visual review flags a typography mismatch that needs to be
   classified per
-  [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md)
+  [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md)
 
 This skill chains with [`themes-and-colors`](themes-and-colors.md)
 (font color), [`spacing-and-alignment`](spacing-and-alignment.md)
@@ -127,5 +127,5 @@ This skill chains with [`themes-and-colors`](themes-and-colors.md)
 - [`spacing-and-alignment`](spacing-and-alignment.md) for the gaps
   around text and the leading between lines
 - [`tables`](tables.md) for table cell typography
-- [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md)
+- [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md)
   for mismatch classification

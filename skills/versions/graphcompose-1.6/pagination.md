@@ -85,7 +85,7 @@ than relying on rendering accident.
 
 A one-row fragment on the last page (one line of the table, marooned
 on its own page) is a `MAJOR` mismatch under
-[`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md).
+[`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md).
 Mark the totals row or footer row as atomic with the preceding rows
 when the reference reads them as one block. See atomic blocks below.
 
@@ -195,5 +195,5 @@ was intended.
   table primitives that compose the page flow
 - [`backgrounds-and-panels`](backgrounds-and-panels.md) — page-wide
   surfaces that must redraw on every page
-- [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md)
+- [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md)
   — classification of pagination defects

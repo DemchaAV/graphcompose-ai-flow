@@ -172,7 +172,7 @@ Both patterns hide intent and silently break the rollback model.
 
 - Transparency, blending, and shadow rendering may differ between
   renderers. Tag those differences `ACCEPTED_LIMITATION` per
-  [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md).
+  [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md).
 - Very dense stacks (more than three meaningful layers) tend to be
   hard to diff. If the reference seems to demand one, list it as a
   visual risk in `architecture-plan.md`.
@@ -187,5 +187,5 @@ Both patterns hide intent and silently break the rollback model.
   and table primitives that form the content layer
 - [`spacing-and-alignment`](spacing-and-alignment.md) — the correct
   tool for "more breathing room"
-- [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md)
+- [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md)
   — overlay-specific mismatch classification

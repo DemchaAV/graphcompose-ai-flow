@@ -77,7 +77,7 @@ treat the DSL as a description of semantic structure:
 If a visual element cannot be cleanly expressed with the above, the
 agent must document the gap rather than invent new primitives. See
 the no-invented-API rule in
-[`../../docs/versioned-skills.md`](../../docs/versioned-skills.md).
+[`../../../docs/versioned-skills.md`](../../../docs/versioned-skills.md).
 
 ## Why not direct PDFBox
 
@@ -91,7 +91,7 @@ template's structure. Use GraphCompose primitives instead.
 
 Templates must be composed of small private render methods, one per
 semantic block. This is not a style preference. The
-[revision model](../../docs/visual-accuracy-contract.md) and
+[revision model](../../../docs/visual-accuracy-contract.md) and
 the selective rollback rules in `revision-discipline.md` rely on the
 ability to swap one component (for example `renderHeader`) from a
 previous revision while keeping another (for example
@@ -103,7 +103,7 @@ method makes selective rollback unreliable.
 This skill describes the 1.6.x semantics conceptually. It does not
 list the exact method signatures of every builder. Specific method
 signatures must be cross-checked against the
-[`verifiedAgainst: 1.6.0`](../../docs/versioned-skills.md) examples
+[`verifiedAgainst: 1.6.0`](../../../docs/versioned-skills.md) examples
 once the Phase 4 fixtures land. Until then, when uncertain, the
 agent must:
 
@@ -113,6 +113,6 @@ agent must:
 - fall back to conservative templates rather than invent API
 
 See the no-invented-API rule in
-[`../../docs/versioned-skills.md`](../../docs/versioned-skills.md)
+[`../../../docs/versioned-skills.md`](../../../docs/versioned-skills.md)
 and the skill drift handling in
-[`../../docs/skill-validation.md`](../../docs/skill-validation.md).
+[`../../../docs/skill-validation.md`](../../../docs/skill-validation.md).

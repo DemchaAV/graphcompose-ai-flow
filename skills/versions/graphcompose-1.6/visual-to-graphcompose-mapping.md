@@ -88,7 +88,7 @@ following recurring failures.
   builder name. Instead, decompose the element into the closest
   documented primitives and document the gap in `visual-review.md`.
   See the no-invented-API rule in
-  [`../../docs/versioned-skills.md`](../../docs/versioned-skills.md).
+  [`../../../docs/versioned-skills.md`](../../../docs/versioned-skills.md).
 - Mixing rows and tables. A horizontal arrangement of unrelated
   items (logo plus address plus QR code) is a row, not a one-row
   table. A grid of cells with shared column meaning is a table, not
@@ -108,5 +108,5 @@ labels every region with the chosen primitive from the table above.
 Regions that cannot be cleanly mapped must be flagged as Visual
 Risks in the same plan, not silently lowered to canvas drawing. The
 visual accuracy contract in
-[`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md)
+[`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md)
 requires these decisions to be auditable.

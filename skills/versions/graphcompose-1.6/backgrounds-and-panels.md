@@ -158,7 +158,7 @@ document consistently.
 - Exact colour reproduction depends on the renderer. Document
   substitutions in `visual-review.md` and tag them
   `ACCEPTED_LIMITATION` per
-  [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md).
+  [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md).
 - Texture or gradient fills are not described by this skill. If the
   reference uses a gradient, treat it as a known limitation until a
   later skill version adds explicit gradient handling.
@@ -172,5 +172,5 @@ document consistently.
   clipped surfaces
 - [`spacing-and-alignment`](spacing-and-alignment.md) — how padding
   inside panels relates to outer spacing
-- [`../../docs/visual-accuracy-contract.md`](../../docs/visual-accuracy-contract.md)
+- [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md)
   — mismatch classification for documented substitutions
