@@ -1,0 +1,26 @@
+{
+  "id": "revision-005",
+  "parentRevisionId": "revision-004",
+  "status": "DRAFT",
+  "templateDisplayName": "Mint Editorial CV",
+  "userRequest": "Make Twitter/Facebook/Pinterest/LinkedIn entries in the Social section real clickable hyperlinks; both icon and label clickable.",
+  "targetGraphComposeVersion": "1.6.0",
+  "skillPack": "skills/versions/graphcompose-1.6",
+  "changedComponents": [
+    "Social"
+  ],
+  "createdAt": "2026-05-18T23:05:00.000Z",
+  "artifacts": {
+    "userRequest": "user-request.md",
+    "orchestrationDecision": "orchestration-decision.md",
+    "assetRequest": "asset-request.json",
+    "assetsManifest": "assets-manifest.json",
+    "template": "generated-template.java",
+    "pdf": "output.pdf",
+    "preview": "output.png",
+    "previewPage2": "output-page-2.png",
+    "visualReview": "visual-review.md",
+    "status": "status.md"
+  },
+  "pendingArtifacts": []
+}

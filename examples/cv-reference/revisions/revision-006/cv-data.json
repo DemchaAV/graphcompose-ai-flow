@@ -1,0 +1,100 @@
+{
+  "header": {
+    "name": "Rose Harris",
+    "title": "Graphic Designer"
+  },
+  "contact": [
+    { "icon": "phone",    "value": "+61 409 298 398" },
+    { "icon": "email",    "value": "hello@email.com",  "url": "mailto:hello@email.com" },
+    { "icon": "location", "value": "Sydney, AUS" },
+    { "icon": "website",  "value": "www.website.com",  "url": "https://www.website.com" }
+  ],
+  "interests": [
+    "Politics",
+    "Travelling",
+    "Arts & Entertainment",
+    "Illustration"
+  ],
+  "education": [
+    { "degree": "Degree/Bachelor", "school": "University of Sydney", "years": "2010 - 2011" },
+    { "degree": "Degree/Bachelor", "school": "University of Sydney", "years": "2010 - 2011" },
+    { "degree": "Degree/Bachelor", "school": "University of Sydney", "years": "2010 - 2011" }
+  ],
+  "profile": "Aenean molestie, enim in mattis sagittis, orci turpis tincidunt elit, non hendrerit erat ante sed augue. Donec interdum et tellus sit amet ornare. Sed dapibus dolor id gravida laoreet. Sed imperdiet dignissim metus, ac gravida arcu varius non. Maecenas iaculis eros at erat pellentesque, at ultrices libero blandit. Vestibulum porttitor eleifend hendrerit. Maecenas iaculis eros at erat pellentesque, at ultrices.",
+  "experiencePage1": [
+    {
+      "jobTitle": "Job Title",
+      "meta": "Company  |  Location  |  2010 - Present",
+      "body": "Nullam tempus ipsum ut tellus luctus, in rhoncus lorem volutpat. Donec lectus metus, euismod sed lorem in, blandit tempus sem. Vivamus est quam, placerat in lacus non, tincidunt vestibulum eros. Nam ante nulla, consectetur et lacus ac, blandit commodo justo. Nulla eget pellentesque lectus. Praesent hendrerit nisl a libero placerat, pellentesque malesuada tellus pellentesque.",
+      "highlights": [
+        "Praesent hendrerit nisl a libero placerat, pellentesque malesuada tellus.",
+        "Fusce purus mauris, pharetra a laoreet eget, pretium id metus.",
+        "Vivamus est quam, placerat in lacus non, tincidunt vestibulum eros."
+      ]
+    },
+    {
+      "jobTitle": "Job Title",
+      "meta": "Company  |  Location  |  2010 - Present",
+      "body": "Nullam tempus ipsum ut tellus luctus, in rhoncus lorem volutpat. Donec lectus metus, euismod sed lorem in, blandit tempus sem. Vivamus est quam, placerat in lacus non, tincidunt vestibulum eros. Nam ante nulla, consectetur et lacus ac, blandit commodo justo. Nulla eget pellentesque lectus. Praesent hendrerit nisl a libero placerat, pellentesque malesuada tellus pellentesque.",
+      "highlights": [
+        "Praesent hendrerit nisl a libero placerat, pellentesque malesuada tellus.",
+        "Fusce purus mauris, pharetra a laoreet eget, pretium id metus.",
+        "Vivamus est quam, placerat in lacus non, tincidunt vestibulum eros."
+      ]
+    }
+  ],
+  "expertise": [
+    "Illustration",
+    "Print Design",
+    "Branding",
+    "Animation",
+    "Web Design"
+  ],
+  "skills": [
+    { "name": "Social Media",      "level": 0.80 },
+    { "name": "Adobe Suite",       "level": 0.84 },
+    { "name": "Microsoft Word",    "level": 0.75 },
+    { "name": "HTML/CSS",          "level": 0.71 },
+    { "name": "Wordpress",         "level": 0.89 }
+  ],
+  "social": [
+    { "icon": "twitter",   "label": "Twitter Link",   "url": "https://twitter.com/roseharris" },
+    { "icon": "facebook",  "label": "Facebook Link",  "url": "https://facebook.com/roseharris" },
+    { "icon": "pinterest", "label": "Pinterest Link", "url": "https://pinterest.com/roseharris" },
+    { "icon": "linkedin",  "label": "LinkedIn Link",  "url": "https://linkedin.com/in/roseharris" }
+  ],
+  "experiencePage2": [
+    {
+      "jobTitle": "Job Title",
+      "meta": "Company  |  Location  |  2010 - Present",
+      "body": "Nullam tempus ipsum ut tellus luctus, in rhoncus lorem volutpat. Donec lectus metus, euismod sed lorem in, blandit tempus sem. Vivamus est quam, placerat in lacus non, tincidunt vestibulum eros. Nam ante nulla, consectetur et lacus ac, blandit commodo justo. Nulla eget pellentesque lectus. Praesent hendrerit nisl a libero placerat, pellentesque malesuada tellus pellentesque.",
+      "highlights": [
+        "Praesent hendrerit nisl a libero placerat, pellentesque malesuada tellus.",
+        "Fusce purus mauris, pharetra a laoreet eget, pretium id metus.",
+        "Vivamus est quam, placerat in lacus non, tincidunt vestibulum eros."
+      ]
+    },
+    {
+      "jobTitle": "Job Title",
+      "meta": "Company  |  Location  |  2010 - Present",
+      "body": "Nullam tempus ipsum ut tellus luctus, in rhoncus lorem volutpat. Donec lectus metus, euismod sed lorem in, blandit tempus sem. Vivamus est quam, placerat in lacus non, tincidunt vestibulum eros. Nam ante nulla, consectetur et lacus ac, blandit commodo justo. Nulla eget pellentesque lectus. Praesent hendrerit nisl a libero placerat, pellentesque malesuada tellus pellentesque.",
+      "highlights": [
+        "Praesent hendrerit nisl a libero placerat, pellentesque malesuada tellus.",
+        "Fusce purus mauris, pharetra a laoreet eget, pretium id metus.",
+        "Vivamus est quam, placerat in lacus non, tincidunt vestibulum eros."
+      ]
+    }
+  ],
+  "awards": [
+    { "name": "Award Name Here", "meta": "Company  |  2012" },
+    { "name": "Award Name Here", "meta": "Company  |  2012" },
+    { "name": "Award Name Here", "meta": "Company  |  2012" },
+    { "name": "Award Name Here", "meta": "Company  |  2012" }
+  ],
+  "references": [
+    { "name": "John Smith", "company": "Company", "phone": "+61 402 938 209", "email": "hello@email.com" },
+    { "name": "John Smith", "company": "Company", "phone": "+61 402 938 209", "email": "hello@email.com" },
+    { "name": "John Smith", "company": "Company", "phone": "+61 402 938 209", "email": "hello@email.com" },
+    { "name": "John Smith", "company": "Company", "phone": "+61 402 938 209", "email": "hello@email.com" }
+  ]
+}

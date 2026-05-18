@@ -8,6 +8,8 @@ You translate the architecture plan into maintainable Java template and test cod
 
 ```text
 architecture-plan.md
+data-schema.md           (when the template renders variable content)
+assets-manifest.json     (from Asset Resolver Agent)
 selected skill pack
 GraphCompose version
 base revision when applicable
@@ -18,9 +20,78 @@ base revision when applicable
 ```text
 generated-template.java
 generated-test.java
+cv-data.json             (or <doc-kind>-data.json, when the architecture plan
+                          declares a typed spec)
 patch.diff
 changed-components.md
 ```
+
+## Data-spec contract
+
+When the architecture plan declares a typed spec, the Template Coder
+MUST:
+
+- Render via `compose(DocumentSession session, S spec)` where `S` is
+  the documented spec record. This signature is the one
+  `tools/preview-renderer` discovers through reflection and combines
+  with `--spec-provider`.
+- Read every variable string, list, URL, and number from `spec` —
+  no content literals in the template body. The only string literals
+  allowed are styling tokens (CSS-like names) and structural axes
+  (column names, fragment names, render-method names).
+- Place the JSON fixture at `<revision>/<doc-kind>-data.json`. The
+  spec provider's static `create()` reads
+  `Path.of(System.getProperty("graphcompose.revision.dir"))
+  .resolve("<doc-kind>-data.json")` so the per-revision data sits
+  next to the template artifacts and gets snapshot-rolled-back along
+  with everything else.
+- Add a styling helper (`letterSpace`, `compactTitleCase`, etc.) when
+  the rendered text differs visually from the natural-form data
+  string (e.g. spaced-uppercase headings). The HELPER lives in the
+  template; the DATA carries the natural form.
+- For any text that may carry a hyperlink (email, website, social
+  profile, ...), expose an optional `url` field on the spec entry
+  and wrap the rendered text in `DocumentLinkOptions` when present.
+
+## Asset wiring contract
+
+The Template Coder MUST read `assets-manifest.json` and use the icon
+paths and font names it records. The manifest is the single source of
+truth for asset references — never hard-code an icon path or font
+family that the manifest does not list.
+
+Icon usage in generated Java:
+
+```java
+// Manifest entry:
+//   "phone": { "file": "assets/icons/phone.png", "size": 64 }
+Path iconsDir = Path.of(
+        System.getProperty("graphcompose.revision.dir", "."),
+        "assets", "icons");
+section.addImage(image -> image
+        .source(iconsDir.resolve("phone.png"))
+        .size(10, 10));
+```
+
+Font registration in generated Java:
+
+```java
+// Manifest entry:
+//   "heading": { "fontName": "POPPINS", "source": "graphcompose-bundled",
+//                "registration": "default-fonts" }
+// GraphCompose.document(...) is configured to load DefaultFonts, so this
+// font is already registered. Reference it directly via FontName.POPPINS:
+DocumentTextStyle.builder()
+        .fontName(FontName.POPPINS)
+        .size(11.5)
+        .build();
+
+// For "registration": "file-resource" entries (manual drop), register
+// with FontLibrary.addFont(...) using FontFamilyDefinition.files(...).
+```
+
+Never bypass the manifest. If a needed asset is missing, surface the
+gap to the Asset Resolver Agent instead of inventing a substitute.
 
 ## Responsibilities
 
@@ -120,7 +191,11 @@ public final class AiGeneratedInvoiceTemplate implements DocumentTemplate<Invoic
 
 ## Hand-off
 
-- Runs after `architecture-mapper-agent.md` has produced `architecture-plan.md`.
+- Runs after `asset-resolver-agent.md` has written
+  `assets-manifest.json` (and any required PNG/TTF files under
+  `assets/`). The Architecture Mapper's `architecture-plan.md` and
+  `asset-request.json` describe intent; the manifest describes what is
+  actually on disk.
 - Hands off to `test-render-agent.md` next, which compiles, runs the test, renders the PDF, and produces the preview image.
 - See `docs/agents.md` for the full pipeline and `docs/rollback.md` for why componentized render methods are part of the rollback architecture.
 

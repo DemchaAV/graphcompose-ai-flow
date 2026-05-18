@@ -13,6 +13,8 @@ const cvDir = path.join(repoRoot, "examples", "cv-reference");
 const revisionDir = path.join(cvDir, "revisions", revisionId);
 const runnerDir = path.join(cvDir, "render-runner");
 const previewRendererDir = path.join(repoRoot, "tools", "preview-renderer");
+const assetResolverCli = path.join(repoRoot, "tools", "asset-resolver", "src", "cli.mjs");
+const assetRequestFile = path.join(revisionDir, "asset-request.json");
 const runnerPom = path.join(runnerDir, "pom.xml");
 const previewRendererPom = path.join(previewRendererDir, "pom.xml");
 const previewRendererJar = path.join(previewRendererDir, "target", "preview-renderer.jar");
@@ -24,6 +26,13 @@ const pageTwoPreview = path.join(revisionDir, "output-page-2.png");
 if (!fs.existsSync(revisionDir)) {
   console.error(`revision not found: ${revisionDir}`);
   process.exit(2);
+}
+
+if (fs.existsSync(assetRequestFile)) {
+  console.log(`> asset-resolver --revision ${revisionDir}`);
+  run("node", [assetResolverCli, "--revision", revisionDir], repoRoot);
+} else {
+  console.log(`> asset-resolver skipped (no ${path.relative(repoRoot, assetRequestFile)})`);
 }
 
 runMaven(["-q", "-B", "-f", previewRendererPom, "-DskipTests=true", "package"], repoRoot);
@@ -47,7 +56,18 @@ const classpath = [
 ].filter(Boolean).join(path.delimiter);
 fs.writeFileSync(renderClasspathFile, classpath, "utf8");
 
+const cvDataFile = path.join(revisionDir, "cv-data.json");
+const specProviderArgs = fs.existsSync(cvDataFile)
+  ? ["--spec-provider", "com.demcha.examples.cv.MintEditorialCvSpecProvider"]
+  : [];
+if (specProviderArgs.length > 0) {
+  console.log(`> using spec-provider for ${path.relative(repoRoot, cvDataFile)}`);
+} else {
+  console.log(`> spec-provider skipped (no ${path.relative(repoRoot, cvDataFile)})`);
+}
+
 run("java", [
+  `-Dgraphcompose.revision.dir=${revisionDir}`,
   "-jar",
   previewRendererJar,
   "render",
@@ -55,6 +75,7 @@ run("java", [
   revisionDir,
   "--template-class",
   "com.demcha.examples.cv.GeneratedCvTemplate",
+  ...specProviderArgs,
   "--classpath-file",
   renderClasspathFile,
   "--output",

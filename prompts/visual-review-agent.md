@@ -45,6 +45,42 @@ visual-review.md
 - visual balance
 - reference parity score
 
+## Parent-revision parity gate (mandatory for refactor revisions)
+
+When the user-request scope is "refactor only" — i.e. the revision is
+declared to be visually equivalent to its parent (data extraction,
+class renaming, helper introduction, dependency upgrade, ...) — the
+agent MUST run a binary pixel diff against the parent revision's
+preview before recommending `APPROVE`:
+
+```powershell
+magick compare -metric AE `
+  examples/<project>/revisions/<parent>/output.png `
+  examples/<project>/revisions/<child>/output.png `
+  validation/diffs/<child>-page-1.png
+
+magick compare -metric AE `
+  examples/<project>/revisions/<parent>/output-page-2.png `
+  examples/<project>/revisions/<child>/output-page-2.png `
+  validation/diffs/<child>-page-2.png
+```
+
+Acceptance rule:
+
+- `AE == 0` on every page is the gate to recommend `APPROVE`.
+- Any non-zero diff is a CRITICAL mismatch — the revision is not
+  byte-equivalent to its declared parent and the refactor introduced
+  a regression. Trace the diff via the saved diffmask, file the
+  classified mismatch, and recommend `REVISE`.
+- The `magick compare` numbers (and the saved diffmask paths) go into
+  the `visual-review.md` as evidence; do not paraphrase ("looks
+  identical") — quote the metric.
+
+This rule does NOT apply to revisions whose user-request scope is a
+real visual change (new icon set, new layout, new font, ...).
+Those revisions compare against the **reference image**, not the
+parent revision, per the standard contract.
+
 ## Mismatch classification
 
 Use the canonical mismatch classifications defined in `docs/visual-accuracy-contract.md`:

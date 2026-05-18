@@ -18,6 +18,8 @@ Visual Analyzer Agent
         ↓
 Architecture Mapper Agent
         ↓
+Asset Resolver Agent
+        ↓
 Template Coder Agent
         ↓
 Test + Render Agent
@@ -31,8 +33,10 @@ User Approval / Rollback
 
 The original simple plan ended at the visual review. The improved
 chain adds explicit version detection, skill resolution, skill
-validation, and a separate revision manager so that no agent except
-the Revision Manager can change project metadata.
+validation, an Asset Resolver between architecture planning and code
+generation so icons and fonts are downloaded before the Template Coder
+runs, and a separate revision manager so that no agent except the
+Revision Manager can change project metadata.
 
 ## Template Orchestrator Agent
 
@@ -196,13 +200,51 @@ documenting their source and fallback.
 
 Prompt: [`prompts/architecture-mapper-agent.md`](../prompts/architecture-mapper-agent.md).
 
+## Asset Resolver Agent
+
+Purpose: acquire the icons and fonts the Architecture Mapper declared
+in `asset-request.json` so the Template Coder has every external asset
+on disk before it writes any Java. Runs between the Architecture Mapper
+and the Template Coder.
+
+Inputs: `asset-request.json`, `architecture-plan.md` (read-only),
+selected skill pack, revision folder.
+
+Outputs: `assets-manifest.json`, `assets/icons/<token>.png`,
+`assets/fonts/<family>-<weight>.ttf` (when downloads land).
+
+Responsibilities:
+
+- read and validate the request schema
+- resolve every icon via the
+  [Iconify HTTP API](https://iconify.design/), preferring the request's
+  `preferredSets` priority list (default `mdi → tabler → lucide →
+  material-symbols → ph`) before falling back to broad search
+- when an icon entry is marked `"visual": true` and Playwright is
+  available, use the visual fallback to suggest an icon set
+- download icons as PNGs into `<revision>/assets/icons/`
+- resolve every font role against `standard14`,
+  `graphcompose-bundled` (`DefaultFonts.googleFamilies()`), or
+  `google-fonts` (marks the role `manual_drop_required` for non-bundled
+  families)
+- write `assets-manifest.json` as the single source of truth the
+  Template Coder reads
+
+Forbidden: inventing icon sets or font families, silently substituting
+one icon for another, marking a non-bundled Google font as `ok`,
+touching generated Java, sharing assets across revisions implicitly,
+and skipping the manifest when the request is empty.
+
+Prompt: [`prompts/asset-resolver-agent.md`](../prompts/asset-resolver-agent.md).
+Tool surface: [`tools/asset-resolver/README.md`](../tools/asset-resolver/README.md).
+
 ## Template Coder Agent
 
 Purpose: write the Java template and tests, using only the loaded
 skill pack and GraphCompose APIs valid for the selected version.
 
-Inputs: `architecture-plan.md`, selected skill pack, GraphCompose
-version, base revision when applicable.
+Inputs: `architecture-plan.md`, `assets-manifest.json`, selected skill
+pack, GraphCompose version, base revision when applicable.
 
 Outputs: `generated-template.java`, `generated-test.java`,
 `patch.diff`, `changed-components.md`.

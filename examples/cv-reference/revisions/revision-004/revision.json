@@ -1,0 +1,32 @@
+{
+  "id": "revision-004",
+  "parentRevisionId": "revision-003",
+  "status": "APPROVED",
+  "approvedAt": "2026-05-18T23:00:00.000Z",
+  "templateDisplayName": "Mint Editorial CV",
+  "userRequest": "Match the page-2 reference more closely: Expertise badge must be a thin-line circle with a check and visibly large; social icons must be filled circle-with-glyph badges; Awards and References must be true two-column grids inside the Main column; per-icon point sizes must come from the asset flow, not Java constants.",
+  "targetGraphComposeVersion": "1.6.0",
+  "skillPack": "skills/versions/graphcompose-1.6",
+  "changedComponents": [
+    "Expertise",
+    "Social",
+    "Awards",
+    "References",
+    "IconSizing"
+  ],
+  "createdAt": "2026-05-18T22:30:00.000Z",
+  "artifacts": {
+    "userRequest": "user-request.md",
+    "orchestrationDecision": "orchestration-decision.md",
+    "architecturePlan": "architecture-plan.md",
+    "assetRequest": "asset-request.json",
+    "assetsManifest": "assets-manifest.json",
+    "template": "generated-template.java",
+    "pdf": "output.pdf",
+    "preview": "output.png",
+    "previewPage2": "output-page-2.png",
+    "visualReview": "visual-review.md",
+    "status": "status.md"
+  },
+  "pendingArtifacts": []
+}

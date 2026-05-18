@@ -1,0 +1,38 @@
+{
+  "id": "revision-003",
+  "parentRevisionId": "revision-002",
+  "status": "DRAFT",
+  "userRequest": "Wire the CV reference template into the documented asset flow: pull contact and social icons from Iconify, register a real Google Fonts family (one of the GraphCompose bundled families), and read every icon path and font name from assets-manifest.json instead of the inline letter placeholders shipped in revision-002.",
+  "targetGraphComposeVersion": "1.6.0",
+  "skillPack": "skills/versions/graphcompose-1.6",
+  "changedComponents": [
+    "Contact",
+    "Social",
+    "Expertise",
+    "Typography",
+    "AssetFlow"
+  ],
+  "createdAt": "2026-05-18T22:00:00.000Z",
+  "artifacts": {
+    "userRequest": "user-request.md",
+    "orchestrationDecision": "orchestration-decision.md",
+    "versionResolution": "version-resolution.md",
+    "skillValidation": "skill-validation-report.md",
+    "visualAnalysis": "visual-analysis.md",
+    "architecturePlan": "architecture-plan.md",
+    "assetRequest": "asset-request.json",
+    "assetsManifest": "assets-manifest.json",
+    "template": "generated-template.java",
+    "test": "generated-test.java",
+    "layoutSnapshot": "layout-snapshot.json",
+    "pdf": "output.pdf",
+    "preview": "output.png",
+    "previewPage2": "output-page-2.png",
+    "visualReview": "visual-review.md",
+    "testResult": "test-result.md",
+    "status": "status.md"
+  },
+  "pendingArtifacts": [
+    "layout-snapshot.json"
+  ]
+}

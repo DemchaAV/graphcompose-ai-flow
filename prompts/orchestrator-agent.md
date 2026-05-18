@@ -65,7 +65,8 @@ Action:
 - detect target GraphCompose version
 - load matching skills
 - run Visual Analyzer
-- run Architecture Mapper
+- run Architecture Mapper       (produces asset-request.json)
+- run Asset Resolver             (produces assets-manifest.json + assets/)
 - run Template Coder
 - run Test + Render
 - run Visual Review
@@ -125,6 +126,9 @@ Action:
 
 - Runs first; receives the raw user request and current project state.
 - Hands off to `version-skill-resolver-agent.md` next, which selects the matching skill pack before any code work begins.
+- For new generations and revisions, the chain reaches
+  `architecture-mapper-agent.md`, then `asset-resolver-agent.md` (icons + fonts),
+  then `template-coder-agent.md` before any rendering happens.
 - Final approval, rejection, undo, revert-to-approved, and selective-rollback decisions are executed by `revision-manager-agent.md`, but the orchestrator routes them there. See `docs/agents.md` for the full chain and `docs/revision-model.md` and `docs/rollback.md` for the supported revision and rollback operations.
 
 # Shared Rules

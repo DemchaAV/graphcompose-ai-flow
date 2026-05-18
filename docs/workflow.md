@@ -20,7 +20,9 @@ Validate Skills Against Library / Verified Fixtures
   ↓
 Analyze Reference
   ↓
-Create Architecture Plan
+Create Architecture Plan (+ asset-request.json)
+  ↓
+Resolve Design Assets (icons + fonts → assets-manifest.json)
   ↓
 Generate Template Code
   ↓
@@ -114,37 +116,55 @@ Owner: Architecture Mapper Agent ([agents.md](agents.md#architecture-mapper-agen
 Input: visual-analysis.md, selected skills, GraphCompose version,
 reference image. Output: architecture-plan.md mapping each visual
 region to GraphCompose DSL primitives, naming render methods, and
-listing visual risks. The Architecture Mapper does not write final
-Java.
+listing visual risks. The Architecture Mapper also writes
+`asset-request.json` enumerating every icon token (with preferred
+Iconify sets) and font role (with Google Fonts family + weights or
+the standard 14 fallback). The Architecture Mapper does not write
+final Java.
 
-### 7. Generate Template Code
+### 7. Resolve Design Assets
+
+Owner: Asset Resolver Agent ([agents.md](agents.md#asset-resolver-agent)).
+Input: asset-request.json, architecture-plan.md, selected skill pack,
+revision folder. Output: assets-manifest.json plus binary assets under
+`<revision>/assets/icons/` and `<revision>/assets/fonts/`. Icons are
+downloaded as PNG from `api.iconify.design`; fonts are validated
+against `DefaultFonts` or marked `manual_drop_required` when the
+family is not bundled in GraphCompose. The manifest is the single
+source of truth the Template Coder consumes. See
+[`tools/asset-resolver/README.md`](../tools/asset-resolver/README.md)
+for the CLI surface and schemas.
+
+### 8. Generate Template Code
 
 Owner: Template Coder Agent ([agents.md](agents.md#template-coder-agent)).
-Input: architecture-plan.md, selected skill pack, GraphCompose
-version, base revision when applicable. Output: generated-template.java,
-generated-test.java, patch.diff, changed-components.md. The agent
-must use only documented APIs from the loaded skill pack.
+Input: architecture-plan.md, assets-manifest.json, selected skill
+pack, GraphCompose version, base revision when applicable. Output:
+generated-template.java, generated-test.java, patch.diff,
+changed-components.md. The agent must use only documented APIs from
+the loaded skill pack and must reference icon paths and font names
+through the manifest rather than hard-coding them.
 
-### 8. Compile
+### 9. Compile
 
 Owner: Test + Render Agent ([agents.md](agents.md#test--render-agent)).
 Input: generated-template.java, generated-test.java, project config.
 Output: build.log and a pass/fail signal. Failure is preserved as a
 FAILED revision; nothing is overwritten.
 
-### 9. Render PDF
+### 10. Render PDF
 
 Owner: Test + Render Agent. Output: output.pdf and render.log. The
 PDF must exist and not be empty.
 
-### 10. Convert PDF to Preview Image
+### 11. Convert PDF to Preview Image
 
 Owner: Test + Render Agent. Output: output.png and layout-snapshot.json.
 The preview is what the Visual Review Agent compares against the
 reference; the snapshot is what regression tests compare across
 revisions.
 
-### 11. Compare Preview Against Reference
+### 12. Compare Preview Against Reference
 
 Owner: Visual Review Agent ([agents.md](agents.md#visual-review-agent)).
 Input: reference.png, output.png, previous-output.png when available,
@@ -152,21 +172,21 @@ layout-snapshot.json, visual-analysis.md, architecture-plan.md.
 Output: visual-review.md with a reference parity score and
 classified mismatches.
 
-### 12. Create Visual Review
+### 13. Create Visual Review
 
 Owner: Visual Review Agent. The same step as the comparison itself,
 but the deliverable is the written review document, including a
 component-by-component breakdown and an APPROVE / REVISE / REJECT
 recommendation. See [visual-review-loop.md](visual-review-loop.md).
 
-### 13. Revise
+### 14. Revise
 
 Owner: Template Orchestrator Agent, routing back through the chain.
 A new revision is created from the current draft; impacted components
 are patched; render and review run again. Revising never overwrites
 prior revisions.
 
-### 14. Approve / Reject / Rollback
+### 15. Approve / Reject / Rollback
 
 Owner: Revision Manager Agent ([agents.md](agents.md#revision-manager-agent)).
 Approval flips a DRAFT to APPROVED and records the new
@@ -191,6 +211,12 @@ folder.
   reference image.
 - `architecture-plan.md` — written by the Architecture Mapper from
   the analysis.
+- `asset-request.json` — written by the Architecture Mapper alongside
+  the plan; declares every icon token and font role the template needs.
+- `assets-manifest.json` plus `assets/icons/*.png` and
+  `assets/fonts/*.ttf` — written by the Asset Resolver Agent after
+  resolving the request against `api.iconify.design` and the bundled
+  Google Fonts list.
 - `generated-template.java`, `generated-test.java`, `patch.diff`,
   `changed-components.md` — written by the Template Coder.
 - `output.pdf`, `output.png`, `layout-snapshot.json`, `test-result.md`,

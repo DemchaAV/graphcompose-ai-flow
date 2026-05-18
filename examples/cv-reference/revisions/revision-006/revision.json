@@ -1,0 +1,32 @@
+{
+  "id": "revision-006",
+  "parentRevisionId": "revision-005",
+  "status": "DRAFT",
+  "templateDisplayName": "Mint Editorial CV",
+  "userRequest": "Make the template data-driven: every visible string moves out of Java into cv-data.json; the template only owns layout + a letter-spacing helper; references emails become mailto: hyperlinks; everything stays wired through the asset flow.",
+  "targetGraphComposeVersion": "1.6.0",
+  "skillPack": "skills/versions/graphcompose-1.6",
+  "changedComponents": [
+    "DataModel",
+    "Template",
+    "References",
+    "AllLetterSpacedHeadings"
+  ],
+  "createdAt": "2026-05-18T23:30:00.000Z",
+  "artifacts": {
+    "userRequest": "user-request.md",
+    "orchestrationDecision": "orchestration-decision.md",
+    "architecturePlan": "architecture-plan.md",
+    "dataSchema": "data-schema.md",
+    "assetRequest": "asset-request.json",
+    "assetsManifest": "assets-manifest.json",
+    "cvData": "cv-data.json",
+    "template": "generated-template.java",
+    "pdf": "output.pdf",
+    "preview": "output.png",
+    "previewPage2": "output-page-2.png",
+    "visualReview": "visual-review.md",
+    "status": "status.md"
+  },
+  "pendingArtifacts": []
+}

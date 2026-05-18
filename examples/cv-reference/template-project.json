@@ -1,12 +1,18 @@
 {
   "projectName": "cv-reference",
+  "displayName": "Mint Editorial CV",
+  "tagline": "Two-page editorial-style resume for a graphic designer, with a mint accent rule and Iconify-backed contact and social glyphs.",
   "referenceImage": "reference/reference.png",
   "referenceDescription": "reference/reference.md",
   "targetGraphComposeVersion": "1.6.0",
   "skillPack": "skills/versions/graphcompose-1.6",
-  "currentApprovedRevisionId": null,
-  "currentDraftRevisionId": "revision-002",
+  "currentApprovedRevisionId": "revision-004",
+  "currentDraftRevisionId": "revision-006",
+  "dataFile": "revisions/revision-006/cv-data.json",
+  "dataSchema": "revisions/revision-006/data-schema.md",
+  "specClass": "com.demcha.examples.cv.MintEditorialCvSpec",
+  "specProviderClass": "com.demcha.examples.cv.MintEditorialCvSpecProvider",
   "createdAt": "2026-05-18T20:46:39.532Z",
-  "updatedAt": "2026-05-18T21:15:22.084Z",
-  "notes": "Two-page CV reference created from supplied screenshots. reference.png points to page 1 for compatibility; reference-page-1.png and reference-page-2.png preserve both source pages."
+  "updatedAt": "2026-05-18T23:40:00.000Z",
+  "notes": "Two-page CV reference created from supplied screenshots. reference.png points to page 1 for compatibility; reference-page-1.png and reference-page-2.png preserve both source pages. revision-003 is the first revision wired into the documented asset flow. revision-004 closes page-2 reference-parity gaps: Expertise badge swapped to mdi:check-circle-outline at 38pt, social icons swapped to entypo-social:*-with-circle at 13pt, Awards and References rebuilt as real two-column TableBuilder grids; per-icon point sizes now flow through asset-request.json -> assets-manifest.json."
 }

@@ -17,7 +17,59 @@ reference image
 
 ```text
 architecture-plan.md
+asset-request.json
+data-schema.md            (optional but required when content is templated)
 ```
+
+When the template renders variable content (a CV, an invoice, a
+proposal, ...), the Architecture Mapper MUST split data from
+template. The mapper:
+
+- Designs a typed Java spec record (e.g. `MintEditorialCvSpec`) that
+  enumerates every field the template consumes. Nested records are
+  fine and encouraged for grouping (`Header`, `ContactEntry`,
+  `Experience`, `Reference`, ...).
+- Specifies the JSON file the Template Coder will ship alongside the
+  generated template (typically `<revision>/cv-data.json`,
+  `<revision>/invoice-data.json`, etc.) with one example/fixture
+  record per field so a non-Java user can edit the JSON to change
+  content without touching code.
+- Records the spec class, the provider class
+  (e.g. `MintEditorialCvSpecProvider#create()`), the JSON file path,
+  and the field schema in `data-schema.md`. The Template Coder must
+  not introduce content literals that bypass the spec.
+- Records styling helpers that turn plain content into the rendered
+  form (e.g. `letterSpace("Rose Harris")` → `"R O S E  H A R R I S"`).
+  Visual transformations live in the template; data carries the
+  natural-form strings.
+
+`asset-request.json` is consumed by the Asset Resolver Agent and must
+match the schema documented in
+[`tools/asset-resolver/README.md`](../tools/asset-resolver/README.md):
+
+```json
+{
+  "icons": [
+    { "token": "phone",
+      "query": "phone",
+      "preferredSets": ["mdi", "tabler", "lucide"],
+      "size": 64,
+      "color": "#181818" }
+  ],
+  "fonts": [
+    { "role": "heading", "family": "Poppins", "weights": [400, 700],
+      "source": "graphcompose-bundled" },
+    { "role": "body",    "family": "Helvetica",
+      "source": "standard14" }
+  ]
+}
+```
+
+Every icon needs a stable `token`. Every font needs a stable `role`.
+Tokens and roles are the names the Template Coder will use in code.
+The `Design Assets` section of `architecture-plan.md` must mirror this
+JSON in human-readable form, including the chosen fallback fonts and
+the reason for each icon pick.
 
 Architecture plan structure:
 
@@ -91,7 +143,10 @@ Architecture plan structure:
 ## Hand-off
 
 - Runs after `visual-analyzer-agent.md` has produced `visual-analysis.md`.
-- Hands off to `template-coder-agent.md` next, which translates this plan into Java template and test code.
+- Hands off to `asset-resolver-agent.md` next, which reads
+  `asset-request.json`, downloads icons, validates fonts, and writes
+  `assets-manifest.json`. Only after that does `template-coder-agent.md`
+  receive the plan plus the manifest.
 - See `docs/visual-accuracy-contract.md` for parity requirements that constrain your component mapping and `docs/rollback.md` for why componentized render methods are mandatory.
 
 # Shared Rules

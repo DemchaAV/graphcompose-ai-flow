@@ -1,0 +1,16 @@
+{
+  "name": "@graphcompose-ai-flow/asset-resolver",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Resolve icon and font design assets for a GraphCompose-AI-Flow revision. Reads asset-request.json, downloads icons from iconify.design, validates Google Fonts (bundled in GraphCompose or marked for manual drop), and writes assets-manifest.json plus assets/{icons,fonts}/ files under the revision directory.",
+  "bin": {
+    "asset-resolver": "src/cli.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "lint": "node --check src/cli.mjs && node --check src/iconify.mjs && node --check src/google-fonts.mjs && node --check src/playwright-fallback.mjs && node --check src/plan-reader.mjs"
+  }
+}
