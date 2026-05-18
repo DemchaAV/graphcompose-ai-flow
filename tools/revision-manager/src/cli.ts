@@ -12,6 +12,7 @@ import { runStatus, formatStatus } from './commands/status.js';
 import { runNewRevision } from './commands/newRevision.js';
 import { runApprove } from './commands/approve.js';
 import { runReject } from './commands/reject.js';
+import { runFail } from './commands/fail.js';
 import { runUndo } from './commands/undo.js';
 import { runRevertApproved } from './commands/revertApproved.js';
 import { runRestoreComponent } from './commands/restoreComponent.js';
@@ -115,6 +116,27 @@ export function buildProgram(): Command {
           fail(err);
         }
       }),
+  );
+
+  projectOption(
+    program
+      .command('fail [revisionId]')
+      .description('mark a revision FAILED (compile/render breakage; preserves artifacts)')
+      .option('--reason <text>', 'short note appended to the userRequest')
+      .action(
+        async (
+          revisionId: string | undefined,
+          opts: CommonOptions & { reason?: string },
+        ) => {
+          try {
+            const root = resolveProjectRoot(opts.project);
+            const failed = await runFail(root, revisionId, opts.reason);
+            process.stdout.write(`failed ${failed.id}\n`);
+          } catch (err) {
+            fail(err);
+          }
+        },
+      ),
   );
 
   projectOption(

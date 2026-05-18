@@ -90,52 +90,13 @@ jobs:
           echo "$out"
           echo "$out" | grep -q 'graphcompose runtime not detected on classpath'
 
-  manifest-sanity:
-    name: skill manifest sanity
+  repository-contract:
+    name: repository contract
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: every skill in skill-manifest.json exists on disk
-        run: |
-          set -euo pipefail
-          node -e "
-            const fs = require('node:fs');
-            const path = require('node:path');
-            const manifest = JSON.parse(fs.readFileSync('skills/skill-manifest.json', 'utf8'));
-            if (!Array.isArray(manifest.skills)) {
-              console.error('skills field is not an array');
-              process.exit(1);
-            }
-            let bad = 0;
-            for (const skill of manifest.skills) {
-              const p = path.join('skills', skill.file);
-              if (!fs.existsSync(p)) {
-                console.error('missing: ' + p + '  (id: ' + skill.id + ')');
-                bad++;
-              }
-            }
-            console.log('manifest lists ' + manifest.skills.length + ' skill(s)');
-            if (bad > 0) {
-              console.error(bad + ' missing file(s)');
-              process.exit(1);
-            }
-          "
-      - name: every revision.json under examples/ parses as JSON
-        run: |
-          set -euo pipefail
-          find examples -name 'revision.json' -print0 | while IFS= read -r -d '' f; do
-            node -e "JSON.parse(require('node:fs').readFileSync('$f','utf8'))" \
-              || { echo "invalid JSON: $f"; exit 1; }
-            echo "ok: $f"
-          done
-      - name: template-project.json parses for every project under examples/
-        run: |
-          set -euo pipefail
-          find examples -name 'template-project.json' -print0 | while IFS= read -r -d '' f; do
-            node -e "JSON.parse(require('node:fs').readFileSync('$f','utf8'))" \
-              || { echo "invalid JSON: $f"; exit 1; }
-            echo "ok: $f"
-          done
+      - name: run repository-contract checks
+        run: node .github/scripts/repository-contract.mjs

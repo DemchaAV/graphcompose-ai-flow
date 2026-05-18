@@ -59,4 +59,4 @@ visual-diff tool:
   `expected-output/output.png` baseline
 
 Each deferred check is listed in a comment block inside
-[`RowBasicFixtureTest`](src/test/java/com/demcha/graphcompose/fixtures/rowBasic/RowBasicFixtureTest.java).
+[`RowBasicFixtureTest`](src/test/java/com/demcha/compose/document/fixtures/rowbasic/RowBasicFixtureTest.java).

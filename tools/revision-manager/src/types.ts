@@ -6,7 +6,22 @@
  * the source of truth; it does NOT introduce a private schema.
  */
 
-export type RevisionStatus = 'DRAFT' | 'APPROVED' | 'REJECTED' | 'SUPERSEDED';
+export type RevisionStatus =
+  | 'DRAFT'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'SUPERSEDED'
+  | 'FAILED'
+  | 'REVERTED';
+
+export const REVISION_STATUSES: readonly RevisionStatus[] = [
+  'DRAFT',
+  'APPROVED',
+  'REJECTED',
+  'SUPERSEDED',
+  'FAILED',
+  'REVERTED',
+] as const;
 
 export interface TemplateProject {
   projectName: string;
