@@ -101,10 +101,13 @@ Approved revisions are never overwritten directly. See
 
 ## Example
 
-A full manual revision cycle for an invoice reference is planned under
-`examples/invoice-reference/`. It will include a reference image, project
-metadata, two revisions with all artifacts, and a visual review for each.
-This example is planned for Phase 3 and is not yet present.
+A documentation-grade manual revision cycle for an invoice reference
+lives under [`examples/invoice-reference/`](examples/invoice-reference/).
+It ships two revisions with every text artifact the workflow produces.
+The binary render artifacts (`output.pdf`, `output.png`) are listed
+under `pendingArtifacts` in each `revision.json` and will be generated
+once the `render` command of [`tools/preview-renderer`](tools/preview-renderer/)
+can resolve GraphCompose 1.6 from a Maven repository.
 
 ## Limitations
 
@@ -121,8 +124,26 @@ workflow, and visual diff experiment. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Status
 
-Phase 1 — documentation MVP. Tools and examples are intentionally not yet
-implemented.
+Phases 1 through 7 of the project plan have shipped. The
+[`tools/`](tools/) folder hosts three modules: a Node revision-manager
+CLI ([`revision-manager`](tools/revision-manager/)), a Java + Maven
+preview-renderer ([`preview-renderer`](tools/preview-renderer/) with a
+working `preview` PDF→PNG subcommand and a `render` skeleton that
+detects whether GraphCompose 1.6 is on the classpath), and a Node
+visual-diff CLI ([`visual-diff`](tools/visual-diff/)). All three ship
+with passing test suites and are wired to GitHub Actions CI.
+
+The remaining gate is external: GraphCompose 1.6 needs to be reachable
+from a Maven repository so the `render` subcommand can flip from
+skeleton to functional. Until then every skill in the manifest stays
+at `status: needs-validation`, every revision's `output.pdf` and
+`output.png` are listed under `pendingArtifacts`, and the committed
+Java template files in `examples/invoice-reference/` and
+`examples/skill-fixtures/` are documentation-grade illustrations of
+the intent rather than artifacts that compile against a published
+GraphCompose jar. See [`AUDIT.md`](AUDIT.md) and
+[`docs/implementation-status.md`](docs/implementation-status.md) for
+the claim-vs-reality matrix.
 
 ## Positioning
 

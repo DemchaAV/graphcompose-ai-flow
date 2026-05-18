@@ -102,11 +102,19 @@ The docs site is split into 12 self-contained pages:
 
 ## Phase status
 
-Phase 1 — Documentation MVP.
+Phases 1 through 7 of the project plan are shipped. The
+[`tools/`](../tools/) folder hosts a Node revision-manager CLI, a
+Java + Maven preview-renderer (with a working `preview` subcommand
+and a `render` skeleton), and a Node visual-diff CLI. All three have
+passing test suites and are wired to GitHub Actions CI.
 
-The first version focuses on documentation, skills contracts, prompts,
-and one manual example. Tooling (CLI, automated rendering, automated
-diff) is planned for Phase 5 and later and is documented but not
-shipped. See [roadmap.md](roadmap.md) for the full phase plan and
-[limitations.md](limitations.md) for what is intentionally out of
-scope today.
+The remaining external gate is that GraphCompose 1.6 has not yet
+been published to a Maven repository reachable from this build, so
+the `render` subcommand cannot resolve the real GraphCompose
+classpath today. Until that lands, every skill in the manifest stays
+at `status: needs-validation` and every revision's `output.pdf` and
+`output.png` are listed under `pendingArtifacts`. See
+[roadmap.md](roadmap.md) for the per-phase table,
+[implementation-status.md](implementation-status.md) for the honest
+claim-vs-reality matrix, and [limitations.md](limitations.md) for
+what is intentionally out of scope today.

@@ -24,7 +24,7 @@ measured by a real engine run.
 - **Phase 7** (visual-diff): introduces a committed `output.png`
   baseline and a tool that compares a new render against both
   `layout-snapshot.json` and that baseline. Diffs are classified per
-  [`../../../docs/visual-accuracy-contract.md`](../../../docs/visual-accuracy-contract.md).
+  [`../../../../docs/visual-accuracy-contract.md`](../../../../docs/visual-accuracy-contract.md).
 
 Do not edit `layout-snapshot.json` by hand once Phase 6 is wired; it
 will be regenerated. Do edit it by hand now — it documents intent.

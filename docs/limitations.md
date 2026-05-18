@@ -19,20 +19,44 @@ users and contributors can plan around it.
 - unsupported GraphCompose versions require skill updates
 - agent can only use APIs documented in selected skill pack
 
-## Not a tool, yet
+## What the tooling can and cannot do today
 
-In Phase 1 there is no CLI, no automated rendering, no automated
-diff. The CLI surface described in the plan (commands such as
-`graphcompose-flow init`, `new-revision`, `approve`, `undo`,
-`revert-approved`, `restore-component`, `validate-skills`, `render`,
-`compare`) is documented but not shipped. The render/preview
-workflow and visual diff land in Phase 6 and Phase 7. See
-[roadmap.md](roadmap.md) for the phase schedule.
+Three tools ship under [`../tools/`](../tools/) and pass CI:
 
-Until tooling lands, the entire workflow is performed manually by an
-operator following the prompts under `prompts/` and the discipline
-described in [workflow.md](workflow.md). Files are written by hand
-into revision folders.
+- [`revision-manager`](../tools/revision-manager/) implements `init`,
+  `status`, `new-revision`, `approve`, `reject`, `undo`,
+  `revert-approved`, `restore-component`, `history`, and `diff`.
+  Verified by 22 unit tests plus a smoke sequence in CI. The
+  `RevisionStatus` union does NOT yet include `FAILED` or `REVERTED`
+  markers; see [implementation-status.md](implementation-status.md)
+  for the gap.
+- [`preview-renderer`](../tools/preview-renderer/) implements
+  `preview` (PDF → PNG via PDFBox 3) functionally. The `render`
+  subcommand (template → PDF) is a skeleton: it loads the supplied
+  classpath, looks up the GraphCompose `DocumentSession` canary
+  class, and exits with a clear "graphcompose runtime not detected"
+  message when the canary cannot be loaded. The skeleton flips to
+  functional once GraphCompose 1.6 is on a reachable Maven
+  repository.
+- [`visual-diff`](../tools/visual-diff/) implements pixel comparison
+  with pixelmatch, the parity-score formula, and the classification
+  rules from [visual-accuracy-contract.md](visual-accuracy-contract.md).
+  21 unit tests; functional.
+
+What is intentionally NOT in this repository today:
+
+- a published Maven coordinate for GraphCompose itself — the
+  [render path](../tools/preview-renderer/) cannot resolve the
+  library because `io.github.demchaav:graphcompose:1.6.0` is not yet
+  on Maven Central / JitPack.
+- skill-validation execution. The discipline lives under
+  [../validation/](../validation/) but no fixture has been
+  executed against the real library. All 14 skills in the manifest
+  remain `status: needs-validation`.
+- a hosted CLI, a model adapter, or inference infrastructure.
+- a real reference image at
+  `examples/invoice-reference/reference/reference.png` — only the
+  textual reference description (`reference.md`) is committed.
 
 ## Out of scope
 

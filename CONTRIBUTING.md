@@ -7,24 +7,34 @@ turns visual document references into maintainable GraphCompose Java
 templates. Contributions should make that workflow clearer, safer, or more
 honest about its limitations.
 
-## Current phase
+## Current state
 
-The project is in Phase 1: documentation MVP only.
+Phases 1 through 7 of the project plan are shipped. See
+[docs/roadmap.md](docs/roadmap.md) for the per-phase table and
+[docs/implementation-status.md](docs/implementation-status.md) for the
+honest claim-vs-reality matrix. The remaining external gate is that
+GraphCompose 1.6 has not yet been published to a Maven repository
+reachable from this build, so the `render` subcommand in
+[tools/preview-renderer](tools/preview-renderer/) is a skeleton, every
+skill in the manifest stays at `status: needs-validation`, and the
+committed Java template files in `examples/invoice-reference/` and
+`examples/skill-fixtures/` are documentation-grade illustrations of
+the intent.
 
-There is no `tools/` directory yet. There are no implemented CLI commands.
-There is no skill pack content under `skills/versions/`. Please do not open
-pull requests that add tool code, example projects, or skill files against a
-phase that is not yet open. The phase plan is in
-[docs/roadmap.md](docs/roadmap.md).
+Open contribution areas:
 
-Acceptable Phase 1 contributions:
-
-- documentation fixes
-- workflow clarifications
-- corrections to agent role descriptions
-- corrections to the revision model
-- corrections to the visual accuracy contract
-- corrections to the skill manifest schema
+- documentation fixes and workflow clarifications
+- skill content corrections (the skill files must NOT name concrete
+  GraphCompose API methods until a verified fixture run pins them;
+  see [docs/skill-validation.md](docs/skill-validation.md))
+- skill manifest entries when a new skill is added
+- revision-model and rollback-model corrections
+- agent role descriptions
+- corrections to the example revisions under
+  `examples/invoice-reference/`
+- repository-contract checks in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+- bug fixes in any of the three `tools/` modules
+- new fixture scaffolds under `examples/skill-fixtures/`
 
 ## Filing issues
 
@@ -74,9 +84,12 @@ a buggy skill instead of fixing the skill will be rejected.
 
 Before requesting review:
 
-- [ ] The change targets Phase 1 scope (docs only) or an explicitly open
-      later phase.
+- [ ] Changes respect the ownership boundaries in
+      [docs/agents.md](docs/agents.md) and the skill drift rule in
+      [docs/skill-validation.md](docs/skill-validation.md).
 - [ ] No invented GraphCompose API appears in any new or modified text.
+      Cross-check every concrete method name against the real library
+      before claiming it as supported.
 - [ ] Cross-references use the canonical paths under `docs/`, `skills/`,
       `prompts/`, `examples/`, and `validation/`.
 - [ ] If a revision-related change is made, the revision quality rules in
