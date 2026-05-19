@@ -69,6 +69,29 @@ number can be derived, it MUST be derived. See
 under "Relational geometry over pixel constants" for the canonical
 pattern.
 
+### Anchors and alignment
+
+The relational principle extends to element-to-element positioning.
+GraphCompose's anchor + alignment primitives encode the relationship
+directly so the engine resolves the actual coordinates at render
+time:
+
+| Element-to-element relationship | Engine primitive |
+|---|---|
+| Paragraph horizontal alignment | `TextAlign.LEFT / .CENTER / .RIGHT` |
+| Inline image vs surrounding text baseline | `InlineImageAlignment.BASELINE / .CENTER / .TEXT_TOP` |
+| Layer in a stack (badge, watermark, overlay) | `LayerAlign.TOP_LEFT / TOP_CENTER / ... / BOTTOM_RIGHT` |
+| Cell text in a table | `DocumentTableTextAnchor.{TOP,CENTER,BOTTOM}_{LEFT,CENTER,RIGHT}` |
+| Column proportions in a row | `RowBuilder.weights(...)` |
+| Positioned overlay with offset from anchor | `LayerStackBuilder.position(node, offsetX, offsetY, LayerAlign.X)` |
+| Custom canvas anchors | `HAnchor.{LEFT,CENTER,RIGHT}` + `VAnchor.{TOP,MIDDLE,BOTTOM}` |
+
+Visual Analyzer describes the relationship in prose ("icon centered
+on the label baseline"), Architecture Mapper picks the named anchor
+that expresses it, Template Coder reaches for that anchor in code.
+Hand-rolled pixel offsets only appear when the anchor set genuinely
+doesn't cover the case (rare custom decoration).
+
 ## Template Orchestrator Agent
 
 Purpose: main coordinator. Decides whether the user request is a new

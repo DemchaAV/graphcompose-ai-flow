@@ -46,6 +46,23 @@ Architecture Mapper translates these into named weight constants
 and the Template Coder derives every width from them; pixel widths
 written in the analysis cement drift across revisions.
 
+## Anchors and relative positioning
+For every element whose placement depends on another element,
+describe the RELATIONSHIP, not coordinates. Use phrases the
+Architecture Mapper can map directly to engine primitives:
+
+- "Headline centered horizontally in the page" → `TextAlign.CENTER`
+- "Icon centered on the label baseline" → `InlineImageAlignment.CENTER`
+- "Watermark anchored top-right of the page, nudged 80pt inward" →
+  `LayerStackBuilder.position(node, -80, ..., LayerAlign.TOP_RIGHT)`
+- "Table cell content top-left of the cell box" → `DocumentTableTextAnchor.TOP_LEFT`
+- "Column 1 takes ~31% of the row, column 2 takes the rest" →
+  `RowBuilder.weights(0.31, 0.69)`
+
+If a position cannot be described relationally (a true custom
+decorative coordinate), call it out under `Unclear Parts` so the
+Architecture Mapper can decide whether `CanvasLayer` is justified.
+
 ## Visual Hierarchy
 - primary:
 - secondary:
@@ -146,3 +163,4 @@ written in the analysis cement drift across revisions.
 - If icons are needed, source/search them through https://iconify.design/ and record the icon set/name.
 - If custom fonts are needed, use https://fonts.google.com/ as the default source when licensing permits, and record family, weights, source, and fallback.
 - Prefer relational geometry over pixel constants: derive layout widths and weights from a small set of base constants (page size, margins, column gaps, weights) rather than hand-tuning per region. Hardcoded pixel values are reserved for genuinely independent dimensions; everything else MUST be derived. See `prompts/template-coder-agent.md` for the canonical pattern.
+- Prefer engine anchors and alignment over hand-computed offsets: when one element sits at a defined position relative to another, use the engine primitives (`LayerAlign`, `TextAlign`, `InlineImageAlignment`, `DocumentTableTextAnchor`, `HAnchor`/`VAnchor`, `RowBuilder.weights(...)`, `LayerStackBuilder.position(..., align)`) and let the layout engine resolve the actual coordinates at render time. Manual pixel offsets are reserved for cases the anchor set genuinely cannot express.

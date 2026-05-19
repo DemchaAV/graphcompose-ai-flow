@@ -74,6 +74,10 @@ If the visual reference needs a custom font, use `https://fonts.google.com/` as 
 
 Every layout dimension in the generated template must be DERIVED from a small set of base constants (page size, margins, column gaps, weights), not hand-tuned to a specific pixel value. The Visual Analyzer describes layout in ratios. The Architecture Mapper captures those ratios as weight constants. The Template Coder emits derived widths that recompute when a base constant changes, in one place. Hardcoded pixel values are reserved for genuinely independent dimensions (icon size, line marker height, fixed paddings). When a number can be derived, it MUST be derived. See `prompts/template-coder-agent.md` for the canonical pattern.
 
+# Anchors and alignment requirement
+
+Element-to-element positioning must use the engine's anchor and alignment primitives, not hand-computed pixel offsets. GraphCompose ships `TextAlign` (paragraph alignment), `InlineImageAlignment` (inline image vs text baseline), `LayerAlign` (nine-position anchors for `LayerStackBuilder.position(...)`), `DocumentTableTextAnchor` (cell text anchor), `RowBuilder.weights(...)` (proportional columns), and `HAnchor`/`VAnchor` (low-level anchors for custom canvas use). The Visual Analyzer describes placements as relationships ("centered against label baseline", "anchored top-right of the page"); the Architecture Mapper records the anchor the relationship maps to; the Template Coder reaches for that anchor in code. Manual pixel offsets are reserved for placements the anchor set genuinely cannot express, and even then the offsets must be derived from named constants.
+
 # Required workflow
 
 Analyze Reference

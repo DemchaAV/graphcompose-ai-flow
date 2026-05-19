@@ -153,6 +153,47 @@ awards grid is half of Main", "the skill bar is as wide as the
 sidebar", "the page-two row weights match the page-one row weights".
 Change one base constant and the whole layout follows in one place.
 
+### Anchors and alignment over hand-computed offsets
+
+The relational principle extends one step further: when one element
+sits at a defined position relative to another, USE THE ENGINE'S
+ANCHOR/ALIGNMENT primitives instead of computing pixel offsets.
+GraphCompose ships a small but complete set of anchor types — pick
+the one that names the relationship, and let the layout engine
+resolve the actual coordinates at render time.
+
+| Need to express | Engine primitive |
+|---|---|
+| Horizontal text alignment inside a paragraph | `TextAlign.LEFT` / `.CENTER` / `.RIGHT` |
+| Vertical alignment of an inline image to surrounding text | `InlineImageAlignment.BASELINE` / `.CENTER` / `.TEXT_TOP` |
+| Position of a layer inside a {@code LayerStack} | `LayerAlign.{TOP,CENTER,BOTTOM}_{LEFT,CENTER,RIGHT}` |
+| Cell text anchoring inside a table | `DocumentTableTextAnchor.{TOP,CENTER,BOTTOM}_{LEFT,CENTER,RIGHT}` |
+| Column proportions inside a row | `row.weights(SIDEBAR_WEIGHT, MAIN_WEIGHT)` |
+| Positioned overlay (badge, watermark, stamp) | `LayerStackBuilder.position(node, offsetX, offsetY, LayerAlign.X)` |
+| Horizontal/vertical anchor in custom canvas use | `HAnchor.{LEFT,CENTER,RIGHT}`, `VAnchor.{TOP,MIDDLE,BOTTOM}` |
+
+```text
+Do not write: "place an X-pt left margin so the icon sits centered
+against the label baseline".
+Write:        "InlineImageAlignment.CENTER".
+
+Do not write: "place a watermark at (page-width minus 80, 60)".
+Write:        "LayerStackBuilder.position(watermark, -80, 60,
+              LayerAlign.TOP_RIGHT)" — the engine resolves the
+              actual placement; the offset describes the relationship
+              to the anchor, not absolute coordinates.
+
+Do not write: "Sidebar is 135pt wide, Main is 301pt wide".
+Write:        "row.weights(SIDEBAR_WEIGHT, MAIN_WEIGHT)" — the row
+              negotiates widths from the weights.
+```
+
+Hand-rolled coordinate math is reserved for cases the anchor set
+genuinely doesn't cover (e.g. a custom decorative line whose
+position can't be expressed as "top-left of X with offset Y"). Even
+then the offsets must be derived from named constants, not raw
+literals.
+
 ## Rules
 
 ```text
@@ -271,3 +312,4 @@ public final class AiGeneratedInvoiceTemplate implements DocumentTemplate<Invoic
 - If icons are needed, source/search them through https://iconify.design/ and record the icon set/name.
 - If custom fonts are needed, use https://fonts.google.com/ as the default source when licensing permits, and record family, weights, source, and fallback.
 - Prefer relational geometry over pixel constants: derive layout widths and weights from a small set of base constants (page size, margins, column gaps, weights) rather than hand-tuning per region. Hardcoded pixel values are reserved for genuinely independent dimensions; everything else MUST be derived. See `prompts/template-coder-agent.md` for the canonical pattern.
+- Prefer engine anchors and alignment over hand-computed offsets: when one element sits at a defined position relative to another, use the engine primitives (`LayerAlign`, `TextAlign`, `InlineImageAlignment`, `DocumentTableTextAnchor`, `HAnchor`/`VAnchor`, `RowBuilder.weights(...)`, `LayerStackBuilder.position(..., align)`) and let the layout engine resolve the actual coordinates at render time. Manual pixel offsets are reserved for cases the anchor set genuinely cannot express.
