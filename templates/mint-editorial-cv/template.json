@@ -2,14 +2,14 @@
   "id": "mint-editorial-cv",
   "displayName": "Mint Editorial CV",
   "sourceProject": "cv-reference",
-  "sourceRevision": "revision-006",
-  "sourceCommit": "286fe1afb7310a7b2f31af0f8dc56bbe4831631c",
+  "sourceRevision": "revision-007",
+  "sourceCommit": "e716d52451b84545c5b39ac14efd5b8401a2fbeb",
   "className": "MintEditorialCvTemplate",
   "specClass": "com.demcha.examples.cv.MintEditorialCvSpec",
   "specProviderClass": "com.demcha.examples.cv.MintEditorialCvSpecProvider",
   "docKind": "cv",
   "schemaVersion": "1.0.0",
-  "publishedAt": "2026-05-18T23:42:28.901Z",
+  "publishedAt": "2026-05-19T07:55:54.976Z",
   "fonts": [
     {
       "role": "heading",

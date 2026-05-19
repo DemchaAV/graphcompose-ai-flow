@@ -38,10 +38,11 @@ import com.demcha.examples.cv.MintEditorialCvSpec.SocialLink;
  *
  * Two-page editorial-style resume / CV template for a graphic designer.
  * Centered identity header with a full-width mint accent rule, two-column
- * body grids on every page, Iconify-backed contact and social glyphs,
- * filled-badge social icons, two-column Awards and References grids, and
- * bundled {@code Poppins} typography from the GraphCompose Google Fonts
- * library.
+ * body grids on page 1, a sidebar + main split on page 2 where AWARDS
+ * and REFERENCES fill the entire Main column as a half-and-half grid,
+ * Iconify-backed contact and social glyphs, filled-badge social icons,
+ * and bundled {@code Poppins} typography from the GraphCompose Google
+ * Fonts library.
  *
  * <h3>Usage</h3>
  *
@@ -135,8 +136,11 @@ import com.demcha.examples.cv.MintEditorialCvSpec.SocialLink;
  *       {@link #PAGE_MARGIN_SIDE}, {@link #PAGE_MARGIN_BOTTOM},
  *       {@link #COLUMN_GAP}, {@link #SIDEBAR_WIDTH}. Adjust the page
  *       trim or the sidebar / main split here.</li>
- *   <li><b>Grid widths for Awards and References</b> —
- *       {@link #GRID_COLUMN_WIDTH} and {@link #GRID_COLUMN_GAP}.</li>
+ *   <li><b>Awards / References grid</b> — {@link #GRID_COLUMN_WIDTH}
+ *       and {@link #GRID_COLUMN_GAP}. The default 150pt per column
+ *       makes the two-column grid fill the Main column exactly; the
+ *       28pt gap is taken from the left cell's right-padding so the
+ *       table itself spans the full Main width.</li>
  *   <li><b>Icon sizes</b> — the per-token point sizes are encoded in
  *       the {@link #ICONS} table; the entries mirror the
  *       {@code pointSize} field in
@@ -170,8 +174,9 @@ import com.demcha.examples.cv.MintEditorialCvSpec.SocialLink;
  *
  * <h3>Source provenance</h3>
  *
- * Published from {@code examples/cv-reference/revisions/revision-006}.
- * The source revision tree (orchestration-decision, architecture-plan,
+ * Published from {@code examples/cv-reference/revisions/revision-007}
+ * (current APPROVED baseline; supersedes revision-004). The source
+ * revision tree (orchestration-decision, architecture-plan,
  * data-schema, visual-review) lives in the example project and is the
  * authoritative audit record for this template's design decisions.
  *
@@ -217,7 +222,14 @@ public final class MintEditorialCvTemplate {
     private static final double SIDEBAR_WIDTH = 136.0;
     private static final double SKILL_BAR_WIDTH = SIDEBAR_WIDTH;
     private static final double SKILL_MARKER_HEIGHT = 8.0;
-    private static final double GRID_COLUMN_WIDTH = 130.0;
+    // Awards / References render as a 2-column TableBuilder inside the Main
+    // section of PageTwoGrid. The Main inner width = 0.69 * (FULL_PAGE_WIDTH
+    // - 2*PAGE_MARGIN_SIDE - COLUMN_GAP) = 0.69 * 437 ≈ 301.5pt. Splitting
+    // that exactly in half ⇒ each grid column = ~150pt. The 28pt visual gap
+    // between the two columns is taken from the left column's
+    // right-padding inside the cell, so the table itself spans the full
+    // Main width with the divide sitting at the half-point.
+    private static final double GRID_COLUMN_WIDTH = 150.0;
     private static final double GRID_COLUMN_GAP = 28.0;
 
     private record IconSpec(String fileName, double pointSize) {

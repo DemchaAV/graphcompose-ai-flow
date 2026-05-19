@@ -3,7 +3,8 @@
 - Template: **Mint Editorial CV** (`cv-reference`)
 - Revision: `revision-007`
 - Parent: `revision-006`
-- Status: `DRAFT`
+- Status: `APPROVED` (2026-05-19T00:50:00Z)
+- Supersedes: `revision-004`
 - Renderable: YES
 - Pixel diff vs parent page-1: 0 (byte-identical)
 - Pixel diff vs parent page-2: 15334 px (0.71%) — the intentional

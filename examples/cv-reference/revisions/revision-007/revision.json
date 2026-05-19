@@ -1,7 +1,8 @@
 {
   "id": "revision-007",
   "parentRevisionId": "revision-006",
-  "status": "DRAFT",
+  "status": "APPROVED",
+  "approvedAt": "2026-05-19T00:50:00.000Z",
   "templateDisplayName": "Mint Editorial CV",
   "userRequest": "Awards and References were sized as a 260pt two-column grid inside the ~301pt Main column, leaving ~41pt of empty space on the right. Bump grid column widths so the two columns fill the Main column exactly: the divide between them sits at Main's center, each column is half of Main wide.",
   "targetGraphComposeVersion": "1.6.0",

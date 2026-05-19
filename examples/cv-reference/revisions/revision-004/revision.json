@@ -1,8 +1,10 @@
 {
   "id": "revision-004",
   "parentRevisionId": "revision-003",
-  "status": "APPROVED",
+  "status": "SUPERSEDED",
   "approvedAt": "2026-05-18T23:00:00.000Z",
+  "supersededAt": "2026-05-19T00:50:00.000Z",
+  "supersededBy": "revision-007",
   "templateDisplayName": "Mint Editorial CV",
   "userRequest": "Match the page-2 reference more closely: Expertise badge must be a thin-line circle with a check and visibly large; social icons must be filled circle-with-glyph badges; Awards and References must be true two-column grids inside the Main column; per-icon point sizes must come from the asset flow, not Java constants.",
   "targetGraphComposeVersion": "1.6.0",

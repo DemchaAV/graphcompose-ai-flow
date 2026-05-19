@@ -3,7 +3,8 @@
 - Template: **Mint Editorial CV** (`cv-reference`)
 - Revision: `revision-004`
 - Parent: `revision-003`
-- Status: `APPROVED` (2026-05-18T23:00:00Z)
+- Status: `SUPERSEDED` (by revision-007 on 2026-05-19T00:50:00Z)
+- Was: `APPROVED` (2026-05-18T23:00:00Z)
 - Renderable: YES
 - Pixel-perfect: NO (see `visual-review.md` for the remaining MINOR
   differences)
