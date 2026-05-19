@@ -1,0 +1,31 @@
+{
+  "id": "revision-007",
+  "parentRevisionId": "revision-006",
+  "status": "DRAFT",
+  "templateDisplayName": "Mint Editorial CV",
+  "userRequest": "Awards and References were sized as a 260pt two-column grid inside the ~301pt Main column, leaving ~41pt of empty space on the right. Bump grid column widths so the two columns fill the Main column exactly: the divide between them sits at Main's center, each column is half of Main wide.",
+  "targetGraphComposeVersion": "1.6.0",
+  "skillPack": "skills/versions/graphcompose-1.6",
+  "changedComponents": [
+    "Awards",
+    "References"
+  ],
+  "createdAt": "2026-05-19T00:30:00.000Z",
+  "artifacts": {
+    "userRequest": "user-request.md",
+    "orchestrationDecision": "orchestration-decision.md",
+    "assetRequest": "asset-request.json",
+    "assetsManifest": "assets-manifest.json",
+    "cvData": "cv-data.json",
+    "template": "generated-template.java",
+    "pdf": "output.pdf",
+    "preview": "output.png",
+    "previewPage2": "output-page-2.png",
+    "debugPdf": "output-debug.pdf",
+    "debugPreview": "output-debug.png",
+    "debugPreviewPage2": "output-debug-page-2.png",
+    "visualReview": "visual-review.md",
+    "status": "status.md"
+  },
+  "pendingArtifacts": []
+}
