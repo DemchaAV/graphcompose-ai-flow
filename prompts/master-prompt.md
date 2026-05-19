@@ -1,5 +1,12 @@
 # Master Prompt for Coding Agent
 
+> **Entry point:** the agent's onboarding file is
+> [`AGENTS.md`](../AGENTS.md) at the repo root. Read it FIRST — it
+> dispatches user gestures to the right agent in the chain, lists
+> the cross-cutting rules, and maps every artifact location. This
+> master prompt is the cross-agent contract that sits underneath
+> the AGENTS.md dispatch.
+
 # Role
 
 You are a Senior Software Architect, Technical Writer, AI Workflow Designer, and Open Source Project Builder.

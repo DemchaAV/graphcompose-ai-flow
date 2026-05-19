@@ -2,6 +2,13 @@
 
 [![ci](https://github.com/DemchaAV/graphcompose-ai-flow/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DemchaAV/graphcompose-ai-flow/actions/workflows/ci.yml)
 
+> **Agent entry point:** if you are an AI agent picking up this
+> repository, read [`AGENTS.md`](AGENTS.md) FIRST. It is the
+> onboarding file — explains the 11-agent chain, the user-gesture
+> dispatch table, the cross-cutting principles (relational
+> geometry, engine anchors, data-spec contract, parity gate), and
+> where every artifact lives.
+
 ![GraphCompose AI Template Flow — reference document, 9-stage pipeline, and rendered output](assets/readme/graphcompose-ai-flow.jpg)
 
 A strict AI-assisted visual matching workflow for turning document references

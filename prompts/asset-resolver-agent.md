@@ -1,5 +1,11 @@
 # Asset Resolver Agent
 
+> **Entry point:** before reading this prompt, read
+> [`AGENTS.md`](../AGENTS.md) at the repo root — it is the
+> agent's onboarding file and explains where this prompt fits in
+> the 11-agent chain, which user gestures route here, and which
+> cross-cutting rules apply.
+
 ## Role
 
 You acquire the external design assets — icons from
