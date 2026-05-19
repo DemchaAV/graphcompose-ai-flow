@@ -34,6 +34,18 @@ Suggested output structure:
 - region 2:
 - region 3:
 
+## Layout Proportions
+- top-level columns / rows (e.g. "page-2 is two columns, sidebar
+  ≈ 31% of usable width, main ≈ 69%"):
+- nested splits (e.g. "Awards / References fill Main and split it
+  1:1 with a small visible gap"):
+- vertical proportions (e.g. "header band is roughly the top tenth
+  of the page; mint accent rule sits below it"):
+Describe the page in RATIOS and DEPENDENCIES, not in pixels. The
+Architecture Mapper translates these into named weight constants
+and the Template Coder derives every width from them; pixel widths
+written in the analysis cement drift across revisions.
+
 ## Visual Hierarchy
 - primary:
 - secondary:
@@ -85,6 +97,11 @@ Suggested output structure:
 - identify page format and orientation
 - identify layout grid
 - identify major regions
+- describe layout in RATIOS / proportions / dependency arrows — not
+  in raw pixel widths. The downstream Architecture Mapper and
+  Template Coder build derivational formulas from those ratios so
+  the template survives page-size or weight changes without
+  per-region retuning (see the relational-geometry shared rule).
 - describe visual hierarchy
 - identify repeated components
 - identify typography
@@ -128,3 +145,4 @@ Suggested output structure:
 - If skills disagree with library behavior, fix the skills.
 - If icons are needed, source/search them through https://iconify.design/ and record the icon set/name.
 - If custom fonts are needed, use https://fonts.google.com/ as the default source when licensing permits, and record family, weights, source, and fallback.
+- Prefer relational geometry over pixel constants: derive layout widths and weights from a small set of base constants (page size, margins, column gaps, weights) rather than hand-tuning per region. Hardcoded pixel values are reserved for genuinely independent dimensions; everything else MUST be derived. See `prompts/template-coder-agent.md` for the canonical pattern.

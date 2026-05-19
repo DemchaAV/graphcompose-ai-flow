@@ -106,6 +106,13 @@ Architecture plan structure:
 - map visual regions to GraphCompose DSL primitives
 - decide reusable private render methods
 - identify theme tokens
+- describe layout in **relational** terms — proportions, weights,
+  dependency arrows — never as a flat list of hand-picked pixel
+  widths. Write "Awards grid fills Main column, split 1:1" instead
+  of "Awards columns are 150pt each". The template-coder must be
+  able to read the plan and decide which constants are base and
+  which are derived (see the relational-geometry rule in the shared
+  rules block).
 - identify icon assets from Iconify when a replacement is needed
 - identify font assets from Google Fonts when a custom embeddable
   font is needed and licensing permits
@@ -164,3 +171,4 @@ Architecture plan structure:
 - If skills disagree with library behavior, fix the skills.
 - If icons are needed, source/search them through https://iconify.design/ and record the icon set/name.
 - If custom fonts are needed, use https://fonts.google.com/ as the default source when licensing permits, and record family, weights, source, and fallback.
+- Prefer relational geometry over pixel constants: derive layout widths and weights from a small set of base constants (page size, margins, column gaps, weights) rather than hand-tuning per region. Hardcoded pixel values are reserved for genuinely independent dimensions; everything else MUST be derived. See `prompts/template-coder-agent.md` for the canonical pattern.

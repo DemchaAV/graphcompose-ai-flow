@@ -68,3 +68,4 @@ The skill must be fixed.
 - If skills disagree with library behavior, fix the skills.
 - If icons are needed, source/search them through https://iconify.design/ and record the icon set/name.
 - If custom fonts are needed, use https://fonts.google.com/ as the default source when licensing permits, and record family, weights, source, and fallback.
+- Prefer relational geometry over pixel constants: derive layout widths and weights from a small set of base constants (page size, margins, column gaps, weights) rather than hand-tuning per region. Hardcoded pixel values are reserved for genuinely independent dimensions; everything else MUST be derived. See `prompts/template-coder-agent.md` for the canonical pattern.

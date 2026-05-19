@@ -70,6 +70,10 @@ If the visual reference needs icons, search/select suitable icons through `https
 
 If the visual reference needs a custom font, use `https://fonts.google.com/` as the default source when licensing permits. GraphCompose can add fonts to font libraries, so record the font family, weights, source, and PDF-safe fallback before coding.
 
+# Relational geometry requirement
+
+Every layout dimension in the generated template must be DERIVED from a small set of base constants (page size, margins, column gaps, weights), not hand-tuned to a specific pixel value. The Visual Analyzer describes layout in ratios. The Architecture Mapper captures those ratios as weight constants. The Template Coder emits derived widths that recompute when a base constant changes, in one place. Hardcoded pixel values are reserved for genuinely independent dimensions (icon size, line marker height, fixed paddings). When a number can be derived, it MUST be derived. See `prompts/template-coder-agent.md` for the canonical pattern.
+
 # Required workflow
 
 Analyze Reference

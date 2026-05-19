@@ -44,6 +44,31 @@ Revision Manager can change project metadata. A Template Publisher
 runs after APPROVAL and turns the frozen revision into a
 publish-quality, end-user-friendly bundle under `templates/`.
 
+## Relational geometry across the chain
+
+A cross-cutting rule encoded in every agent's shared rules block and
+in [`prompts/master-prompt.md`](../prompts/master-prompt.md): layout
+dimensions must be DERIVED from a small set of base constants — page
+size, margins, column gaps, weights — not hand-tuned per region.
+
+- Visual Analyzer describes layout in RATIOS (e.g. "sidebar ≈ 31%
+  of usable width") and proportions, never in raw pixel widths.
+- Architecture Mapper captures those ratios as named weight
+  constants in the plan.
+- Template Coder emits derived widths
+  (`SIDEBAR_WIDTH = USABLE_WIDTH * SIDEBAR_WEIGHT`,
+   `GRID_COLUMN_WIDTH = MAIN_WIDTH / 2.0`, ...). The same
+  `SIDEBAR_WEIGHT` constant feeds every `row.weights(...)` AND the
+  derived `SIDEBAR_WIDTH` so changing one base constant recomputes
+  every dependent dimension in a single place.
+
+Hardcoded pixel values are reserved for genuinely independent
+dimensions (icon size, line marker height, fixed paddings). When a
+number can be derived, it MUST be derived. See
+[`prompts/template-coder-agent.md`](../prompts/template-coder-agent.md)
+under "Relational geometry over pixel constants" for the canonical
+pattern.
+
 ## Template Orchestrator Agent
 
 Purpose: main coordinator. Decides whether the user request is a new
