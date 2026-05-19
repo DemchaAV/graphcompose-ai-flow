@@ -111,11 +111,6 @@ any other Java code.
 ## Core idea
 
 ```text
-AI не рисует PDF по координатам.
-AI собирает документ из смысловых компонентов GraphCompose.
-```
-
-```text
 AI does not draw the PDF with raw coordinates.
 AI reconstructs the document using semantic GraphCompose components.
 ```
