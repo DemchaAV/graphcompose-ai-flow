@@ -34,156 +34,26 @@ import com.demcha.examples.cv.MintEditorialCvSpec.Skill;
 import com.demcha.examples.cv.MintEditorialCvSpec.SocialLink;
 
 /**
- * <h2>Mint Editorial CV</h2>
+ * "Mint Editorial CV" — revision-006 of the canonical CV reference template.
  *
- * Two-page editorial-style resume / CV template for a graphic designer.
- * Centered identity header with a full-width mint accent rule, two-column
- * body grids on page 1, a sidebar + main split on page 2 where AWARDS
- * and REFERENCES fill the entire Main column as a half-and-half grid,
- * Iconify-backed contact and social glyphs, filled-badge social icons,
- * and bundled {@code Poppins} typography from the GraphCompose Google
- * Fonts library.
+ * <p>Diff vs revision-005 (approved revision-004 + clickable social links):
+ * every piece of variable content has moved out of the Java source into
+ * {@code cv-data.json} alongside the template. The compose method now takes a
+ * {@link MintEditorialCvSpec} that {@link MintEditorialCvSpecProvider} loads
+ * via Jackson at render time; the template is a pure renderer.</p>
  *
- * <h3>Relational geometry</h3>
+ * <p>The {@link #letterSpace(String)} helper turns the data-side natural-form
+ * strings ({@code "Rose Harris"}, {@code "Contact"}, {@code "Awards"}) into
+ * the spaced-uppercase form the reference uses
+ * ({@code "R O S E  H A R R I S"}, {@code "C O N T A C T"},
+ * {@code "A W A R D S"}). Visual transformations live in the template; data
+ * carries the readable form.</p>
  *
- * Layout dimensions are DERIVED from a small set of base constants
- * (page width, side margin, column gap, sidebar weight). Change one
- * base constant and every dependent width recomputes — the awards
- * grid, the sidebar width, the skill bars, and the page-2 row
- * weights all follow without per-region retuning. This is the
- * canonical pattern documented in
- * {@code prompts/template-coder-agent.md} under "Relational
- * geometry over pixel constants".
- *
- * <pre>{@code
- *   FULL_PAGE_WIDTH + PAGE_MARGIN_SIDE + COLUMN_GAP → USABLE_WIDTH
- *   USABLE_WIDTH × SIDEBAR_WEIGHT                    → SIDEBAR_WIDTH = SKILL_BAR_WIDTH
- *   USABLE_WIDTH × MAIN_WEIGHT                        → MAIN_WIDTH
- *   MAIN_WIDTH / 2                                    → GRID_COLUMN_WIDTH
- * }</pre>
- *
- * <h3>Usage</h3>
- *
- * <pre>{@code
- * try (DocumentSession session = GraphCompose.document(Path.of("out.pdf"))
- *         .pageSize(DocumentPageSize.A4)
- *         .create()) {
- *
- *     // Option 1: drive the template from the bundled cv-data.example.json
- *     // (set graphcompose.revision.dir to the folder that holds the JSON
- *     // and the assets/ subfolder).
- *     System.setProperty("graphcompose.revision.dir",
- *             "templates/mint-editorial-cv");
- *     MintEditorialCvSpec spec = MintEditorialCvSpecProvider.create();
- *
- *     // Option 2: build the spec by hand from your own data sources.
- *     // MintEditorialCvSpec spec = new MintEditorialCvSpec(...);
- *
- *     new MintEditorialCvTemplate().compose(session, spec);
- *     session.buildPdf();
- * }
- * }</pre>
- *
- * <h3>Dependencies</h3>
- *
- * <ul>
- *   <li>{@code com.github.DemchaAV:GraphCompose:v1.6.0} (or compatible)</li>
- *   <li>{@code com.fasterxml.jackson.core:jackson-databind:2.17.2} —
- *       only needed if you load the spec from JSON via
- *       {@link MintEditorialCvSpecProvider}. Build the spec by hand and
- *       Jackson is optional.</li>
- * </ul>
- *
- * <h3>Asset resolution</h3>
- *
- * Icons are read from {@code <revision.dir>/assets/icons/} at render
- * time. The {@code revision.dir} property is set by
- * {@code scripts/render-cv-reference.mjs} during the flow; when you
- * embed this template in another project, set the property to whatever
- * folder holds {@code cv-data.json} and the {@code assets/} subfolder
- * (typically the directory containing this template's
- * {@code data/cv-data.example.json}).
- *
- * <h3>Fonts</h3>
- *
- * The template uses {@code FontName.POPPINS} for both heading and body.
- * Poppins is part of the GraphCompose bundled Google Fonts list
- * (see {@code DefaultFonts.googleFamilies()}), so it loads from the
- * library JAR — the bundle ships NO {@code .ttf} files for it.
- * {@code template.json#fonts} carries the manifest entry so downstream
- * tools can audit which fonts the bundle needs.
- *
- * <p>To swap typography:</p>
- *
- * <ul>
- *   <li><b>Any bundled Google family</b> — change
- *       {@link #HEADING_FONT} and {@link #BODY_FONT} to
- *       {@code FontName.LATO}, {@code FontName.FIRA_SANS}, etc.
- *       No registration required.</li>
- *   <li><b>Standard 14 (Helvetica / Times / Courier)</b> — use
- *       {@code FontName.HELVETICA} (etc.). Always available.</li>
- *   <li><b>A custom non-bundled family</b> — drop the
- *       {@code .ttf}/{@code .otf} files into {@code assets/fonts/},
- *       register via {@code FontFamilyDefinition.files(...)} +
- *       {@code FontLibrary.addFont(...)}, then point
- *       {@link #HEADING_FONT} at {@code FontName.of("Inter")}.</li>
- * </ul>
- *
- * <h3>Customization points</h3>
- *
- * <ul>
- *   <li><b>Content</b> — edit {@code data/cv-data.example.json}. The
- *       schema is mirrored in {@link MintEditorialCvSpec}.</li>
- *   <li><b>Theme tokens</b> — {@link #ACCENT}, {@link #BLACK},
- *       {@link #MUTED}, {@link #RULE}.</li>
- *   <li><b>Typography</b> — {@link #HEADING_FONT}, {@link #BODY_FONT}.</li>
- *   <li><b>Page geometry (base constants)</b> —
- *       {@link #FULL_PAGE_WIDTH}, {@link #PAGE_MARGIN_TOP},
- *       {@link #PAGE_MARGIN_SIDE}, {@link #PAGE_MARGIN_BOTTOM},
- *       {@link #PAGE_GAP}, {@link #COLUMN_GAP}. Every page-level width
- *       derives from these.</li>
- *   <li><b>Column proportions</b> — {@link #SIDEBAR_WEIGHT} (and the
- *       implicit {@code MAIN_WEIGHT = 1 - SIDEBAR_WEIGHT}). Bump
- *       SIDEBAR_WEIGHT and {@link #SIDEBAR_WIDTH},
- *       {@link #MAIN_WIDTH}, {@link #GRID_COLUMN_WIDTH} re-derive in
- *       one place.</li>
- *   <li><b>Genuinely independent dimensions</b> —
- *       {@link #SKILL_MARKER_HEIGHT}, {@link #GRID_COLUMN_GAP}, the
- *       {@link #ICONS} table entries. These are visual choices, not
- *       derived ratios.</li>
- * </ul>
- *
- * <h3>Spaced-uppercase styling rule</h3>
- *
- * Every section heading and label in the reference uses spaced
- * uppercase. The template applies the transformation at render time
- * via {@link #letterSpace(String)}; the JSON carries natural-case
- * strings ("Rose Harris", "Contact", "Awards"). Render a field via
- * {@code body(...)} instead of {@link #heading} / {@link #label}
- * when you want to keep its natural case.
- *
- * <h3>Clickable links</h3>
- *
- * <ul>
- *   <li>{@code contact[].url} wraps the contact row in a
- *       {@link DocumentLinkOptions}.</li>
- *   <li>{@code social[].url} wraps both the icon and the visible label
- *       so the entire row is one click target.</li>
- *   <li>{@code references[].email} becomes a {@code mailto:} link
- *       automatically when non-blank.</li>
- * </ul>
- *
- * <h3>Source provenance</h3>
- *
- * Published from {@code examples/cv-reference/revisions/revision-008}
- * (current APPROVED baseline; supersedes revision-007 which moved
- * Awards/References to fill Main, and revision-004 which was the
- * first APPROVED Mint Editorial CV with hard-coded layout values).
- *
- * @see MintEditorialCvSpec
- * @see MintEditorialCvSpecProvider
+ * <p>Reference emails are now wrapped in {@code mailto:} links —
+ * {@code Reference#emailLink()} produces the URI when the spec entry has a
+ * non-blank {@code email} field.</p>
  */
-public final class MintEditorialCvTemplate {
+public final class GeneratedCvTemplate {
 
     private static final Path REVISION_DIR = Path.of(
             System.getProperty("graphcompose.revision.dir", "."));

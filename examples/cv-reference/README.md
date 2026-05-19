@@ -11,8 +11,8 @@ typography.
 |---|---|
 | Project slug                | `cv-reference` |
 | Display name                | **Mint Editorial CV** |
-| Approved revision           | `revision-007` (full-width Awards/References; supersedes revision-004) |
-| Current draft               | `revision-007` |
+| Approved revision           | `revision-008` (derivational geometry; supersedes revision-007) |
+| Current draft               | `revision-008` |
 | Spec class                  | [`MintEditorialCvSpec`](render-runner/src/main/java/com/demcha/examples/cv/MintEditorialCvSpec.java) |
 | Data schema                 | [`revisions/revision-006/data-schema.md`](revisions/revision-006/data-schema.md) |
 | Target GraphCompose version | `1.6.0` |

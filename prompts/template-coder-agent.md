@@ -106,6 +106,53 @@ gap to the Asset Resolver Agent instead of inventing a substitute.
 - create tests
 - track changed components
 
+## Relational geometry over pixel constants
+
+Layout dimensions must be DERIVED from a small set of base constants
+(page size, margins, column weights, font sizes), not hand-tuned to a
+specific pixel value. Pixel-first thinking compounds drift across
+revisions: a hand-set `SIDEBAR_WIDTH = 136` and a hand-set
+`GRID_COLUMN_WIDTH = 150` both pretend to come from "the Main column
+is 0.69 of usable width", but neither will track a page-width change
+without a manual re-tune.
+
+The right shape:
+
+```java
+// Base constants — only these carry literal pixel/point values.
+private static final double FULL_PAGE_WIDTH    = 595.0;
+private static final double PAGE_MARGIN_SIDE   = 52.0;
+private static final double COLUMN_GAP         = 54.0;
+private static final double SIDEBAR_WEIGHT     = 0.31;
+private static final double MAIN_WEIGHT        = 1.0 - SIDEBAR_WEIGHT;
+
+// Derived widths — follow from the base constants. Anything that asks
+// "how wide is X" in the body of the template must reach for one of
+// these, NOT a hand-rolled literal.
+private static final double USABLE_WIDTH    =
+        FULL_PAGE_WIDTH - 2.0 * PAGE_MARGIN_SIDE - COLUMN_GAP;
+private static final double SIDEBAR_WIDTH   = USABLE_WIDTH * SIDEBAR_WEIGHT;
+private static final double MAIN_WIDTH      = USABLE_WIDTH * MAIN_WEIGHT;
+private static final double SKILL_BAR_WIDTH = SIDEBAR_WIDTH;
+private static final double GRID_COLUMN     = MAIN_WIDTH / 2.0; // two halves of Main
+```
+
+And every `row.weights(...)` call must use the same constants:
+
+```java
+row.weights(SIDEBAR_WEIGHT, MAIN_WEIGHT);
+```
+
+Adding a new constant is acceptable only when it carries semantic
+meaning the formula can't express (e.g. `ICON_SIZE`,
+`SKILL_MARKER_HEIGHT`, `GRID_COLUMN_GAP` — visual choices, not
+derived ratios). When a number CAN be derived it MUST be derived.
+
+The relational shape lets the agent reason at the right level: "the
+awards grid is half of Main", "the skill bar is as wide as the
+sidebar", "the page-two row weights match the page-one row weights".
+Change one base constant and the whole layout follows in one place.
+
 ## Rules
 
 ```text
@@ -130,6 +177,15 @@ Use CanvasLayer only as last resort.
 
 ```text
 Every visible component should map to a named method or named layout block.
+```
+
+```text
+Layout dimensions are derived, not hand-tuned. When a width can be
+computed from FULL_PAGE_WIDTH, margins, gaps, and weights, it MUST
+be computed — not hardcoded to a value that happens to match. Hand-
+typed pixel constants are reserved for genuinely independent
+dimensions (icon size, line marker height, fixed paddings). See the
+Relational geometry section above.
 ```
 
 ## Preferred template shape
