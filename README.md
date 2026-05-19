@@ -2,14 +2,59 @@
 
 [![ci](https://github.com/DemchaAV/graphcompose-ai-flow/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DemchaAV/graphcompose-ai-flow/actions/workflows/ci.yml)
 
-> **Agent entry point:** if you are an AI agent picking up this
-> repository, read [`AGENTS.md`](AGENTS.md) FIRST. It is the
-> onboarding file — explains the 11-agent chain, the user-gesture
-> dispatch table, the cross-cutting principles (relational
-> geometry, engine anchors, data-spec contract, parity gate), and
-> where every artifact lives.
+**Turn visual document references into maintainable GraphCompose Java templates.**
+
+This is not a magic screenshot-to-code app. It is a local workflow kit that
+helps an AI agent analyze a reference, generate a semantic GraphCompose
+template, render it, compare it visually, revise it, and publish an approved
+template bundle. See [docs/quickstart.md](docs/quickstart.md) for the 5-minute
+setup.
 
 ![GraphCompose AI Template Flow — reference document, 9-stage pipeline, and rendered output](assets/readme/graphcompose-ai-flow.jpg)
+
+## What you can run now
+
+- Render the [invoice reference example](examples/invoice-reference/) — three committed revisions with real `output.pdf` / `output.png`.
+- Render the [two-page CV reference example](examples/cv-reference/) end-to-end, with bundled `Poppins`, Iconify icons, and `mailto:` links.
+- Inspect revision history with the [`revision-manager`](tools/revision-manager/) CLI (`list`, `diff`, `undo`, `revert-approved`, `restore-component`).
+- Copy the published [`mint-editorial-cv`](templates/mint-editorial-cv/) bundle (Java source + data JSON + assets + previews + README) into your own project.
+
+## Example output
+
+The CV reference flows through the pipeline and lands in a published bundle.
+
+| Reference | Rendered (clean) | Rendered (debug overlay) |
+|---|---|---|
+| ![reference page 1](examples/cv-reference/reference/reference-page-1.png) | ![rendered page 1](templates/mint-editorial-cv/preview/output-page-1.png) | ![debug page 1](templates/mint-editorial-cv/preview/output-debug-page-1.png) |
+| ![reference page 2](examples/cv-reference/reference/reference-page-2.png) | ![rendered page 2](templates/mint-editorial-cv/preview/output-page-2.png) | ![debug page 2](templates/mint-editorial-cv/preview/output-debug-page-2.png) |
+
+Source reference: [`examples/cv-reference/`](examples/cv-reference/) → published bundle: [`templates/mint-editorial-cv/`](templates/mint-editorial-cv/).
+
+## Current status
+
+| Area | Status |
+|---|---|
+| Revision manager CLI | Working |
+| Preview renderer (PDF/PNG + GraphCompose render path) | Working |
+| Visual diff CLI | Working |
+| Invoice reference example | Renders, 3 committed revisions |
+| CV reference example | Renders end-to-end |
+| Published template bundle (`mint-editorial-cv`) | Available |
+| GitHub Actions CI matrix | Green (Node 20 + Java 21 + Maven) |
+| Full visual baseline orchestration | In progress |
+| Skills under `skills/versions/graphcompose-1.6/` | `needs-validation` until baseline pass lands |
+
+Full claim-vs-reality matrix: [`docs/implementation-status.md`](docs/implementation-status.md).
+
+## For AI agents
+
+If you are an AI agent picking up this repository, read [`AGENTS.md`](AGENTS.md)
+FIRST. It is the onboarding file — explains the 11-agent chain, the
+user-gesture dispatch table, the cross-cutting principles (relational
+geometry, engine anchors, data-spec contract, parity gate), and where every
+artifact lives.
+
+---
 
 A strict AI-assisted visual matching workflow for turning document references
 into maintainable GraphCompose Java templates.
