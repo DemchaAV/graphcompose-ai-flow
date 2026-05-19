@@ -1,0 +1,16 @@
+{
+  "name": "graphcompose-ai-flow-site",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "prebuild": "node scripts/sync-assets.mjs && node scripts/extract-agents.mjs && node scripts/extract-templates.mjs",
+    "predev": "node scripts/sync-assets.mjs && node scripts/extract-agents.mjs && node scripts/extract-templates.mjs",
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "astro": "^4.16.18"
+  }
+}

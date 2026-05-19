@@ -1,0 +1,119 @@
+---
+const repoUrl = 'https://github.com/DemchaAV/graphcompose-ai-flow';
+
+const pillars = [
+  {
+    title: 'Revision history with statuses',
+    body: 'Every change creates a new revision under revisions/ with DRAFT, APPROVED, REJECTED, REVERTED, SUPERSEDED, or FAILED. Approved revisions are never overwritten. Undo, revert-to-approved, and selective rollback are first-class operations.',
+    href: `${repoUrl}/blob/main/docs/revision-model.md`,
+    linkLabel: 'docs/revision-model.md',
+  },
+  {
+    title: 'Visual diff against committed baselines',
+    body: 'The visual-diff CLI compares rendered output against reference and approved baselines. A visible mismatch is a defect unless explicitly classified. No "looks close enough."',
+    href: `${repoUrl}/tree/main/tools/visual-diff`,
+    linkLabel: 'tools/visual-diff/',
+  },
+  {
+    title: 'Fixture validation against the real library',
+    body: 'GraphCompose 1.6.0 is pulled via JitPack. Five skill-fixture projects compile and run against the real artifact in CI. Skills cannot invent APIs — if the library and a skill disagree, the library wins.',
+    href: `${repoUrl}/tree/main/examples/skill-fixtures`,
+    linkLabel: 'examples/skill-fixtures/',
+  },
+  {
+    title: 'Typed Java specs + data JSON',
+    body: 'Templates accept content through a typed Java spec loaded via --spec-provider. Editing content is one JSON file change. No Java edits to swap the data.',
+    href: `${repoUrl}/tree/main/templates/mint-editorial-cv/data`,
+    linkLabel: 'templates/.../data/',
+  },
+  {
+    title: 'Human approval gate',
+    body: 'The Visual Review agent writes a structured review. Only on APPROVE does the Template Publisher emit a polished bundle. The AI never marks its own work as ready to ship.',
+    href: `${repoUrl}/blob/main/prompts/visual-review-agent.md`,
+    linkLabel: 'prompts/visual-review-agent.md',
+  },
+  {
+    title: 'CI matrix that actually compiles',
+    body: 'Separate jobs run revision-manager, visual-diff, preview-renderer, skill-fixtures, and repository-contract checks. Node 20 + Java 21 + Maven. Smoke tests render the invoice and CV examples.',
+    href: `${repoUrl}/blob/main/.github/workflows/ci.yml`,
+    linkLabel: '.github/workflows/ci.yml',
+  },
+];
+---
+<section class="pillars" id="why">
+  <div class="container">
+    <p class="eyebrow">03 · the moat</p>
+    <h2>Why this isn't prompt-and-hope.</h2>
+    <p class="lede">
+      Most AI document tools are a prompt with a hopeful disposition. This one is closer
+      to a build pipeline: agents have contracts, outputs go through tests, regressions
+      get caught, and nothing ships without a human-signed APPROVE.
+    </p>
+
+    <ul class="grid">
+      {pillars.map((p) => (
+        <li class="card">
+          <h3>{p.title}</h3>
+          <p>{p.body}</p>
+          <a href={p.href}><code>{p.linkLabel}</code> →</a>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+
+<style>
+  .lede {
+    max-width: 720px;
+    color: var(--fg-muted);
+    margin: 16px 0 48px 0;
+    font-size: 1.05rem;
+  }
+
+  .grid {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 18px;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+
+  .card h3 {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--fg);
+    margin-bottom: 10px;
+    line-height: 1.35;
+  }
+  .card p {
+    color: var(--fg-muted);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin: 0 0 16px 0;
+    flex-grow: 1;
+  }
+  .card a {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    align-self: flex-start;
+  }
+  .card a code {
+    color: inherit;
+  }
+</style>

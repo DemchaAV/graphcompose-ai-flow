@@ -1,0 +1,191 @@
+---
+import data from '../data/generated/templates.json';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const repoUrl = 'https://github.com/DemchaAV/graphcompose-ai-flow';
+const templates = data.templates as Array<{
+  id: string;
+  displayName: string;
+  docKind: string | null;
+  sourceProject: string | null;
+  sourceRevision: string | null;
+  publishedAt: string | null;
+  fonts: Array<{ role: string; family: string; source: string; status: string }>;
+  dependencies: Record<string, string>;
+}>;
+
+const cv = templates.find((t) => t.id === 'mint-editorial-cv') ?? templates[0];
+---
+<section class="live" id="example">
+  <div class="container">
+    <p class="eyebrow">05 · live example</p>
+    <h2>One reference. One published bundle. Three views.</h2>
+    <p class="lede">
+      The CV reference flows through the eleven-agent chain and lands as
+      <a href={`${repoUrl}/tree/main/templates/${cv?.id ?? 'mint-editorial-cv'}`}><code>templates/{cv?.id ?? 'mint-editorial-cv'}/</code></a>
+      &mdash; a self-contained Java + data + assets + previews bundle. The images
+      below are pulled live from the repo at build time.
+    </p>
+
+    <div class="rows">
+      {[1, 2].map((page) => (
+        <div class="row">
+          <span class="page-label">page {page}</span>
+          <div class="triple">
+            <figure>
+              <figcaption>Reference</figcaption>
+              <img src={`${base}/previews/cv/reference-page-${page}.png`} alt={`CV reference, page ${page}`} loading="lazy" />
+            </figure>
+            <figure>
+              <figcaption>Rendered (clean)</figcaption>
+              <img src={`${base}/previews/cv/output-page-${page}.png`} alt={`Rendered output, page ${page}`} loading="lazy" />
+            </figure>
+            <figure>
+              <figcaption>Rendered (debug overlay)</figcaption>
+              <img src={`${base}/previews/cv/output-debug-page-${page}.png`} alt={`Rendered output with guideline overlays, page ${page}`} loading="lazy" />
+            </figure>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    {cv && (
+      <div class="meta">
+        <dl>
+          <div>
+            <dt>Source</dt>
+            <dd>
+              <a href={`${repoUrl}/tree/main/examples/${cv.sourceProject}/revisions/${cv.sourceRevision}`}>
+                <code>examples/{cv.sourceProject}/revisions/{cv.sourceRevision}</code>
+              </a>
+            </dd>
+          </div>
+          <div>
+            <dt>Published</dt>
+            <dd>
+              <a href={`${repoUrl}/tree/main/templates/${cv.id}`}><code>templates/{cv.id}/</code></a>
+              {cv.publishedAt && (<span class="dim"> · {new Date(cv.publishedAt).toISOString().slice(0, 10)}</span>)}
+            </dd>
+          </div>
+          <div>
+            <dt>Fonts</dt>
+            <dd>
+              {cv.fonts.filter((f) => f.role !== 'fallback').map((f) => (
+                <span class="chip"><code>{f.family}</code> <span class="dim">·{f.source}</span></span>
+              ))}
+            </dd>
+          </div>
+          <div>
+            <dt>Depends on</dt>
+            <dd>
+              {Object.entries(cv.dependencies).map(([k, v]) => (
+                <span class="chip"><code>{k}@{v}</code></span>
+              ))}
+            </dd>
+          </div>
+        </dl>
+      </div>
+    )}
+  </div>
+</section>
+
+<style>
+  .lede {
+    max-width: 720px;
+    color: var(--fg-muted);
+    margin: 16px 0 48px 0;
+    font-size: 1.05rem;
+  }
+
+  .rows {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+  .row {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .page-label {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+  }
+
+  .triple {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 880px) {
+    .triple {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  figure {
+    margin: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  figcaption {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--fg-dim);
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  figure img {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: #fff;
+  }
+
+  .meta {
+    margin-top: 40px;
+    padding: 24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .meta dl {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 18px;
+    margin: 0;
+  }
+  .meta dt {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+    margin-bottom: 6px;
+  }
+  .meta dd {
+    margin: 0;
+    color: var(--fg-muted);
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+  .meta code {
+    color: var(--fg);
+    font-size: 0.85rem;
+  }
+  .chip {
+    display: inline-block;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3px 8px;
+    margin: 2px 4px 2px 0;
+  }
+  .dim {
+    color: var(--fg-dim);
+  }
+</style>

@@ -1,0 +1,216 @@
+---
+import data from '../data/generated/agents.json';
+const repoUrl = 'https://github.com/DemchaAV/graphcompose-ai-flow';
+const agents = data.agents as Array<{
+  slug: string;
+  file: string;
+  title: string;
+  role: string;
+  inputs: string[];
+  outputs: string[];
+}>;
+---
+<section id="pipeline" class="pipeline">
+  <div class="container">
+    <p class="eyebrow">02 · how it works</p>
+    <h2>Eleven agents. One strict chain.</h2>
+    <p class="lede">
+      Every request flows through the same ordered pipeline. Each agent has a fixed
+      input, a fixed output, and a list of forbidden behaviors. No agent improvises
+      the work of another. <em>This is the moat against prompt-and-hope.</em>
+    </p>
+
+    <ol class="chain">
+      {agents.map((agent, idx) => (
+        <li class="step">
+          <div class="num">
+            <span class="num-badge">{String(idx + 1).padStart(2, '0')}</span>
+          </div>
+          <div class="card">
+            <header>
+              <h3>{agent.title}</h3>
+              <a class="src-link" href={`${repoUrl}/blob/main/${agent.file}`} aria-label={`Open source for ${agent.title}`}>
+                <code>{agent.file}</code>
+              </a>
+            </header>
+            <p class="role">{agent.role}</p>
+            {(agent.inputs.length > 0 || agent.outputs.length > 0) && (
+              <div class="io">
+                {agent.inputs.length > 0 && (
+                  <div class="io-col">
+                    <span class="io-label">in</span>
+                    <ul>
+                      {agent.inputs.slice(0, 4).map((io) => <li>{io}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {agent.outputs.length > 0 && (
+                  <div class="io-col">
+                    <span class="io-label">out</span>
+                    <ul>
+                      {agent.outputs.slice(0, 4).map((io) => <li>{io}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </li>
+      ))}
+    </ol>
+
+    <p class="footnote">
+      Full chain reference and forbidden behaviors live in
+      <a href={`${repoUrl}/blob/main/docs/agents.md`}><code>docs/agents.md</code></a>
+      and <a href={`${repoUrl}/blob/main/AGENTS.md`}><code>AGENTS.md</code></a>.
+      This list is auto-generated from <code>prompts/*-agent.md</code> at build time.
+    </p>
+  </div>
+</section>
+
+<style>
+  .lede {
+    max-width: 720px;
+    color: var(--fg-muted);
+    margin: 16px 0 48px 0;
+    font-size: 1.05rem;
+  }
+  .lede em {
+    color: var(--fg);
+    font-style: normal;
+  }
+
+  .chain {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    gap: 16px;
+    position: relative;
+  }
+  .step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 31px;
+    top: 64px;
+    bottom: -18px;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--border-strong), transparent);
+  }
+
+  .num {
+    display: flex;
+    justify-content: center;
+    padding-top: 16px;
+  }
+  .num-badge {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--bg-elev);
+    border: 1px solid var(--border-strong);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 22px;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .card:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
+  }
+
+  .card header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .card h3 {
+    font-family: var(--font-mono);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--fg);
+  }
+  .src-link code {
+    color: var(--fg-dim);
+    font-size: 0.78rem;
+  }
+  .src-link:hover code {
+    color: var(--accent);
+  }
+
+  .role {
+    margin: 0 0 14px 0;
+    color: var(--fg-muted);
+    font-size: 0.97rem;
+    line-height: 1.55;
+  }
+
+  .io {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    border-top: 1px dashed var(--border);
+    padding-top: 14px;
+  }
+  @media (max-width: 560px) {
+    .io {
+      grid-template-columns: 1fr;
+    }
+  }
+  .io-col ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .io-col li {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--fg-muted);
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3px 8px;
+  }
+  .io-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+    margin-bottom: 8px;
+  }
+
+  .footnote {
+    margin-top: 40px;
+    color: var(--fg-dim);
+    font-size: 0.9rem;
+  }
+  .footnote code {
+    color: var(--fg-muted);
+  }
+</style>

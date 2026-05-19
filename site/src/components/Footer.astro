@@ -1,0 +1,107 @@
+---
+const repoUrl = 'https://github.com/DemchaAV/graphcompose-ai-flow';
+const graphComposeUrl = 'https://github.com/DemchaAV/GraphCompose';
+---
+<footer>
+  <div class="container">
+    <div class="grid">
+      <div>
+        <h3>graphcompose-ai-flow</h3>
+        <p>
+          A strict AI-assisted visual matching workflow for turning document
+          references into maintainable GraphCompose Java templates.
+        </p>
+        <p class="dim">
+          Experimental companion project to
+          <a href={graphComposeUrl}><code>GraphCompose</code></a>.
+          MIT licensed.
+        </p>
+      </div>
+      <div>
+        <h4>Project</h4>
+        <ul>
+          <li><a href={repoUrl}>GitHub repository</a></li>
+          <li><a href={`${repoUrl}/blob/main/README.md`}>README</a></li>
+          <li><a href={`${repoUrl}/blob/main/AGENTS.md`}>AGENTS.md</a></li>
+          <li><a href={`${repoUrl}/blob/main/docs/quickstart.md`}>5-min quickstart</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Engineering</h4>
+        <ul>
+          <li><a href={`${repoUrl}/blob/main/docs/implementation-status.md`}>Implementation status</a></li>
+          <li><a href={`${repoUrl}/blob/main/docs/revision-model.md`}>Revision model</a></li>
+          <li><a href={`${repoUrl}/blob/main/docs/visual-accuracy-contract.md`}>Visual accuracy contract</a></li>
+          <li><a href={`${repoUrl}/blob/main/docs/limitations.md`}>Limitations</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="colophon">
+      <span><code>site/</code> built with Astro · auto-pulled from <code>prompts/</code>, <code>templates/</code>, and <code>examples/</code> at build time.</span>
+    </div>
+  </div>
+</footer>
+
+<style>
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 64px 0 48px 0;
+    background: linear-gradient(to bottom, transparent, rgba(94, 234, 212, 0.02));
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr;
+    gap: 36px;
+  }
+  @media (max-width: 720px) {
+    .grid {
+      grid-template-columns: 1fr;
+      gap: 28px;
+    }
+  }
+  h3 {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    color: var(--fg);
+    margin-bottom: 12px;
+  }
+  h4 {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+    margin: 0 0 16px 0;
+  }
+  p {
+    color: var(--fg-muted);
+    font-size: 0.95rem;
+    margin: 0 0 12px 0;
+  }
+  .dim {
+    color: var(--fg-dim);
+    font-size: 0.88rem;
+  }
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  ul a {
+    font-size: 0.92rem;
+  }
+  .colophon {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px dashed var(--border);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--fg-dim);
+  }
+  code {
+    color: var(--fg-muted);
+  }
+</style>

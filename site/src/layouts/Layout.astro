@@ -1,0 +1,137 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+}
+const { title, description = 'AI doesn\'t draw PDFs. It compiles them. A workflow that turns visual document references into maintainable GraphCompose Java templates.' } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const ogImage = `${base}/previews/hero/graphcompose-ai-flow.jpg`;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --bg: #0a0a0b;
+    --bg-elev: #111114;
+    --bg-card: #131318;
+    --fg: #fafafa;
+    --fg-muted: #8d8d96;
+    --fg-dim: #5e5e68;
+    --border: #20202a;
+    --border-strong: #2a2a36;
+    --accent: #5eead4;
+    --accent-dim: #2dd4bf;
+    --warn: #fbbf24;
+    --max-width: 1120px;
+    --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', 'JetBrains Mono', 'Roboto Mono', Menlo, Consolas, monospace;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-image:
+      radial-gradient(1100px 600px at 50% -10%, rgba(94, 234, 212, 0.07), transparent 60%),
+      radial-gradient(800px 500px at 90% 5%, rgba(94, 234, 212, 0.04), transparent 70%);
+  }
+
+  a {
+    color: var(--accent);
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+  a:hover {
+    color: var(--fg);
+  }
+
+  code,
+  kbd,
+  pre,
+  samp {
+    font-family: var(--font-mono);
+    font-size: 0.92em;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--bg);
+  }
+
+  .container {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  .eyebrow {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin: 0 0 16px 0;
+  }
+
+  h1,
+  h2,
+  h3 {
+    margin: 0;
+    letter-spacing: -0.02em;
+  }
+
+  h2 {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: clamp(1.5rem, 2.2vw, 2rem);
+    line-height: 1.2;
+  }
+
+  section {
+    padding: 96px 0;
+    border-top: 1px solid var(--border);
+  }
+  section:first-of-type {
+    border-top: 0;
+    padding-top: 64px;
+  }
+
+  @media (max-width: 720px) {
+    section {
+      padding: 72px 0;
+    }
+  }
+</style>
