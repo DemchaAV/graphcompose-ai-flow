@@ -55,9 +55,9 @@ mint-editorial-cv/
 
    ```xml
    <dependency>
-     <groupId>com.github.DemchaAV</groupId>
-     <artifactId>GraphCompose</artifactId>
-     <version>v1.6.0</version>
+     <groupId>io.github.demchaav</groupId>
+     <artifactId>graph-compose</artifactId>
+     <version>1.6.6</version>
    </dependency>
    <dependency>
      <groupId>com.fasterxml.jackson.core</groupId>

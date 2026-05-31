@@ -64,10 +64,12 @@ java -jar target/preview-renderer.jar render \
   --page 0
 ```
 
-GraphCompose 1.6.0 ships through JitPack as `com.github.DemchaAV:GraphCompose:v1.6.0`.
-The expected jar name is `GraphCompose-v1.6.0.jar` (resolved by Maven from
-`https://jitpack.io`), and the canary classpath check looks for
-`com.demcha.compose.document.api.DocumentSession` inside it.
+GraphCompose 1.6.6 ships through Maven Central as `io.github.demchaav:graph-compose:1.6.6`.
+The expected jar name is `graph-compose-1.6.6.jar` (resolved by Maven from
+`https://repo1.maven.org/maven2`), and the canary classpath check looks for
+`com.demcha.compose.document.api.DocumentSession` inside it. Pre-1.6.6 pins
+continue to resolve via JitPack as `com.github.DemchaAV:GraphCompose:vX.Y.Z`
+(`GraphCompose-vX.Y.Z.jar`).
 
 `--classpath` or `--classpath-file` must include both the compiled template
 classes and the GraphCompose runtime/dependencies. `--classpath-file` is useful

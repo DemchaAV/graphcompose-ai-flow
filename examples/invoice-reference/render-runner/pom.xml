@@ -12,22 +12,15 @@
     <maven.compiler.source>21</maven.compiler.source>
     <maven.compiler.target>21</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <graphcompose.version>v1.6.0</graphcompose.version>
+    <graphcompose.version>1.6.6</graphcompose.version>
     <revision.id>revision-003</revision.id>
     <revision.generated.sources>${project.build.directory}/generated-sources/revision</revision.generated.sources>
   </properties>
 
-  <repositories>
-    <repository>
-      <id>jitpack.io</id>
-      <url>https://jitpack.io</url>
-    </repository>
-  </repositories>
-
   <dependencies>
     <dependency>
-      <groupId>com.github.DemchaAV</groupId>
-      <artifactId>GraphCompose</artifactId>
+      <groupId>io.github.demchaav</groupId>
+      <artifactId>graph-compose</artifactId>
       <version>${graphcompose.version}</version>
     </dependency>
   </dependencies>
@@ -48,8 +41,20 @@
             <configuration>
               <target>
                 <mkdir dir="${revision.generated.sources}/com/demcha/examples/invoice"/>
+                <!--
+                  Accept either the legacy "generated-template.java" name
+                  (used by older revisions) or the Java-canonical
+                  "GeneratedInvoiceTemplate.java" name (preferred — IDEs
+                  auto-rename to match the public class). The canonical name
+                  wins when both exist.
+                -->
+                <condition property="revision.template.source"
+                           value="${project.basedir}/../revisions/${revision.id}/GeneratedInvoiceTemplate.java"
+                           else="${project.basedir}/../revisions/${revision.id}/generated-template.java">
+                  <available file="${project.basedir}/../revisions/${revision.id}/GeneratedInvoiceTemplate.java"/>
+                </condition>
                 <copy
-                    file="${project.basedir}/../revisions/${revision.id}/generated-template.java"
+                    file="${revision.template.source}"
                     tofile="${revision.generated.sources}/com/demcha/examples/invoice/GeneratedInvoiceTemplate.java"
                     overwrite="true"/>
               </target>

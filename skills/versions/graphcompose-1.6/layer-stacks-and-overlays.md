@@ -2,9 +2,9 @@
 skillId: layer-stacks-and-overlays
 targetLibrary: GraphCompose
 targetVersion: 1.6.x
-verifiedAgainst: 1.6.0
+verifiedAgainst: 1.6.6
 status: needs-validation
-lastValidated: 2026-05-18
+lastValidated: 2026-06-01
 ---
 
 # Layer Stacks and Overlays Skill
@@ -167,6 +167,34 @@ Both patterns hide intent and silently break the rollback model.
 - pagination across pages preserves the overlay only where the
   reference repeats it
 - the visual snapshot still passes after introducing the layer stack
+
+## Custom node types are an @Beta SPI (1.6.6)
+
+When the overlay genuinely cannot be expressed with `LayerStack`,
+`ShapeContainer`, `Section`, or the table/row primitives, the engine
+exposes `com.demcha.compose.document.layout.NodeDefinition` as the
+canonical custom-node-type seam. As of GraphCompose 1.6.6 this seam
+is explicitly marked `@Beta` — it is an **Extension SPI**:
+
+- Callers MAY implement `NodeDefinition` for legitimately novel
+  visuals that no documented primitive covers.
+- The shape of `NodeDefinition` (its method set, the
+  `emitOverlayFragments` contract, helper types it returns) MAY
+  evolve between minor releases (e.g. 1.7.0). Patch releases keep it
+  source-compatible; minors are allowed to break it with one minor
+  of `@Deprecated` warning.
+- Treat any `NodeDefinition`-based overlay as a known maintenance
+  cost. Record it as a `Known Limitation` in `architecture-plan.md`,
+  not as a routine primitive.
+- Before reaching for `NodeDefinition`, exhaust the documented
+  alternatives. The decision order is: documented primitive →
+  `LayerStack` → `ShapeContainer` (with `center`/`position`) →
+  `CanvasLayer` for tiny decorative ornaments → `NodeDefinition`
+  (last resort, `@Beta`).
+
+The `@Beta` marker also implies: do NOT pin downstream tooling
+(visual-diff classifiers, parity-score formulas) to the exact
+`NodeDefinition` shape. Pin to the rendered output instead.
 
 ## Known limitations
 

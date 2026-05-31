@@ -181,7 +181,7 @@ docs/                                 long-form reference
 
 skills/                               versioned skill packs
   skill-manifest.json
-  versions/graphcompose-1.6/*.md      one skill per topic, tied to GraphCompose 1.6.0
+  versions/graphcompose-1.6/*.md      one skill per topic, tied to GraphCompose 1.6.x (verified against 1.6.6)
 
 tools/
   asset-resolver/                     Iconify + Google Fonts CLI (Node)

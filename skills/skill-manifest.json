@@ -9,87 +9,87 @@
     {
       "id": "graphcompose-basics",
       "file": "versions/graphcompose-1.6/graphcompose-basics.md",
-      "verifiedAgainst": "1.6.0",
+      "verifiedAgainst": "1.6.6",
       "status": "needs-validation"
     },
     {
       "id": "visual-to-graphcompose-mapping",
       "file": "versions/graphcompose-1.6/visual-to-graphcompose-mapping.md",
-      "verifiedAgainst": "1.6.0",
+      "verifiedAgainst": "1.6.6",
       "status": "needs-validation"
     },
     {
       "id": "layout-primitives",
       "file": "versions/graphcompose-1.6/layout-primitives.md",
-      "verifiedAgainst": "1.6.0",
+      "verifiedAgainst": "1.6.6",
       "status": "needs-validation"
     },
     {
       "id": "tables",
       "file": "versions/graphcompose-1.6/tables.md",
-      "verifiedAgainst": "1.6.0",
+      "verifiedAgainst": "1.6.6",
       "status": "needs-validation"
     },
     {
       "id": "themes-and-colors",
       "file": "versions/graphcompose-1.6/themes-and-colors.md",
-      "verifiedAgainst": "1.6.0",
+      "verifiedAgainst": "1.6.6",
       "status": "needs-validation"
     },
     {
       "id": "typography",
       "file": "versions/graphcompose-1.6/typography.md",
-      "verifiedAgainst": "1.6.0",
+      "verifiedAgainst": "1.6.6",
       "status": "needs-validation"
     },
     {
       "id": "spacing-and-alignment",
       "file": "versions/graphcompose-1.6/spacing-and-alignment.md",
-      "verifiedAgainst": "1.6.0",
+      "verifiedAgainst": "1.6.6",
       "status": "needs-validation"
     },
     {
       "id": "backgrounds-and-panels",
       "file": "versions/graphcompose-1.6/backgrounds-and-panels.md",
-      "verifiedAgainst": "1.6.0",
+      "verifiedAgainst": "1.6.6",
       "status": "needs-validation"
     },
     {
       "id": "layer-stacks-and-overlays",
       "file": "versions/graphcompose-1.6/layer-stacks-and-overlays.md",
-      "verifiedAgainst": "1.6.0",
+      "verifiedAgainst": "1.6.6",
       "status": "needs-validation"
     },
     {
       "id": "shapes-and-containers",
       "file": "versions/graphcompose-1.6/shapes-and-containers.md",
-      "verifiedAgainst": "1.6.0",
+      "verifiedAgainst": "1.6.6",
       "status": "needs-validation"
     },
     {
       "id": "pagination",
       "file": "versions/graphcompose-1.6/pagination.md",
-      "verifiedAgainst": "1.6.0",
+      "verifiedAgainst": "1.6.6",
       "status": "needs-validation"
     },
     {
       "id": "visual-regression",
       "file": "versions/graphcompose-1.6/visual-regression.md",
-      "verifiedAgainst": "1.6.0",
+      "verifiedAgainst": "1.6.6",
       "status": "needs-validation"
     },
     {
       "id": "revision-discipline",
       "file": "versions/graphcompose-1.6/revision-discipline.md",
-      "verifiedAgainst": "1.6.0",
+      "verifiedAgainst": "1.6.6",
       "status": "needs-validation"
     },
     {
       "id": "troubleshooting",
       "file": "versions/graphcompose-1.6/troubleshooting.md",
-      "verifiedAgainst": "1.6.0",
+      "verifiedAgainst": "1.6.6",
       "status": "needs-validation"
     }
   ],
-  "notes": "Skill pack written for graphcompose-1.6.x. Five fixture projects compile and run against GraphCompose 1.6.0 from JitPack, but all skills remain needs-validation until full render, preview, and visual-diff validation passes."
+  "notes": "Skill pack written for graphcompose-1.6.x. Five fixture projects compile and run against GraphCompose 1.6.6 from Maven Central (io.github.demchaav:graph-compose:1.6.6; pre-1.6.6 pins remain resolvable via JitPack as com.github.DemchaAV:GraphCompose:vX.Y.Z). All skills remain needs-validation until full render, preview, and visual-diff validation passes."
 }

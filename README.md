@@ -10,7 +10,7 @@ template, render it, compare it visually, revise it, and publish an approved
 template bundle. See [docs/quickstart.md](docs/quickstart.md) for the 5-minute
 setup.
 
-![GraphCompose AI Template Flow — reference document, 9-stage pipeline, and rendered output](assets/readme/graphcompose-ai-flow.jpg)
+![GraphCompose AI Template Flow — visual reference on the left, the 11-agent semantic GraphCompose mapping in the middle, the rendered template on the right](assets/readme/graphcompose-ai-flow.png)
 
 ## What you can run now
 
@@ -224,10 +224,12 @@ and a Node
 visual-diff CLI ([`visual-diff`](tools/visual-diff/)). All three ship
 with passing test suites and are wired to GitHub Actions CI.
 
-GraphCompose 1.6.0 is reachable for fixture validation through
-JitPack as `com.github.DemchaAV:GraphCompose:v1.6.0`. The five
-fixture projects under [`examples/skill-fixtures/`](examples/skill-fixtures/)
-compile and run against that artifact. The invoice reference example
+GraphCompose 1.6.6 is reachable for fixture validation through
+Maven Central as `io.github.demchaav:graph-compose:1.6.6`
+(JitPack `com.github.DemchaAV:GraphCompose:vX.Y.Z` still resolves for
+pre-1.6.6 pins). The five fixture projects under
+[`examples/skill-fixtures/`](examples/skill-fixtures/) compile and
+run against that artifact. The invoice reference example
 also renders through the shared preview-renderer path. The remaining
 gate is now visual validation orchestration: produce real layout
 snapshots and run visual-diff against committed baselines. Until that

@@ -7,34 +7,39 @@ been executed, and which skills are still pending validation.
 
 ## Header
 
-- Target GraphCompose version: `1.6.0` (manifest declares
-  `defaultGraphComposeVersion: 1.6.x`).
+- Target GraphCompose version: `1.6.6` (manifest declares
+  `defaultGraphComposeVersion: 1.6.x`; coordinate is now
+  `io.github.demchaav:graph-compose:1.6.6` from Maven Central).
 - Skill manifest version: `0.2.0` (see
   [../skills/skill-manifest.json](../skills/skill-manifest.json)).
-- Status: fixture smoke pass complete for the five committed
-  fixtures. They compile and run against GraphCompose 1.6.0 from
-  JitPack. Full render/preview/visual-diff validation is still
-  pending, so manifest statuses remain `needs-validation`.
-- Last reviewed: 2026-05-18.
+- Status: fixture smoke re-passed on 2026-06-01 against
+  `io.github.demchaav:graph-compose:1.6.6` from Maven Central
+  (5 fixtures × 1 test each, all green) — see
+  [reports/fixture-smoke-2026-06-01.md](reports/fixture-smoke-2026-06-01.md).
+  The original 2026-05-18 smoke against `v1.6.0` via JitPack remains
+  archived at [reports/fixture-smoke-2026-05-18.md](reports/fixture-smoke-2026-05-18.md).
+  Full render/preview/visual-diff validation is still pending, so
+  manifest statuses remain `needs-validation`.
+- Last reviewed: 2026-06-01.
 
 ## Per-skill table
 
 | Skill ID | Target version | Status | Fixture exists | Fixture executed | Drift detected | Last validated |
 |---|---|---|---|---|---|---|
-| graphcompose-basics | 1.6.0 | needs-validation | no | no | unknown | 2026-05-18 |
-| visual-to-graphcompose-mapping | 1.6.0 | needs-validation | no | no | unknown | 2026-05-18 |
-| layout-primitives | 1.6.0 | needs-validation | yes | yes, smoke | no compile drift; visual pending | 2026-05-18 |
-| tables | 1.6.0 | needs-validation | yes | yes, smoke | no compile drift; visual pending | 2026-05-18 |
-| themes-and-colors | 1.6.0 | needs-validation | yes | yes, smoke | no compile drift; visual pending | 2026-05-18 |
-| typography | 1.6.0 | needs-validation | no | no | unknown | 2026-05-18 |
-| spacing-and-alignment | 1.6.0 | needs-validation | no | no | unknown | 2026-05-18 |
-| backgrounds-and-panels | 1.6.0 | needs-validation | yes | yes, smoke | no compile drift; visual pending | 2026-05-18 |
-| layer-stacks-and-overlays | 1.6.0 | needs-validation | yes | yes, smoke | no compile drift; visual pending | 2026-05-18 |
-| shapes-and-containers | 1.6.0 | needs-validation | yes | yes, smoke | no compile drift; visual pending | 2026-05-18 |
-| pagination | 1.6.0 | needs-validation | no | no | unknown | 2026-05-18 |
-| visual-regression | 1.6.0 | needs-validation | no | no | unknown | 2026-05-18 |
-| revision-discipline | 1.6.0 | needs-validation | no | no | unknown | 2026-05-18 |
-| troubleshooting | 1.6.0 | needs-validation | no | no | unknown | 2026-05-18 |
+| graphcompose-basics | 1.6.6 | needs-validation | no | no | unknown | 2026-06-01 |
+| visual-to-graphcompose-mapping | 1.6.6 | needs-validation | no | no | unknown | 2026-06-01 |
+| layout-primitives | 1.6.6 | needs-validation | yes | yes, smoke (re-passed 2026-06-01 vs Central) | no compile drift; visual pending | 2026-06-01 |
+| tables | 1.6.6 | needs-validation | yes | yes, smoke (re-passed 2026-06-01 vs Central) | no compile drift; visual pending | 2026-06-01 |
+| themes-and-colors | 1.6.6 | needs-validation | yes | yes, smoke (re-passed 2026-06-01 vs Central) | no compile drift; visual pending | 2026-06-01 |
+| typography | 1.6.6 | needs-validation | no | no | unknown | 2026-06-01 |
+| spacing-and-alignment | 1.6.6 | needs-validation | no | no | unknown | 2026-06-01 |
+| backgrounds-and-panels | 1.6.6 | needs-validation | yes | yes, smoke (re-passed 2026-06-01 vs Central) | no compile drift; visual pending | 2026-06-01 |
+| layer-stacks-and-overlays | 1.6.6 | needs-validation | yes | yes, smoke (re-passed 2026-06-01 vs Central) | no compile drift; visual pending | 2026-06-01 |
+| shapes-and-containers | 1.6.6 | needs-validation | yes | yes, smoke (re-passed 2026-06-01 vs Central) | no compile drift; visual pending | 2026-06-01 |
+| pagination | 1.6.6 | needs-validation | no | no | unknown | 2026-06-01 |
+| visual-regression | 1.6.6 | needs-validation | no | no | unknown | 2026-06-01 |
+| revision-discipline | 1.6.6 | needs-validation | no | no | unknown | 2026-06-01 |
+| troubleshooting | 1.6.6 | needs-validation | no | no | unknown | 2026-06-01 |
 
 Fixture-to-skill coverage notes for the five fixtures under
 [../examples/skill-fixtures/](../examples/skill-fixtures/):

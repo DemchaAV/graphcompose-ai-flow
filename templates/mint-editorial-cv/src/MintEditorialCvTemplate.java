@@ -87,7 +87,7 @@ import com.demcha.examples.cv.MintEditorialCvSpec.SocialLink;
  * <h3>Dependencies</h3>
  *
  * <ul>
- *   <li>{@code com.github.DemchaAV:GraphCompose:v1.6.0} (or compatible)</li>
+ *   <li>{@code io.github.demchaav:graph-compose:1.6.6} (or compatible 1.6.x; pre-1.6.6 pins continue to resolve via JitPack as {@code com.github.DemchaAV:GraphCompose:vX.Y.Z})</li>
  *   <li>{@code com.fasterxml.jackson.core:jackson-databind:2.17.2} —
  *       only needed if you load the spec from JSON via
  *       {@link MintEditorialCvSpecProvider}. Build the spec by hand and

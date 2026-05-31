@@ -31,14 +31,17 @@ npm --version
 git --version
 ```
 
-GraphCompose 1.6.0 is resolved by Maven through JitPack as:
+GraphCompose 1.6.6 is resolved by Maven through Maven Central as:
 
 ```text
-com.github.DemchaAV:GraphCompose:v1.6.0
+io.github.demchaav:graph-compose:1.6.6
 ```
 
-That artifact is compiled for Java 21, so Java 17 is not enough for
-GraphCompose-backed renders or fixture validation.
+Older pins (≤ v1.6.5) continue to resolve through JitPack as
+`com.github.DemchaAV:GraphCompose:vX.Y.Z` — no `<repositories>` block
+is needed for 1.6.6+. That artifact is compiled for Java 21, so Java
+17 is not enough for GraphCompose-backed renders or fixture
+validation.
 
 ## Install the Tooling
 
@@ -191,7 +194,7 @@ That runner shows how to:
 
 - copy the selected revision's `generated-template.java` into Maven
   generated sources
-- compile it against GraphCompose 1.6.0
+- compile it against GraphCompose 1.6.6
 - provide sample business data through a spec provider
 - call `tools/preview-renderer` to write `output.pdf` and `output.png`
 

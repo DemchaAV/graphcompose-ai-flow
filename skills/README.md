@@ -25,8 +25,10 @@ Phase 2 has shipped the first skill pack under
 [`versions/graphcompose-1.6/`](versions/graphcompose-1.6/). It contains 14
 skill files, all listed in [`skill-manifest.json`](skill-manifest.json) with
 `status: needs-validation`. Five fixture projects now compile and run
-against GraphCompose 1.6.0 from JitPack, which proves the covered API calls
-resolve against the real library. Full skill validation still requires the
+against GraphCompose 1.6.6 from Maven Central
+(`io.github.demchaav:graph-compose:1.6.6`; JitPack remains a fallback
+for pre-1.6.6 pins), which proves the covered API calls resolve
+against the real library. Full skill validation still requires the
 render + preview + visual-diff loop, so no skill is promoted to
 `status: active` yet. Skills found to conflict with the library will be
 marked `failed-validation` and fixed per the
@@ -51,3 +53,18 @@ If a method is not documented in the selected skill version or verified examples
 
 When unsure, the agent must generate a conservative template using known primitives.
 ```
+
+## Authoritative API reference
+
+When a skill page does not document the exact method signature, the
+agent MUST consult the hosted Javadoc rather than guess or grep an
+unverified copy of the GraphCompose source:
+
+- **Pinned-version Javadoc (current target):**
+  [javadoc.io/doc/io.github.demchaav/graph-compose/1.6.6](https://javadoc.io/doc/io.github.demchaav/graph-compose/1.6.6)
+- **Stable-version alias:**
+  [javadoc.io/doc/io.github.demchaav/graph-compose](https://javadoc.io/doc/io.github.demchaav/graph-compose)
+
+`graphcompose-basics` documents the lookup priority (skill → Javadoc
+→ fixture → ask the user) and the meaning of `@Beta` / `@since` tags
+in the published Javadoc.

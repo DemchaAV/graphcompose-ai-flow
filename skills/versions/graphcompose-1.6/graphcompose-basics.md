@@ -2,9 +2,9 @@
 skillId: graphcompose-basics
 targetLibrary: GraphCompose
 targetVersion: 1.6.x
-verifiedAgainst: 1.6.0
+verifiedAgainst: 1.6.6
 status: needs-validation
-lastValidated: 2026-05-18
+lastValidated: 2026-06-01
 ---
 
 # GraphCompose Basics Skill
@@ -98,12 +98,41 @@ previous revision while keeping another (for example
 `renderLineItems`) from the current draft. A monolithic compose
 method makes selective rollback unreliable.
 
+## Authoritative API reference
+
+When a skill page does not document the exact method signature, the
+agent MUST consult the hosted Javadoc, NOT guess and NOT grep
+unverified sources:
+
+- **Maven Central Javadoc (canonical):**
+  [javadoc.io/doc/io.github.demchaav/graph-compose/1.6.6](https://javadoc.io/doc/io.github.demchaav/graph-compose/1.6.6)
+- **Stable-version alias** (always points at the latest published
+  release): [javadoc.io/doc/io.github.demchaav/graph-compose](https://javadoc.io/doc/io.github.demchaav/graph-compose)
+
+Lookup priorities, in order:
+
+1. The relevant skill page for the resolved target version.
+2. The hosted Javadoc at the version pinned in the skill manifest's
+   `verifiedAgainst` (currently 1.6.6).
+3. A fixture project under [`examples/skill-fixtures/`](../../../examples/skill-fixtures/)
+   that uses the API in question (proves it actually resolves).
+4. Only after all three above fail, ask the user — do not invent.
+
+Class-level `@since` tags landed in 1.6.6 on every entry-point type
+(`DocumentSession`, `DocumentDsl`, `BusinessTheme`, the 19 DSL
+builders, `PageBackgroundFill`, `RichText`, `Transformable`), so the
+hosted Javadoc shows the introduction version at a glance. Types
+marked `@Beta` (e.g. `NodeDefinition` — the custom-node SPI) are
+Extension SPI: callers MAY implement them, but the shape may evolve
+between minors. Treat `@Beta` signatures as load-bearing only after
+cross-checking against the current pinned version.
+
 ## Known limitations
 
 This skill describes the 1.6.x semantics conceptually. It does not
 list the exact method signatures of every builder. Specific method
 signatures must be cross-checked against the
-[`verifiedAgainst: 1.6.0`](../../../docs/versioned-skills.md) examples
+[`verifiedAgainst: 1.6.6`](../../../docs/versioned-skills.md) examples
 once the Phase 4 fixtures land. Until then, when uncertain, the
 agent must:
 

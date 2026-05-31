@@ -2,9 +2,9 @@
 skillId: shapes-and-containers
 targetLibrary: GraphCompose
 targetVersion: 1.6.x
-verifiedAgainst: 1.6.0
+verifiedAgainst: 1.6.6
 status: needs-validation
-lastValidated: 2026-05-18
+lastValidated: 2026-06-01
 ---
 
 # Shapes and Containers Skill
@@ -115,6 +115,35 @@ the content on another (or in a different layer), the mapping is
 wrong. Either the shape is decoration (and is therefore an overlay,
 not a container) or the content belongs inside the shape.
 
+## Child placement inside shapes
+
+For content that belongs inside a shape, use the shape container's
+placement API rather than placing a sibling node nearby.
+
+Verified patterns include:
+
+```java
+section.addCircle(118, DEEP_TEAL, circle -> circle
+        .center(label("GC", style)));
+```
+
+```java
+section.addContainer(card -> card
+        .roundedRect(178, 112, 16)
+        .clipPolicy(ClipPolicy.CLIP_PATH)
+        .center(cardCopy())
+        .position(label("NEW", style), -6, 5, LayerAlign.TOP_RIGHT));
+```
+
+Use `.center(...)` when the child is centered in the shape, and
+`.position(..., LayerAlign.X)` or a shape-specific anchor helper when
+the child is anchored to a shape edge or corner.
+
+Do not render a shape and then place its text/icon/image as a sibling
+paragraph with a negative margin. That breaks component ownership,
+rollback semantics, and layout snapshots even when the preview looks
+close.
+
 ## Clipping
 
 Shape containers clip their content to the shape outline. The
@@ -169,6 +198,10 @@ implications matter:
    circular container.
 4. **Allowing inner content to deform a circle into an ellipse.**
    Constrain the container; resize the content.
+5. **Rendering shape-owned content as a sibling overlay.** If a
+   circle contains initials, the initials are a child of the circle
+   via `.center(...)`; they are not a later paragraph pulled upward
+   with a negative margin.
 
 ## Cross-references
 

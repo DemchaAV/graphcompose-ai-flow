@@ -2,9 +2,9 @@
 skillId: layout-primitives
 targetLibrary: GraphCompose
 targetVersion: 1.6.x
-verifiedAgainst: 1.6.0
+verifiedAgainst: 1.6.6
 status: needs-validation
-lastValidated: 2026-05-18
+lastValidated: 2026-06-01
 ---
 
 # Layout Primitives Skill
