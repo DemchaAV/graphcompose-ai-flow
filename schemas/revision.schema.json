@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DemchaAV/graphcompose-ai-flow/schemas/revision.schema.json",
+  "title": "Revision",
+  "description": "Per-revision metadata. Lives at examples/<project>/revisions/<id>/revision.json. Mirrors the TemplateProject ↔ Revision contract used by tools/revision-manager and consumed by tools/preview-renderer, tools/visual-diff, and the agent prompts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "parentRevisionId", "status", "userRequest", "targetGraphComposeVersion", "skillPack", "createdAt", "artifacts"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^revision-\\d{3,}$",
+      "description": "Sequential revision identifier (revision-001, revision-002, ...)."
+    },
+    "parentRevisionId": {
+      "type": ["string", "null"],
+      "description": "Parent revision the diff and rollback model are computed against; null for the first revision in a chain."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["DRAFT", "APPROVED", "REJECTED", "SUPERSEDED", "FAILED", "REVERTED"],
+      "description": "Revision lifecycle state. Owned by tools/revision-manager — agents must never mutate this directly."
+    },
+    "userRequest": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Verbatim user gesture that opened this revision (single-line summary)."
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["visual-change", "refactor-only"],
+      "description": "Optional scope marker the orchestrator writes per prompts/orchestrator-agent.md § Revision scope. visual-change → Visual Review compares to the reference image; refactor-only → Visual Review applies the binary pixel-AE parity gate against the parent revision."
+    },
+    "targetGraphComposeVersion": {
+      "type": "string",
+      "pattern": "^v?\\d+\\.\\d+(\\.\\d+)?(-[A-Za-z0-9.]+)?$",
+      "description": "GraphCompose version pin used to compile and render this revision."
+    },
+    "skillPack": {
+      "type": "string",
+      "pattern": "^skills/versions/.+$",
+      "description": "Repo-relative path to the skill pack folder used by the agents."
+    },
+    "changedComponents": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "description": "Optional list of named private render methods whose output this revision modified — feeds the selective rollback model."
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp when this revision was opened."
+    },
+    "artifacts": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "string", "minLength": 1 },
+      "description": "Artifact label → filename map (relative to the revision folder). Labels are well-known but the schema is open so the orchestrator can add new artifact types."
+    },
+    "pendingArtifacts": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "description": "Artifact filenames the revision declares but has not yet produced. The repository-contract gate tolerates a missing artifact only when it is listed here."
+    },
+    "templateDisplayName": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional human-readable name the template publisher uses. Present once the revision becomes the source of a published template under templates/."
+    },
+    "approvedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp Revision Manager writes when status flips to APPROVED."
+    },
+    "supersededAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp Revision Manager writes when status flips to SUPERSEDED."
+    },
+    "supersededBy": {
+      "type": "string",
+      "pattern": "^revision-\\d{3,}$",
+      "description": "ID of the revision that superseded this one."
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage", "summary"],
+      "properties": {
+        "stage": {
+          "type": "string",
+          "enum": ["compile", "render", "preview", "visual-diff", "test", "asset-resolve", "skill-validate", "architecture-map"],
+          "description": "Pipeline stage that produced the failure."
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Short one-sentence failure description."
+        },
+        "message": {
+          "type": "string",
+          "description": "Verbatim error message from the failing stage."
+        },
+        "currentUsableDraft": {
+          "type": ["string", "null"],
+          "description": "ID of the most recent draft revision that still renders, when applicable."
+        }
+      },
+      "description": "Present when status is FAILED. Records the failing stage and verbatim error so the orchestrator can route the next attempt."
+    }
+  }
+}

@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DemchaAV/graphcompose-ai-flow/schemas/assets-manifest.schema.json",
+  "title": "Assets Manifest",
+  "description": "Contract between tools/asset-resolver (writer) and the Template Coder Agent (reader). Pins the icon and font records the generated template must consume; the manifest is the single source of truth for asset references.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "revisionDir", "icons", "fonts"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Manifest schema version, semver."
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp when asset-resolver wrote this manifest."
+    },
+    "revisionDir": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Repo-relative path to the revision folder this manifest describes."
+    },
+    "icons": {
+      "type": "object",
+      "description": "Token → icon record. Keys are stable tokens the Template Coder references in Java.",
+      "additionalProperties": { "$ref": "#/$defs/icon" }
+    },
+    "fonts": {
+      "type": "object",
+      "description": "Role → font record. Keys are stable roles (heading, body, fallback, ...) the Template Coder references in Java.",
+      "additionalProperties": { "$ref": "#/$defs/font" }
+    }
+  },
+  "$defs": {
+    "icon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["iconSet", "prefix", "name", "file", "size", "color", "pickedBy"],
+      "properties": {
+        "iconSet": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Full Iconify identifier (prefix:name) of the picked icon."
+        },
+        "prefix": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Iconify set prefix (mdi, tabler, lucide, entypo-social, ...)."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Iconify icon name within the set."
+        },
+        "file": {
+          "type": "string",
+          "pattern": "^assets/icons/.+\\.png$",
+          "description": "Revision-relative path to the rasterised PNG."
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Rasterised pixel size of the PNG."
+        },
+        "pointSize": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Rendering point size the Template Coder should request when laying the icon out. Floats are allowed (e.g. 3.8 for thin rating dots). Optional — when absent, the template falls back to the architecture plan's stated size."
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
+          "description": "Hex colour (#RRGGBB or #RRGGBBAA) applied during rasterisation."
+        },
+        "pickedBy": {
+          "type": "string",
+          "enum": ["explicit", "preferred", "search"],
+          "description": "Why this icon was chosen: explicit user/asset-request pin, preferred-set match (iconify preferredSets list), or broad search fallback. Matches the source values in tools/asset-resolver/src/iconify.mjs."
+        },
+        "visualHint": {
+          "type": ["string", "null"],
+          "description": "Free-form note when pickedBy=visual-hint or for human review."
+        }
+      }
+    },
+    "font": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "family", "fontName", "source", "status", "registration"],
+      "properties": {
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable role token (heading, body, fallback, code, ...) — matches the architecture plan's font role."
+        },
+        "family": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable family name (Poppins, Helvetica, ...)."
+        },
+        "fontName": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "description": "GraphCompose FontName enum constant — uppercase identifier."
+        },
+        "weights": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 100, "maximum": 900 },
+          "uniqueItems": true,
+          "description": "Numeric weights to register (400, 700, ...)."
+        },
+        "source": {
+          "type": "string",
+          "enum": ["graphcompose-bundled", "standard14", "google-fonts", "file-resource"],
+          "description": "Where the font file comes from."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["ok", "manual_drop_required", "missing", "fallback"],
+          "description": "Resolution status. manual_drop_required means asset-resolver could not place the file; template-coder must surface it as a Known Limitation."
+        },
+        "registration": {
+          "type": "string",
+          "enum": ["default-fonts", "standard14", "file-resource"],
+          "description": "How the Template Coder registers the font in code."
+        },
+        "notes": {
+          "type": ["string", "null"],
+          "description": "Free-form note for human review."
+        }
+      }
+    }
+  }
+}

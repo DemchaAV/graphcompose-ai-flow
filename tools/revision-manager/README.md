@@ -2,6 +2,14 @@
 
 `graphcompose-flow` is the file-based revision manager for **GraphCompose AI Template Flow** template projects. It owns the `template-project.json` and per-revision metadata layout used by `examples/<project>/` and provides the verbs needed to author, approve, undo, revert, and inspect those revisions on disk. It deliberately does **not** render PDFs, call any LLM, or talk to git — those concerns belong to other phases of the flow.
 
+The on-disk `revision.json` shape is pinned by
+[`schemas/revision.schema.json`](../../schemas/revision.schema.json)
+(JSON Schema 2020-12). The schema is enforced in CI by the
+`schema-validation` job and covers all six lifecycle states
+(`DRAFT`, `APPROVED`, `REJECTED`, `SUPERSEDED`, `FAILED`, `REVERTED`)
+plus their state-specific fields (`approvedAt`, `supersededAt`/`supersededBy`,
+`failure`, and the orchestrator-written `scope` marker).
+
 ## Install
 
 ```bash

@@ -19,6 +19,12 @@ revision self-contained and rollback-safe.
 <revision>/assets-manifest.json   ← written by asset-resolver, read by Template Coder
 ```
 
+The `assets-manifest.json` shape is pinned by
+[`schemas/assets-manifest.schema.json`](../../schemas/assets-manifest.schema.json)
+(JSON Schema 2020-12). The schema is enforced in CI by the
+`schema-validation` job — any drift between what asset-resolver
+writes and what Template Coder reads fails the build.
+
 `asset-request.json` schema:
 
 ```json

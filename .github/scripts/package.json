@@ -1,0 +1,17 @@
+{
+  "name": "@graphcompose-ai-flow/ci-scripts",
+  "version": "0.1.0",
+  "description": "Repository-contract and JSON Schema validation scripts wired to ci.yml. Not published.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "validate-schemas": "node validate-schemas.mjs"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

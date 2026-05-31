@@ -103,7 +103,7 @@ jobs:
           node scripts/render-cv-reference.mjs revision-002
 
   skill-fixtures:
-    name: skill-fixtures (GraphCompose 1.6 via JitPack)
+    name: skill-fixtures (GraphCompose 1.6.6 via Maven Central)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -134,3 +134,21 @@ jobs:
           node-version: '20'
       - name: run repository-contract checks
         run: node .github/scripts/repository-contract.mjs
+
+  schema-validation:
+    name: JSON Schema validation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .github/scripts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: .github/scripts/package-lock.json
+      - run: npm ci
+      - name: validate revision.json + assets-manifest.json against schemas/
+        working-directory: ${{ github.workspace }}
+        run: node .github/scripts/validate-schemas.mjs
