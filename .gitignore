@@ -42,3 +42,13 @@ docs/private/
 # are committed on purpose and must remain tracked.
 /output.pdf
 /output.png
+
+# Shell interpolation accidents — files named after unexpanded variables or
+# stray shell punctuation. They come from PowerShell heredocs / pipelines that
+# write to ${command}, ${file}, etc. when the variable was empty. Never
+# legitimate content.
+/${*}
+/${command}
+/0
+/0\)
+
