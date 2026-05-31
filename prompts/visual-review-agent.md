@@ -47,6 +47,24 @@ visual-review.md
 - classify mismatches
 - recommend next revision actions
 - decide whether revision is acceptable
+- pick the next concrete visual layer to fix when recommending `REVISE`
+
+## Layer-by-layer review rule
+
+When the output is still visually off, do not write a vague review such as
+"close enough" or "needs polish". Name the next layer to fix in priority order:
+
+1. structural geometry and page/crop proportions
+2. large surfaces and panels
+3. anchors, alignment, and spacing
+4. typography hierarchy
+5. icons, badges, dots, and small marks
+6. final color/anti-aliasing differences
+
+If the recommendation is `REVISE`, `visual-review.md` must include a
+`Next Revision Patch Target` section with the exact component(s), file(s), and
+visual evidence to address next. This is the hand-off back to the orchestrator;
+without it the flow stalls at "somewhere nearby".
 
 ## Review criteria
 
@@ -62,14 +80,52 @@ visual-review.md
 - pagination
 - visual balance
 - reference parity score
+- semantic ownership of shaped components
+
+## Semantic ownership review
+
+Visual parity alone is not enough when a component has an obvious
+parent/child relationship in the reference. When reviewing circles,
+rounded cards, pills, clipped images, badges, or labels inside
+shapes, verify the generated architecture as well as the pixels:
+
+- the shape is the parent component
+- the text/icon/image inside the shape is a child of that shape
+- the code uses `ShapeContainer.center(...)`,
+  `position(..., LayerAlign.X)`, or an equivalent documented shape
+  anchor helper
+- the code does not fake ownership with sibling paragraphs, sibling
+  rows, or negative margins
+
+If the render looks close but the content is a sibling overlay, mark
+the mismatch as `MAJOR` under component architecture and recommend
+`REVISE`. If the engine cannot express the ownership relationship,
+record it as `ACCEPTED_LIMITATION` only when the limitation is
+verified by Test + Render evidence.
 
 ## Parent-revision parity gate (mandatory for refactor revisions)
 
-When the user-request scope is "refactor only" — i.e. the revision is
-declared to be visually equivalent to its parent (data extraction,
-class renaming, helper introduction, dependency upgrade, ...) — the
-agent MUST run a binary pixel diff against the parent revision's
-preview before recommending `APPROVE`:
+The agent reads the revision's `scope` field from `user-request.md`
+(written by the orchestrator before any downstream agent runs, per
+`prompts/orchestrator-agent.md` § "Revision scope"). The scope MUST be
+one of two values:
+
+- `scope: visual-change` — compare the render to the **reference image**
+  using the layer-by-layer review described in the rest of this prompt.
+- `scope: refactor-only` — compare the render to the **parent revision's
+  preview** with the binary pixel-AE gate below. This is the case when
+  the revision is declared visually equivalent to its parent (data
+  extraction, class renaming, helper introduction, dependency upgrade,
+  asset re-resolve, ...).
+
+If `user-request.md` is missing the `scope` field, treat that as a
+contract violation: do NOT guess; recommend `REVISE` with a CRITICAL
+mismatch labelled "missing revision scope — orchestrator must record
+`scope: visual-change` or `scope: refactor-only` per
+`prompts/orchestrator-agent.md`".
+
+For `scope: refactor-only` the agent MUST run a binary pixel diff
+against the parent revision's preview before recommending `APPROVE`:
 
 ```powershell
 magick compare -metric AE `
@@ -146,6 +202,7 @@ APPROVE / REVISE / REJECT
 
 ## Forbidden behavior
 
+- Do not run when `skill-validation-report.md` ends with `verdict: halt`. The orchestrator must route the user gesture back to "review skill-fix-report.md" instead of opening the review. See `prompts/skill-validator-agent.md` § "Downstream halt contract".
 - Do not edit Java template code or re-render the PDF; those are upstream agents' responsibilities.
 - Do not mark a revision as `APPROVED`; you only recommend `APPROVE`, `REVISE`, or `REJECT`. Approval is performed by the Revision Manager Agent on the user's instruction.
 - Do not invent mismatch classifications outside the contract; use only `CRITICAL`, `MAJOR`, `MINOR`, `ACCEPTED_LIMITATION`, and `INTENTIONAL_DIFFERENCE`.

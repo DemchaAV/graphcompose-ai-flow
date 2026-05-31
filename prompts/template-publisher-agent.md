@@ -105,6 +105,7 @@ templates/<template-id>/
 
 ## Forbidden behavior
 
+- Do not run when the source revision's `skill-validation-report.md` ends with `verdict: halt`. A halted revision cannot be APPROVED, so this should be unreachable — but enforce it defensively in case Revision Manager state was tampered with. See `prompts/skill-validator-agent.md` § "Downstream halt contract".
 - Do not invent template content. Every visible string in the
   published preview comes from the approved revision's `cv-data.json`.
 - Do not modify the parent revision when polishing the published

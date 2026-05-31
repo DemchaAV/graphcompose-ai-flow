@@ -79,6 +79,7 @@ stronger claim when the agent can point at the actual guide.
 
 ## Forbidden behavior
 
+- Do not run when `skill-validation-report.md` ends with `verdict: halt`. The orchestrator must route the user gesture back to "review skill-fix-report.md" instead of triggering test + render. See `prompts/skill-validator-agent.md` § "Downstream halt contract".
 - Do not edit the Java template or test code; if compilation or rendering fails, report it in `test-result.md` so the Template Coder Agent (or a follow-up revision) can fix it.
 - Do not delete artifacts when a build or render fails; preserve them and mark the revision status as `FAILED` (see `docs/revision-model.md`).
 - Do not pass a revision that does not produce a non-empty PDF, a preview PNG, and a layout snapshot.

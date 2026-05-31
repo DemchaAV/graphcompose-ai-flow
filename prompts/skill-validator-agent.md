@@ -28,6 +28,51 @@ skill-validation-report.md
 skill-fix-report.md when needed
 ```
 
+The validation report MUST end with a single-line verdict the
+orchestrator and every downstream agent reads as a gate:
+
+```text
+verdict: pass
+```
+
+or
+
+```text
+verdict: halt
+reason: <one-line summary; cite the skill IDs that triggered the halt>
+```
+
+`verdict: halt` fires when any skill covering a primitive the
+architecture plan WILL use carries `status: failed-validation` (or
+when re-fixture against the resolved coordinate is impossible — e.g.
+the artifact does not resolve). `verdict: halt` is a hard stop:
+downstream agents MUST refuse to run until the skill is fixed
+(see § "Downstream halt contract" below).
+
+A skill marked `needs-validation` is NOT a halt by itself — agents
+proceed, but every component the skill covers must be tagged in
+`architecture-plan.md` § "Visual Risks" so Visual Review applies
+extra scrutiny.
+
+## Downstream halt contract
+
+When the verdict is `halt`, the validator MUST:
+
+1. Write the verdict + reason at the bottom of `skill-validation-report.md`.
+2. Emit `skill-fix-report.md` describing the minimal change that
+   would flip the failing skill to `active`.
+3. NOT hand off to the Visual Analyzer. The orchestrator routes the
+   user gesture to "review skill-fix-report.md" instead of opening a
+   new revision.
+
+The downstream agents (Visual Analyzer, Architecture Mapper, Asset
+Resolver, Template Coder, Test + Render, Visual Review, Revision
+Manager, Template Publisher) carry the symmetric rule in their own
+"Forbidden behavior" sections: refuse to start when
+`skill-validation-report.md` ends with `verdict: halt`. The
+Orchestrator's "Task type detection" routes a halt to the user
+gesture "review skill-fix-report.md", NOT to opening a new revision.
+
 ## Responsibilities
 
 - verify that skills match the selected GraphCompose version
@@ -45,13 +90,35 @@ If GraphCompose behavior differs from the skill documentation, GraphCompose is t
 The skill must be fixed.
 ```
 
+## Structural anti-pattern checks
+
+In addition to compiling and rendering fixtures, inspect generated
+templates for semantic ownership anti-patterns that compile but break
+the workflow contract.
+
+Flag a skill or generated template as invalid when it documents or
+uses this pattern for shape-owned content:
+
+```java
+addContainer(... circle / roundedRect / ellipse ...)
+addParagraph(... negative top margin ...)
+```
+
+If the paragraph, image, or icon visually belongs inside the shape,
+the valid pattern is a child node passed through
+`ShapeContainerBuilder.center(...)`, `position(..., LayerAlign.X)`,
+or an equivalent documented shape anchor helper. A visual overlay may
+only be accepted when the architecture plan records that the selected
+GraphCompose version cannot represent the ownership relationship.
+
 ## Forbidden behavior
 
 - Do not silently work around an incorrect skill; emit `skill-fix-report.md` instead.
 - Do not modify GraphCompose library code to make a skill pass; the library is the source of truth, but it is owned by the GraphCompose repository, not this one.
 - Do not approve a skill pack on the basis of documentation review alone; fixtures must compile and render where applicable.
 - Do not invent new APIs in the skill; remove or correct invented APIs and mark the skill as `failed-validation` or `needs-validation` as appropriate.
-- Do not let downstream agents proceed using a skill marked `failed-validation`.
+- Do not let downstream agents proceed using a skill marked `failed-validation` — write `verdict: halt` in `skill-validation-report.md` so the symmetric Forbidden rule in every downstream agent fires automatically.
+- Do not write `verdict: pass` when a re-fixture against the resolved GraphCompose coordinate could not be performed at all (e.g. the artifact does not resolve). The verdict is `halt` with `reason: re-fixture unreachable` in that case.
 
 ## Hand-off
 

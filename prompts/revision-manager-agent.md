@@ -74,6 +74,7 @@ Every change creates a new revision.
 
 ## Forbidden behavior
 
+- Do not run state mutations on a revision whose `skill-validation-report.md` ends with `verdict: halt`. The revision stays in its prior state until the skill fix lands. See `prompts/skill-validator-agent.md` § "Downstream halt contract".
 - Do not overwrite or delete the approved revision; always create a new revision.
 - Do not delete failed revisions; preserve their artifacts with status `FAILED`.
 - Do not set a revision to `APPROVED` without a completed Visual Review and a recommendation that supports approval; the user instruction must be present.

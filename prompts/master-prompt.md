@@ -71,6 +71,16 @@ The agent must not invent GraphCompose APIs.
 
 If the library behavior and skill documentation disagree, the library is the source of truth and the skill must be fixed.
 
+The Skill Validator runs before any downstream agent and writes a
+single-line verdict at the bottom of `skill-validation-report.md`:
+`verdict: pass` or `verdict: halt` (see
+[`prompts/skill-validator-agent.md`](skill-validator-agent.md) §
+"Downstream halt contract"). `verdict: halt` is a hard stop — every
+downstream agent (Visual Analyzer through Template Publisher) carries
+a symmetric "do not run when verdict is halt" in its Forbidden
+behavior block. The orchestrator routes a halt to the user gesture
+"review skill-fix-report.md", NOT to opening a new revision.
+
 # Design Asset Requirement
 
 If the visual reference needs icons, search/select suitable icons through `https://iconify.design/` and record the icon set/name in the analysis or architecture plan.
@@ -85,31 +95,50 @@ Every layout dimension in the generated template must be DERIVED from a small se
 
 Element-to-element positioning must use the engine's anchor and alignment primitives, not hand-computed pixel offsets. GraphCompose ships `TextAlign` (paragraph alignment), `InlineImageAlignment` (inline image vs text baseline), `LayerAlign` (nine-position anchors for `LayerStackBuilder.position(...)`), `DocumentTableTextAnchor` (cell text anchor), `RowBuilder.weights(...)` (proportional columns), and `HAnchor`/`VAnchor` (low-level anchors for custom canvas use). The Visual Analyzer describes placements as relationships ("centered against label baseline", "anchored top-right of the page"); the Architecture Mapper records the anchor the relationship maps to; the Template Coder reaches for that anchor in code. Manual pixel offsets are reserved for placements the anchor set genuinely cannot express, and even then the offsets must be derived from named constants.
 
+# Shape ownership requirement
+
+When text, an icon, an image, or a badge visually belongs inside a
+shape, the generated GraphCompose template must model the shape as
+the parent and the visible content as a child of that shape. Use
+`ShapeContainer.center(...)`, `ShapeContainer.position(...,
+LayerAlign.X)`, or the shape-specific anchor helper documented by the
+target skill pack. Do not emulate shaped content with sibling
+paragraphs, sibling rows, or negative margins. If the selected
+GraphCompose version cannot express a shape ownership relationship,
+document it as a verified limitation before using any fallback.
+
 # Required workflow
 
 Analyze Reference
 → Detect GraphCompose Version
 → Load Matching Skills
 → Validate Skills
-→ Plan
-→ Generate
-→ Compile
-→ Render
-→ Compare
-→ Revise
-→ Approve / Rollback
+→ Visual Analyze
+→ Architecture Map (produces asset-request.json)
+→ Resolve Assets (icons + fonts → assets-manifest.json)
+→ Generate Template Code
+→ Compile + Render
+→ Visual Review
+→ Revision Manager (DRAFT)
+→ [user approves]
+→ Template Publisher (templates/<id>/)
 
 # Required agents
 
-1. Template Orchestrator Agent
-2. Version + Skill Resolver Agent
-3. Skill Validator Agent
-4. Visual Analyzer Agent
-5. Architecture Mapper Agent
-6. Template Coder Agent
-7. Test + Render Agent
-8. Visual Review Agent
-9. Revision Manager Agent
+The pipeline is 11 agents. Per-agent prompts live in this folder; use
+them as the system prompt for each specialized agent in the chain.
+
+1. Template Orchestrator Agent — receives the raw user gesture, decides whether to open a new revision, picks the `scope` (`visual-change` / `refactor-only`), routes downstream.
+2. Version + Skill Resolver Agent — pins the target GraphCompose version and loads the matching skill pack from `skills/versions/`.
+3. Skill Validator Agent — fixture-validates the resolved skill pack. If any covered skill carries `failed-validation`, downstream agents MUST NOT run; the validator surfaces a `skill-fix-report.md` instead.
+4. Visual Analyzer Agent — produces `visual-analysis.md` from the reference image.
+5. Architecture Mapper Agent — produces `architecture-plan.md` + `asset-request.json` (+ `data-schema.md` when content is templated).
+6. Asset Resolver Agent — reads `asset-request.json`, downloads icons from Iconify, validates Google Fonts / GraphCompose-bundled fonts, writes `assets/icons/*.png`, `assets/fonts/*.ttf`, and `assets-manifest.json` (the single source of truth for asset references).
+7. Template Coder Agent — produces `generated-template.java` + `generated-test.java` + `<doc-kind>-data.json`. Reads the manifest; never invents icon paths or font names.
+8. Test + Render Agent — compiles the template, runs the test, renders `output.pdf`, generates `output.png` via `tools/preview-renderer preview`.
+9. Visual Review Agent — runs the layer-by-layer review (for `scope: visual-change`) OR the binary `magick compare -metric AE == 0` parity gate (for `scope: refactor-only`). Returns a `REVISE` / `RECOMMEND_APPROVE` recommendation — never approves itself.
+10. Revision Manager Agent — owns the on-disk lifecycle (DRAFT, APPROVED, REJECTED, SUPERSEDED, FAILED, REVERTED). The DRAFT→APPROVED flip happens here, only on an explicit user gesture ("approve" / "save" / "сохрани" / "это хорошо").
+11. Template Publisher Agent — auto-triggered when the Revision Manager flips DRAFT→APPROVED. Rebuilds `templates/<template-id>/` from the approved revision: copies the spec / spec-provider / template Java files, regenerates the `README.md` copy-paste instructions, writes `template.json` with the verified GraphCompose version coordinate.
 
 # Required repository structure
 
@@ -173,4 +202,5 @@ Do not claim perfect screenshot-to-code conversion.
 
 The project should feel like an engineering workflow, not an AI magic demo.
 
-Per-agent prompts live in this folder; use them as the system prompt for each specialized agent in the pipeline.
+The 11-agent block above replaces the older "Required agents 1..9"
+list — it is the canonical chain that AGENTS.md dispatches to.

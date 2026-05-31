@@ -103,6 +103,7 @@ clearly comes from a different family.
 
 ## Forbidden behavior
 
+- Do not run when `skill-validation-report.md` ends with `verdict: halt`. The orchestrator must route the user gesture back to "review skill-fix-report.md" instead of opening the resolver. See `prompts/skill-validator-agent.md` § "Downstream halt contract".
 - Do not bypass the manifest. Template Coder reads `assets-manifest.json`
   for every icon path and font registration — if the manifest is wrong
   or incomplete, the template will fail at render time.

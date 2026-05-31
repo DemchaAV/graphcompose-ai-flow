@@ -69,6 +69,35 @@ If a position cannot be described relationally (a true custom
 decorative coordinate), call it out under `Unclear Parts` so the
 Architecture Mapper can decide whether `CanvasLayer` is justified.
 
+## Shape ownership analysis
+
+When a visual element is inside a shape, card, circle, ellipse, pill,
+or clipped image area, record the ownership relationship explicitly.
+Do not describe the shape and its content as separate sibling
+elements unless the reference really shows them as independent.
+
+Use language like:
+
+```text
+Container: dark circular CV badge.
+Owned content: "CV" initials centered inside the circle.
+Relationship: text belongs to the circle and is centered in the
+shape, not placed after the shape in the sidebar flow.
+```
+
+This ownership note is mandatory for:
+
+- initials or icons inside circles
+- text inside pills or badges
+- content inside rounded cards
+- images clipped by rounded or circular shapes
+- badges anchored inside or on a shape boundary
+
+The downstream Architecture Mapper uses this to choose
+`ShapeContainer.center(...)`, `ShapeContainer.position(...)`, or the
+shape-specific anchor helpers. Missing ownership notes often cause
+incorrect negative-margin overlays later in the chain.
+
 ## Visual Hierarchy
 - primary:
 - secondary:
@@ -108,6 +137,7 @@ Architecture Mapper can decide whether `CanvasLayer` is justified.
 - cards:
 - badges:
 - table rows:
+- shape ownership:
 
 ## Unclear Parts
 - item:
@@ -146,6 +176,7 @@ Architecture Mapper can decide whether `CanvasLayer` is justified.
 - Do not invent a font name or icon source. If a custom font is
   needed, use https://fonts.google.com/ as the default search source
   when licensing permits and document uncertainty.
+- Do not run when `skill-validation-report.md` ends with `verdict: halt`. The orchestrator must route the user gesture back to "review skill-fix-report.md" instead of opening the analyzer. See `prompts/skill-validator-agent.md` § "Downstream halt contract".
 
 ## Hand-off
 

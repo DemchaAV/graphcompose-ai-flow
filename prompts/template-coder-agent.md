@@ -200,6 +200,53 @@ position can't be expressed as "top-left of X with offset Y"). Even
 then the offsets must be derived from named constants, not raw
 literals.
 
+## Shape-contained content ownership
+
+When content visually belongs inside a shape container, code that
+content as a child of the shape. Use `ShapeContainerBuilder` anchors
+such as `.center(...)`, `.position(..., LayerAlign.X)`, or the
+shape-specific helper methods documented by the selected skill pack.
+
+Correct pattern:
+
+```java
+section.addContainer(container -> container
+        .name("CvCircle")
+        .circle(CV_DIAMETER)
+        .fillColor(DARK)
+        .clipPolicy(ClipPolicy.CLIP_PATH)
+        .center(new ParagraphBuilder()
+                .name("CvInitials")
+                .text(spec.avatar().initials())
+                .textStyle(cvInitialsStyle())
+                .align(TextAlign.CENTER)
+                .margin(DocumentInsets.zero())
+                .build()));
+```
+
+Forbidden pattern:
+
+```java
+section.addContainer(container -> container
+        .circle(CV_DIAMETER)
+        .fillColor(DARK));
+
+section.addParagraph(p -> p
+        .text(spec.avatar().initials())
+        .margin(new DocumentInsets(-CV_DIAMETER * 0.68, 0, 0, 0)));
+```
+
+The second pattern is a defect because the initials are no longer
+owned by the circle. It may look close in one revision, but rollback,
+layout snapshots, pagination, and visual review cannot reason about
+the badge as a single component.
+
+Use sibling paragraphs with negative margins only for relationships
+that the engine genuinely cannot express, and only after the
+Architecture Mapper records a `Known Limitation`. Shape-owned
+content is not such a case when `center(...)` or `position(...)` is
+available.
+
 ## Rules
 
 ```text
@@ -280,6 +327,82 @@ public final class AiGeneratedInvoiceTemplate implements DocumentTemplate<Invoic
 }
 ```
 
+## Template surface contract (V2 layered vs V1 classic)
+
+The Architecture Mapper records the target surface under
+`Target GraphCompose Version`. The Template Coder MUST follow it
+verbatim. Two surfaces exist on the canonical side as of 1.6.6:
+
+- **V2 layered** (`com.demcha.compose.document.templates.cv.v2.*`,
+  `com.demcha.compose.document.templates.coverletter.v2.*`) is
+  Recommended for new templates. The preset is a thin orchestrator
+  that wires `data → theme → components → widgets → preset`. **Reuse
+  the existing v2 widgets and components** (e.g. shared masthead,
+  timeline axis, soft panel, accent-left band, banded
+  `pageBackgrounds`, `LetterBody`, the v2 `BusinessTheme` palette
+  extensions) instead of duplicating their logic in a preset-local
+  helper. New widgets are added under the v2 stack only when no
+  existing widget covers the use case, and only after the
+  Architecture Mapper signs off.
+- **V1 classic** (`com.demcha.compose.document.templates.cv.presets.*`
+  and siblings, plus `invoice.presets.*` / `proposal.presets.*` until
+  V2 reaches them) is Supported. Pick it only when continuing an
+  existing revision chain that shipped on V1 — switching surfaces
+  between revisions breaks visual-diff parity and rollback semantics.
+
+Forbidden cross-surface patterns:
+
+- Do not import V1 classes (`com.demcha.compose.document.templates.cv.presets.*`)
+  inside a V2 layered preset, or vice versa.
+- Do not open-code a v2 widget's body inside the preset's `compose(...)`
+  method when the widget already exists. If the widget is missing or
+  the preset legitimately needs a one-off variation, surface the gap
+  back to the Architecture Mapper before forking the widget.
+- Do not silently move an existing revision-N+1 from V1 to V2 (or
+  back). Surface-shift = a fresh parent line, recorded explicitly in
+  the architecture plan.
+
+Helpers, type imports, and DSL idioms that are surface-agnostic
+(`DocumentSession`, `RowBuilder`, `SectionBuilder`, `TableBuilder`,
+`ShapeContainerBuilder`, `DocumentTextStyle`, `BusinessTheme`,
+`FontName`) are free to use regardless of surface.
+
+## @Beta SPI usage (1.6.6+)
+
+When `architecture-plan.md` records a `@Beta` surface (currently only
+`com.demcha.compose.document.layout.NodeDefinition` — the custom
+node-type seam), the Template Coder MUST:
+
+1. Place every call into a single private render method whose name
+   ends with `BetaSpi` (e.g. `renderTimelineSpineBetaSpi`). The
+   suffix is load-bearing — `tools/revision-manager restore-component`
+   uses it to surface "this component sits on an evolving SPI" when
+   listing components, and `changed-components.md` lists the
+   `BetaSpi` methods first.
+2. Cite the verified version in a method-level Javadoc:
+   ```java
+   /**
+    * Custom timeline-spine overlay built on the @Beta NodeDefinition SPI.
+    * Verified against GraphCompose {@code io.github.demchaav:graph-compose:1.6.6}.
+    * The SPI shape may evolve in 1.7.x — see architecture-plan.md
+    * "Known Limitations" for the recorded migration risk.
+    */
+   private void renderTimelineSpineBetaSpi(...) { ... }
+   ```
+3. Never duplicate the `NodeDefinition` body across two render
+   methods. If two visual regions need the same custom node, extract
+   a single helper and call it twice.
+4. Treat `@Beta` types as a Forbidden import in test files:
+   integration tests that pin behaviour to a specific
+   `NodeDefinition` shape will break on the next minor bump. Test
+   the rendered output (PDF bytes, layout snapshot) instead.
+
+If the Architecture Mapper did NOT record a `@Beta` surface but the
+Template Coder discovers no `Stable` primitive expresses the visual,
+STOP and route the gap back to the Architecture Mapper with a
+written question — do not silently introduce `NodeDefinition` from
+the coder side.
+
 ## Forbidden behavior
 
 - Do not write one huge compose method; every visible component must map to a named private render method or named layout block.
@@ -287,9 +410,15 @@ public final class AiGeneratedInvoiceTemplate implements DocumentTemplate<Invoic
 - Do not use raw coordinates as the main layout strategy.
 - Do not invent GraphCompose methods, builders, options, or configuration APIs. If a method is not documented in the selected skill version or verified examples, treat it as unavailable.
 - Do not use `CanvasLayer` for elements that semantic primitives can express; `CanvasLayer` is a last resort for tiny decorative details, exact background geometry, non-semantic ornaments, or visual marks that do not affect document structure.
+- Do not emulate text or icons inside a shape with sibling paragraphs, sibling rows, or negative margins. If the content belongs inside the shape, it must be a child of the shape via `center(...)`, `position(...)`, or a documented shape anchor helper.
 - Do not scatter hardcoded hex colors throughout the template; use theme tokens.
 - Do not embed arbitrary icons or font files without a recorded
   source and fallback in the architecture plan.
+- Do not introduce a `@Beta` surface call (currently `NodeDefinition`)
+  without an explicit entry in `architecture-plan.md` § "Known
+  Limitations" and a matching `BetaSpi`-suffixed private render
+  method (see "@Beta SPI usage" above).
+- Do not run when `skill-validation-report.md` ends with `verdict: halt`. The orchestrator must route the user gesture back to "review skill-fix-report.md" instead of opening the coder. See `prompts/skill-validator-agent.md` § "Downstream halt contract".
 - Do not omit the test file or `changed-components.md`.
 
 ## Hand-off

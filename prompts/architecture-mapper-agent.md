@@ -127,6 +127,39 @@ Architecture plan structure:
 - identify visual risks
 - define fallback strategies
 
+## Template surface selection (canonical V1 vs V2 layered)
+
+Starting with GraphCompose 1.6.6, the repository ships TWO parallel
+canonical template surfaces for the same document kinds. The
+Architecture Mapper MUST pick one explicitly and record it in
+`architecture-plan.md` under the `Target GraphCompose Version` block:
+
+| Surface | Package | Status | Pick it for |
+|---|---|---|---|
+| **V2 layered** *(Recommended)* | `com.demcha.compose.document.templates.cv.v2.presets.*`, `com.demcha.compose.document.templates.coverletter.v2.presets.*` | Recommended | **Brand-new** templates, especially CV and cover letter. Reuse v2 widgets/components/themes; the preset is a thin orchestrator (data → theme → components → widgets → preset). |
+| **V1 classic** | `com.demcha.compose.document.templates.cv.presets.*`, `com.demcha.compose.document.templates.coverletter.presets.*`, `com.demcha.compose.document.templates.invoice.presets.*`, `com.demcha.compose.document.templates.proposal.presets.*` | Supported | **Continuing an existing revision chain** whose `revision-001` shipped on V1 (preserves visual parity and avoids history-breaking diffs); or invoice/proposal templates where V2 has not landed yet. |
+
+Rules:
+
+- **New template → default to V2 layered.** The v2 stack already ships
+  parity-tested widgets (masthead, timeline axis, soft panel,
+  accent-left band, banded `pageBackgrounds`, `LetterBody`) that the
+  template-coder reuses instead of reinventing.
+- **Existing revision chain → stick with whatever the prior revision
+  used.** Switching surfaces between revisions of the same template
+  breaks `visual-diff` parity scores and the rollback story. Migrate
+  only when the user explicitly asks for "rewrite on v2" and accept a
+  fresh parent line.
+- **Invoice / proposal → V1 classic** until the v2 stack reaches them
+  (tracked upstream). Document this in `Known Limitations`.
+
+When mapping document regions, the Component Mapping table MUST name
+the surface-specific primitives the template-coder will use (e.g.
+"V2 layered → reuse `LetterBody` for the body paragraph stack" rather
+than open-coding a paragraph loop). The decision guide is the
+upstream `docs/templates/which-template-system.md`; pull from it for
+edge cases rather than guessing.
+
 ## Mapping examples
 
 | Visual region | GraphCompose target |
@@ -140,6 +173,59 @@ Architecture plan structure:
 | Accent border | theme token / section accent |
 | Exact decoration | `CanvasLayer` only if needed |
 
+## Shape ownership mapping
+
+If `visual-analysis.md` says that text, an icon, an image, or a
+badge belongs inside a shape, the architecture plan MUST map the
+shape as the parent and the owned content as a child of that shape.
+
+Preferred mappings:
+
+| Visual relationship | GraphCompose target |
+|---|---|
+| Initials centered inside a circle | `ShapeContainerBuilder.circle(...).center(paragraphNode)` |
+| Icon centered inside circular badge | `ShapeContainerBuilder.circle(...).center(imageNode)` |
+| Label inside a pill | rounded-rect/pill shape with `.center(labelNode)` |
+| Badge at a shape corner | shape container with `.position(node, dx, dy, LayerAlign.TOP_RIGHT)` or equivalent anchor helper |
+| Image clipped to circle/rounded card | image node owned by circular/rounded shape with clip policy |
+
+The plan must NOT map owned shape content as a sibling paragraph,
+row, or section with negative margins. If the selected GraphCompose
+version cannot express the relationship with a shape container,
+record a `Known Limitation` and stop the implementation path rather
+than inventing a visual overlay workaround.
+
+## @Beta surfaces (1.6.6+): record before picking
+
+A `@Beta`-marked GraphCompose API is an **Extension SPI** — the
+library lets callers implement or reach it, but its shape MAY evolve
+between minor releases (one minor of `@Deprecated` warning then break).
+As of 1.6.6 the only `@Beta` surface is
+`com.demcha.compose.document.layout.NodeDefinition` (the custom
+node-type seam).
+
+When the Architecture Mapper picks a `@Beta` surface, the plan MUST:
+
+1. Justify why no `Stable` primitive in the
+   [`docs/architecture/package-map.md`](https://github.com/DemchaAV/GraphCompose/blob/main/docs/architecture/package-map.md)
+   could express the same relationship. The decision order is the
+   one from
+   [`skills/versions/graphcompose-1.6/layer-stacks-and-overlays.md`](../skills/versions/graphcompose-1.6/layer-stacks-and-overlays.md)
+   § "Custom node types are an @Beta SPI": documented primitive →
+   `LayerStack` → `ShapeContainer` → `CanvasLayer` → `NodeDefinition`.
+2. Add a `Known Limitation` entry that records (a) which `@Beta`
+   surface is in use, (b) the GraphCompose version verified at the
+   time, (c) the user-facing migration risk on the next minor bump.
+3. Tag the impacted render method(s) in the `Render Methods` section
+   so the Template Coder's `changed-components.md` carries the
+   `@Beta` flag forward — selective rollback later needs to know
+   which components rely on an evolving SPI.
+
+If the same visual can be expressed with a `Stable` primitive at the
+cost of a slightly different look, prefer the `Stable` primitive and
+document the visual trade-off as a `MINOR` mismatch. Reaching for a
+`@Beta` surface is never "free".
+
 ## Forbidden behavior
 
 - Do not write final Java code. This agent does NOT write final Java code.
@@ -152,6 +238,7 @@ Architecture plan structure:
   can add fonts to font libraries, but the exact loading API must
   come from verified skills/examples.
 - Do not skip the `Visual Risks` and `Known Limitations` sections; they are part of the strict visual parity contract.
+- Do not run when `skill-validation-report.md` ends with `verdict: halt`. The orchestrator must route the user gesture back to "review skill-fix-report.md" instead of opening the mapper. See `prompts/skill-validator-agent.md` § "Downstream halt contract".
 
 ## Hand-off
 
