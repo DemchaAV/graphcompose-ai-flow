@@ -1,7 +1,7 @@
 {
   "id": "revision-009",
   "parentRevisionId": "revision-008",
-  "status": "DRAFT",
+  "status": "APPROVED",
   "userRequest": "Swap the contact email from hello@email.com to rose.harris@studio.example across the CV.",
   "scope": "data-only",
   "targetGraphComposeVersion": "1.6.6",

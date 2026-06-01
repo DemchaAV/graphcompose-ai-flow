@@ -5,7 +5,7 @@
   },
   "contact": [
     { "icon": "phone",    "value": "+61 409 298 398" },
-    { "icon": "email",    "value": "hello@email.com",  "url": "mailto:hello@email.com" },
+    { "icon": "email",    "value": "rose.harris@studio.example",  "url": "mailto:rose.harris@studio.example" },
     { "icon": "location", "value": "Sydney, AUS" },
     { "icon": "website",  "value": "www.website.com",  "url": "https://www.website.com" }
   ],
@@ -92,9 +92,9 @@
     { "name": "Award Name Here", "meta": "Company  |  2012" }
   ],
   "references": [
-    { "name": "John Smith", "company": "Company", "phone": "+61 402 938 209", "email": "hello@email.com" },
-    { "name": "John Smith", "company": "Company", "phone": "+61 402 938 209", "email": "hello@email.com" },
-    { "name": "John Smith", "company": "Company", "phone": "+61 402 938 209", "email": "hello@email.com" },
-    { "name": "John Smith", "company": "Company", "phone": "+61 402 938 209", "email": "hello@email.com" }
+    { "name": "John Smith", "company": "Company", "phone": "+61 402 938 209", "email": "rose.harris@studio.example" },
+    { "name": "John Smith", "company": "Company", "phone": "+61 402 938 209", "email": "rose.harris@studio.example" },
+    { "name": "John Smith", "company": "Company", "phone": "+61 402 938 209", "email": "rose.harris@studio.example" },
+    { "name": "John Smith", "company": "Company", "phone": "+61 402 938 209", "email": "rose.harris@studio.example" }
   ]
 }

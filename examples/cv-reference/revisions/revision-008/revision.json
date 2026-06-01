@@ -1,8 +1,10 @@
 {
   "id": "revision-008",
   "parentRevisionId": "revision-007",
-  "status": "APPROVED",
+  "status": "SUPERSEDED",
   "approvedAt": "2026-05-19T01:15:00.000Z",
+  "supersededAt": "2026-06-01T17:55:46.248Z",
+  "supersededBy": "revision-009",
   "templateDisplayName": "Mint Editorial CV",
   "userRequest": "Stop thinking pixels-first. Layout dimensions must be DERIVED from a small set of base constants (page size, margins, column weights), not hand-tuned to a specific pixel value. The Awards/References grid columns are 'half of Main column', not '150pt'. Sidebar width is 'page weight × usable width', not '136pt'.",
   "targetGraphComposeVersion": "1.6.0",

@@ -12,7 +12,7 @@ and bundled `Poppins` typography.
 | Template id          | `mint-editorial-cv` |
 | Display name         | **Mint Editorial CV** |
 | Source project       | `examples/cv-reference` |
-| Source revision      | `revision-008` (APPROVED; supersedes revision-007, revision-004) |
+| Source revision      | `revision-009` (APPROVED 2026-06-01; supersedes revision-008, revision-007, revision-004) — `scope: data-only` swap of contact email, sample data is `rose.harris@studio.example` |
 | GraphCompose version | `1.6.0` |
 | Spec record          | [`MintEditorialCvSpec`](src/MintEditorialCvSpec.java) |
 | Render class         | [`MintEditorialCvTemplate`](src/MintEditorialCvTemplate.java) |
