@@ -21,8 +21,12 @@ const assets = [
   ['templates/mint-editorial-cv/preview/output-page-2.png', 'cv/output-page-2.png'],
   ['templates/mint-editorial-cv/preview/output-debug-page-1.png', 'cv/output-debug-page-1.png'],
   ['templates/mint-editorial-cv/preview/output-debug-page-2.png', 'cv/output-debug-page-2.png'],
-  // Hero artwork
-  ['assets/readme/graphcompose-ai-flow.jpg', 'hero/graphcompose-ai-flow.jpg'],
+  // Hero artwork — switched from .jpg to .png in the 11-agent flow
+  // diagram refresh; the .jpg was removed in the same commit. Keep the
+  // destination filename aligned with the source extension so any
+  // <img src="/previews/hero/graphcompose-ai-flow.png"> references in
+  // site/src/* resolve.
+  ['assets/readme/graphcompose-ai-flow.png', 'hero/graphcompose-ai-flow.png'],
 ];
 
 async function ensureDir(p) {
