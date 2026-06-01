@@ -22,7 +22,12 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 const SCHEMAS_DIR = path.join(ROOT, 'schemas');
 
-const ajv = new Ajv2020({ allErrors: true, strict: true });
+// strictRequired is relaxed because revision.schema.json uses
+// if/then `required` arrays that do not duplicate the property
+// definitions from the root `properties` map. Other strict checks
+// (strictTypes, strictTuples, strictNumbers, unevaluatedProperties)
+// stay on — strictRequired is the only one this hurts.
+const ajv = new Ajv2020({ allErrors: true, strict: true, strictRequired: false });
 addFormats.default(ajv);
 
 const SCHEMA_BINDINGS = [

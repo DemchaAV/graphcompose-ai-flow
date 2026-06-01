@@ -159,8 +159,14 @@ by the Asset Resolver for asset-only):
 
 - Build the affected-region set from `changed-components.md`.
 - Crop the parent and child PNGs by the bounding box of each affected
-  region (the Template Coder records bounding boxes per private
-  render method when authoring under the V2 layered architecture).
+  region. The boxes are recorded by the Template Coder in
+  `changed-components.md` as a fenced JSON `components` block
+  (see `prompts/template-coder-agent.md` §
+  "`changed-components.md` shape (region bounding boxes)") — each
+  entry carries `name`, `file`, `kind`, and `bbox` (either
+  `{page, x, y, w, h}` in 150-DPI pixels or `null`). Skip entries
+  whose `bbox` is `null`; the binary-AE-vs-parent gate covers them
+  via the fallback below.
 - Run `magick compare -metric AE` on the affected-region crops —
   non-zero values are expected here (that is the user-requested
   change manifesting). Quote the metric per region in
@@ -205,13 +211,18 @@ by the Asset Resolver for asset-only):
   swap happened" — `mask-regions --mode keep-only` followed by a
   visual diff against the parent shows the change in isolation.
 
-If the affected-region bounding boxes are not yet recorded in the
-project (V1 classic surfaces, hand-built CV-style templates without
-the V2 layered structure), fall back to the binary-AE gate against
-the parent for `data-only` / `asset-only` and flag the missing
-bounding-box index as a `MINOR` follow-up — do NOT block on it,
-because the value of the short scope is precisely that the agent
-chain stays short.
+If EVERY entry in `components` carries `"bbox": null` (V1 classic
+surfaces, hand-built CV-style templates without measurable bounds,
+or revisions whose render methods all sit on the `@Beta`
+`NodeDefinition` SPI), fall back to the binary-AE gate against the
+parent for `data-only` / `asset-only`. Do NOT flag this as a
+follow-up — the contract explicitly allows `null` bboxes; the value
+of the short scope is precisely that the agent chain stays short.
+
+Mixed: when some bboxes are populated and some are `null`, run the
+region-aware crop pipeline against the populated ones AND run the
+binary-AE gate over the page-with-populated-regions-masked-out.
+Both must pass to recommend `APPROVE`.
 
 ### Full-page reference review (visual-change and theme-only)
 

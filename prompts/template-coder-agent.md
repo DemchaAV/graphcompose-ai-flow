@@ -32,6 +32,82 @@ patch.diff
 changed-components.md
 ```
 
+## `changed-components.md` shape (region bounding boxes)
+
+`changed-components.md` is the contract the Visual Review Agent reads
+to know which regions of the rendered PDF to inspect and which to
+treat as byte-identical to the parent (per
+`prompts/visual-review-agent.md` § "Region-aware variant"). The file
+MUST contain a fenced JSON block named `components` with one entry
+per private render method this revision changed:
+
+````markdown
+# Changed Components
+
+This revision touches the following render methods. The Visual Review
+Agent applies its region-aware pixel-AE gate against this list.
+
+```json components
+[
+  {
+    "name": "renderHeader",
+    "file": "generated-template.java",
+    "kind": "section",
+    "bbox": { "page": 1, "x": 28, "y": 28, "w": 539, "h": 96 }
+  },
+  {
+    "name": "renderFooter",
+    "file": "generated-template.java",
+    "kind": "section",
+    "bbox": null
+  }
+]
+```
+````
+
+Field rules:
+
+- **`name`** (required) — the private render method's Java identifier.
+  Matches the identifier the orchestrator's selective-rollback path
+  uses (`restore-component <name>`).
+- **`file`** (required) — Java source file relative to the revision
+  folder. Almost always `generated-template.java`.
+- **`kind`** (required, enum) — one of `section`, `row`, `table`,
+  `layerStack`, `shapeContainer`, `themeToken`, `pageBackground`,
+  `betaSpi`. The Visual Review Agent reads `kind` to decide which
+  diff style fits (a `themeToken` change is cross-cutting; a `row`
+  change has tight bounds).
+- **`bbox`** (required field, value MAY be `null`) — page-relative
+  pixel coordinates of the rendered region at the project's standard
+  output DPI (150 by default for the rasterisation the
+  preview-renderer writes). When the bbox is measurable, populate
+  `{page, x, y, w, h}` (top-left origin, integer pixels). When not
+  measurable in this revision — V1 classic surface without engine
+  bbox extraction, or render method with dynamic content height —
+  write `"bbox": null` explicitly. Visual Review falls back to the
+  binary-AE-vs-parent gate when `bbox` is `null`, so the contract
+  remains honest.
+
+When to write a populated `bbox` vs `null`:
+
+- **V2 layered preset with stable layout** → populate. The bbox comes
+  from `layout-snapshot.json` (Test + Render writes it) keyed by the
+  render method's section/row name.
+- **V1 classic CV-style template with relational geometry constants**
+  → populate when the constants pin a fixed-height region, otherwise
+  `null`.
+- **Any `betaSpi`-suffixed render method** → `null`. The bbox is part
+  of the SPI surface that the Architecture Mapper recorded as
+  evolving, so the diff stays binary.
+- **`themeToken` kind** → always `null`. Theme tokens are
+  cross-cutting; there is no single bbox.
+
+`changed-components.md` MUST be reachable from the revision's
+`revision.json.artifacts.changedComponents` (it is, by convention).
+The Visual Review Agent parses the JSON block, validates the four
+required fields, and surfaces a CRITICAL mismatch when the block is
+malformed.
+
 ## Data-spec contract
 
 When the architecture plan declares a typed spec, the Template Coder

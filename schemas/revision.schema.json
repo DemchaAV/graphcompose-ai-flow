@@ -110,5 +110,134 @@
       },
       "description": "Present when status is FAILED. Records the failing stage and verbatim error so the orchestrator can route the next attempt."
     }
-  }
+  },
+  "$defs": {
+    "artifactsWithLabels": {
+      "type": "object",
+      "properties": {
+        "userRequest": { "type": "string", "minLength": 1 },
+        "orchestrationDecision": { "type": "string", "minLength": 1 },
+        "versionResolution": { "type": "string", "minLength": 1 },
+        "skillValidation": { "type": "string", "minLength": 1 },
+        "visualAnalysis": { "type": "string", "minLength": 1 },
+        "architecturePlan": { "type": "string", "minLength": 1 },
+        "assetRequest": { "type": "string", "minLength": 1 },
+        "assetsManifest": { "type": "string", "minLength": 1 },
+        "dataSchema": { "type": "string", "minLength": 1 },
+        "data": { "type": "string", "minLength": 1 },
+        "template": { "type": "string", "minLength": 1 },
+        "test": { "type": "string", "minLength": 1 },
+        "patch": { "type": "string", "minLength": 1 },
+        "layoutSnapshot": { "type": "string", "minLength": 1 },
+        "pdf": { "type": "string", "minLength": 1 },
+        "preview": { "type": "string", "minLength": 1 },
+        "previewPage2": { "type": "string", "minLength": 1 },
+        "visualReview": { "type": "string", "minLength": 1 },
+        "testResult": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "minLength": 1 },
+        "changedComponents": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "description": "Scope-conditional artifact requirements. Fires only when `scope` is present, so existing scope-less revisions stay valid.",
+      "if": {
+        "required": ["scope"],
+        "properties": { "scope": { "const": "visual-change" } }
+      },
+      "then": {
+        "properties": {
+          "artifacts": {
+            "allOf": [
+              { "$ref": "#/$defs/artifactsWithLabels" },
+              { "type": "object", "required": ["userRequest", "visualAnalysis", "architecturePlan", "template", "test", "visualReview", "status"] }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["scope"],
+        "properties": { "scope": { "const": "refactor-only" } }
+      },
+      "then": {
+        "properties": {
+          "artifacts": {
+            "allOf": [
+              { "$ref": "#/$defs/artifactsWithLabels" },
+              { "type": "object", "required": ["userRequest", "template", "test", "visualReview", "status"] }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "data-only inherits architecturePlan / visualAnalysis / assetsManifest from the parent revision; it does NOT produce its own copies.",
+      "if": {
+        "required": ["scope"],
+        "properties": { "scope": { "const": "data-only" } }
+      },
+      "then": {
+        "properties": {
+          "artifacts": {
+            "allOf": [
+              { "$ref": "#/$defs/artifactsWithLabels" },
+              { "type": "object", "required": ["userRequest", "visualReview", "status"] }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "asset-only re-runs the resolver but inherits everything else from the parent.",
+      "if": {
+        "required": ["scope"],
+        "properties": { "scope": { "const": "asset-only" } }
+      },
+      "then": {
+        "properties": {
+          "artifacts": {
+            "allOf": [
+              { "$ref": "#/$defs/artifactsWithLabels" },
+              { "type": "object", "required": ["userRequest", "assetRequest", "assetsManifest", "visualReview", "status"] }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["scope"],
+        "properties": { "scope": { "const": "theme-only" } }
+      },
+      "then": {
+        "properties": {
+          "artifacts": {
+            "allOf": [
+              { "$ref": "#/$defs/artifactsWithLabels" },
+              { "type": "object", "required": ["userRequest", "template", "visualReview", "status"] }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "FAILED revisions must carry the failure record, regardless of scope.",
+      "if": {
+        "properties": { "status": { "const": "FAILED" } },
+        "required": ["status"]
+      },
+      "then": { "required": ["failure"] }
+    },
+    {
+      "description": "SUPERSEDED revisions must record what superseded them.",
+      "if": {
+        "properties": { "status": { "const": "SUPERSEDED" } },
+        "required": ["status"]
+      },
+      "then": { "required": ["supersededAt", "supersededBy"] }
+    }
+  ]
 }
