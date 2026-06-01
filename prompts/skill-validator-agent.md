@@ -28,6 +28,50 @@ skill-validation-report.md
 skill-fix-report.md when needed
 ```
 
+## Verdict cache (perf-critical step BEFORE running validation)
+
+Before re-fixturing anything, consult
+[`tools/skill-validation-cache/`](../tools/skill-validation-cache/).
+The cache is keyed on
+`sha256(targetCoordinate + sorted coveredSkills + content of every
+.md file in the skill pack)`. When all three are unchanged from a
+prior green run, the cached verdict is byte-identical to what a
+fresh run would produce — skip the fixture loop.
+
+```bash
+# Step 1 — lookup. exit 0 = HIT, exit 1 = MISS.
+node tools/skill-validation-cache/bin/skill-validation-cache.mjs lookup \
+  --target "<coordinate>" \
+  --skills "<sorted,comma,separated,ids>" \
+  --skill-pack "<repo-relative path to the skill pack folder>"
+```
+
+If the lookup hits, copy `entry.reportBody` verbatim into the
+revision's `skill-validation-report.md` (the trailing `verdict:` line
+stays intact). Do NOT re-fixture. Hand off based on the verdict — a
+cached `verdict: halt` is just as load-bearing as a fresh one.
+
+If the lookup misses, run the full validation as documented in the
+rest of this prompt. Then store the resulting report under the same
+key:
+
+```bash
+# Step 2 — store. Reads the report body from stdin.
+cat <revision-dir>/skill-validation-report.md | \
+  node tools/skill-validation-cache/bin/skill-validation-cache.mjs store \
+    --target "<coordinate>" \
+    --skills "<sorted,comma,separated,ids>" \
+    --skill-pack "<repo-relative path>" \
+    --verdict "<pass|halt>" \
+    [--reason "<one-line reason for halt>"]
+```
+
+Across a typical revision chain only the first revision pays the
+full validation cost; every subsequent revision with the same
+inputs is a 1ms cache copy. See
+[`tools/skill-validation-cache/README.md`](../tools/skill-validation-cache/README.md)
+for the cache key construction and invalidation rules.
+
 The validation report MUST end with a single-line verdict the
 orchestrator and every downstream agent reads as a gate:
 

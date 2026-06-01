@@ -52,3 +52,8 @@ docs/private/
 /0
 /0\)
 
+# Local skill-validation-cache contents. The tool itself is tracked;
+# the cached verdict JSONs under .cache/ are per-machine and rebuilt
+# on demand.
+tools/skill-validation-cache/.cache/
+

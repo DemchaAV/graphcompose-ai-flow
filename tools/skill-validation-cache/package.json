@@ -1,0 +1,20 @@
+{
+  "name": "@graphcompose-ai-flow/skill-validation-cache",
+  "version": "0.1.0",
+  "description": "Content-addressed cache for Skill Validator verdicts. Skips a full re-validation when the resolved skill pack + target version + covered skill IDs have not changed since the last green run.",
+  "type": "module",
+  "bin": {
+    "skill-validation-cache": "bin/skill-validation-cache.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node test/smoke.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
