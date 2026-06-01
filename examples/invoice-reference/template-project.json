@@ -12,6 +12,8 @@
   "docKind": "invoice",
   "render": {
     "templateClass": "com.demcha.examples.invoice.GeneratedInvoiceTemplate",
+    "specProviderClass": "com.demcha.examples.invoice.SampleInvoiceSpecProvider",
+    "dataFileName": null,
     "pages": 1,
     "assetResolverEnabled": false
   },

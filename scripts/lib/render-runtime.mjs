@@ -69,7 +69,16 @@ export function runRender({ repoRoot, projectId, revisionId }) {
   }
 
   const docKind = templateProject.docKind || "doc";
-  const dataFileName = renderConfig.dataFileName || `${docKind}-data.json`;
+  // dataFileName: undefined → default to <docKind>-data.json (spec
+  //                       provider conditional on file existence);
+  //                null → project ships inline data, spec provider
+  //                       runs unconditionally (invoice-style);
+  //                string → explicit name with conditional behaviour.
+  const dataFileName =
+    renderConfig.dataFileName === undefined
+      ? `${docKind}-data.json`
+      : renderConfig.dataFileName;
+  const dataDriven = dataFileName !== null;
   const specProviderClass =
     renderConfig.specProviderClass || templateProject.specProviderClass || null;
   const pages = Math.max(1, Number(renderConfig.pages) || 1);
@@ -108,7 +117,7 @@ export function runRender({ repoRoot, projectId, revisionId }) {
   );
   const outputPdf = path.join(revisionDir, "output.pdf");
   const debugPdf = path.join(revisionDir, "output-debug.pdf");
-  const dataFile = path.join(revisionDir, dataFileName);
+  const dataFile = dataDriven ? path.join(revisionDir, dataFileName) : null;
 
   // 1. Skill validation gate
   ensureSkillValidationVerdict({
@@ -202,19 +211,32 @@ export function runRender({ repoRoot, projectId, revisionId }) {
     .join(path.delimiter);
   fs.writeFileSync(renderClasspathFile, classpath, "utf8");
 
-  // Spec provider only when the revision actually ships a data file
-  const specProviderArgs =
-    specProviderClass && fs.existsSync(dataFile)
-      ? ["--spec-provider", specProviderClass]
-      : [];
-  if (specProviderArgs.length > 0) {
-    console.log(
-      `> using spec-provider for ${path.relative(repoRoot, dataFile)}`,
-    );
-  } else if (specProviderClass) {
-    console.log(
-      `> spec-provider skipped (no ${path.relative(repoRoot, dataFile)})`,
-    );
+  // Spec provider logic:
+  //   - data-driven project (dataFileName set, file present) → pass
+  //     --spec-provider; the provider reads the JSON from
+  //     graphcompose.revision.dir (already set on the java call).
+  //   - data-driven project but file missing → drop the spec; the
+  //     template's zero-arg compose() path runs (e.g. early CV
+  //     revisions before the JSON was produced).
+  //   - non-data-driven project (dataFileName: null) → ALWAYS pass
+  //     the spec provider; invoice-style providers build the spec
+  //     inline. preview-renderer requires --spec-provider when the
+  //     template's compose() takes two args.
+  let specProviderArgs = [];
+  if (specProviderClass) {
+    if (!dataDriven) {
+      specProviderArgs = ["--spec-provider", specProviderClass];
+      console.log(`> using spec-provider ${specProviderClass} (inline data)`);
+    } else if (fs.existsSync(dataFile)) {
+      specProviderArgs = ["--spec-provider", specProviderClass];
+      console.log(
+        `> using spec-provider for ${path.relative(repoRoot, dataFile)}`,
+      );
+    } else {
+      console.log(
+        `> spec-provider skipped (no ${path.relative(repoRoot, dataFile)})`,
+      );
+    }
   } else {
     console.log(`> spec-provider skipped (project has none)`);
   }
