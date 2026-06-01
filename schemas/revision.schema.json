@@ -28,8 +28,8 @@
     },
     "scope": {
       "type": "string",
-      "enum": ["visual-change", "refactor-only"],
-      "description": "Optional scope marker the orchestrator writes per prompts/orchestrator-agent.md § Revision scope. visual-change → Visual Review compares to the reference image; refactor-only → Visual Review applies the binary pixel-AE parity gate against the parent revision."
+      "enum": ["visual-change", "refactor-only", "data-only", "asset-only", "theme-only"],
+      "description": "Optional scope marker the orchestrator writes per prompts/orchestrator-agent.md § Revision scope. Five values, each gating a different agent subchain and a different Visual Review gate: visual-change (full pipeline → layer-by-layer review vs reference image); refactor-only (Template Coder + Test+Render → binary AE==0 vs parent); data-only (Test+Render only → region-aware AE on affected regions, AE==0 elsewhere); asset-only (Asset Resolver + Test+Render → region-aware AE on affected regions, AE==0 elsewhere); theme-only (Template Coder theme file + Test+Render → layer-by-layer vs reference image)."
     },
     "targetGraphComposeVersion": {
       "type": "string",

@@ -103,26 +103,26 @@ the mismatch as `MAJOR` under component architecture and recommend
 record it as `ACCEPTED_LIMITATION` only when the limitation is
 verified by Test + Render evidence.
 
-## Parent-revision parity gate (mandatory for refactor revisions)
+## Parent-revision parity gate (mandatory for refactor and short-scope revisions)
 
 The agent reads the revision's `scope` field from `user-request.md`
 (written by the orchestrator before any downstream agent runs, per
 `prompts/orchestrator-agent.md` § "Revision scope"). The scope MUST be
-one of two values:
+one of five values; the gate applied depends on the scope:
 
-- `scope: visual-change` — compare the render to the **reference image**
-  using the layer-by-layer review described in the rest of this prompt.
-- `scope: refactor-only` — compare the render to the **parent revision's
-  preview** with the binary pixel-AE gate below. This is the case when
-  the revision is declared visually equivalent to its parent (data
-  extraction, class renaming, helper introduction, dependency upgrade,
-  asset re-resolve, ...).
+| Scope | Gate |
+|---|---|
+| `visual-change` | Compare the render to the **reference image** using the layer-by-layer review described below. |
+| `refactor-only` | Binary pixel-AE gate against the **parent revision's preview**: `AE == 0` on every page. |
+| `data-only` | Region-aware pixel-AE: regions named in `changed-components.md` may have non-zero AE (the data change is expected to show); every other region MUST be `AE == 0` against the parent. |
+| `asset-only` | Region-aware pixel-AE: regions that reference the swapped asset may have non-zero AE; every other region MUST be `AE == 0` against the parent. |
+| `theme-only` | Layer-by-layer review against the **reference image** (theme tokens are cross-cutting; pixel-AE against the parent would only confirm "everything changed" without telling whether the new look is closer to the reference). |
 
 If `user-request.md` is missing the `scope` field, treat that as a
 contract violation: do NOT guess; recommend `REVISE` with a CRITICAL
 mismatch labelled "missing revision scope — orchestrator must record
-`scope: visual-change` or `scope: refactor-only` per
-`prompts/orchestrator-agent.md`".
+`scope: <visual-change | refactor-only | data-only | asset-only | theme-only>`
+per `prompts/orchestrator-agent.md`".
 
 For `scope: refactor-only` the agent MUST run a binary pixel diff
 against the parent revision's preview before recommending `APPROVE`:
@@ -150,8 +150,43 @@ Acceptance rule:
   the `visual-review.md` as evidence; do not paraphrase ("looks
   identical") — quote the metric.
 
+### Region-aware variant (data-only and asset-only)
+
+For `scope: data-only` and `scope: asset-only`, the agent runs the
+same `magick compare -metric AE` pipeline but interprets the result
+through `changed-components.md` (written by the Template Coder, or
+by the Asset Resolver for asset-only):
+
+- Build the affected-region set from `changed-components.md`.
+- Crop the parent and child PNGs by the bounding box of each affected
+  region (the Template Coder records bounding boxes per private
+  render method when authoring under the V2 layered architecture).
+- Run `magick compare -metric AE` on the affected-region crops —
+  non-zero values are expected here (that is the user-requested
+  change manifesting). Quote the metric per region in
+  `visual-review.md` as evidence.
+- Run `magick compare -metric AE` on the page **with the affected
+  regions masked out** (`magick composite ... -compose copyopacity ...`
+  pipeline; the agent has a helper script under
+  `tools/visual-diff/scripts/mask-regions.mjs` once that lands).
+  This number MUST be `AE == 0`. Any non-zero remainder is a CRITICAL
+  mismatch — a non-data field leaked into the render path, or an
+  unrelated asset was swapped. Recommend `REVISE` with the leak
+  region named explicitly.
+
+If the affected-region bounding boxes are not yet recorded in the
+project (V1 classic surfaces, hand-built CV-style templates without
+the V2 layered structure), fall back to the binary-AE gate against
+the parent for `data-only` / `asset-only` and flag the missing
+bounding-box index as a `MINOR` follow-up — do NOT block on it,
+because the value of the short scope is precisely that the agent
+chain stays short.
+
+### Full-page reference review (visual-change and theme-only)
+
 This rule does NOT apply to revisions whose user-request scope is a
-real visual change (new icon set, new layout, new font, ...).
+real visual change (new icon set, new layout, new font, ...) or a
+theme-only token swap with cross-cutting effect.
 Those revisions compare against the **reference image**, not the
 parent revision, per the standard contract.
 

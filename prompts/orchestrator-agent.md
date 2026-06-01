@@ -42,17 +42,49 @@ orchestration-decision.md
 ## Revision scope (record before iterating)
 
 Every revision the orchestrator opens MUST carry an explicit `scope`
-written into `user-request.md` before any downstream agent runs:
+written into `user-request.md` before any downstream agent runs.
+The scope determines BOTH which downstream agents run AND which
+gate Visual Review applies. The five values are ordered from
+shortest (fewest agents) to longest (full pipeline):
 
-| Scope value | Means | Visual Review gate |
-|---|---|---|
-| `scope: visual-change` | The render must look different from the parent (new layout, swapped fonts, new icon set, restyled section, ...). Compares to the **reference image**. | Layer-by-layer review (`docs/visual-accuracy-contract.md`). Recommendation `APPROVE` ↔ all mismatches are at most `MINOR` or `ACCEPTED_LIMITATION`. |
-| `scope: refactor-only` | The render must look IDENTICAL to the parent (class rename, helper extraction, data-spec split, dependency upgrade, package move, asset re-resolve with same result). Compares to the **parent revision's `output.png`**. | Binary pixel diff: `magick compare -metric AE == 0` on every page is the gate (see `prompts/visual-review-agent.md` § "Parent-revision parity gate"). |
+| Scope value | Means | Agents that run | Visual Review gate |
+|---|---|---|---|
+| `scope: data-only` | A field inside `<doc-kind>-data.json` changed (email, phone, section heading, list item). Java unchanged, assets unchanged, theme unchanged. Render must look identical to the parent **except** in regions whose render methods read the changed fields. | Test + Render → Visual Review | Region-aware pixel-AE: `magick compare -metric AE` on the affected regions per `changed-components.md`; regions not in the changed-components list MUST be byte-equal to the parent (`AE == 0`). |
+| `scope: asset-only` | An entry inside `asset-request.json` changed (icon set swap, font family swap). Java unchanged, data unchanged, theme unchanged. Render must look identical except where the asset is used. | Asset Resolver → Test + Render → Visual Review | Region-aware pixel-AE on regions that reference the swapped asset; remainder `AE == 0`. |
+| `scope: theme-only` | A token inside the theme bundle changed (palette colour, type scale, decoration glyph, spacing token). Java unchanged outside the theme file. Cross-cutting visual effect across the document. | Template Coder (theme file only) → Test + Render → Visual Review | Layer-by-layer review against the reference image — theme tokens have global effect and reading the diff pixel-by-pixel against the parent does not catch "now too dark", only "exact byte-equal". |
+| `scope: refactor-only` | The render must look IDENTICAL to the parent (class rename, helper extraction, data-spec split, dependency upgrade, package move, asset re-resolve with same result). Compares to the **parent revision's `output.png`**. | Template Coder → Test + Render → Visual Review | Binary pixel diff: `magick compare -metric AE == 0` on every page (see `prompts/visual-review-agent.md` § "Parent-revision parity gate"). |
+| `scope: visual-change` | The render must look different from the parent (new layout, swapped fonts, new icon set, restyled section, ...). Compares to the **reference image**. | Full pipeline: Visual Analyzer → Architecture Mapper → Asset Resolver → Template Coder → Test + Render → Visual Review | Layer-by-layer review (`docs/visual-accuracy-contract.md`). Recommendation `APPROVE` ↔ all mismatches are at most `MINOR` or `ACCEPTED_LIMITATION`. |
 
-The orchestrator picks the scope from the user gesture (see "Task
-type detection" below — `Scope` column). If the gesture is ambiguous
-("clean this up" / "rewrite the table" can mean either), ASK ONE
-clarifying question before opening the revision; do NOT default.
+### How to pick the scope
+
+The orchestrator picks the scope by inspecting the user gesture
+against the project's diff surface:
+
+1. **Look at the gesture words first.** "change email", "swap phone
+   number", "fix typo in summary" → `data-only`. "swap icon set",
+   "use Material icons", "use Lato for body" → `asset-only`. "make it
+   navy", "darker accent", "tighter spacing" → `theme-only`.
+   "rename helper", "extract spec", "upgrade GraphCompose" →
+   `refactor-only`. "new layout", "add a section", "redesign the
+   header" → `visual-change`.
+2. **Verify against the diff surface.** Before locking the scope,
+   confirm the gesture really only touches the surface it claims:
+   - `data-only` → diff lands only inside the project's `dataFile`
+     (per `template-project.json`).
+   - `asset-only` → diff lands only inside `asset-request.json`.
+   - `theme-only` → diff lands only inside the theme bundle file
+     (e.g. `<preset>Theme.java`).
+   - `refactor-only` → Java diff outside the theme bundle, no
+     `asset-request.json` change, no data change.
+   - Anything else → `visual-change`.
+3. **Ambiguity → ask ONE clarifying question.** "Make the table
+   darker" could be `theme-only` (palette token) or `visual-change`
+   (new row striping). When the gesture is ambiguous, ask before
+   opening the revision; do NOT default.
+
+Skill Validator still runs first on every scope; halt verdict
+blocks every downstream agent regardless of scope (per
+`prompts/skill-validator-agent.md` § "Downstream halt contract").
 
 ## Autonomous visual iteration loop
 
@@ -87,6 +119,46 @@ refactor compiles
                             to neutralise.
 ```
 
+**For `scope: data-only` revisions:**
+
+```text
+edit <doc-kind>-data.json (no Java change, no asset change, no theme change)
+→ render (reuses parent's compiled Java + assets + theme)
+→ Visual Review runs region-aware pixel-AE:
+    - affected regions (per changed-components.md): non-zero AE expected
+    - all other regions: must be AE == 0 against parent
+→ both conditions met  →  APPROVE-recommendation, loop exits
+→ unexpected non-zero diff outside the affected regions
+                            →  CRITICAL: a non-data field leaked into the
+                               render path. Investigate the template's data
+                               binding; this is not a fresh-revision problem.
+```
+
+**For `scope: asset-only` revisions:**
+
+```text
+edit asset-request.json (no Java change, no data change, no theme change)
+→ Asset Resolver re-resolves only the changed entries
+→ render (reuses parent's compiled Java + data + theme)
+→ Visual Review runs region-aware pixel-AE:
+    - regions that reference the swapped asset: non-zero AE expected
+    - all other regions: must be AE == 0 against parent
+→ both conditions met  →  APPROVE-recommendation, loop exits
+```
+
+**For `scope: theme-only` revisions:**
+
+```text
+edit one token in the theme bundle (palette, type scale, decoration, spacing)
+→ render (reuses parent's data + assets; Java recompiled only for the theme file)
+→ Visual Review runs layer-by-layer against the reference image
+   (theme tokens have cross-cutting effect — pixel-AE against the parent
+   would say "everything changed" without explaining whether the new look
+   improves parity with the reference)
+→ APPROVE-recommendation when all mismatches are at most MINOR
+                                       or ACCEPTED_LIMITATION
+```
+
 `APPROVE` is a Visual Review *recommendation*. The orchestrator never
 flips DRAFT→APPROVED itself; that gesture belongs to Revision Manager
 and requires an explicit user "approve/save/сохрани/это хорошо". The
@@ -112,9 +184,19 @@ continuing. Halt the loop ONLY when one of these is true:
 | User request | Task type | Scope |
 |---|---|---|
 | "Create template from this screenshot" | New generation | `visual-change` |
-| "Make the table darker" | Revision | `visual-change` |
+| "Change my email to X" / "swap phone number" | Revision | `data-only` |
+| "Fix typo in summary paragraph" | Revision | `data-only` |
+| "Update Q3 numbers in the line items" | Revision | `data-only` |
+| "Use Material icons instead of mdi" | Revision | `asset-only` |
+| "Swap phone icon for tabler:phone" | Revision | `asset-only` |
+| "Use Lato for body" / "swap heading font" | Revision | `asset-only` |
+| "Make accent navy" / "darker accent" | Revision | `theme-only` |
+| "Tighten section spacing by 2pt" | Revision | `theme-only` |
+| "Use bullet ▶ instead of •" | Revision | `theme-only` |
+| "Make the table darker" | Revision | clarify: `theme-only` (palette token) or `visual-change` (new row striping)? Ask before opening. |
 | "Move the footer lower" | Revision | `visual-change` |
-| "Swap Poppins for Lato" | Revision | `visual-change` |
+| "Restyle the header" / "redesign the sidebar" | Revision | `visual-change` |
+| "Add a new section" / "new badge in the header" | Revision | `visual-change` |
 | "Rename the helper / extract this method" | Revision | `refactor-only` |
 | "Split the spec into nested records" | Revision | `refactor-only` |
 | "Upgrade to GraphCompose 1.6.6" | Revision | `refactor-only` |
@@ -201,7 +283,9 @@ Action:
 - Do not skip creating a new revision when the user request causes any change.
 - Do not approve a revision without a completed Visual Review.
 - Do not flip DRAFT → APPROVED yourself. `APPROVE` from Visual Review is a *recommendation*; the actual approval is a user gesture that Revision Manager Agent applies. See "Autonomous visual iteration loop" above.
-- Do not open a revision without writing the `scope:` field in `user-request.md`. Allowed values are `visual-change` and `refactor-only`; ambiguous gestures require one clarifying question first.
+- Do not open a revision without writing the `scope:` field in `user-request.md`. Allowed values are `visual-change`, `refactor-only`, `data-only`, `asset-only`, `theme-only`; ambiguous gestures require one clarifying question first.
+- Do not run agents that the chosen short scope skips. `data-only` runs only Test+Render → Visual Review. `asset-only` runs only Asset Resolver → Test+Render → Visual Review. `theme-only` runs only Template Coder (theme file only) → Test+Render → Visual Review. Running upstream agents anyway burns tokens for no signal; running them and ignoring their output silently is worse — it makes the audit log lie about what produced the change.
+- Do not promote a short-scope revision to a `visual-change` revision mid-flight when an upstream agent surfaces a "while we're here" suggestion. If a `data-only` revision reveals a layout bug, finish the data-only revision honestly (regions outside data fields MUST be `AE == 0`), close it, then open a fresh `visual-change` revision for the layout fix.
 - Do not advance past the Skill Validator when `skill-validation-report.md` ends with `verdict: halt`. The next user-facing message is "review `skill-fix-report.md` for skill `<id>` before continuing", NOT a new revision. See `prompts/skill-validator-agent.md` § "Downstream halt contract".
 - Do not invent GraphCompose API; route version and skill questions to the Version + Skill Resolver Agent.
 
