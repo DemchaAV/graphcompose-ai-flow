@@ -407,7 +407,7 @@ public final class AiGeneratedInvoiceTemplate implements DocumentTemplate<Invoic
 
 The Architecture Mapper records the target surface under
 `Target GraphCompose Version`. The Template Coder MUST follow it
-verbatim. Two surfaces exist on the canonical side as of 1.6.6:
+verbatim. Two surfaces exist on the canonical side as of 1.6.7:
 
 - **V2 layered** (`com.demcha.compose.document.templates.cv.v2.*`,
   `com.demcha.compose.document.templates.coverletter.v2.*`) is
@@ -464,7 +464,7 @@ Helpers, type imports, and DSL idioms that are surface-agnostic
 `ShapeContainerBuilder`, `DocumentTextStyle`, `BusinessTheme`,
 `FontName`) are free to use regardless of surface.
 
-## @Beta SPI usage (1.6.6+)
+## @Beta SPI usage (1.6.7+)
 
 When `architecture-plan.md` records a `@Beta` surface (currently only
 `com.demcha.compose.document.layout.NodeDefinition` — the custom
@@ -480,7 +480,7 @@ node-type seam), the Template Coder MUST:
    ```java
    /**
     * Custom timeline-spine overlay built on the @Beta NodeDefinition SPI.
-    * Verified against GraphCompose {@code io.github.demchaav:graph-compose:1.6.6}.
+    * Verified against GraphCompose {@code io.github.demchaav:graph-compose:1.6.7}.
     * The SPI shape may evolve in 1.7.x — see architecture-plan.md
     * "Known Limitations" for the recorded migration risk.
     */

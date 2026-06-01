@@ -2,7 +2,7 @@
 skillId: revision-discipline
 targetLibrary: GraphCompose
 targetVersion: 1.6.x
-verifiedAgainst: 1.6.6
+verifiedAgainst: 1.6.7
 status: needs-validation
 lastValidated: 2026-06-01
 ---

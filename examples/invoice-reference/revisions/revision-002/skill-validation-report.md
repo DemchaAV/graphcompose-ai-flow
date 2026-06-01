@@ -1,48 +1,68 @@
-# Skill Validation Report
+# Skill Validation Report (auto-populated)
 
-Output of the Skill Validator Agent for `revision-002`. The
-agent's responsibilities and the "source of truth" rule are
-documented in
-[`../../../../docs/agents.md`](../../../../docs/agents.md#skill-validator-agent)
-and the project plan (§5.3 and §7).
+**partial: true** — not every covered skill is fixture-backed; see the "Not fixture-validated" list below.
 
-## Pack under review
+Target coordinate: `io.github.demchaav:graph-compose:1.6.7`  
+Skill pack: `skills/versions/graphcompose-1.6`  
+Cache key: `b1dc19937b6aa03ca98d84c9101beba704b06d5c6b06ac5138971b1fa224cbed`
 
-`skills/versions/graphcompose-1.6` &mdash; unchanged from the
-parent revision. The skill manifest at
-[`../../../../skills/skill-manifest.json`](../../../../skills/skill-manifest.json)
-has not been touched between revisions, and no skill file in the
-pack was edited.
+## Source
 
-## Validator state for this revision
+This report was written by a render script (not by the Skill
+Validator Agent). The pass verdict is keyed to the CI skill-
+fixtures matrix in `.github/workflows/ci.yml`, which compiles
+and runs the fixtures listed below against the resolved
+coordinate on every push. If those jobs are green for this
+commit, every fixture-backed skill has been re-validated.
 
-SKIPPED. The orchestration decision at
-[`./orchestration-decision.md`](./orchestration-decision.md)
-records that the Skill Validator Agent was not re-run for this
-revision. The validation result captured in
-[`../revision-001/skill-validation-report.md`](../revision-001/skill-validation-report.md)
-remains authoritative.
+Fixture coverage is parsed from
+[validation/api-compatibility-checklist.md](../../../../validation/api-compatibility-checklist.md)
+— rows whose `Fixture exists` AND `Fixture executed` columns
+both start with `yes` are treated as fixture-backed.
 
-This file is committed so the artifact set in every revision
-folder stays complete and so an auditor walking through
-`revision-002` does not have to cross-reference the parent folder
-to learn the validator's verdict. The verdict is repeated by
-reference rather than by re-validation.
+## Fixture-backed (verdict: pass keyed to CI)
 
-## Drift detected
+- `layout-primitives`
+- `tables`
+- `themes-and-colors`
+- `backgrounds-and-panels`
+- `layer-stacks-and-overlays`
+- `shapes-and-containers`
 
-None reported in this revision. The Template Coder Agent's changes
-are confined to the existing primitives (`addSection`,
-`SectionBuilder`, the existing `renderSummaryRow` helper); no
-method is invented, no skill recommendation is bypassed, and the
-`TODO(visual-review)` discipline from the parent revision is
-preserved for the new column-mirror binding.
+## Not fixture-validated (verdict still pass, but no live gate)
 
-## Conclusion
+- `graphcompose-basics`
+- `visual-to-graphcompose-mapping`
+- `typography`
+- `spacing-and-alignment`
+- `pagination`
+- `visual-regression`
+- `revision-discipline`
+- `troubleshooting`
 
-The run proceeds with the same skill pack and the same caveats as
-`revision-001`. Downstream agents must continue to treat exact
-method signatures as approximate until the Phase 4 validation
-fixtures land, and the Template Coder Agent must continue to tag
-any uncertain method binding with `TODO(visual-review)` rather
-than guessing.
+## CI fixtures backing the fixture-backed list
+
+- `examples/skill-fixtures/row-basic`
+- `examples/skill-fixtures/section-basic`
+- `examples/skill-fixtures/table-basic`
+- `examples/skill-fixtures/layer-stack-badge`
+- `examples/skill-fixtures/shape-container-card`
+
+## Notes
+
+- The fixture matrix runs `mvn -B test` against each module,
+  picking up `io.github.demchaav:graph-compose:1.6.7` from Maven
+  Central. A failing fixture would block the merge that produced
+  this revision, so by induction the fixture-backed list is
+  honest as long as the run is reproducible from main.
+- The "Not fixture-validated" list documents the honest gap.
+  Authoring a fixture for those skills would tighten the gate.
+  Until then the report is `partial: true` and a downstream agent
+  may decide to require an agent-driven Skill Validator pass
+  before approving anything that depends on those skills.
+- An agent-driven Skill Validator pass would write a richer
+  report and could surface per-skill drift the fixture matrix
+  does not catch. This auto-populated path is the floor, not the
+  ceiling.
+
+verdict: pass

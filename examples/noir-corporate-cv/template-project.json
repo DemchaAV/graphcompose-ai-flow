@@ -4,7 +4,7 @@
   "tagline": "Single-page corporate-style resume / CV with a dark aubergine sidebar plate, circular CV avatar badge, dark section header bars, rating-dot skills and languages blocks, and Iconify-backed contact and interest glyphs.",
   "referenceImage": "reference/reference.png",
   "referenceDescription": "reference/reference.md",
-  "targetGraphComposeVersion": "1.6.6",
+  "targetGraphComposeVersion": "1.6.7",
   "skillPack": "skills/versions/graphcompose-1.6",
   "currentApprovedRevisionId": null,
   "currentDraftRevisionId": "revision-007",

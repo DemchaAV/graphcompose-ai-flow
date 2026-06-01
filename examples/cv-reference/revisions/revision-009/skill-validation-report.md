@@ -2,9 +2,9 @@
 
 **partial: true** — not every covered skill is fixture-backed; see the "Not fixture-validated" list below.
 
-Target coordinate: `io.github.demchaav:graph-compose:1.6.6`  
+Target coordinate: `io.github.demchaav:graph-compose:1.6.7`  
 Skill pack: `skills/versions/graphcompose-1.6`  
-Cache key: `ed41dc6e088aebece5b8c5cdd9fa8b40fb7df0a496ba2b040eb4857a5f9c5ce9`
+Cache key: `b1dc19937b6aa03ca98d84c9101beba704b06d5c6b06ac5138971b1fa224cbed`
 
 ## Source
 
@@ -51,7 +51,7 @@ both start with `yes` are treated as fixture-backed.
 ## Notes
 
 - The fixture matrix runs `mvn -B test` against each module,
-  picking up `io.github.demchaav:graph-compose:1.6.6` from Maven
+  picking up `io.github.demchaav:graph-compose:1.6.7` from Maven
   Central. A failing fixture would block the merge that produced
   this revision, so by induction the fixture-backed list is
   honest as long as the run is reproducible from main.

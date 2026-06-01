@@ -103,7 +103,7 @@ jobs:
           node scripts/render-cv-reference.mjs revision-002
 
   skill-fixtures:
-    name: skill-fixtures (GraphCompose 1.6.6 via Maven Central)
+    name: skill-fixtures (GraphCompose 1.6.7 via Maven Central)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

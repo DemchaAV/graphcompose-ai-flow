@@ -10,7 +10,7 @@ GraphCompose AI Template Flow turns a visual document reference (a
 PNG screenshot of a CV, invoice, proposal, cover letter, report,
 brochure, datasheet — ANY single-page or multi-page document
 GraphCompose primitives can express) into a maintainable Java
-template that targets GraphCompose 1.6.6 — with a strict visual
+template that targets GraphCompose 1.6.7 — with a strict visual
 parity contract, a typed data spec the user can edit without
 touching Java, a per-revision asset bundle (Iconify icons + Google
 Fonts), a clean and a debug render, and a publish-quality bundle
@@ -23,7 +23,7 @@ change creates a new revision; nothing is overwritten.
 
 **Document-kind contract.** The four canonical upstream surfaces
 are `cv`, `coverletter`, `invoice`, `proposal`, with three distinct
-generations as of GraphCompose 1.6.6:
+generations as of GraphCompose 1.6.7:
 
 - `cv` — V2 layered (data → theme → components → widgets → preset
   orchestrator).
@@ -204,7 +204,7 @@ docs/                                 long-form reference
 
 skills/                               versioned skill packs
   skill-manifest.json
-  versions/graphcompose-1.6/*.md      one skill per topic, tied to GraphCompose 1.6.x (verified against 1.6.6)
+  versions/graphcompose-1.6/*.md      one skill per topic, tied to GraphCompose 1.6.x (verified against 1.6.7)
 
 tools/
   asset-resolver/                     Iconify + Google Fonts CLI (Node)

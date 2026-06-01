@@ -5,11 +5,11 @@ and one manual example. Tooling starts at Phase 5.
 
 ## Current phase
 
-All seven phases of the project plan are shipped. GraphCompose 1.6.6
+All seven phases of the project plan are shipped. GraphCompose 1.6.7
 is reachable for fixture validation through Maven Central as
-`io.github.demchaav:graph-compose:1.6.6` (JitPack
+`io.github.demchaav:graph-compose:1.6.7` (JitPack
 `com.github.DemchaAV:GraphCompose:vX.Y.Z` remains the fallback for
-pre-1.6.6 pins), and the five skill fixtures compile and run against
+pre-1.6.7 pins), and the five skill fixtures compile and run against
 it. `preview-renderer render` can
 now execute compiled template classes, write `output.pdf`, generate
 `output.png`, and clear pending artifacts. The invoice reference

@@ -5,9 +5,9 @@ documents the validation discipline. Phase 4 has shipped the
 [`validation/`](../validation/) folder (templates, checklists, the
 baseline report) and the
 [`examples/skill-fixtures/`](../examples/skill-fixtures/) projects.
-The fixture projects now compile and run against GraphCompose 1.6.6
-from Maven Central (`io.github.demchaav:graph-compose:1.6.6`; older
-pre-1.6.6 pins remain resolvable via JitPack as
+The fixture projects now compile and run against GraphCompose 1.6.7
+from Maven Central (`io.github.demchaav:graph-compose:1.6.7`; older
+pre-1.6.7 pins remain resolvable via JitPack as
 `com.github.DemchaAV:GraphCompose:vX.Y.Z`). The remaining validation
 work is the full render + preview + visual-diff loop that promotes
 skills out of `needs-validation`. See [roadmap.md](roadmap.md) for the phase
@@ -153,7 +153,7 @@ Phase 4 has shipped:
   the historical baseline report from before fixture execution.
 - [`validation/reports/fixture-smoke-2026-05-18.md`](../validation/reports/fixture-smoke-2026-05-18.md) —
   the first compile/run smoke report against GraphCompose 1.6.0 via
-  JitPack (historical; the fixtures now resolve 1.6.6 from Maven Central).
+  JitPack (historical; the fixtures now resolve 1.6.7 from Maven Central).
 - Five fixture projects under
   [`examples/skill-fixtures/`](../examples/skill-fixtures/):
   `row-basic`, `section-basic`, `table-basic`, `layer-stack-badge`,

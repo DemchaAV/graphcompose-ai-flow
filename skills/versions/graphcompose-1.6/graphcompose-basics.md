@@ -2,7 +2,7 @@
 skillId: graphcompose-basics
 targetLibrary: GraphCompose
 targetVersion: 1.6.x
-verifiedAgainst: 1.6.6
+verifiedAgainst: 1.6.7
 status: needs-validation
 lastValidated: 2026-06-01
 ---
@@ -132,7 +132,7 @@ cross-checking against the current pinned version.
 This skill describes the 1.6.x semantics conceptually. It does not
 list the exact method signatures of every builder. Specific method
 signatures must be cross-checked against the
-[`verifiedAgainst: 1.6.6`](../../../docs/versioned-skills.md) examples
+[`verifiedAgainst: 1.6.7`](../../../docs/versioned-skills.md) examples
 once the Phase 4 fixtures land. Until then, when uncertain, the
 agent must:
 

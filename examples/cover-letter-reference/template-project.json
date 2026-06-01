@@ -4,7 +4,7 @@
   "tagline": "Scaffold project for the first cover-letter run through the GraphCompose AI Template Flow. Pairs with a CV preset via shared CvIdentity + CvTheme on the V2 layered surface (coverletter.v2).",
   "referenceImage": "reference/reference.png",
   "referenceDescription": "reference/PLACEHOLDER.md",
-  "targetGraphComposeVersion": "1.6.6",
+  "targetGraphComposeVersion": "1.6.7",
   "skillPack": "skills/versions/graphcompose-1.6",
   "currentApprovedRevisionId": null,
   "currentDraftRevisionId": null,

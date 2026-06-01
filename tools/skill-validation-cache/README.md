@@ -52,19 +52,19 @@ Three properties of the key:
 ```bash
 # 1. Compute the key (no I/O)
 skill-validation-cache key \
-  --target io.github.demchaav:graph-compose:1.6.6 \
+  --target io.github.demchaav:graph-compose:1.6.7 \
   --skills layout-primitives,tables,themes-and-colors \
   --skill-pack skills/versions/graphcompose-1.6
 
 # 2. Look it up (exit 0 = hit + JSON entry on stdout; exit 1 = miss)
 skill-validation-cache lookup \
-  --target io.github.demchaav:graph-compose:1.6.6 \
+  --target io.github.demchaav:graph-compose:1.6.7 \
   --skills layout-primitives,tables,themes-and-colors \
   --skill-pack skills/versions/graphcompose-1.6
 
 # 3. Store after a real validation run (reportBody from stdin or file)
 cat skill-validation-report.md | skill-validation-cache store \
-  --target io.github.demchaav:graph-compose:1.6.6 \
+  --target io.github.demchaav:graph-compose:1.6.7 \
   --skills layout-primitives,tables,themes-and-colors \
   --skill-pack skills/versions/graphcompose-1.6 \
   --verdict pass

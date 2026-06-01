@@ -20,7 +20,7 @@ The orchestrator routes that gesture through the 11-agent chain.
 
 ## Surface
 
-GraphCompose 1.6.6 ships a single proposal preset upstream:
+GraphCompose 1.6.7 ships a single proposal preset upstream:
 
 - Package: `com.demcha.compose.document.templates.proposal`
 - Preset: `ModernProposal`

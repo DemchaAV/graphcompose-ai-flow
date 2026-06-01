@@ -1,7 +1,7 @@
 # Invoice Classic
 
 Single-page business invoice template built on
-[GraphCompose 1.6.6](https://github.com/DemchaAV/GraphCompose) — header
+[GraphCompose 1.6.7](https://github.com/DemchaAV/GraphCompose) — header
 band, hero metadata strip, two-column bill-from / bill-to row,
 line-items table (auto / 54 / 96 / 96 column weights), a dedicated
 Summary section that right-aligns to the line-items Amount column,
@@ -14,7 +14,7 @@ page edge.
 | Display name         | **Invoice Classic** |
 | Source project       | `examples/invoice-reference` |
 | Source revision      | `revision-003` (APPROVED on 2026-06-01; supersedes `revision-002` and `revision-001`) |
-| GraphCompose version | `1.6.6` (Maven Central: `io.github.demchaav:graph-compose:1.6.6`) |
+| GraphCompose version | `1.6.7` (Maven Central: `io.github.demchaav:graph-compose:1.6.7`) |
 | Surface              | V1 classic — implements upstream `com.demcha.compose.document.templates.api.InvoiceTemplate` |
 | Render class         | [`InvoiceClassicTemplate`](src/InvoiceClassicTemplate.java) |
 | Spec class           | upstream `com.demcha.compose.document.templates.data.invoice.InvoiceDocumentSpec` |
@@ -22,7 +22,7 @@ page edge.
 | Sample data          | [`data/invoice-data.example.json`](data/invoice-data.example.json) |
 | Theme                | Defaults to `BusinessTheme.modern()`; alternative theme via explicit-theme constructor |
 
-> **Note on surface generation.** GraphCompose 1.6.6 carries three
+> **Note on surface generation.** GraphCompose 1.6.7 carries three
 > generations across the four canonical surfaces: V2 layered (`cv`,
 > `coverletter`), V2 single-preset (`proposal`), and V1 classic
 > (`invoice`). This bundle rides the V1 classic invoice surface and
@@ -32,7 +32,7 @@ page edge.
 
 [`preview/output.png`](preview/output.png) shows the finished render
 against the upstream
-[`InvoiceData` sample fixture](https://javadoc.io/doc/io.github.demchaav/graph-compose/1.6.6/com/demcha/compose/document/templates/data/invoice/InvoiceData.html).
+[`InvoiceData` sample fixture](https://javadoc.io/doc/io.github.demchaav/graph-compose/1.6.7/com/demcha/compose/document/templates/data/invoice/InvoiceData.html).
 The full [`preview/output.pdf`](preview/output.pdf) carries the same
 output as a vector PDF.
 
@@ -65,7 +65,7 @@ templates/invoice-classic/
    <dependency>
      <groupId>io.github.demchaav</groupId>
      <artifactId>graph-compose</artifactId>
-     <version>1.6.6</version>
+     <version>1.6.7</version>
    </dependency>
    <dependency>
      <groupId>com.fasterxml.jackson.core</groupId>
@@ -75,7 +75,7 @@ templates/invoice-classic/
    ```
 
    (`com.github.DemchaAV:GraphCompose:vX.Y.Z` via JitPack still
-   resolves for pre-1.6.6 pins — see the
+   resolves for pre-1.6.7 pins — see the
    [main README](../../README.md) for the fallback snippet. Jackson
    is only needed if you use the bundled provider — drive the
    template by hand and you can skip it.)
@@ -83,7 +83,7 @@ templates/invoice-classic/
 3. Copy `data/invoice-data.example.json` into your own data folder,
    rename to `invoice-data.json`, and edit the fields. The JSON
    shape mirrors the upstream
-   [`InvoiceData`](https://javadoc.io/doc/io.github.demchaav/graph-compose/1.6.6/com/demcha/compose/document/templates/data/invoice/InvoiceData.html)
+   [`InvoiceData`](https://javadoc.io/doc/io.github.demchaav/graph-compose/1.6.7/com/demcha/compose/document/templates/data/invoice/InvoiceData.html)
    record verbatim — Jackson reads the record's canonical
    constructor directly.
 
@@ -110,7 +110,7 @@ templates/invoice-classic/
    ```
 
    The template implements upstream
-   [`InvoiceTemplate`](https://javadoc.io/doc/io.github.demchaav/graph-compose/1.6.6/com/demcha/compose/document/templates/api/InvoiceTemplate.html),
+   [`InvoiceTemplate`](https://javadoc.io/doc/io.github.demchaav/graph-compose/1.6.7/com/demcha/compose/document/templates/api/InvoiceTemplate.html),
    so any `InvoiceDocumentSpec` that drives `InvoiceTemplateV2` also
    drives this preset unchanged.
 

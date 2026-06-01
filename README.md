@@ -13,7 +13,7 @@ setup.
 **Works for any document kind** GraphCompose primitives can express — CV,
 cover letter, invoice, proposal, report, brochure, datasheet, single-page
 brand collateral. The four canonical template surfaces upstream are
-first-class targets as of GraphCompose 1.6.6:
+first-class targets as of GraphCompose 1.6.7:
 
 | Surface | Generation | Shape |
 |---|---|---|
@@ -241,10 +241,10 @@ and a Node
 visual-diff CLI ([`visual-diff`](tools/visual-diff/)). All three ship
 with passing test suites and are wired to GitHub Actions CI.
 
-GraphCompose 1.6.6 is reachable for fixture validation through
-Maven Central as `io.github.demchaav:graph-compose:1.6.6`
+GraphCompose 1.6.7 is reachable for fixture validation through
+Maven Central as `io.github.demchaav:graph-compose:1.6.7`
 (JitPack `com.github.DemchaAV:GraphCompose:vX.Y.Z` still resolves for
-pre-1.6.6 pins). The five fixture projects under
+pre-1.6.7 pins). The five fixture projects under
 [`examples/skill-fixtures/`](examples/skill-fixtures/) compile and
 run against that artifact. The invoice reference example
 also renders through the shared preview-renderer path. The remaining
