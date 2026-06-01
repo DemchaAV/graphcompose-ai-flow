@@ -15,6 +15,11 @@ edit the template. It does not approve revisions. Its only job is to
 turn a pair of images (and the supporting analysis and plan) into a
 written, classified review.
 
+The loop is intentionally iterative. A rendered PDF that is merely
+"near" the reference is not done. The review must name the next visual
+layer to fix, and the orchestrator must open the next revision when
+that next action is concrete.
+
 ## Inputs
 
 ```text
@@ -121,3 +126,25 @@ recommendations:
 The recommendation is advisory. Only the Revision Manager Agent, on
 user instruction, changes a revision's status — see
 [agents.md#revision-manager-agent](agents.md#revision-manager-agent).
+
+## Layer-by-layer continuation
+
+For visual-generation work, use this order when deciding what to fix next:
+
+1. document skeleton and column geometry
+2. large colored surfaces, panels, and clipping containers
+3. anchors, alignment, spacing, and page height/crop
+4. typography hierarchy and text density
+5. icons, dot meters, badges, markers, and small repeated details
+6. final color calibration and anti-aliasing
+
+If Visual Review recommends `REVISE`, it must include:
+
+- `Next Revision Patch Target`
+- the component names to edit
+- the exact artifacts used as evidence
+- the expected visual change
+
+The orchestrator should continue into the next revision automatically unless
+the next patch target needs user input, user approval, or a verified
+GraphCompose/tooling blocker.

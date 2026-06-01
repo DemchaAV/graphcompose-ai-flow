@@ -1,0 +1,25 @@
+{
+  "projectName": "noir-corporate-cv",
+  "displayName": "Noir Corporate CV",
+  "tagline": "Single-page corporate-style resume / CV with a dark aubergine sidebar plate, circular CV avatar badge, dark section header bars, rating-dot skills and languages blocks, and Iconify-backed contact and interest glyphs.",
+  "referenceImage": "reference/reference.png",
+  "referenceDescription": "reference/reference.md",
+  "targetGraphComposeVersion": "1.6.6",
+  "skillPack": "skills/versions/graphcompose-1.6",
+  "currentApprovedRevisionId": null,
+  "currentDraftRevisionId": "revision-007",
+  "previouslyApprovedRevisionId": null,
+  "dataFile": "revisions/revision-007/cv-data.json",
+  "dataSchema": "revisions/revision-007/data-schema.md",
+  "specClass": "com.demcha.examples.cv.NoirCorporateCvSpec",
+  "specProviderClass": "com.demcha.examples.cv.NoirCorporateCvSpecProvider",
+  "docKind": "cv",
+  "render": {
+    "templateClass": "com.demcha.examples.cv.GeneratedCvTemplate",
+    "dataFileName": "cv-data.json",
+    "pages": 1
+  },
+  "createdAt": "2026-05-19T00:00:00.000Z",
+  "updatedAt": "2026-05-19T12:35:00.000Z",
+  "notes": "Single-page corporate CV project created from one supplied screenshot (Screenshot 2026-05-18 174043.png). Revision-007 is the current DRAFT: it applies user-requested visual refinements to the beige sidebar balance, larger CV initials, name divider, stronger main bars, larger sidebar typography, and vertical work-experience timeline. Revision-006 records a failed/blocked attempt to solve the remaining top-surface layer with a LayerStack."
+}

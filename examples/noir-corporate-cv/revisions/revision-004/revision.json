@@ -1,0 +1,42 @@
+{
+  "id": "revision-004",
+  "parentRevisionId": "revision-003",
+  "status": "DRAFT",
+  "userRequest": "Continue from revision-003 because visual-review requested macro geometry work: adjust top bar height, sidebar content start, and page vertical rhythm while preserving the fixed icon transparency and CV badge visibility.",
+  "targetGraphComposeVersion": "1.6.0",
+  "skillPack": "skills/versions/graphcompose-1.6",
+  "changedComponents": [
+    "Sidebar",
+    "Identity",
+    "NameBar",
+    "ProfessionalProfile",
+    "Education",
+    "WorkExperience"
+  ],
+  "createdAt": "2026-05-19T11:20:00.000Z",
+  "artifacts": {
+    "userRequest": "user-request.md",
+    "orchestrationDecision": "orchestration-decision.md",
+    "versionResolution": "version-resolution.md",
+    "skillValidation": "skill-validation-report.md",
+    "visualAnalysis": "visual-analysis.md",
+    "architecturePlan": "architecture-plan.md",
+    "assetRequest": "asset-request.json",
+    "assetsManifest": "assets-manifest.json",
+    "dataSchema": "data-schema.md",
+    "data": "cv-data.json",
+    "template": "generated-template.java",
+    "test": "generated-test.java",
+    "layoutSnapshot": "layout-snapshot.json",
+    "pdf": "output.pdf",
+    "preview": "output.png",
+    "debugPdf": "output-debug.pdf",
+    "debugPreview": "output-debug.png",
+    "visualReview": "visual-review.md",
+    "testResult": "test-result.md",
+    "status": "status.md"
+  },
+  "pendingArtifacts": [
+    "layout-snapshot.json"
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "id": "revision-005",
+  "parentRevisionId": "revision-004",
+  "status": "DRAFT",
+  "userRequest": "Continue from revision-004 layer-by-layer. Fix the next visible geometry layer by enlarging and lowering the clipped CV badge, moving the name/title block closer to the reference, and spreading the main content rhythm while preserving transparent icons and data-driven rendering.",
+  "targetGraphComposeVersion": "1.6.0",
+  "skillPack": "skills/versions/graphcompose-1.6",
+  "changedComponents": [
+    "Sidebar",
+    "Identity",
+    "NameBar",
+    "MainBody",
+    "ProfessionalProfile",
+    "Education",
+    "WorkExperience"
+  ],
+  "createdAt": "2026-05-19T11:45:00.000Z",
+  "artifacts": {
+    "userRequest": "user-request.md",
+    "orchestrationDecision": "orchestration-decision.md",
+    "versionResolution": "version-resolution.md",
+    "skillValidation": "skill-validation-report.md",
+    "visualAnalysis": "visual-analysis.md",
+    "architecturePlan": "architecture-plan.md",
+    "assetRequest": "asset-request.json",
+    "assetsManifest": "assets-manifest.json",
+    "dataSchema": "data-schema.md",
+    "data": "cv-data.json",
+    "template": "generated-template.java",
+    "test": "generated-test.java",
+    "layoutSnapshot": "layout-snapshot.json",
+    "pdf": "output.pdf",
+    "preview": "output.png",
+    "debugPdf": "output-debug.pdf",
+    "debugPreview": "output-debug.png",
+    "visualReview": "visual-review.md",
+    "testResult": "test-result.md",
+    "status": "status.md"
+  },
+  "pendingArtifacts": [
+    "layout-snapshot.json"
+  ]
+}

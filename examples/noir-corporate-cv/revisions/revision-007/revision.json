@@ -1,0 +1,43 @@
+{
+  "id": "revision-007",
+  "parentRevisionId": "revision-005",
+  "status": "DRAFT",
+  "userRequest": "Apply the user's detailed visual corrections: balance the beige sidebar bottom spacing, make the top name panel stronger, add the centered divider under the name, enlarge section bars and sidebar typography, replace horizontal work-experience dashes with a vertical timeline, and make the CV initials much larger and lighter.",
+  "targetGraphComposeVersion": "1.6.6",
+  "skillPack": "skills/versions/graphcompose-1.6",
+  "changedComponents": [
+    "Sidebar",
+    "Identity",
+    "NameBar",
+    "MainHeadings",
+    "WorkExperience",
+    "Typography"
+  ],
+  "createdAt": "2026-05-19T12:35:00.000Z",
+  "artifacts": {
+    "userRequest": "user-request.md",
+    "orchestrationDecision": "orchestration-decision.md",
+    "versionResolution": "version-resolution.md",
+    "skillValidation": "skill-validation-report.md",
+    "visualAnalysis": "visual-analysis.md",
+    "architecturePlan": "architecture-plan.md",
+    "assetRequest": "asset-request.json",
+    "assetsManifest": "assets-manifest.json",
+    "dataSchema": "data-schema.md",
+    "data": "cv-data.json",
+    "template": "generated-template.java",
+    "test": "generated-test.java",
+    "layoutSnapshot": "layout-snapshot.json",
+    "pdf": "output.pdf",
+    "preview": "output.png",
+    "debugPdf": "output-debug.pdf",
+    "debugPreview": "output-debug.png",
+    "visualReview": "visual-review.md",
+    "testResult": "test-result.md",
+    "status": "status.md"
+  },
+  "pendingArtifacts": [
+    "layout-snapshot.json",
+    "generated-template.java"
+  ]
+}

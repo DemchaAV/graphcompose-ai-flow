@@ -1,0 +1,44 @@
+{
+  "id": "revision-006",
+  "parentRevisionId": "revision-005",
+  "status": "FAILED",
+  "userRequest": "Continue the layer-by-layer flow from revision-005 by trying a semantic page-wide dark top band behind the cream sidebar card without raw coordinate drawing.",
+  "targetGraphComposeVersion": "1.6.0",
+  "skillPack": "skills/versions/graphcompose-1.6",
+  "changedComponents": [
+    "PageSurfaceStack",
+    "TopDarkSurface",
+    "ContentLayer"
+  ],
+  "createdAt": "2026-05-19T12:00:00.000Z",
+  "failure": {
+    "stage": "render",
+    "summary": "GraphCompose 1.6.0 rejects a Row nested inside a SectionNode used as a LayerStack layer.",
+    "message": "Row 'NoirCorporateCv[0]/PageSurfaceStack[0]/ContentLayer[1]/MainGrid[0]' cannot contain a nested horizontal row; use a section column instead.",
+    "currentUsableDraft": "revision-005"
+  },
+  "artifacts": {
+    "userRequest": "user-request.md",
+    "orchestrationDecision": "orchestration-decision.md",
+    "versionResolution": "version-resolution.md",
+    "skillValidation": "skill-validation-report.md",
+    "visualAnalysis": "visual-analysis.md",
+    "architecturePlan": "architecture-plan.md",
+    "assetRequest": "asset-request.json",
+    "assetsManifest": "assets-manifest.json",
+    "dataSchema": "data-schema.md",
+    "data": "cv-data.json",
+    "template": "generated-template.java",
+    "test": "generated-test.java",
+    "visualReview": "visual-review.md",
+    "testResult": "test-result.md",
+    "status": "status.md"
+  },
+  "pendingArtifacts": [
+    "output.pdf",
+    "output.png",
+    "output-debug.pdf",
+    "output-debug.png",
+    "layout-snapshot.json"
+  ]
+}

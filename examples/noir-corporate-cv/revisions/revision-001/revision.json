@@ -1,0 +1,42 @@
+{
+  "id": "revision-001",
+  "parentRevisionId": null,
+  "status": "DRAFT",
+  "userRequest": "Make a template from the supplied reference (single-page corporate CV with a dark aubergine sidebar).",
+  "targetGraphComposeVersion": "1.6.0",
+  "skillPack": "skills/versions/graphcompose-1.6",
+  "changedComponents": [
+    "Header",
+    "Sidebar",
+    "Main",
+    "Contact",
+    "Skills",
+    "Languages",
+    "Interest",
+    "ProfessionalProfile",
+    "Education",
+    "WorkExperience"
+  ],
+  "createdAt": "2026-05-19T00:00:00.000Z",
+  "artifacts": {
+    "userRequest": "user-request.md",
+    "orchestrationDecision": "orchestration-decision.md",
+    "versionResolution": "version-resolution.md",
+    "skillValidation": "skill-validation-report.md",
+    "visualAnalysis": "visual-analysis.md",
+    "architecturePlan": "architecture-plan.md",
+    "assetRequest": "asset-request.json",
+    "assetsManifest": "assets-manifest.json",
+    "template": "generated-template.java",
+    "test": "generated-test.java",
+    "layoutSnapshot": "layout-snapshot.json",
+    "pdf": "output.pdf",
+    "preview": "output.png",
+    "visualReview": "visual-review.md",
+    "testResult": "test-result.md",
+    "status": "status.md"
+  },
+  "pendingArtifacts": [
+    "layout-snapshot.json"
+  ]
+}

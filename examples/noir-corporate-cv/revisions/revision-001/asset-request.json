@@ -1,0 +1,80 @@
+{
+  "icons": [
+    {
+      "token": "location",
+      "iconSet": "mdi:map-marker",
+      "preferredSets": ["mdi", "tabler", "lucide"],
+      "size": 64,
+      "pointSize": 10,
+      "color": "#181818"
+    },
+    {
+      "token": "email",
+      "iconSet": "mdi:email",
+      "preferredSets": ["mdi", "tabler", "lucide"],
+      "size": 64,
+      "pointSize": 10,
+      "color": "#181818"
+    },
+    {
+      "token": "phone",
+      "iconSet": "mdi:phone",
+      "preferredSets": ["mdi", "tabler", "lucide"],
+      "size": 64,
+      "pointSize": 10,
+      "color": "#181818"
+    },
+    {
+      "token": "website",
+      "iconSet": "mdi:web",
+      "preferredSets": ["mdi", "tabler", "lucide"],
+      "size": 64,
+      "pointSize": 10,
+      "color": "#181818"
+    },
+    {
+      "token": "music",
+      "iconSet": "mdi:music-circle",
+      "preferredSets": ["mdi", "tabler", "lucide"],
+      "size": 96,
+      "pointSize": 13,
+      "color": "#181818"
+    },
+    {
+      "token": "book",
+      "iconSet": "mdi:book-open-variant",
+      "preferredSets": ["mdi", "tabler", "lucide"],
+      "size": 96,
+      "pointSize": 13,
+      "color": "#181818"
+    },
+    {
+      "token": "travel",
+      "iconSet": "mdi:airplane",
+      "preferredSets": ["mdi", "tabler", "lucide"],
+      "size": 96,
+      "pointSize": 13,
+      "color": "#181818"
+    }
+  ],
+  "fonts": [
+    {
+      "role": "heading",
+      "family": "Poppins",
+      "weights": [400, 700],
+      "source": "graphcompose-bundled"
+    },
+    {
+      "role": "body",
+      "family": "Poppins",
+      "weights": [400, 700],
+      "source": "graphcompose-bundled"
+    },
+    {
+      "role": "fallback",
+      "family": "Helvetica",
+      "weights": [400, 700],
+      "source": "standard14"
+    }
+  ]
+}

@@ -1,0 +1,144 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-05-19T12:27:40.646Z",
+  "revisionDir": "examples/noir-corporate-cv/revisions/revision-007",
+  "icons": {
+    "location": {
+      "iconSet": "mdi:map-marker",
+      "prefix": "mdi",
+      "name": "map-marker",
+      "file": "assets/icons/location.png",
+      "size": 64,
+      "pointSize": 10,
+      "color": "#181818",
+      "pickedBy": "explicit",
+      "visualHint": null
+    },
+    "email": {
+      "iconSet": "mdi:email",
+      "prefix": "mdi",
+      "name": "email",
+      "file": "assets/icons/email.png",
+      "size": 64,
+      "pointSize": 10,
+      "color": "#181818",
+      "pickedBy": "explicit",
+      "visualHint": null
+    },
+    "phone": {
+      "iconSet": "mdi:phone",
+      "prefix": "mdi",
+      "name": "phone",
+      "file": "assets/icons/phone.png",
+      "size": 64,
+      "pointSize": 10,
+      "color": "#181818",
+      "pickedBy": "explicit",
+      "visualHint": null
+    },
+    "website": {
+      "iconSet": "mdi:web",
+      "prefix": "mdi",
+      "name": "web",
+      "file": "assets/icons/website.png",
+      "size": 64,
+      "pointSize": 10,
+      "color": "#181818",
+      "pickedBy": "explicit",
+      "visualHint": null
+    },
+    "music": {
+      "iconSet": "mdi:music-circle",
+      "prefix": "mdi",
+      "name": "music-circle",
+      "file": "assets/icons/music.png",
+      "size": 96,
+      "pointSize": 13,
+      "color": "#181818",
+      "pickedBy": "explicit",
+      "visualHint": null
+    },
+    "book": {
+      "iconSet": "mdi:book-open-variant",
+      "prefix": "mdi",
+      "name": "book-open-variant",
+      "file": "assets/icons/book.png",
+      "size": 96,
+      "pointSize": 13,
+      "color": "#181818",
+      "pickedBy": "explicit",
+      "visualHint": null
+    },
+    "travel": {
+      "iconSet": "mdi:airplane",
+      "prefix": "mdi",
+      "name": "airplane",
+      "file": "assets/icons/travel.png",
+      "size": 96,
+      "pointSize": 13,
+      "color": "#181818",
+      "pickedBy": "explicit",
+      "visualHint": null
+    },
+    "rating-filled": {
+      "iconSet": "mdi:circle",
+      "prefix": "mdi",
+      "name": "circle",
+      "file": "assets/icons/rating-filled.png",
+      "size": 32,
+      "pointSize": 3.8,
+      "color": "#181818",
+      "pickedBy": "explicit",
+      "visualHint": null
+    },
+    "rating-open": {
+      "iconSet": "mdi:circle-outline",
+      "prefix": "mdi",
+      "name": "circle-outline",
+      "file": "assets/icons/rating-open.png",
+      "size": 32,
+      "pointSize": 3.8,
+      "color": "#181818",
+      "pickedBy": "explicit",
+      "visualHint": null
+    }
+  },
+  "fonts": {
+    "heading": {
+      "role": "heading",
+      "family": "Poppins",
+      "fontName": "POPPINS",
+      "weights": [
+        400,
+        700
+      ],
+      "source": "graphcompose-bundled",
+      "status": "ok",
+      "registration": "default-fonts"
+    },
+    "body": {
+      "role": "body",
+      "family": "Poppins",
+      "fontName": "POPPINS",
+      "weights": [
+        400,
+        700
+      ],
+      "source": "graphcompose-bundled",
+      "status": "ok",
+      "registration": "default-fonts"
+    },
+    "fallback": {
+      "role": "fallback",
+      "family": "Helvetica",
+      "fontName": "HELVETICA",
+      "weights": [
+        400,
+        700
+      ],
+      "source": "standard14",
+      "status": "ok",
+      "registration": "standard14"
+    }
+  }
+}

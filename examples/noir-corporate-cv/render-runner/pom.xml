@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.demcha.graphcompose-ai-flow.examples</groupId>
+  <artifactId>noir-corporate-cv-render-runner</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <properties>
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <graphcompose.version>1.6.6</graphcompose.version>
+    <revision.id>revision-001</revision.id>
+    <revision.generated.sources>${project.build.directory}/generated-sources/revision</revision.generated.sources>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.github.demchaav</groupId>
+      <artifactId>graph-compose</artifactId>
+      <version>${graphcompose.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.17.2</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <execution>
+            <id>copy-selected-revision-template</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <mkdir dir="${revision.generated.sources}/com/demcha/examples/cv"/>
+                <!--
+                  Accept either the legacy "generated-template.java" name
+                  (used by older revisions) or the Java-canonical
+                  "GeneratedCvTemplate.java" name (preferred — IDEs auto-rename
+                  to match the public class). The canonical name wins when
+                  both exist.
+                -->
+                <condition property="revision.template.source"
+                           value="${project.basedir}/../revisions/${revision.id}/GeneratedCvTemplate.java"
+                           else="${project.basedir}/../revisions/${revision.id}/generated-template.java">
+                  <available file="${project.basedir}/../revisions/${revision.id}/GeneratedCvTemplate.java"/>
+                </condition>
+                <copy
+                    file="${revision.template.source}"
+                    tofile="${revision.generated.sources}/com/demcha/examples/cv/GeneratedCvTemplate.java"
+                    overwrite="true"/>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <id>add-selected-revision-source</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>${revision.generated.sources}</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.7.1</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>

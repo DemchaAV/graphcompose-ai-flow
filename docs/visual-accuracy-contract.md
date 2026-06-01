@@ -31,6 +31,10 @@ checked:
 - headers are present
 - footers are present
 - cards, badges, backgrounds, and decorative elements are present when relevant
+- shaped components preserve semantic ownership: content that visually
+  belongs inside a circle, rounded card, pill, clipped image area, or
+  badge is implemented as a child of that shape, not as a sibling
+  overlay pulled into place with negative margins
 - no important visual element is missing
 - no unexpected element is added
 - output preview is compared against reference
@@ -62,6 +66,8 @@ A revision can be approved only when:
 
 - no critical mismatches remain
 - no major mismatches remain unless explicitly accepted
+- no semantic ownership defects remain for shaped components unless
+  they are backed by a verified engine limitation
 - minor mismatches are documented
 - all generated artifacts exist
 - code compiles
