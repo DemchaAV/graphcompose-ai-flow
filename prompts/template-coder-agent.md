@@ -362,6 +362,27 @@ Forbidden cross-surface patterns:
   back). Surface-shift = a fresh parent line, recorded explicitly in
   the architecture plan.
 
+CV ↔ cover-letter pairing (V2 layered only):
+
+- A cover letter preset MUST reuse the paired CV preset's
+  `CvIdentity`, `CvTheme`, `RichParagraphRenderer`, and
+  `CvTextStyles` so the masthead, the body font / colour / size, and
+  the inline markdown rendering match exactly. The whole reason
+  cover-letter v2 exists is that the CV and its letter read as one
+  matched set.
+- The letter-specific renderer is `coverletter.v2.components.LetterBody`
+  — call it once per letter preset. Do NOT inline a paragraph loop
+  in the preset's `compose(...)` method.
+- `CoverLetterDocument` is `(CvIdentity identity, String greeting,
+  List<String> body, String closing)`. The `identity` field is the
+  same `CvIdentity` instance the paired CV preset receives — the
+  spec provider hands it to both.
+- If the architecture plan asks for a stand-alone cover letter
+  (no paired CV), reuse the same widgets and theme bundle but record
+  the absence of the CV pair in `architecture-plan.md` § "Known
+  Limitations" so a future "make this a matched set" gesture has a
+  clear paper trail.
+
 Helpers, type imports, and DSL idioms that are surface-agnostic
 (`DocumentSession`, `RowBuilder`, `SectionBuilder`, `TableBuilder`,
 `ShapeContainerBuilder`, `DocumentTextStyle`, `BusinessTheme`,

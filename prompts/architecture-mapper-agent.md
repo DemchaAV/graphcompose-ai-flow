@@ -84,6 +84,63 @@ Architecture plan structure:
 
 ## Target GraphCompose Version
 
+## Template Surface
+- Lane: `V2 layered` (Recommended for new templates) | `V1 classic` (only
+  when continuing an existing revision chain, or for invoice/proposal
+  where V2 has not landed)
+- Document kind: `cv` | `coverletter` | `invoice` | `proposal` | `other`
+- Upstream cheatsheet: docs/templates/v2-layered/authoring-presets.md
+  in the GraphCompose repo
+
+## V2 Layer Split  (omit when Lane = V1 classic)
+
+| Layer       | What this revision will put here                            | New / Reused                                                            |
+|-------------|-------------------------------------------------------------|-------------------------------------------------------------------------|
+| `data/`     | Typed records describing content (no colours, no sizes)     | New record(s); name them like `<Kind>Document`, `<Kind>Identity`         |
+| `theme/`    | Palette, typography, spacing, decoration glyphs             | Reuse `<Kind>Theme.X()` factory if one fits; else custom theme bundle    |
+| `components/` | Lower-level reusable renderers (rows, entries, paragraphs) | Reuse only — do NOT add new renderers from a preset                      |
+| `widgets/`  | Named LEGO bricks (Headline, SectionHeader, ContactLine)    | Reuse existing variants; flag every NEW widget for review                |
+| `presets/`  | The composition (page flow, slot routing, widget calls)     | New — this is what we are authoring                                      |
+
+Pin one phrase per layer: where to **build** (presets), where to
+**split** (data / theme), where to **reuse** (components / widgets).
+Adding a component or widget is an explicit decision — record the
+justification in `Widget Reuse Audit` below.
+
+## Widget Reuse Audit  (omit when Lane = V1 classic)
+
+| Need (visual region)              | Existing widget / variant                                | Verdict           |
+|-----------------------------------|----------------------------------------------------------|-------------------|
+| Header headline                   | `Headline.spacedCentered` / `Headline.uppercaseCentered` | reuse <variant>   |
+| Section title                     | `SectionHeader.banner` / `.underlined` / `.flat` / ...   | reuse <variant>   |
+| Contact line                      | `ContactLine.centered` / `.rightAligned` / `.twoRowRightAligned` | reuse <variant>   |
+| Letter body paragraphs (coverletter) | `coverletter.v2.components.LetterBody`                | reuse             |
+| <region not covered above>        | <new widget proposal>                                    | NEW + justification |
+
+Rules:
+- Default verdict is "reuse" for every visual region. A "NEW" verdict
+  requires a one-line justification ("no existing variant supports
+  vertical orientation X").
+- A NEW widget MUST go under `<kind>.v2.widgets.*`, never inline
+  inside the preset. The Template Coder enforces this — see
+  `prompts/template-coder-agent.md` § "Template surface contract".
+- A widget that fits but only with a small variant tweak (e.g. a new
+  alignment) gets a verdict "reuse + variant proposal" — the variant
+  is added to the existing widget, not forked into a new file.
+
+## Slot Placement  (CV-shaped documents only)
+
+Every section is placed into `Slot.{MAIN, SIDEBAR, FOOTER}`. Single-
+column presets read only `MAIN`; multi-column presets read whichever
+slots they declare. Record the slot assignment per section so the
+Template Coder writes `doc.sectionsIn(Slot.X)` loops correctly.
+
+| Section          | Slot     | Reason                              |
+|------------------|----------|-------------------------------------|
+| Professional Summary | MAIN | always main flow                    |
+| Technical Skills | SIDEBAR  | short, scan-able list               |
+| Awards           | FOOTER   | low-priority, page-bottom           |
+
 ## Selected Skills
 
 ## Document Structure
@@ -99,6 +156,26 @@ Architecture plan structure:
 ## Template Class Shape
 
 ## Render Methods
+
+## Guide Overlay Strategy
+
+The Test + Render Agent emits two PDFs: `output.pdf` (clean) and
+`output-debug.pdf` (with engine guide-line overlays — column edges,
+section anchors, row baselines, layer-stack frames). Record which
+overlays add review-time value for this template:
+
+| Overlay                             | Useful here?      | Why                                                       |
+|-------------------------------------|-------------------|-----------------------------------------------------------|
+| column boundaries (MAIN/SIDEBAR/...) | yes / no / partial | "yes — sidebar weight is load-bearing for this layout"   |
+| section header anchors              | yes / no / partial | "yes — banner variants need consistent baseline"          |
+| row baselines                       | yes / no / partial | "no — single-column flow, baselines never drift"          |
+| layer-stack frames                  | yes / no / partial | "yes — badge sits half-off the card, frame proves clip"   |
+| pageBackgrounds bands               | yes / no / partial | "yes — multi-rect masthead per 1.6.6"                     |
+
+The debug PDF stays in the revision folder
+(`<revision>/output-debug.pdf` + per-page PNGs). Visual Review reads
+this section to know which overlays it should consult when classifying
+a mismatch.
 
 ## Testing Plan
 

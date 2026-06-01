@@ -7,8 +7,10 @@
 ## What this project is
 
 GraphCompose AI Template Flow turns a visual document reference (a
-PNG screenshot of a CV, invoice, proposal, ...) into a maintainable
-Java template that targets GraphCompose 1.6 — with a strict visual
+PNG screenshot of a CV, invoice, proposal, cover letter, report,
+brochure, datasheet — ANY single-page or multi-page document
+GraphCompose primitives can express) into a maintainable Java
+template that targets GraphCompose 1.6.6 — with a strict visual
 parity contract, a typed data spec the user can edit without
 touching Java, a per-revision asset bundle (Iconify icons + Google
 Fonts), a clean and a debug render, and a publish-quality bundle
@@ -18,6 +20,17 @@ The agent does NOT draw PDFs with raw coordinates. The agent
 reconstructs the document with semantic GraphCompose primitives
 (sections, rows, tables, layer stacks, weights, anchors). Every
 change creates a new revision; nothing is overwritten.
+
+**Document-kind contract.** The four canonical upstream surfaces
+are `cv`, `coverletter`, `invoice`, `proposal`. `cv` and
+`coverletter` are on the V2 layered architecture (data → theme →
+components → widgets → preset orchestrator); `invoice` and
+`proposal` are on the V1 classic surface for now. Any document kind
+outside the four still routes through this same pipeline because the
+14 skills, the 11 agents, and the tooling chain are all primitive-
+level and document-kind agnostic — only the published-bundle
+factory and the template surface tables in
+`prompts/architecture-mapper-agent.md` care about the kind.
 
 ## When the user gives you a request — entry-point dispatch
 

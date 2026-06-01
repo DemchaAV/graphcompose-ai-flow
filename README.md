@@ -10,6 +10,16 @@ template, render it, compare it visually, revise it, and publish an approved
 template bundle. See [docs/quickstart.md](docs/quickstart.md) for the 5-minute
 setup.
 
+**Works for any document kind** GraphCompose primitives can express — CV,
+cover letter, invoice, proposal, report, brochure, datasheet, single-page
+brand collateral. The four canonical template surfaces upstream
+(`cv`, `coverletter`, `invoice`, `proposal` — with `cv` and `coverletter`
+on the V2 layered architecture as of GraphCompose 1.6.6) are first-class
+targets; anything else routes through the same generic skill pack and
+DSL primitives. The current reference examples skew toward CV and invoice
+because those were the first end-to-end runs — the pipeline itself is
+document-kind agnostic by design.
+
 ![GraphCompose AI Template Flow — visual reference on the left, the 11-agent semantic GraphCompose mapping in the middle, the rendered template on the right](assets/readme/graphcompose-ai-flow.png)
 
 ## What you can run now
