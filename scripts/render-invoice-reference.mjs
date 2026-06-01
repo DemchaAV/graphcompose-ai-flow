@@ -5,6 +5,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { ensureSkillValidationVerdict } from "./lib/skill-validation-gate.mjs";
+
 const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(scriptPath), "..");
 
@@ -23,6 +25,12 @@ if (!fs.existsSync(revisionDir)) {
   console.error(`revision not found: ${revisionDir}`);
   process.exit(2);
 }
+
+const templateProjectFile = path.join(invoiceDir, "template-project.json");
+const templateProject = fs.existsSync(templateProjectFile)
+  ? JSON.parse(fs.readFileSync(templateProjectFile, "utf8"))
+  : {};
+ensureSkillValidationVerdict({ repoRoot, revisionDir, project: templateProject });
 
 runMaven(["-q", "-B", "-f", previewRendererPom, "-DskipTests=true", "package"], repoRoot);
 runMaven(["-q", "-B", "-f", runnerPom, `-Drevision.id=${revisionId}`, "-DskipTests=true", "package"], repoRoot);

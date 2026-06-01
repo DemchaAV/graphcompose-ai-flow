@@ -4,7 +4,7 @@
   "tagline": "Two-page editorial-style resume for a graphic designer, with a mint accent rule and Iconify-backed contact and social glyphs.",
   "referenceImage": "reference/reference.png",
   "referenceDescription": "reference/reference.md",
-  "targetGraphComposeVersion": "1.6.0",
+  "targetGraphComposeVersion": "1.6.6",
   "skillPack": "skills/versions/graphcompose-1.6",
   "currentApprovedRevisionId": "revision-008",
   "currentDraftRevisionId": "revision-008",
