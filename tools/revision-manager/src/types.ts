@@ -54,6 +54,23 @@ export interface Revision {
   createdAt: string;
   artifacts: RevisionArtifacts;
   pendingArtifacts?: string[];
+  /** ISO 8601 timestamp written by approve when status flips to APPROVED. */
+  approvedAt?: string;
+  /** ISO 8601 timestamp written by approve when status flips to SUPERSEDED. */
+  supersededAt?: string;
+  /** Revision ID that superseded this one. */
+  supersededBy?: string;
+  /**
+   * Optional template metadata the Template Publisher Agent or the
+   * publish-template script writes back so the audit log shows which
+   * bundle this revision became.
+   */
+  templateDisplayName?: string;
+  /**
+   * Free-form extras the schema permits (failure record, etc.). Listed
+   * via index signature so future fields do not break the TS contract.
+   */
+  [extra: string]: unknown;
 }
 
 export interface CommandOptions {

@@ -47,6 +47,13 @@ describe('approve / reject / undo', () => {
     expect(result.superseded.map((r) => r.id)).toEqual(['revision-001']);
     const first = await loadRevision(projectRoot, 'revision-001');
     expect(first.status).toBe('SUPERSEDED');
+    // Supersedure metadata MUST be written so the schema gate is happy
+    // without hand-patches. Single-stamp invariant: the predecessor's
+    // supersededAt equals the new revision's approvedAt.
+    expect(first.supersededBy).toBe('revision-002');
+    expect(typeof first.supersededAt).toBe('string');
+    expect(new Date(first.supersededAt as string).toString()).not.toBe('Invalid Date');
+    expect(first.supersededAt).toBe(result.approved.approvedAt);
     const project = await loadProject(projectRoot);
     expect(project.currentApprovedRevisionId).toBe('revision-002');
   });

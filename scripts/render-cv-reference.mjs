@@ -36,15 +36,45 @@ const templateProject = fs.existsSync(templateProjectFile)
   : {};
 ensureSkillValidationVerdict({ repoRoot, revisionDir, project: templateProject });
 
-if (fs.existsSync(assetRequestFile)) {
+// Read the revision's scope so we can short-circuit agents the data-
+// only / asset-only contracts skip (per prompts/orchestrator-agent.md
+// § "Revision scope"). RENDER_NO_SKIP=1 forces the full pipeline for
+// troubleshooting.
+const revisionJsonFile = path.join(revisionDir, "revision.json");
+const revisionJson = fs.existsSync(revisionJsonFile)
+  ? JSON.parse(fs.readFileSync(revisionJsonFile, "utf8"))
+  : {};
+const scope = revisionJson.scope ?? null;
+const forceFullPipeline = process.env.RENDER_NO_SKIP === "1";
+
+const skipAssetResolver =
+  !forceFullPipeline &&
+  scope === "data-only" &&
+  fs.existsSync(path.join(revisionDir, "assets-manifest.json")) &&
+  fs.existsSync(path.join(revisionDir, "assets", "icons"));
+
+const cachedClasses = path.join(runnerDir, "target", "classes");
+const skipMavenPackage =
+  !forceFullPipeline &&
+  (scope === "data-only" || scope === "asset-only") &&
+  fs.existsSync(cachedClasses) &&
+  fs.existsSync(previewRendererJar);
+
+if (skipAssetResolver) {
+  console.log(`> asset-resolver skipped (scope=data-only; manifest + icons inherited)`);
+} else if (fs.existsSync(assetRequestFile)) {
   console.log(`> asset-resolver --revision ${revisionDir}`);
   run("node", [assetResolverCli, "--revision", revisionDir], repoRoot);
 } else {
   console.log(`> asset-resolver skipped (no ${path.relative(repoRoot, assetRequestFile)})`);
 }
 
-runMaven(["-q", "-B", "-f", previewRendererPom, "-DskipTests=true", "package"], repoRoot);
-runMaven(["-q", "-B", "-f", runnerPom, `-Drevision.id=${revisionId}`, "-DskipTests=true", "package"], repoRoot);
+if (skipMavenPackage) {
+  console.log(`> mvn package skipped (scope=${scope}; runner target/classes + preview-renderer.jar reused)`);
+} else {
+  runMaven(["-q", "-B", "-f", previewRendererPom, "-DskipTests=true", "package"], repoRoot);
+  runMaven(["-q", "-B", "-f", runnerPom, `-Drevision.id=${revisionId}`, "-DskipTests=true", "package"], repoRoot);
+}
 runMaven([
   "-q",
   "-B",

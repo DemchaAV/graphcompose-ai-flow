@@ -32,8 +32,27 @@ const templateProject = fs.existsSync(templateProjectFile)
   : {};
 ensureSkillValidationVerdict({ repoRoot, revisionDir, project: templateProject });
 
-runMaven(["-q", "-B", "-f", previewRendererPom, "-DskipTests=true", "package"], repoRoot);
-runMaven(["-q", "-B", "-f", runnerPom, `-Drevision.id=${revisionId}`, "-DskipTests=true", "package"], repoRoot);
+// Short-circuit per scope; same contract as render-cv-reference.mjs.
+// RENDER_NO_SKIP=1 forces the full pipeline.
+const revisionJsonFile = path.join(revisionDir, "revision.json");
+const revisionJson = fs.existsSync(revisionJsonFile)
+  ? JSON.parse(fs.readFileSync(revisionJsonFile, "utf8"))
+  : {};
+const scope = revisionJson.scope ?? null;
+const forceFullPipeline = process.env.RENDER_NO_SKIP === "1";
+const cachedClasses = path.join(runnerDir, "target", "classes");
+const skipMavenPackage =
+  !forceFullPipeline &&
+  (scope === "data-only" || scope === "asset-only") &&
+  fs.existsSync(cachedClasses) &&
+  fs.existsSync(previewRendererJar);
+
+if (skipMavenPackage) {
+  console.log(`> mvn package skipped (scope=${scope}; target/classes + preview-renderer.jar reused)`);
+} else {
+  runMaven(["-q", "-B", "-f", previewRendererPom, "-DskipTests=true", "package"], repoRoot);
+  runMaven(["-q", "-B", "-f", runnerPom, `-Drevision.id=${revisionId}`, "-DskipTests=true", "package"], repoRoot);
+}
 runMaven([
   "-q",
   "-B",

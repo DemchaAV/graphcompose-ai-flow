@@ -23,19 +23,35 @@ export async function runApprove(
   }
   const target = await loadRevision(projectRoot, targetId);
 
+  // Single timestamp for the approve transaction — the predecessor's
+  // supersededAt MUST match the new revision's approvedAt so an audit
+  // reads the flip as one atomic event.
+  const stamp = new Date().toISOString();
+
   // Supersede every other currently-APPROVED revision (defensive — should be
-  // at most one).
+  // at most one). Schema requires supersededAt + supersededBy on every
+  // SUPERSEDED revision; without them the predecessor would fail the
+  // conditional schema in schemas/revision.schema.json.
   const all = await listRevisions(projectRoot);
   const superseded: Revision[] = [];
   for (const rev of all) {
     if (rev.id !== targetId && rev.status === 'APPROVED') {
-      const next: Revision = { ...rev, status: 'SUPERSEDED' };
+      const next: Revision = {
+        ...rev,
+        status: 'SUPERSEDED',
+        supersededAt: stamp,
+        supersededBy: targetId,
+      };
       await saveRevision(projectRoot, next);
       superseded.push(next);
     }
   }
 
-  const approved: Revision = { ...target, status: 'APPROVED' };
+  const approved: Revision = {
+    ...target,
+    status: 'APPROVED',
+    approvedAt: target.approvedAt ?? stamp,
+  };
   await saveRevision(projectRoot, approved);
 
   const updated = touchProject({

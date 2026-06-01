@@ -215,13 +215,29 @@ function buildAutoPopulatedReport({
   cacheKey,
 }) {
   const fixtureMatrix = readFixtureMatrixFromCi(repoRoot);
-  const skillsList = skillIds.map((id) => `- \`${id}\``).join("\n");
+  const fixtureCoverage = readFixtureCoverageFromChecklist(repoRoot);
+  const { covered, uncovered } = splitSkillsByCoverage(skillIds, fixtureCoverage);
+  const partial = uncovered.length > 0;
+
+  const coveredList = covered.length
+    ? covered.map((id) => `- \`${id}\``).join("\n")
+    : "- (none)";
+  const uncoveredList = uncovered.length
+    ? uncovered.map((id) => `- \`${id}\``).join("\n")
+    : "- (none — every covered skill has a CI fixture)";
   const fixtureList = fixtureMatrix.length
     ? fixtureMatrix.map((f) => `- \`examples/skill-fixtures/${f}\``).join("\n")
     : "- (fixture matrix not detected in .github/workflows/ci.yml)";
+
+  const partialBanner = partial
+    ? "**partial: true** — not every covered skill is fixture-backed; " +
+      "see the \"Not fixture-validated\" list below.\n\n"
+    : "";
+
   return (
     "# Skill Validation Report (auto-populated)\n" +
     "\n" +
+    partialBanner +
     `Target coordinate: \`${targetCoordinate}\`  \n` +
     `Skill pack: \`${skillPackRel}\`  \n` +
     `Cache key: \`${cacheKey}\`\n` +
@@ -231,16 +247,26 @@ function buildAutoPopulatedReport({
     "This report was written by a render script (not by the Skill\n" +
     "Validator Agent). The pass verdict is keyed to the CI skill-\n" +
     "fixtures matrix in `.github/workflows/ci.yml`, which compiles\n" +
-    "and runs every fixture against the resolved coordinate on every\n" +
-    "push. If that job is green for this commit, every covered skill\n" +
-    "has been re-validated.\n" +
+    "and runs the fixtures listed below against the resolved\n" +
+    "coordinate on every push. If those jobs are green for this\n" +
+    "commit, every fixture-backed skill has been re-validated.\n" +
     "\n" +
-    "## Covered skills\n" +
+    "Fixture coverage is parsed from\n" +
+    "[validation/api-compatibility-checklist.md](../../../validation/api-compatibility-checklist.md)\n" +
+    "— rows whose `Fixture exists` AND `Fixture executed` columns\n" +
+    "both start with `yes` are treated as fixture-backed.\n" +
     "\n" +
-    skillsList +
+    "## Fixture-backed (verdict: pass keyed to CI)\n" +
+    "\n" +
+    coveredList +
     "\n" +
     "\n" +
-    "## CI fixtures backing this verdict\n" +
+    "## Not fixture-validated (verdict still pass, but no live gate)\n" +
+    "\n" +
+    uncoveredList +
+    "\n" +
+    "\n" +
+    "## CI fixtures backing the fixture-backed list\n" +
     "\n" +
     fixtureList +
     "\n" +
@@ -250,8 +276,13 @@ function buildAutoPopulatedReport({
     "- The fixture matrix runs `mvn -B test` against each module,\n" +
     "  picking up `io.github.demchaav:graph-compose:1.6.6` from Maven\n" +
     "  Central. A failing fixture would block the merge that produced\n" +
-    "  this revision, so by induction this verdict is honest as long\n" +
-    "  as the run is reproducible from main.\n" +
+    "  this revision, so by induction the fixture-backed list is\n" +
+    "  honest as long as the run is reproducible from main.\n" +
+    "- The \"Not fixture-validated\" list documents the honest gap.\n" +
+    "  Authoring a fixture for those skills would tighten the gate.\n" +
+    "  Until then the report is `partial: true` and a downstream agent\n" +
+    "  may decide to require an agent-driven Skill Validator pass\n" +
+    "  before approving anything that depends on those skills.\n" +
     "- An agent-driven Skill Validator pass would write a richer\n" +
     "  report and could surface per-skill drift the fixture matrix\n" +
     "  does not catch. This auto-populated path is the floor, not the\n" +
@@ -259,6 +290,43 @@ function buildAutoPopulatedReport({
     "\n" +
     "verdict: pass\n"
   );
+}
+
+function readFixtureCoverageFromChecklist(repoRoot) {
+  const checklistPath = path.join(
+    repoRoot,
+    "validation",
+    "api-compatibility-checklist.md",
+  );
+  if (!fs.existsSync(checklistPath)) return new Map();
+  const text = fs.readFileSync(checklistPath, "utf8");
+  const lines = text.split(/\r?\n/);
+  const coverage = new Map();
+  for (const raw of lines) {
+    // Skip header / separator rows; only data rows have `| skill-id | ... |`.
+    if (!raw.startsWith("|")) continue;
+    if (/^\|\s*-+\s*\|/.test(raw)) continue;
+    const cells = raw.split("|").slice(1, -1).map((c) => c.trim());
+    if (cells.length < 5) continue;
+    const skillId = cells[0];
+    const fixtureExists = cells[3]?.toLowerCase();
+    const fixtureExecuted = cells[4]?.toLowerCase();
+    if (!skillId || skillId === "skill id") continue;
+    const fixtureBacked =
+      fixtureExists === "yes" && fixtureExecuted.startsWith("yes");
+    coverage.set(skillId, fixtureBacked);
+  }
+  return coverage;
+}
+
+function splitSkillsByCoverage(skillIds, coverage) {
+  const covered = [];
+  const uncovered = [];
+  for (const id of skillIds) {
+    if (coverage.get(id) === true) covered.push(id);
+    else uncovered.push(id);
+  }
+  return { covered, uncovered };
 }
 
 function readFixtureMatrixFromCi(repoRoot) {
