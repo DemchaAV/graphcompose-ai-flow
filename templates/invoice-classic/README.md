@@ -17,13 +17,16 @@ page edge.
 | GraphCompose version | `1.6.6` (Maven Central: `io.github.demchaav:graph-compose:1.6.6`) |
 | Surface              | V1 classic — implements upstream `com.demcha.compose.document.templates.api.InvoiceTemplate` |
 | Render class         | [`InvoiceClassicTemplate`](src/InvoiceClassicTemplate.java) |
+| Spec class           | upstream `com.demcha.compose.document.templates.data.invoice.InvoiceDocumentSpec` |
+| Spec provider        | [`InvoiceClassicSpecProvider`](src/InvoiceClassicSpecProvider.java) — reads `invoice-data.json` |
+| Sample data          | [`data/invoice-data.example.json`](data/invoice-data.example.json) |
 | Theme                | Defaults to `BusinessTheme.modern()`; alternative theme via explicit-theme constructor |
 
-> **Note on V1 vs V2.** GraphCompose 1.6.6 ships V2 layered
-> architecture for `cv` and `coverletter` only. `invoice` and
-> `proposal` remain on the V1 classic surface upstream — this bundle
-> rides that surface and will track the V2 invoice stack when it lands
-> upstream.
+> **Note on surface generation.** GraphCompose 1.6.6 carries three
+> generations across the four canonical surfaces: V2 layered (`cv`,
+> `coverletter`), V2 single-preset (`proposal`), and V1 classic
+> (`invoice`). This bundle rides the V1 classic invoice surface and
+> will track a V2 invoice stack if/when one lands upstream.
 
 ## Preview
 
@@ -37,21 +40,26 @@ output as a vector PDF.
 
 ```
 templates/invoice-classic/
-├── README.md                 ← this file
-├── template.json             ← bundle metadata (id, source revision, version, fonts)
+├── README.md                       ← this file
+├── template.json                   ← bundle metadata (id, source revision, version, fonts, spec wiring)
+├── data/
+│   └── invoice-data.example.json   ← sample data — copy to invoice-data.json, edit fields
 ├── src/
-│   └── InvoiceClassicTemplate.java
+│   ├── InvoiceClassicTemplate.java
+│   └── InvoiceClassicSpecProvider.java
 └── preview/
-    ├── output.pdf            ← committed render against sample InvoiceDocumentSpec
-    └── output.png            ← page-1 raster
+    ├── output.pdf                  ← committed render against the bundled sample data
+    └── output.png                  ← page-1 raster
 ```
 
 ## Copy into your own project
 
-1. Drop [`src/InvoiceClassicTemplate.java`](src/InvoiceClassicTemplate.java)
-   into your own `com.demcha.examples.invoice` package (or rename the
-   package — search-and-replace; nothing internal pins the name).
-2. Add the dependency to your `pom.xml`:
+1. Drop the two source files into your own
+   `com.demcha.examples.invoice` package (or rename the package —
+   search-and-replace; nothing internal pins the name):
+   - [`src/InvoiceClassicTemplate.java`](src/InvoiceClassicTemplate.java)
+   - [`src/InvoiceClassicSpecProvider.java`](src/InvoiceClassicSpecProvider.java)
+2. Add the dependencies to your `pom.xml`:
 
    ```xml
    <dependency>
@@ -59,21 +67,43 @@ templates/invoice-classic/
      <artifactId>graph-compose</artifactId>
      <version>1.6.6</version>
    </dependency>
+   <dependency>
+     <groupId>com.fasterxml.jackson.core</groupId>
+     <artifactId>jackson-databind</artifactId>
+     <version>2.17.2</version>
+   </dependency>
    ```
 
    (`com.github.DemchaAV:GraphCompose:vX.Y.Z` via JitPack still
    resolves for pre-1.6.6 pins — see the
-   [main README](../../README.md) for the fallback snippet.)
+   [main README](../../README.md) for the fallback snippet. Jackson
+   is only needed if you use the bundled provider — drive the
+   template by hand and you can skip it.)
 
-3. Build your own `InvoiceDocumentSpec` and render:
+3. Copy `data/invoice-data.example.json` into your own data folder,
+   rename to `invoice-data.json`, and edit the fields. The JSON
+   shape mirrors the upstream
+   [`InvoiceData`](https://javadoc.io/doc/io.github.demchaav/graph-compose/1.6.6/com/demcha/compose/document/templates/data/invoice/InvoiceData.html)
+   record verbatim — Jackson reads the record's canonical
+   constructor directly.
+
+4. Render through the bundled provider (driven by JVM property)
+   or hand-build the spec:
 
    ```java
+   // Option A — bundled provider (Jackson reads invoice-data.json)
+   System.setProperty("graphcompose.revision.dir", "./data");
+   InvoiceDocumentSpec spec = InvoiceClassicSpecProvider.create();
+
+   // Option B — hand-build the spec
+   InvoiceDocumentSpec spec = InvoiceDocumentSpec.builder()
+           .invoice(yourInvoiceData)
+           .build();
+
+   // Render — same call either way
    try (DocumentSession session = GraphCompose.document(outputPath)
            .pageSize(DocumentPageSize.A4)
            .create()) {
-       InvoiceDocumentSpec spec = InvoiceDocumentSpec.builder()
-               .invoice(yourInvoiceData)
-               .build();
        new InvoiceClassicTemplate().compose(session, spec);
        session.buildPdf();
    }
@@ -84,22 +114,29 @@ templates/invoice-classic/
    so any `InvoiceDocumentSpec` that drives `InvoiceTemplateV2` also
    drives this preset unchanged.
 
+5. Drive it from `tools/preview-renderer` (or any agent harness)
+   via `--spec-provider`:
+
+   ```text
+   preview-renderer render \
+     --revision ./data \
+     --template-class com.demcha.examples.invoice.InvoiceClassicTemplate \
+     --spec-provider  com.demcha.examples.invoice.InvoiceClassicSpecProvider
+   ```
+
 ## Polish backlog
 
-The bundle is a faithful copy of `revision-003`'s
-`generated-template.java`. Two next-step polishes a downstream user
-or the Template Publisher Agent could land:
+The bundle ships with a spec provider and JSON fixture; the next
+polish a downstream user or the Template Publisher Agent could land:
 
-- **Extract a per-bundle `InvoiceClassicSpec` and provider** so the
-  preview-renderer can drive this template through the standard
-  `--spec-provider <fqcn>` mechanism without building an
-  `InvoiceDocumentSpec` by hand. The upstream
-  `com.demcha.compose.document.templates.data.invoice.*` records are
-  reusable as-is; the wrapper is just convenience.
 - **Custom theme variant** (`InvoiceClassicTheme.navy()` / `.cream()`)
   layered on top of `BusinessTheme.modern()` so a downstream user
   swapping brand colours touches one named token instead of the whole
   `BusinessTheme.builder()` block.
+- **Optional per-bundle `InvoiceClassicSpec` record** that wraps
+  `InvoiceData` with bundle-specific defaults (e.g. footer note,
+  payment-term boilerplate). The upstream `InvoiceDocumentSpec`
+  already satisfies the canonical contract; this is convenience only.
 
 ## Source revision audit trail
 

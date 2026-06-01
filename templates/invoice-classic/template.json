@@ -5,8 +5,9 @@
   "sourceRevision": "revision-003",
   "sourceCommit": "209d5ea0bcba7e37a110b881d399d9e649426617",
   "className": "InvoiceClassicTemplate",
-  "specClass": null,
-  "specProviderClass": null,
+  "specClass": "com.demcha.compose.document.templates.data.invoice.InvoiceDocumentSpec",
+  "specProviderClass": "com.demcha.examples.invoice.InvoiceClassicSpecProvider",
+  "dataFile": "data/invoice-data.example.json",
   "docKind": "invoice",
   "schemaVersion": "1.0.0",
   "publishedAt": "2026-06-01T12:18:00.000Z",
@@ -40,6 +41,7 @@
     }
   ],
   "dependencies": {
-    "graphcompose": "1.6.6"
+    "graphcompose": "1.6.6",
+    "jackson": "2.17.2"
   }
 }

@@ -22,14 +22,24 @@ reconstructs the document with semantic GraphCompose primitives
 change creates a new revision; nothing is overwritten.
 
 **Document-kind contract.** The four canonical upstream surfaces
-are `cv`, `coverletter`, `invoice`, `proposal`. `cv` and
-`coverletter` are on the V2 layered architecture (data → theme →
-components → widgets → preset orchestrator); `invoice` and
-`proposal` are on the V1 classic surface for now. Any document kind
-outside the four still routes through this same pipeline because the
-14 skills, the 11 agents, and the tooling chain are all primitive-
-level and document-kind agnostic — only the published-bundle
-factory and the template surface tables in
+are `cv`, `coverletter`, `invoice`, `proposal`, with three distinct
+generations as of GraphCompose 1.6.6:
+
+- `cv` — V2 layered (data → theme → components → widgets → preset
+  orchestrator).
+- `coverletter` — V2 layered, pairs with a CV preset (shared
+  `CvIdentity` + `CvTheme`).
+- `proposal` — V2 single-preset (one preset class `ModernProposal`
+  over the flat `ProposalSpec`; new visual variants are new preset
+  classes that share the same spec, not a parallel layered stack).
+- `invoice` — V1 classic (one canonical `InvoiceTemplate` interface
+  built around `InvoiceDocumentSpec` / `InvoiceData`; presets are
+  alternative implementations of the same interface).
+
+Any document kind outside the four still routes through this same
+pipeline because the 14 skills, the 11 agents, and the tooling chain
+are all primitive-level and document-kind agnostic — only the
+published-bundle factory and the template surface tables in
 `prompts/architecture-mapper-agent.md` care about the kind.
 
 ## When the user gives you a request — entry-point dispatch

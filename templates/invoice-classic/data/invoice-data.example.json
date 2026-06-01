@@ -1,0 +1,51 @@
+{
+  "title": "Invoice",
+  "invoiceNumber": "INV-2026-0042",
+  "issueDate": "2026-05-12",
+  "dueDate": "2026-06-11",
+  "reference": "",
+  "status": "Pending",
+  "fromParty": {
+    "name": "Northwind Trading Co.",
+    "addressLines": [
+      "100 Market Way",
+      "Seattle, WA 98101",
+      "United States"
+    ],
+    "email": "invoices@northwind.example",
+    "phone": "+1 555 0143",
+    "taxId": ""
+  },
+  "billToParty": {
+    "name": "Acme Studio Ltd.",
+    "addressLines": [
+      "221B Baker Street",
+      "Marylebone, London",
+      "United Kingdom"
+    ],
+    "email": "billing@acme.example",
+    "phone": "",
+    "taxId": ""
+  },
+  "lineItems": [
+    { "description": "Strategy workshop (full day)",  "details": "", "quantity": "1", "unitPrice": "$ 1,800.00", "amount": "$ 1,800.00" },
+    { "description": "Brand audit report",            "details": "", "quantity": "1", "unitPrice": "$    900.00", "amount": "$    900.00" },
+    { "description": "UI prototype, two screens",     "details": "", "quantity": "2", "unitPrice": "$    600.00", "amount": "$ 1,200.00" },
+    { "description": "Print-ready handoff",           "details": "", "quantity": "1", "unitPrice": "$    420.00", "amount": "$    420.00" },
+    { "description": "Quarterly retainer (May 2026)", "details": "", "quantity": "1", "unitPrice": "$    500.00", "amount": "$    500.00" }
+  ],
+  "summaryRows": [
+    { "label": "Subtotal", "value": "$ 4,463.00", "emphasized": false },
+    { "label": "Tax (8%)", "value": "$   357.00", "emphasized": false },
+    { "label": "TOTAL",    "value": "$ 4,820.00", "emphasized": true  }
+  ],
+  "notes": [
+    "Please settle within 30 days of the issue date.",
+    "Wire transfers preferred."
+  ],
+  "paymentTerms": [
+    "IBAN: GB29 NWBK 6016 1331 9268 19",
+    "SWIFT: NWBKGB2L"
+  ],
+  "footerNote": "invoices@northwind.example | +1 555 0143"
+}

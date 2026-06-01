@@ -211,24 +211,30 @@ canonical template surfaces for the same document kinds. The
 Architecture Mapper MUST pick one explicitly and record it in
 `architecture-plan.md` under the `Target GraphCompose Version` block:
 
-| Surface | Package | Status | Pick it for |
+| Surface | Generation | Package | Pick it for |
 |---|---|---|---|
-| **V2 layered** *(Recommended)* | `com.demcha.compose.document.templates.cv.v2.presets.*`, `com.demcha.compose.document.templates.coverletter.v2.presets.*` | Recommended | **Brand-new** templates, especially CV and cover letter. Reuse v2 widgets/components/themes; the preset is a thin orchestrator (data → theme → components → widgets → preset). |
-| **V1 classic** | `com.demcha.compose.document.templates.cv.presets.*`, `com.demcha.compose.document.templates.coverletter.presets.*`, `com.demcha.compose.document.templates.invoice.presets.*`, `com.demcha.compose.document.templates.proposal.presets.*` | Supported | **Continuing an existing revision chain** whose `revision-001` shipped on V1 (preserves visual parity and avoids history-breaking diffs); or invoice/proposal templates where V2 has not landed yet. |
+| **V2 layered** *(Recommended)* | V2 — five layers | `com.demcha.compose.document.templates.cv.v2.presets.*`, `com.demcha.compose.document.templates.coverletter.v2.presets.*` | **Brand-new CV or cover-letter templates.** Reuse v2 widgets/components/themes; the preset is a thin orchestrator (data → theme → components → widgets → preset). |
+| **V2 single-preset** | V2 — flat | `com.demcha.compose.document.templates.proposal.presets.*` with `com.demcha.compose.document.templates.proposal.spec.ProposalSpec` | **Brand-new proposal templates.** Author a new preset class alongside `ModernProposal`; share the same `ProposalSpec` input. Do NOT introduce a parallel `proposal/v2/` layered stack — the surface is already current generation. |
+| **V1 classic** | V1 | `com.demcha.compose.document.templates.invoice.presets.*` (canonical `InvoiceTemplate` interface over `InvoiceDocumentSpec` / `InvoiceData`); legacy `cv.presets.*` and `coverletter.presets.*` | **Brand-new invoice templates** (V1 is the current invoice surface upstream — V2 invoice stack is not landed). **Continuing an existing CV / cover-letter revision chain** whose `revision-001` shipped on V1 — switching surfaces mid-chain breaks `visual-diff` parity and the rollback story. |
 
 Rules:
 
-- **New template → default to V2 layered.** The v2 stack already ships
+- **New CV / cover letter → V2 layered.** Five-layer stack with
   parity-tested widgets (masthead, timeline axis, soft panel,
-  accent-left band, banded `pageBackgrounds`, `LetterBody`) that the
-  template-coder reuses instead of reinventing.
+  accent-left band, banded `pageBackgrounds`, `LetterBody`) the
+  Template Coder reuses instead of reinventing.
+- **New proposal → V2 single-preset.** New preset class in
+  `proposal.presets.*` sharing `ProposalSpec`. The proposal surface
+  is already V2 — do not author a `proposal/v2/` parallel package.
+- **New invoice → V1 classic.** Implement the canonical
+  `InvoiceTemplate` interface; render through `InvoiceDocumentSpec`.
+  The V2 invoice stack is not landed upstream as of 1.6.6 — flag this
+  in `Known Limitations` so a future migration has a clear
+  starting point.
 - **Existing revision chain → stick with whatever the prior revision
-  used.** Switching surfaces between revisions of the same template
-  breaks `visual-diff` parity scores and the rollback story. Migrate
-  only when the user explicitly asks for "rewrite on v2" and accept a
-  fresh parent line.
-- **Invoice / proposal → V1 classic** until the v2 stack reaches them
-  (tracked upstream). Document this in `Known Limitations`.
+  used.** Surface-shift between revisions of the same template breaks
+  visual-diff parity and rollback. Migrate only when the user
+  explicitly asks for "rewrite on v2" and accept a fresh parent line.
 
 When mapping document regions, the Component Mapping table MUST name
 the surface-specific primitives the template-coder will use (e.g.
