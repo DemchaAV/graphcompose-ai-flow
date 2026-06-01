@@ -1,0 +1,29 @@
+{
+  "id": "revision-009",
+  "parentRevisionId": "revision-008",
+  "status": "DRAFT",
+  "userRequest": "Swap the contact email from hello@email.com to rose.harris@studio.example across the CV.",
+  "scope": "data-only",
+  "targetGraphComposeVersion": "1.6.6",
+  "skillPack": "skills/versions/graphcompose-1.6",
+  "changedComponents": [
+    "Header.ContactStrip",
+    "PageTwoGrid.Main.References"
+  ],
+  "createdAt": "2026-06-01T18:30:00.000Z",
+  "artifacts": {
+    "userRequest": "user-request.md",
+    "orchestrationDecision": "orchestration-decision.md",
+    "data": "cv-data.json",
+    "template": "generated-template.java",
+    "assetRequest": "asset-request.json",
+    "assetsManifest": "assets-manifest.json",
+    "changedComponents": "changed-components.md",
+    "pdf": "output.pdf",
+    "preview": "output.png",
+    "previewPage2": "output-page-2.png",
+    "visualReview": "visual-review.md",
+    "status": "status.md"
+  },
+  "pendingArtifacts": []
+}
