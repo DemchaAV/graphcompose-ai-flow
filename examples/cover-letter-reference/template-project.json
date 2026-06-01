@@ -1,0 +1,14 @@
+{
+  "projectName": "cover-letter-reference",
+  "displayName": "Cover Letter Reference",
+  "tagline": "Scaffold project for the first cover-letter run through the GraphCompose AI Template Flow. Pairs with a CV preset via shared CvIdentity + CvTheme on the V2 layered surface (coverletter.v2).",
+  "referenceImage": "reference/reference.png",
+  "referenceDescription": "reference/PLACEHOLDER.md",
+  "targetGraphComposeVersion": "1.6.6",
+  "skillPack": "skills/versions/graphcompose-1.6",
+  "currentApprovedRevisionId": null,
+  "currentDraftRevisionId": null,
+  "createdAt": "2026-06-01T12:30:00.000Z",
+  "updatedAt": "2026-06-01T12:30:00.000Z",
+  "notes": "AWAITING_REFERENCE_IMAGE: reference/reference.png is intentionally absent — the orchestrator must NOT open revision-001 until the user drops a cover-letter screenshot into reference/. See reference/PLACEHOLDER.md for the kick-off gesture."
+}

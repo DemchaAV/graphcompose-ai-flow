@@ -1,7 +1,7 @@
 {
   "id": "revision-003",
   "parentRevisionId": "revision-002",
-  "status": "DRAFT",
+  "status": "APPROVED",
   "userRequest": "Add page margins so invoice content is not flush to the top-left edge.",
   "targetGraphComposeVersion": "1.6.0",
   "skillPack": "skills/versions/graphcompose-1.6",

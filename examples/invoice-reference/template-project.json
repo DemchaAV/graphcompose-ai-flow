@@ -4,9 +4,9 @@
   "referenceDescription": "reference/reference.md",
   "targetGraphComposeVersion": "1.6.0",
   "skillPack": "skills/versions/graphcompose-1.6",
-  "currentApprovedRevisionId": null,
-  "currentDraftRevisionId": "revision-003",
+  "currentApprovedRevisionId": "revision-003",
+  "currentDraftRevisionId": null,
   "createdAt": "2026-05-18T12:00:00Z",
-  "updatedAt": "2026-05-18T20:02:12.557Z",
+  "updatedAt": "2026-06-01T11:17:42.778Z",
   "notes": "Phase 3 example refreshed through the local render-runner. reference.png is not yet supplied; reference.md describes the reference textually. revision-001, revision-002, and revision-003 are DRAFT; nothing is APPROVED yet. output.pdf and output.png exist for all three revisions, but visual-diff still waits on a real reference image."
 }

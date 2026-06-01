@@ -1,0 +1,45 @@
+{
+  "id": "invoice-classic",
+  "displayName": "Invoice Classic",
+  "sourceProject": "invoice-reference",
+  "sourceRevision": "revision-003",
+  "sourceCommit": "209d5ea0bcba7e37a110b881d399d9e649426617",
+  "className": "InvoiceClassicTemplate",
+  "specClass": null,
+  "specProviderClass": null,
+  "docKind": "invoice",
+  "schemaVersion": "1.0.0",
+  "publishedAt": "2026-06-01T12:18:00.000Z",
+  "fonts": [
+    {
+      "role": "heading",
+      "family": "Inter",
+      "fontName": "INTER",
+      "source": "graphcompose-bundled",
+      "status": "ok",
+      "registration": "default-fonts",
+      "notes": "Provided by BusinessTheme.modern() — no manual registration."
+    },
+    {
+      "role": "body",
+      "family": "Inter",
+      "fontName": "INTER",
+      "source": "graphcompose-bundled",
+      "status": "ok",
+      "registration": "default-fonts",
+      "notes": "Provided by BusinessTheme.modern() — no manual registration."
+    },
+    {
+      "role": "fallback",
+      "family": "Helvetica",
+      "fontName": "HELVETICA",
+      "source": "standard14",
+      "status": "ok",
+      "registration": "standard14",
+      "notes": null
+    }
+  ],
+  "dependencies": {
+    "graphcompose": "1.6.6"
+  }
+}
