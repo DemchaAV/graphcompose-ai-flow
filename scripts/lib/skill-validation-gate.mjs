@@ -252,7 +252,7 @@ function buildAutoPopulatedReport({
     "commit, every fixture-backed skill has been re-validated.\n" +
     "\n" +
     "Fixture coverage is parsed from\n" +
-    "[validation/api-compatibility-checklist.md](../../../validation/api-compatibility-checklist.md)\n" +
+    "[validation/api-compatibility-checklist.md](../../../../validation/api-compatibility-checklist.md)\n" +
     "— rows whose `Fixture exists` AND `Fixture executed` columns\n" +
     "both start with `yes` are treated as fixture-backed.\n" +
     "\n" +

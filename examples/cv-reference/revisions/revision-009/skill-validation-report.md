@@ -16,7 +16,7 @@ coordinate on every push. If those jobs are green for this
 commit, every fixture-backed skill has been re-validated.
 
 Fixture coverage is parsed from
-[validation/api-compatibility-checklist.md](../../../validation/api-compatibility-checklist.md)
+[validation/api-compatibility-checklist.md](../../../../validation/api-compatibility-checklist.md)
 — rows whose `Fixture exists` AND `Fixture executed` columns
 both start with `yes` are treated as fixture-backed.
 
