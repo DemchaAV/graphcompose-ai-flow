@@ -165,14 +165,45 @@ by the Asset Resolver for asset-only):
   non-zero values are expected here (that is the user-requested
   change manifesting). Quote the metric per region in
   `visual-review.md` as evidence.
-- Run `magick compare -metric AE` on the page **with the affected
-  regions masked out** (`magick composite ... -compose copyopacity ...`
-  pipeline; the agent has a helper script under
-  `tools/visual-diff/scripts/mask-regions.mjs` once that lands).
-  This number MUST be `AE == 0`. Any non-zero remainder is a CRITICAL
+- Run a pixel diff on the page **with the affected regions masked
+  out**. Use the bundled helper
+  [`tools/visual-diff/bin/mask-regions.mjs`](../tools/visual-diff/bin/mask-regions.mjs)
+  to paint the affected rectangles in BOTH the parent and the child
+  PNG (same regions, same fill colour), then run the standard
+  `visual-diff` against the two masked outputs:
+
+  ```bash
+  # 1. Mask the parent
+  node tools/visual-diff/bin/mask-regions.mjs \
+    --input  examples/<project>/revisions/<parent>/output.png \
+    --output validation/diffs/<child>-parent-masked.png \
+    --regions '[{"x":..,"y":..,"w":..,"h":..,"label":"Footer"},...]'
+
+  # 2. Mask the child with the same region list
+  node tools/visual-diff/bin/mask-regions.mjs \
+    --input  examples/<project>/revisions/<child>/output.png \
+    --output validation/diffs/<child>-child-masked.png \
+    --regions '[{"x":..,"y":..,"w":..,"h":..,"label":"Footer"},...]'
+
+  # 3. Diff the two masked PNGs; AE on the masked regions is 0 by
+  #    construction, so any non-zero AE here is a leak.
+  node tools/visual-diff/bin/visual-diff.mjs \
+    validation/diffs/<child>-parent-masked.png \
+    validation/diffs/<child>-child-masked.png \
+    --out validation/diffs/<child>-masked-diff.png --json
+  ```
+
+  This number MUST report `parityScore: 100` (zero mismatch pixels)
+  on the masked-region pages. Any non-zero remainder is a CRITICAL
   mismatch — a non-data field leaked into the render path, or an
   unrelated asset was swapped. Recommend `REVISE` with the leak
   region named explicitly.
+
+  `keep-only` mode (`--mode keep-only`) is the dual: it isolates the
+  affected regions for a focused diff that quantifies the intended
+  change. Useful when the user gesture says "make sure the email
+  swap happened" — `mask-regions --mode keep-only` followed by a
+  visual diff against the parent shows the change in isolation.
 
 If the affected-region bounding boxes are not yet recorded in the
 project (V1 classic surfaces, hand-built CV-style templates without

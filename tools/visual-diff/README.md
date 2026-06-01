@@ -38,6 +38,33 @@ Options:
 The two PNGs must share the same dimensions; the CLI exits non-zero
 with a clear message if not.
 
+## mask-regions
+
+Companion CLI for region-aware diffs (used by the Visual Review
+Agent on `data-only` and `asset-only` revisions per
+[`prompts/visual-review-agent.md`](../../prompts/visual-review-agent.md)
+§ "Region-aware variant"). Paints rectangular regions with a solid
+colour (`--mode mask-out`, default) or paints everything outside the
+regions (`--mode keep-only`). Pure pngjs — no ImageMagick / Sharp
+dependency.
+
+```bash
+node bin/mask-regions.mjs \
+  --input  examples/<project>/revisions/<id>/output.png \
+  --output validation/diffs/<id>-masked.png \
+  --regions '[{"x":0,"y":0,"w":600,"h":100,"label":"Header"}]' \
+  [--mode mask-out|keep-only] \
+  [--color white|black|transparent|#RRGGBB|#RRGGBBAA] \
+  [--regions-file path/to/regions.json] \
+  [--json]
+```
+
+Typical Visual Review pipeline: mask the same regions in both the
+parent and the child PNG, then run `visual-diff` on the two masked
+outputs. In `mask-out` mode, the affected regions become byte-
+identical in both files, so any remaining mismatch is a leak into
+a region the user did NOT ask to change.
+
 ## Score formula
 
 ```text
