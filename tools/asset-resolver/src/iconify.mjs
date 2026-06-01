@@ -100,9 +100,11 @@ function rasterizeSvgWithImageMagick(svgBytes, size) {
     const args = [
       "svg:-",
       "-background", "none",
+      "-alpha", "on",
       "-resize", `${size}x${size}`,
+      "-transparent", "white",
       "-depth", "8",
-      "png:-",
+      "png32:-",
     ];
     let stdout = Buffer.alloc(0);
     let stderr = "";

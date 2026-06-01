@@ -104,6 +104,7 @@ clearly comes from a different family.
 ## Forbidden behavior
 
 - Do not run when `skill-validation-report.md` ends with `verdict: halt`. The orchestrator must route the user gesture back to "review skill-fix-report.md" instead of opening the resolver. See `prompts/skill-validator-agent.md` § "Downstream halt contract".
+- Do not bypass the icon download cache. Every Iconify HTTP call goes through `tools/asset-resolver/src/icon-cache.mjs` — repeated `(prefix, name, size, color)` tuples must read from `tools/asset-resolver/.cache/icons/` instead of hitting the network. The cache is transparent to the rest of the chain; bypassing it is a perf regression that masks itself as success.
 - Do not bypass the manifest. Template Coder reads `assets-manifest.json`
   for every icon path and font registration — if the manifest is wrong
   or incomplete, the template will fail at render time.

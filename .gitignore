@@ -57,3 +57,9 @@ docs/private/
 # on demand.
 tools/skill-validation-cache/.cache/
 
+# Local asset-resolver icon cache. PNGs downloaded from iconify are
+# byte-identical across machines for the same (prefix, name, size,
+# color) tuple, so caching them locally just avoids the HTTP roundtrip;
+# CI rebuilds the cache on demand.
+tools/asset-resolver/.cache/
+

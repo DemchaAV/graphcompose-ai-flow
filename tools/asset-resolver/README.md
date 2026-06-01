@@ -106,6 +106,40 @@ decides how big each icon renders.
 PNGs are downloaded from `api.iconify.design/<prefix>/<name>.png` with
 the requested `height` and `color`.
 
+## Icon download cache (perf)
+
+Every icon download goes through
+[`src/icon-cache.mjs`](src/icon-cache.mjs) — a content-addressed
+cache keyed on `sha256(prefix, name, size, color)`. The four-tuple
+is what determines the bytes Iconify returns, so same key = same
+PNG = the HTTP roundtrip is skipped on the second-and-after runs.
+
+Cache layout:
+
+```text
+tools/asset-resolver/.cache/icons/<sha256>.png
+```
+
+The cache is fully transparent to the CLI: the existing
+`asset-resolver` entry point still produces an identical
+`assets-manifest.json` and identical PNG bytes under
+`<revision>/assets/icons/`. The only visible difference is in the
+log:
+
+```text
+[asset-resolver] cache HIT mdi:phone -> 71851a6ed98d
+[asset-resolver] cache MISS mdi:email -> a4f0b91ce... (downloading)
+```
+
+Cache lifetime: per-machine, regenerable. Gitignored under
+`tools/asset-resolver/.cache/`. CI rebuilds on first run of a fresh
+runner.
+
+Effect: on a typical revision chain (`cv-reference` has 8 revisions
+each requesting ~9 icons), the 1st revision downloads 9 PNGs and
+later revisions with unchanged `asset-request.json` icons get all 9
+from cache. A pure `data-only` revision pays zero seconds in HTTP.
+
 ## Playwright fallback (optional)
 
 If an icon request includes `"visual": true` and the CLI is invoked

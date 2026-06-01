@@ -21,7 +21,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { readAssetRequest } from "./plan-reader.mjs";
-import { pickIcon, downloadIconPng, formatIconRef } from "./iconify.mjs";
+import { pickIcon, formatIconRef } from "./iconify.mjs";
+import { cachedDownloadIconPng } from "./icon-cache.mjs";
 import { resolveFontRole } from "./google-fonts.mjs";
 import { visualSelectIcon } from "./playwright-fallback.mjs";
 
@@ -83,10 +84,10 @@ async function resolveIcons(iconRequests, iconsDir, useVisual, log) {
       ? { ...iconRequest, iconSet: visualHint }
       : iconRequest;
     const choice = await pickIcon(lookupRequest);
-    const png = await downloadIconPng(choice.prefix, choice.name, {
+    const png = await cachedDownloadIconPng(choice.prefix, choice.name, {
       size: iconRequest.size,
       color: iconRequest.color,
-    });
+    }, { log: (line) => log(line) });
     const fileName = `${iconRequest.token}.png`;
     const filePath = path.join(iconsDir, fileName);
     await fs.writeFile(filePath, png);

@@ -11,6 +11,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "lint": "node --check src/cli.mjs && node --check src/iconify.mjs && node --check src/google-fonts.mjs && node --check src/playwright-fallback.mjs && node --check src/plan-reader.mjs"
+    "lint": "node --check src/cli.mjs && node --check src/iconify.mjs && node --check src/google-fonts.mjs && node --check src/playwright-fallback.mjs && node --check src/plan-reader.mjs && node --check src/icon-cache.mjs",
+    "test": "node test/icon-cache.smoke.mjs"
   }
 }

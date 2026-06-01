@@ -148,6 +148,20 @@ jobs:
           node-version: '20'
       - run: npm test
 
+  asset-resolver-cache:
+    name: asset-resolver icon cache (Node 20)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/asset-resolver
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm run lint
+      - run: npm test
+
   schema-validation:
     name: JSON Schema validation
     runs-on: ubuntu-latest
