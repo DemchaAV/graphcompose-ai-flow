@@ -13,6 +13,12 @@
   "dataSchema": "revisions/revision-006/data-schema.md",
   "specClass": "com.demcha.examples.cv.MintEditorialCvSpec",
   "specProviderClass": "com.demcha.examples.cv.MintEditorialCvSpecProvider",
+  "docKind": "cv",
+  "render": {
+    "templateClass": "com.demcha.examples.cv.GeneratedCvTemplate",
+    "dataFileName": "cv-data.json",
+    "pages": 2
+  },
   "createdAt": "2026-05-18T20:46:39.532Z",
   "updatedAt": "2026-06-01T17:55:46.248Z",
   "notes": "Two-page CV reference created from supplied screenshots. reference.png points to page 1 for compatibility; reference-page-1.png and reference-page-2.png preserve both source pages. revision-003 is the first revision wired into the documented asset flow. revision-004 closes page-2 reference-parity gaps: Expertise badge swapped to mdi:check-circle-outline at 38pt, social icons swapped to entypo-social:*-with-circle at 13pt, Awards and References rebuilt as real two-column TableBuilder grids; per-icon point sizes now flow through asset-request.json -> assets-manifest.json."

@@ -1,191 +1,21 @@
 #!/usr/bin/env node
+/**
+ * Backward-compat shim for `scripts/render.mjs cv-reference [revisionId]`.
+ *
+ * Older docs and Makefiles call this path directly; new callers should
+ * use `node scripts/render.mjs cv-reference <revision>` (or any project
+ * id with a `render` block in its template-project.json). This shim
+ * stays for source compatibility and forwards every argument.
+ */
 
-import { spawnSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { ensureSkillValidationVerdict } from "./lib/skill-validation-gate.mjs";
+import { runRender } from "./lib/render-runtime.mjs";
 
-const scriptPath = fileURLToPath(import.meta.url);
-const repoRoot = path.resolve(path.dirname(scriptPath), "..");
-
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const revisionId = parseRevisionId(process.argv.slice(2));
-const cvDir = path.join(repoRoot, "examples", "cv-reference");
-const revisionDir = path.join(cvDir, "revisions", revisionId);
-const runnerDir = path.join(cvDir, "render-runner");
-const previewRendererDir = path.join(repoRoot, "tools", "preview-renderer");
-const assetResolverCli = path.join(repoRoot, "tools", "asset-resolver", "src", "cli.mjs");
-const assetRequestFile = path.join(revisionDir, "asset-request.json");
-const runnerPom = path.join(runnerDir, "pom.xml");
-const previewRendererPom = path.join(previewRendererDir, "pom.xml");
-const previewRendererJar = path.join(previewRendererDir, "target", "preview-renderer.jar");
-const classpathFile = path.join(runnerDir, "target", "runtime-classpath.txt");
-const renderClasspathFile = path.join(runnerDir, "target", `${revisionId}-render-classpath.txt`);
-const outputPdf = path.join(revisionDir, "output.pdf");
-const pageTwoPreview = path.join(revisionDir, "output-page-2.png");
-
-if (!fs.existsSync(revisionDir)) {
-  console.error(`revision not found: ${revisionDir}`);
-  process.exit(2);
-}
-
-const templateProjectFile = path.join(cvDir, "template-project.json");
-const templateProject = fs.existsSync(templateProjectFile)
-  ? JSON.parse(fs.readFileSync(templateProjectFile, "utf8"))
-  : {};
-ensureSkillValidationVerdict({ repoRoot, revisionDir, project: templateProject });
-
-// Read the revision's scope so we can short-circuit agents the data-
-// only / asset-only contracts skip (per prompts/orchestrator-agent.md
-// § "Revision scope"). RENDER_NO_SKIP=1 forces the full pipeline for
-// troubleshooting.
-const revisionJsonFile = path.join(revisionDir, "revision.json");
-const revisionJson = fs.existsSync(revisionJsonFile)
-  ? JSON.parse(fs.readFileSync(revisionJsonFile, "utf8"))
-  : {};
-const scope = revisionJson.scope ?? null;
-const forceFullPipeline = process.env.RENDER_NO_SKIP === "1";
-
-const skipAssetResolver =
-  !forceFullPipeline &&
-  scope === "data-only" &&
-  fs.existsSync(path.join(revisionDir, "assets-manifest.json")) &&
-  fs.existsSync(path.join(revisionDir, "assets", "icons"));
-
-const cachedClasses = path.join(runnerDir, "target", "classes");
-const skipMavenPackage =
-  !forceFullPipeline &&
-  (scope === "data-only" || scope === "asset-only") &&
-  fs.existsSync(cachedClasses) &&
-  fs.existsSync(previewRendererJar);
-
-if (skipAssetResolver) {
-  console.log(`> asset-resolver skipped (scope=data-only; manifest + icons inherited)`);
-} else if (fs.existsSync(assetRequestFile)) {
-  console.log(`> asset-resolver --revision ${revisionDir}`);
-  run("node", [assetResolverCli, "--revision", revisionDir], repoRoot);
-} else {
-  console.log(`> asset-resolver skipped (no ${path.relative(repoRoot, assetRequestFile)})`);
-}
-
-if (skipMavenPackage) {
-  console.log(`> mvn package skipped (scope=${scope}; runner target/classes + preview-renderer.jar reused)`);
-} else {
-  runMaven(["-q", "-B", "-f", previewRendererPom, "-DskipTests=true", "package"], repoRoot);
-  runMaven(["-q", "-B", "-f", runnerPom, `-Drevision.id=${revisionId}`, "-DskipTests=true", "package"], repoRoot);
-}
-runMaven([
-  "-q",
-  "-B",
-  "-f",
-  runnerPom,
-  `-Drevision.id=${revisionId}`,
-  "dependency:build-classpath",
-  "-Dmdep.outputFile=target/runtime-classpath.txt",
-], repoRoot);
-
-const dependencyClasspath = fs.existsSync(classpathFile)
-  ? fs.readFileSync(classpathFile, "utf8").trim()
-  : "";
-const classpath = [
-  path.join(runnerDir, "target", "classes"),
-  dependencyClasspath,
-].filter(Boolean).join(path.delimiter);
-fs.writeFileSync(renderClasspathFile, classpath, "utf8");
-
-const cvDataFile = path.join(revisionDir, "cv-data.json");
-const specProviderArgs = fs.existsSync(cvDataFile)
-  ? ["--spec-provider", "com.demcha.examples.cv.MintEditorialCvSpecProvider"]
-  : [];
-if (specProviderArgs.length > 0) {
-  console.log(`> using spec-provider for ${path.relative(repoRoot, cvDataFile)}`);
-} else {
-  console.log(`> spec-provider skipped (no ${path.relative(repoRoot, cvDataFile)})`);
-}
-
-// Render pass 1: clean PDF + previews (what the published bundle ships).
-run("java", [
-  `-Dgraphcompose.revision.dir=${revisionDir}`,
-  "-jar",
-  previewRendererJar,
-  "render",
-  "--revision",
-  revisionDir,
-  "--template-class",
-  "com.demcha.examples.cv.GeneratedCvTemplate",
-  ...specProviderArgs,
-  "--classpath-file",
-  renderClasspathFile,
-  "--output",
-  "output.pdf",
-  "--preview",
-  "output.png",
-  "--dpi",
-  "150",
-  "--page",
-  "0",
-], repoRoot);
-
-run("java", [
-  "-jar",
-  previewRendererJar,
-  "preview",
-  "--pdf",
-  outputPdf,
-  "--out",
-  pageTwoPreview,
-  "--dpi",
-  "150",
-  "--page",
-  "1",
-], repoRoot);
-
-// Render pass 2: debug PDF with GraphCompose guide-line overlays.
-// Same revision dir, same spec, same assets — only the convenience PDF
-// gains the overlay. The layout snapshot and clean PDF are unchanged.
-const debugPdf = path.join(revisionDir, "output-debug.pdf");
-const debugPagePreview = path.join(revisionDir, "output-debug.png");
-const debugPageTwoPreview = path.join(revisionDir, "output-debug-page-2.png");
-
-console.log("> rendering debug pass with --guide-lines");
-run("java", [
-  `-Dgraphcompose.revision.dir=${revisionDir}`,
-  "-jar",
-  previewRendererJar,
-  "render",
-  "--revision",
-  revisionDir,
-  "--template-class",
-  "com.demcha.examples.cv.GeneratedCvTemplate",
-  ...specProviderArgs,
-  "--classpath-file",
-  renderClasspathFile,
-  "--output",
-  "output-debug.pdf",
-  "--preview",
-  "output-debug.png",
-  "--dpi",
-  "150",
-  "--page",
-  "0",
-  "--guide-lines",
-  "true",
-], repoRoot);
-
-run("java", [
-  "-jar",
-  previewRendererJar,
-  "preview",
-  "--pdf",
-  debugPdf,
-  "--out",
-  debugPageTwoPreview,
-  "--dpi",
-  "150",
-  "--page",
-  "1",
-], repoRoot);
+runRender({ repoRoot, projectId: "cv-reference", revisionId });
 
 function parseRevisionId(args) {
   let revision = "revision-002";
@@ -196,37 +26,7 @@ function parseRevisionId(args) {
       i += 1;
       continue;
     }
-    if (!arg.startsWith("--")) {
-      revision = arg;
-    }
+    if (!arg.startsWith("--")) revision = arg;
   }
   return revision;
-}
-
-function runMaven(args, cwd) {
-  if (process.platform === "win32") {
-    run("cmd.exe", ["/d", "/s", "/c", "mvn", ...args], cwd);
-    return;
-  }
-  run("mvn", args, cwd);
-}
-
-function run(command, args, cwd) {
-  console.log(`> ${command} ${args.map(quoteArg).join(" ")}`);
-  const result = spawnSync(command, args, {
-    cwd,
-    stdio: "inherit",
-    shell: false,
-  });
-  if (result.error) {
-    console.error(result.error.message);
-    process.exit(1);
-  }
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1);
-  }
-}
-
-function quoteArg(arg) {
-  return /\s/.test(arg) ? `"${arg}"` : arg;
 }

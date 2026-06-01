@@ -1,0 +1,365 @@
+/**
+ * Project-agnostic render runtime for the GraphCompose AI Template Flow.
+ *
+ * Reads template-project.json + revision.json, runs the same end-to-end
+ * pipeline every reference example used to duplicate by hand:
+ *
+ *   1. Skill validation gate (cache lookup → revision/skill-validation-report.md).
+ *   2. Asset resolver (when revision/asset-request.json exists; skipped on
+ *      data-only revisions whose manifest + icons inherited from parent).
+ *   3. `mvn -q package` for the preview-renderer + the per-project
+ *      render-runner module (skipped on data-only / asset-only revisions
+ *      when target/classes + preview-renderer.jar already exist).
+ *   4. `mvn dependency:build-classpath` to materialise the runner's
+ *      transitive runtime classpath.
+ *   5. Two render passes via tools/preview-renderer: clean PDF +
+ *      output.png, then debug PDF (`--guide-lines true`) +
+ *      output-debug.png.
+ *   6. Page rasterisation for every extra page declared in the project's
+ *      `render.pages` field (page 2 of a two-page CV, etc.).
+ *
+ * The runtime knows nothing about CV vs invoice vs proposal vs
+ * cover-letter. All doc-kind-specific choices live in
+ * template-project.json's `render` block.
+ *
+ * Required fields under `template-project.json.render`:
+ *   - templateClass       — fully-qualified Java class the runner instantiates
+ *
+ * Optional fields with safe defaults:
+ *   - specProviderClass   — falls back to template-project.json.specProviderClass
+ *   - dataFileName        — defaults to "<docKind>-data.json"
+ *   - pages               — defaults to 1 (only output.png is written)
+ *   - runnerPomRelPath    — defaults to "render-runner/pom.xml"
+ *   - debugPass           — defaults to true
+ *   - assetResolverEnabled — defaults to true (and only fires when
+ *                            asset-request.json actually exists in the
+ *                            revision folder)
+ *
+ * RENDER_NO_SKIP=1 forces the full pipeline regardless of scope.
+ */
+
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+
+import { ensureSkillValidationVerdict } from "./skill-validation-gate.mjs";
+
+export function runRender({ repoRoot, projectId, revisionId }) {
+  const projectDir = path.join(repoRoot, "examples", projectId);
+  const templateProjectPath = path.join(projectDir, "template-project.json");
+  if (!fs.existsSync(templateProjectPath)) {
+    abort(`template-project.json not found: ${templateProjectPath}`);
+  }
+  const templateProject = JSON.parse(
+    fs.readFileSync(templateProjectPath, "utf8"),
+  );
+
+  const revisionDir = path.join(projectDir, "revisions", revisionId);
+  if (!fs.existsSync(revisionDir)) {
+    abort(`revision not found: ${revisionDir}`);
+  }
+
+  const renderConfig = templateProject.render || {};
+  const templateClass = renderConfig.templateClass;
+  if (!templateClass) {
+    abort(
+      `template-project.json.render.templateClass is required (project: ${projectId}). ` +
+        `Add a "render" block; see scripts/lib/render-runtime.mjs for the contract.`,
+    );
+  }
+
+  const docKind = templateProject.docKind || "doc";
+  const dataFileName = renderConfig.dataFileName || `${docKind}-data.json`;
+  const specProviderClass =
+    renderConfig.specProviderClass || templateProject.specProviderClass || null;
+  const pages = Math.max(1, Number(renderConfig.pages) || 1);
+  const debugPass = renderConfig.debugPass !== false;
+  const runnerPomRelPath =
+    renderConfig.runnerPomRelPath || "render-runner/pom.xml";
+  const runnerPom = path.join(projectDir, runnerPomRelPath);
+  const runnerDir = path.dirname(runnerPom);
+  const assetResolverEnabled = renderConfig.assetResolverEnabled !== false;
+
+  const previewRendererDir = path.join(repoRoot, "tools", "preview-renderer");
+  const previewRendererPom = path.join(previewRendererDir, "pom.xml");
+  const previewRendererJar = path.join(
+    previewRendererDir,
+    "target",
+    "preview-renderer.jar",
+  );
+  const assetResolverCli = path.join(
+    repoRoot,
+    "tools",
+    "asset-resolver",
+    "src",
+    "cli.mjs",
+  );
+
+  const assetRequestFile = path.join(revisionDir, "asset-request.json");
+  const classpathFile = path.join(
+    runnerDir,
+    "target",
+    "runtime-classpath.txt",
+  );
+  const renderClasspathFile = path.join(
+    runnerDir,
+    "target",
+    `${revisionId}-render-classpath.txt`,
+  );
+  const outputPdf = path.join(revisionDir, "output.pdf");
+  const debugPdf = path.join(revisionDir, "output-debug.pdf");
+  const dataFile = path.join(revisionDir, dataFileName);
+
+  // 1. Skill validation gate
+  ensureSkillValidationVerdict({
+    repoRoot,
+    revisionDir,
+    project: templateProject,
+  });
+
+  // 2-3. Short-circuit decisions (per orchestrator scope contract)
+  const revisionJsonFile = path.join(revisionDir, "revision.json");
+  const revisionJson = fs.existsSync(revisionJsonFile)
+    ? JSON.parse(fs.readFileSync(revisionJsonFile, "utf8"))
+    : {};
+  const scope = revisionJson.scope ?? null;
+  const forceFullPipeline = process.env.RENDER_NO_SKIP === "1";
+
+  const skipAssetResolver =
+    !forceFullPipeline &&
+    scope === "data-only" &&
+    fs.existsSync(path.join(revisionDir, "assets-manifest.json")) &&
+    fs.existsSync(path.join(revisionDir, "assets", "icons"));
+
+  const cachedClasses = path.join(runnerDir, "target", "classes");
+  const skipMavenPackage =
+    !forceFullPipeline &&
+    (scope === "data-only" || scope === "asset-only") &&
+    fs.existsSync(cachedClasses) &&
+    fs.existsSync(previewRendererJar);
+
+  // 2. Asset resolver
+  if (!assetResolverEnabled) {
+    console.log(`> asset-resolver disabled by project config`);
+  } else if (skipAssetResolver) {
+    console.log(
+      `> asset-resolver skipped (scope=data-only; manifest + icons inherited)`,
+    );
+  } else if (fs.existsSync(assetRequestFile)) {
+    console.log(`> asset-resolver --revision ${revisionDir}`);
+    run("node", [assetResolverCli, "--revision", revisionDir], repoRoot);
+  } else {
+    console.log(
+      `> asset-resolver skipped (no ${path.relative(repoRoot, assetRequestFile)})`,
+    );
+  }
+
+  // 3. mvn package
+  if (skipMavenPackage) {
+    console.log(
+      `> mvn package skipped (scope=${scope}; runner target/classes + preview-renderer.jar reused)`,
+    );
+  } else {
+    runMaven(
+      ["-q", "-B", "-f", previewRendererPom, "-DskipTests=true", "package"],
+      repoRoot,
+    );
+    runMaven(
+      [
+        "-q",
+        "-B",
+        "-f",
+        runnerPom,
+        `-Drevision.id=${revisionId}`,
+        "-DskipTests=true",
+        "package",
+      ],
+      repoRoot,
+    );
+  }
+
+  // 4. classpath build
+  runMaven(
+    [
+      "-q",
+      "-B",
+      "-f",
+      runnerPom,
+      `-Drevision.id=${revisionId}`,
+      "dependency:build-classpath",
+      "-Dmdep.outputFile=target/runtime-classpath.txt",
+    ],
+    repoRoot,
+  );
+  const dependencyClasspath = fs.existsSync(classpathFile)
+    ? fs.readFileSync(classpathFile, "utf8").trim()
+    : "";
+  const classpath = [
+    path.join(runnerDir, "target", "classes"),
+    dependencyClasspath,
+  ]
+    .filter(Boolean)
+    .join(path.delimiter);
+  fs.writeFileSync(renderClasspathFile, classpath, "utf8");
+
+  // Spec provider only when the revision actually ships a data file
+  const specProviderArgs =
+    specProviderClass && fs.existsSync(dataFile)
+      ? ["--spec-provider", specProviderClass]
+      : [];
+  if (specProviderArgs.length > 0) {
+    console.log(
+      `> using spec-provider for ${path.relative(repoRoot, dataFile)}`,
+    );
+  } else if (specProviderClass) {
+    console.log(
+      `> spec-provider skipped (no ${path.relative(repoRoot, dataFile)})`,
+    );
+  } else {
+    console.log(`> spec-provider skipped (project has none)`);
+  }
+
+  // 5. Render pass 1 — clean PDF + output.png
+  runJava(
+    [
+      `-Dgraphcompose.revision.dir=${revisionDir}`,
+      "-jar",
+      previewRendererJar,
+      "render",
+      "--revision",
+      revisionDir,
+      "--template-class",
+      templateClass,
+      ...specProviderArgs,
+      "--classpath-file",
+      renderClasspathFile,
+      "--output",
+      "output.pdf",
+      "--preview",
+      "output.png",
+      "--dpi",
+      "150",
+      "--page",
+      "0",
+    ],
+    repoRoot,
+  );
+
+  // 6. Extra-page rasterisation
+  for (let pageIdx = 1; pageIdx < pages; pageIdx += 1) {
+    const previewOut = path.join(
+      revisionDir,
+      `output-page-${pageIdx + 1}.png`,
+    );
+    runJava(
+      [
+        "-jar",
+        previewRendererJar,
+        "preview",
+        "--pdf",
+        outputPdf,
+        "--out",
+        previewOut,
+        "--dpi",
+        "150",
+        "--page",
+        String(pageIdx),
+      ],
+      repoRoot,
+    );
+  }
+
+  if (!debugPass) {
+    console.log(`> debug pass skipped by project config`);
+    return;
+  }
+
+  // 7. Render pass 2 — debug PDF + output-debug.png
+  console.log("> rendering debug pass with --guide-lines");
+  runJava(
+    [
+      `-Dgraphcompose.revision.dir=${revisionDir}`,
+      "-jar",
+      previewRendererJar,
+      "render",
+      "--revision",
+      revisionDir,
+      "--template-class",
+      templateClass,
+      ...specProviderArgs,
+      "--classpath-file",
+      renderClasspathFile,
+      "--output",
+      "output-debug.pdf",
+      "--preview",
+      "output-debug.png",
+      "--dpi",
+      "150",
+      "--page",
+      "0",
+      "--guide-lines",
+      "true",
+    ],
+    repoRoot,
+  );
+
+  for (let pageIdx = 1; pageIdx < pages; pageIdx += 1) {
+    const debugOut = path.join(
+      revisionDir,
+      `output-debug-page-${pageIdx + 1}.png`,
+    );
+    runJava(
+      [
+        "-jar",
+        previewRendererJar,
+        "preview",
+        "--pdf",
+        debugPdf,
+        "--out",
+        debugOut,
+        "--dpi",
+        "150",
+        "--page",
+        String(pageIdx),
+      ],
+      repoRoot,
+    );
+  }
+}
+
+function runMaven(args, cwd) {
+  if (process.platform === "win32") {
+    run("cmd.exe", ["/d", "/s", "/c", "mvn", ...args], cwd);
+    return;
+  }
+  run("mvn", args, cwd);
+}
+
+function runJava(args, cwd) {
+  run("java", args, cwd);
+}
+
+function run(command, args, cwd) {
+  console.log(`> ${command} ${args.map(quoteArg).join(" ")}`);
+  const result = spawnSync(command, args, {
+    cwd,
+    stdio: "inherit",
+    shell: false,
+  });
+  if (result.error) {
+    console.error(result.error.message);
+    process.exit(1);
+  }
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+}
+
+function quoteArg(arg) {
+  return /\s/.test(arg) ? `"${arg}"` : arg;
+}
+
+function abort(message) {
+  console.error(`[render-runtime] ${message}`);
+  process.exit(2);
+}

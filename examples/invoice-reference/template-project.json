@@ -9,5 +9,11 @@
   "createdAt": "2026-05-18T12:00:00Z",
   "updatedAt": "2026-06-01T11:17:42.778Z",
   "previouslyApprovedRevisionId": null,
+  "docKind": "invoice",
+  "render": {
+    "templateClass": "com.demcha.examples.invoice.GeneratedInvoiceTemplate",
+    "pages": 1,
+    "assetResolverEnabled": false
+  },
   "notes": "Phase 3 example refreshed through the local render-runner. reference.png is not yet supplied; reference.md describes the reference textually. revision-001 and revision-002 are DRAFT; revision-003 was APPROVED on 2026-06-01 via tools/revision-manager and became the source revision for templates/invoice-classic/. output.pdf and output.png exist for all three revisions; visual-diff still waits on a real reference image to land in reference/. The targetGraphComposeVersion was flipped from 1.6.0 to 1.6.6 in the Maven Central migration; the canonical coordinate is io.github.demchaav:graph-compose:1.6.6."
 }
