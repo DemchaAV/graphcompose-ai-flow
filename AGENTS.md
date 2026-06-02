@@ -280,7 +280,7 @@ scripts/
 - [`docs/workflow.md`](docs/workflow.md) — step-by-step pipeline
   with artifact lifecycle.
 - [`examples/cv-reference/`](examples/cv-reference/) — the worked
-  example. revision-008 is the current APPROVED baseline. Reading
-  revisions 001 → 008 in order shows how a real iteration looks.
+  example. revision-009 is the current APPROVED baseline. Reading
+  revisions 001 → 009 in order shows how a real iteration looks.
 - [`templates/mint-editorial-cv/`](templates/mint-editorial-cv/) —
   the published bundle the cv-reference flow emits.

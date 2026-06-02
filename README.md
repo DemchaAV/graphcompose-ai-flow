@@ -27,7 +27,11 @@ and DSL primitives. Reference examples skew toward CV today because
 those were the first end-to-end runs — the pipeline itself is
 document-kind agnostic by design.
 
-![GraphCompose AI Template Flow — visual reference on the left, the 11-agent semantic GraphCompose mapping in the middle, the rendered template on the right](assets/readme/graphcompose-ai-flow.png)
+![GraphCompose AI Template Flow — v2 routing: the visual reference on the left, the Orchestrator scoping each change into the 11-agent chain with data-only / asset-only / theme-only / refactor-only / visual-change fast lanes (plus skill-validation and asset-resolver caches and region-aware pixel diffing) in the middle, and the published template bundle on the right](assets/readme/graphcompose-ai-flow.png)
+
+<video src="https://github.com/DemchaAV/graphcompose-ai-flow/raw/main/assets/readme/graphcompose-ai-flow.mp4" controls muted loop playsinline width="100%"></video>
+
+> ▶️ **Animated walkthrough** (10 s) of the v2 routing flow. If the player doesn't render in your viewer (e.g. npm, IDE preview), [open the clip directly](assets/readme/graphcompose-ai-flow.mp4).
 
 ## What you can run now
 
@@ -153,12 +157,33 @@ roll back. On approval the publisher emits a polished bundle under
 
 ## Agent architecture
 
-Eleven agents form a strict chain: Orchestrator, Version + Skill Resolver,
+Eleven agents form the chain: Orchestrator, Version + Skill Resolver,
 Skill Validator, Visual Analyzer, Architecture Mapper, **Asset Resolver**
 (icons + fonts), Template Coder, Test + Render, Visual Review, Revision
 Manager, and **Template Publisher** (publish-quality bundles on APPROVE).
 Each agent has a fixed set of inputs, outputs, and forbidden behaviors. See
 [docs/agents.md](docs/agents.md) and [AGENTS.md](AGENTS.md).
+
+### v2 routing — the chain is not always linear
+
+Only the first generation from a reference runs all eleven agents.
+Every later edit is **scoped to a lane** by the Orchestrator and routes
+through just the agents whose region changed — this is the "v2 routing"
+the banner above diagrams:
+
+| Scope | Routes through | Parity gate |
+|---|---|---|
+| `data-only` — content JSON edit | Test + Render → Visual Review | region-aware AE; untouched regions `AE == 0` |
+| `asset-only` — icon/font swap | Asset Resolver → Test + Render → Visual Review | region-aware AE on asset regions |
+| `theme-only` — palette/spacing token | Template Coder (theme file) → Test + Render → Visual Review | layer-by-layer vs reference |
+| `refactor-only` — rename, dep upgrade | Template Coder → Test + Render → Visual Review | binary `AE == 0` vs parent |
+| `visual-change` — new layout / restyle | Visual Analyzer → Architecture Mapper → Asset Resolver → Template Coder → Test + Render → Visual Review | layer-by-layer vs reference |
+
+A `data-only` revision skips the Analyzer, Mapper, Asset Resolver, and
+Coder entirely — it just re-renders with the new JSON and diffs only the
+regions that read the changed fields. The full scope contract lives in
+[`prompts/orchestrator-agent.md`](prompts/orchestrator-agent.md) and
+[`prompts/visual-review-agent.md`](prompts/visual-review-agent.md).
 
 ## Data, assets, and published templates
 
@@ -209,7 +234,7 @@ A second worked reference under
 end-to-end for a two-page graphic-designer CV screenshot pair —
 asset-resolver-managed Iconify icons (`mdi:phone-outline`,
 `entypo-social:*-with-circle`, ...), bundled `Poppins`, data-driven
-content via [`cv-data.json`](examples/cv-reference/revisions/revision-006/cv-data.json),
+content via [`cv-data.json`](examples/cv-reference/revisions/revision-009/cv-data.json),
 clickable contact and social links, and references with `mailto:`
 hyperlinks. The approved baseline is published as
 [`templates/mint-editorial-cv/`](templates/mint-editorial-cv/), a
