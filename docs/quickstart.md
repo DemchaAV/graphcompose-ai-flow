@@ -45,7 +45,25 @@ validation.
 
 ## Install the Tooling
 
-From the repository root, install dependencies and build the local tools:
+From the repository root, run the setup script. It checks your toolchain
+(Node 20+, npm, Java 21+, Maven), installs and builds the local Node tools,
+and packages the Java preview renderer:
+
+```powershell
+.\setup.ps1
+```
+
+On macOS / Linux:
+
+```bash
+./setup.sh
+```
+
+Either is equivalent to `npm run setup`. To verify your toolchain without
+installing anything, run `npm run setup:check`.
+
+<details>
+<summary>What the script runs (manual equivalent)</summary>
 
 ```powershell
 cd tools\revision-manager
@@ -60,8 +78,9 @@ cd ..\preview-renderer
 mvn -q -B -DskipTests=true package
 
 cd ..\..
-node .github\scripts\repository-contract.mjs
 ```
+
+</details>
 
 > Setup is build-only. The tool test suites (`npm test` in each Node tool,
 > `mvn -q -B test` in preview-renderer) are for contributors, not required

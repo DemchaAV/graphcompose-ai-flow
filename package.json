@@ -1,0 +1,14 @@
+{
+  "name": "graphcompose-ai-flow",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local workflow kit that turns visual document references into maintainable GraphCompose Java templates.",
+  "type": "module",
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "setup:check": "node scripts/setup.mjs --check"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
