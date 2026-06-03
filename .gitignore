@@ -52,6 +52,13 @@ docs/private/
 /0
 /0\)
 
+# CLI-output / code-snippet accidents — a revision-manager subcommand name
+# (e.g. `approve`) or a Java code fragment (`renderMain(...`) captured as a
+# filename by a stray redirect. Anchored to root; no real root file has a
+# paren in its name.
+/Approve
+/render*(*
+
 # Local skill-validation-cache contents. The tool itself is tracked;
 # the cached verdict JSONs under .cache/ are per-machine and rebuilt
 # on demand.

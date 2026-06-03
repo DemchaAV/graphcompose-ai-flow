@@ -45,26 +45,27 @@ validation.
 
 ## Install the Tooling
 
-From the repository root:
+From the repository root, install dependencies and build the local tools:
 
 ```powershell
 cd tools\revision-manager
 npm ci
 npm run build
-npm test
 
 cd ..\visual-diff
 npm ci
 npm run build
-npm test
 
 cd ..\preview-renderer
-mvn -q -B test
 mvn -q -B -DskipTests=true package
 
 cd ..\..
 node .github\scripts\repository-contract.mjs
 ```
+
+> Setup is build-only. The tool test suites (`npm test` in each Node tool,
+> `mvn -q -B test` in preview-renderer) are for contributors, not required
+> to install or use the kit — CI runs them on every push.
 
 After this, the local tools are ready:
 
