@@ -51,11 +51,18 @@ rule-packs — and refreshes the docs and dependencies.
   (`DocumentSession.pageBackground` / `pageBackgrounds`, `section.fillColor`)
   and a "Container fill vs page background" distinction.
 
+### Versioning
+- The on-disk artifact contract is now stamped: `template-project.json` and
+  `revision.json` carry `schemaVersion: 1` on every write (older files without
+  the field are treated as v1, so existing examples stay valid). The CLI tools
+  stay repo-internal and versioned lock-step with the repo — not published to
+  npm yet.
+
 ### Deferred (intentionally not in this release)
-- **`schemaVersion` on the on-disk artifact contract.** The
-  `template-project.json` / `revision.json` shape is unchanged, so the version
-  stamp is deferred to the first real contract change (readers treat a missing
-  field as v1).
+- `init --template cv` — a data-driven, multi-page CV seed; the invoice
+  template ships now and cv follows in a later release.
+- Publishing the CLI tools to npm — they stay repo-internal until there is a
+  reason to publish.
 
 ### Compatibility matrix
 | Component | Version |
@@ -63,6 +70,6 @@ rule-packs — and refreshes the docs and dependencies.
 | `graphcompose-ai-flow` (repo) | v0.1.0 |
 | skill pack (`skillsVersion`) | 0.2.0 (`needs-validation`) |
 | tools (revision-manager / visual-diff / asset-resolver / skill-validation-cache) | 0.1.0 (lock-step) |
-| artifact contract | implicit v1 (`schemaVersion` field deferred) |
+| artifact contract | v1 — `schemaVersion: 1` stamped on new writes (absent = v1) |
 | GraphCompose | supports 1.6.x, verified against 1.6.7 (Maven Central) |
 | Toolchain | Java 21, Node 20, Maven |
