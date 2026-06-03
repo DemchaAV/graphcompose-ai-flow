@@ -7,6 +7,7 @@
 
 import { projectFilePath } from './paths.js';
 import { readJson, writeJsonAtomic, pathExists } from './json.js';
+import { CURRENT_SCHEMA_VERSION } from './types.js';
 import type { TemplateProject } from './types.js';
 
 export class ProjectNotFoundError extends Error {
@@ -27,7 +28,11 @@ export async function loadProject(projectRoot: string): Promise<TemplateProject>
 }
 
 export async function saveProject(projectRoot: string, project: TemplateProject): Promise<void> {
-  await writeJsonAtomic(projectFilePath(projectRoot), project);
+  const stamped: TemplateProject = {
+    ...project,
+    schemaVersion: project.schemaVersion ?? CURRENT_SCHEMA_VERSION,
+  };
+  await writeJsonAtomic(projectFilePath(projectRoot), stamped);
 }
 
 export function nowIso(): string {

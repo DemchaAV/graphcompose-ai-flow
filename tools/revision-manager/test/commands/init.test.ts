@@ -52,6 +52,7 @@ describe('init --template', () => {
     expect(proj.docKind).toBe('invoice');
     expect(proj.render.templateClass).toContain('GeneratedInvoiceTemplate');
     expect(proj.render.specProviderClass).toContain('SampleInvoiceSpecProvider');
+    expect(proj.schemaVersion).toBe(1);
 
     // render-runner + reference + revision inputs copied
     await fs.access(path.join(dir, 'render-runner', 'pom.xml'));
@@ -74,6 +75,7 @@ describe('init --template', () => {
     expect(rev.parentRevisionId).toBeNull();
     expect(rev.artifacts.template).toBe('generated-template.java');
     expect(rev.pendingArtifacts).toContain('output.pdf');
+    expect(rev.schemaVersion).toBe(1);
 
     // built render-runner/target/ must NOT be copied
     await expect(fs.access(path.join(dir, 'render-runner', 'target'))).rejects.toBeTruthy();

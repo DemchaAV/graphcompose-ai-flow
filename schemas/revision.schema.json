@@ -12,6 +12,11 @@
       "pattern": "^revision-\\d{3,}$",
       "description": "Sequential revision identifier (revision-001, revision-002, ...)."
     },
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "On-disk artifact contract version. Absent on pre-versioning revisions (treated as 1). Stamped by tools/revision-manager on every write."
+    },
     "parentRevisionId": {
       "type": ["string", "null"],
       "description": "Parent revision the diff and rollback model are computed against; null for the first revision in a chain."

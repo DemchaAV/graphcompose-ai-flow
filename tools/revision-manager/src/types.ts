@@ -24,6 +24,14 @@ export const REVISION_STATUSES: readonly RevisionStatus[] = [
 ] as const;
 
 /**
+ * On-disk artifact contract version, stamped onto every template-project.json
+ * and revision.json the CLI writes. Absent on pre-versioning files, which are
+ * treated as version 1 ("no field = v1"). Bump this — and add a migration step
+ * in projectStore / revisionStore — only when the on-disk shape changes.
+ */
+export const CURRENT_SCHEMA_VERSION = 1;
+
+/**
  * Render block consumed by scripts/lib/render-runtime.mjs. Only `templateClass`
  * is required; every other field has a safe default in the runtime. Modelled
  * here because the on-disk template-project.json already carries it (e.g.
@@ -56,6 +64,8 @@ export interface TemplateProject {
   render?: RenderConfig;
   /** Set by revert-approved bookkeeping; carried verbatim when present. */
   previouslyApprovedRevisionId?: string | null;
+  /** On-disk artifact contract version (see CURRENT_SCHEMA_VERSION). */
+  schemaVersion?: number;
 }
 
 export interface RevisionArtifacts {
@@ -76,6 +86,8 @@ export interface Revision {
   createdAt: string;
   artifacts: RevisionArtifacts;
   pendingArtifacts?: string[];
+  /** On-disk artifact contract version (see CURRENT_SCHEMA_VERSION). */
+  schemaVersion?: number;
   /** ISO 8601 timestamp written by approve when status flips to APPROVED. */
   approvedAt?: string;
   /** ISO 8601 timestamp written by approve when status flips to SUPERSEDED. */

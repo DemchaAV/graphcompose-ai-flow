@@ -19,6 +19,7 @@ import {
   revisionsDirPath,
 } from './paths.js';
 import { readJson, writeJsonAtomic, pathExists } from './json.js';
+import { CURRENT_SCHEMA_VERSION } from './types.js';
 import type { Revision } from './types.js';
 
 const REVISION_ID_RE = /^revision-(\d{3,})$/;
@@ -61,7 +62,11 @@ export async function loadRevision(projectRoot: string, revisionId: string): Pro
 }
 
 export async function saveRevision(projectRoot: string, revision: Revision): Promise<void> {
-  await writeJsonAtomic(revisionFilePath(projectRoot, revision.id), revision);
+  const stamped: Revision = {
+    ...revision,
+    schemaVersion: revision.schemaVersion ?? CURRENT_SCHEMA_VERSION,
+  };
+  await writeJsonAtomic(revisionFilePath(projectRoot, revision.id), stamped);
 }
 
 /**

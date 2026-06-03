@@ -8,6 +8,7 @@ import {
   ProjectNotFoundError,
   nowIso,
 } from '../src/projectStore.js';
+import { CURRENT_SCHEMA_VERSION } from '../src/types.js';
 import type { TemplateProject } from '../src/types.js';
 
 let root: string;
@@ -33,7 +34,7 @@ describe('projectStore', () => {
     };
     await saveProject(root, project);
     const loaded = await loadProject(root);
-    expect(loaded).toEqual(project);
+    expect(loaded).toEqual({ ...project, schemaVersion: CURRENT_SCHEMA_VERSION });
 
     // Indentation check.
     const raw = await fs.readFile(path.join(root, 'template-project.json'), 'utf8');
