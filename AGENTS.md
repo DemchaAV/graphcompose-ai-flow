@@ -217,8 +217,13 @@ scripts/
   render.mjs                          project-agnostic render (examples/<project-id>)
   render-cv-reference.mjs             clean + debug render for the cv example
   render-invoice-reference.mjs        same for invoice
+  preview-live.mjs                    open live/current.pdf in SumatraPDF (auto-reload)
   run-pipeline.mjs                    print / run the agent chain for one revision
   publish-template.mjs                copy approved revision into templates/
+
+live/                                 gitignored mirror of the most recent render
+  current.pdf / current-debug.pdf     stable path to watch in SumatraPDF
+  current.png / current.txt           page-1 raster + project/revision stamp
 ```
 
 ## Quick recipes
@@ -273,6 +278,17 @@ scripts/
 - Parity gate: `magick compare -metric AE == 0` for refactor
   revisions; quote the metric.
 - GraphCompose API is the source of truth; never invent.
+
+## Working on the flow itself (branch first)
+
+Template/document work (new revisions under `examples/<project>/`) is the
+product output and flows normally. But changes to the *flow itself* — `scripts/`,
+the `tools/` modules, `prompts/`, `skills/`, the docs — must not land directly
+on `main`: it is the clean state the user renders from. Cut a topic branch
+(`feat/…`, `fix/…`, `docs/…`, `chore/…`), do the work and render there, and
+merge to `main` only when it is finished. Releases are tagged from a
+known-good `main`. Full rules: [`CONTRIBUTING.md`](CONTRIBUTING.md) →
+"Branching and release workflow".
 
 ## Editor / agent rule-packs
 

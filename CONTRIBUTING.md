@@ -85,6 +85,32 @@ a buggy skill instead of fixing the skill will be rejected.
 - Reference the related issue when one exists.
 - One logical change per commit.
 
+## Branching and release workflow
+
+`main` is always the clean, usable, releasable state of the kit. Never develop
+the flow itself directly on `main` — a half-finished tooling change must not sit
+on the branch a user renders from.
+
+- **Branch per change.** Cut a topic branch off `main` for every flow update:
+  `feat/<slug>`, `fix/<slug>`, `docs/<slug>`, or `chore/<slug>`. Do the work,
+  render, and review there; `main` stays usable the whole time.
+- **Document work vs flow work.** Day-to-day template work (new revisions under
+  `examples/<project>/revisions/`) is the product output and lands through the
+  normal revision flow. Changes to the *tooling* — `scripts/`, the `tools/`
+  modules, `prompts/`, `skills/`, the docs — are "flow updates" and belong on a
+  topic branch.
+- **Merge when it is done.** When the change is finished and reviewed, merge the
+  branch into `main` (fast-forward or PR) so `main` only ever moves forward in
+  releasable steps.
+- **Release from a known-good `main`:**
+  1. Move the `## Unreleased` notes in `CHANGELOG.md` under a new
+     `## vX.Y.Z — <date>` heading (SemVer; the kit stays in `0.x`).
+  2. Tag it: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+  3. The tag is the citable version in the compatibility matrix.
+
+The commit rules above still apply on branches: explicit staging, one logical
+change per commit, imperative subjects.
+
 ## Pull request checklist
 
 Before requesting review:

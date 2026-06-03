@@ -5,6 +5,26 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## Unreleased
+
+### Live preview
+- **`live/` mirror.** Every render now also writes a single stable copy of the
+  latest output to `live/current.pdf` (plus `current-debug.pdf`, `current.png`,
+  `current.txt`) at the repo root, regardless of which project/revision produced
+  it. Open `live/current.pdf` once in SumatraPDF (auto-reloads on change, no
+  file lock) and watch every render refresh in place — no digging for the latest
+  revision folder. Override the location with `GRAPHCOMPOSE_LIVE_DIR`; disable
+  with `RENDER_NO_LIVE=1`. The folder is gitignored.
+- **`scripts/preview-live.mjs`** (`npm run preview` / `npm run preview:debug`)
+  opens the live file in SumatraPDF with `-reuse-instance`, resolving it via
+  `SUMATRAPDF_PATH`, `PATH`, or the standard install locations, and falling back
+  to the OS default viewer.
+
+### Developer workflow
+- `CONTRIBUTING.md` documents the branch-per-change + release-from-`main`
+  workflow that keeps `main` always renderable; `AGENTS.md` carries the
+  agent-facing summary ("Working on the flow itself").
+
 ## v0.1.0 — 2026-06-03
 
 First tagged release. The kit already turned visual references into
