@@ -213,8 +213,11 @@ tools/
   visual-diff/                        Node CLI (planned: snapshot regression)
 
 scripts/
+  setup.mjs                           one-command toolchain check + install + build
+  render.mjs                          project-agnostic render (examples/<project-id>)
   render-cv-reference.mjs             clean + debug render for the cv example
   render-invoice-reference.mjs        same for invoice
+  run-pipeline.mjs                    print / run the agent chain for one revision
   publish-template.mjs                copy approved revision into templates/
 ```
 
@@ -270,6 +273,17 @@ scripts/
 - Parity gate: `magick compare -metric AE == 0` for refactor
   revisions; quote the metric.
 - GraphCompose API is the source of truth; never invent.
+
+## Editor / agent rule-packs
+
+If your tool supports project rules, it may have already loaded a thin pointer to
+this file: `CLAUDE.md` (Claude Code), `.cursor/rules/`, `.windsurf/rules/`, and
+`.github/copilot-instructions.md`. They all say the same thing — read this file
+first. `AGENTS.md` is the single source of truth; the rule-packs only summarize it.
+
+To print (or run) the ordered agent chain for a project's current revision in one
+command: `node scripts/run-pipeline.mjs <project-id>` (add `--render` to run the
+mechanical render step).
 
 ## Where to go from here
 
