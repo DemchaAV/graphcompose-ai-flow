@@ -4,7 +4,7 @@ targetLibrary: GraphCompose
 targetVersion: 1.6.x
 verifiedAgainst: 1.6.7
 status: needs-validation
-lastValidated: 2026-06-01
+lastValidated: 2026-06-02
 ---
 
 # Backgrounds and Panels Skill
@@ -39,18 +39,38 @@ carry content, also load
 
 ### Page background
 
-A colour or texture that fills the whole page. Use the page background
-primitive on `pageFlow`, never a giant rectangle drawn from a canvas
-layer. The page background is purely declarative — it does not change
-layout — and it composes correctly with margins, headers, and footers.
+A colour (or texture) that fills the whole page, edge to edge. Use the
+**session-level** page-background API:
+
+- `DocumentSession.pageBackground(color)` — a single full-page tint.
+- `DocumentSession.pageBackgrounds(List<PageBackgroundFill>)` — one or
+  more multi-column / partial-page fills (a pale sidebar column, an
+  accent stripe, a top/bottom band) that repeat on every page.
+
+It is purely declarative — it does not change layout, it composes
+correctly with margins, headers, and footers, and the engine repeats it
+on every page automatically.
+
+It is **not** `pageFlow().fillColor(...)`, and **not** a `fillColor` on
+a wrapper section, and never a giant rectangle drawn from a canvas
+layer. The first two are *container fills* bounded by content height —
+they stop short of the page bottom on short content (see
+[Container fill vs page background](#container-fill-vs-page-background))
+— and a canvas rectangle is opaque to pagination and snapshots.
 
 Semantic intent: "the document itself is tinted".
 
 ### Section background
 
-A coloured fill scoped to one semantic block. Apply it to the section
-primitive that already groups the content. Do not introduce a wrapper
-panel just to colour a region you already have.
+A coloured fill scoped to one semantic block. Apply `fillColor(...)` to
+the section primitive that already groups the content
+(`section.fillColor(...)`). The fill is bounded by the section's
+laid-out content — exactly right for a block that wraps the content it
+colours (a navy header plaque, a tinted summary box). Do not introduce
+a wrapper panel just to colour a region you already have, and do not
+try to stretch a section fill to cover the rest of the page: a page
+tint is a page background, not a section fill (see
+[Container fill vs page background](#container-fill-vs-page-background)).
 
 Semantic intent: "this group of content has its own visual surface".
 
@@ -92,6 +112,60 @@ not a layer-stack element.
 
 Semantic intent: "the document changes mode here".
 
+## Container fill vs page background
+
+Two different primitives produce a coloured surface, and choosing the
+wrong one is the failure behind every "the fill doesn't reach the
+bottom of the page" bug. Decide this **before** writing the fill.
+
+- **Container fill** — `fillColor(...)` on a flow or section
+  (`pageFlow().fillColor(...)`, `section.fillColor(...)`). The engine
+  paints it over the **laid-out bounds of that container's content**.
+  Correct for a section / panel / card / band that wraps the content it
+  colours. WRONG for "tint the whole page": on content shorter than the
+  page it stops where the content ends and leaves a blank strip down to
+  the page bottom. A tail spacer that tries to "push" the fill to the
+  bottom is the same mistake in disguise — it guesses content height and
+  breaks the moment the data changes.
+- **Page background** — `DocumentSession.pageBackground(color)`, or
+  `DocumentSession.pageBackgrounds(List.of(PageBackgroundFill...))` for
+  multi-column / partial-page fills. The engine splices these in at the
+  bottom of the z-order (z=0) with geometry taken from the **canvas page
+  size**, so they reach all four edges and repeat on every page
+  automatically — independent of how much content the page carries.
+
+**Decision rule:** if the surface must reach a **page edge** (full-page
+tint, edge-to-edge sidebar column, a band that bleeds to top/bottom),
+it is a **page background**. If the surface is bounded by the **content
+it wraps**, it is a **container fill** on the section that owns that
+content.
+
+```java
+// WRONG — container fill on the flow. Stops at content height and
+// leaves a white strip at the page bottom on short pages.
+document.pageFlow(page -> page.fillColor(CREAM)
+        .addSection("Body", this::renderBody));
+
+// RIGHT — page background. Cream reaches the bottom edge regardless of
+// content height; sections (e.g. a navy header) paint on top of it.
+document.pageBackground(CREAM);
+document.pageFlow(page -> page
+        .addSection("Header", this::renderNavyHeader)   // its own fillColor(NAVY)
+        .addSection("Body",   this::renderBody));
+
+// RIGHT — multi-column chrome (pale sidebar + white main) at full
+// height, repeating on every page:
+document.pageBackgrounds(List.of(
+        PageBackgroundFill.leftColumn(0.36, SIDEBAR_FILL),
+        PageBackgroundFill.rightColumn(0.64, MAIN_FILL)));
+```
+
+`PageBackgroundFill` ships factory methods for the common shapes:
+`fullPage`, `leftColumn` / `rightColumn` / `column`, and
+`topBand` / `bottomBand` / `band`. The library's own `SidebarPortrait`
+preset paints its full-height sidebar exactly this way — mirror it
+rather than giving the sidebar section a `fillColor`.
+
 ## Panel vs layer-stack overlay
 
 The most common mistake in this area is reaching for a layer stack
@@ -125,25 +199,36 @@ document consistently.
 
 ## Common mistakes
 
-1. **Using a panel where a section background suffices.** If the
+1. **Using a container fill to tint the whole page.** This is the
+   headline mistake. `pageFlow().fillColor(...)` (or a `fillColor` on a
+   wrapper section, or a tail spacer that tries to "push" the fill down)
+   is bounded by content height and leaves a blank strip at the page
+   bottom whenever the content is shorter than the page. A full-page
+   tint is `DocumentSession.pageBackground(...)`; a full-height column
+   is `pageBackgrounds(...)`. See
+   [Container fill vs page background](#container-fill-vs-page-background).
+2. **Using a panel where a section background suffices.** If the
    content is already inside a section, give the section a background
    colour. Wrapping that section in an additional panel adds layout
    nesting without semantic meaning and makes diffs harder to read.
-2. **Layering panels when one section background would do.** Two
+3. **Layering panels when one section background would do.** Two
    stacked panels with the same content cannot be diffed by a snapshot
    any better than one section background; they only add nesting.
-3. **Drawing a coloured rectangle on a canvas layer instead of using
+4. **Drawing a coloured rectangle on a canvas layer instead of using
    the page background.** A canvas rectangle is opaque to the layout
    engine. Pagination, layout snapshots, and visual regression cannot
    reason about it. Use the page-background primitive.
-4. **Putting an accent strip in a layer stack on top of a header
+5. **Putting an accent strip in a layer stack on top of a header
    row.** The strip belongs to the header section. Express it through
    the section's accent, not as a floating overlay.
-5. **Hardcoding panel colours.** Use theme tokens so the colour
+6. **Hardcoding panel colours.** Use theme tokens so the colour
    substitutes cleanly when the brand palette changes.
 
 ## Required visual checks
 
+- a full-bleed page tint or full-height column reaches all four page
+  edges — including the **bottom edge on short content** (this requires
+  a page background; a container fill or tail spacer will fail this)
 - the surface starts and ends where the reference's surface starts
   and ends (no half-bleed, no cut corners)
 - the surface respects page margins unless the reference clearly
