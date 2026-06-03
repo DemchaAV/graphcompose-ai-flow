@@ -140,6 +140,39 @@ examples/cv-reference/revisions/revision-002/output.png
 examples/cv-reference/revisions/revision-002/output-page-2.png
 ```
 
+## Live preview (watch renders update)
+
+Every render also refreshes a single stable copy of the latest output under
+`live/` at the repository root:
+
+```text
+live/current.pdf        clean render (open this)
+live/current-debug.pdf  debug render with guide lines
+live/current.png        page-1 raster
+live/current.txt        which project / revision / time it reflects
+```
+
+`live/current.pdf` always points at the most recent render, whatever project
+or revision produced it — so you do not have to dig into
+`examples/<project>/revisions/<latest>/` to find the newest output.
+
+Open it once in [SumatraPDF](https://www.sumatrapdfreader.org/) — it reloads a
+PDF automatically when the file changes and does not lock it — and leave it
+open while you iterate; each render refreshes the view in place:
+
+```powershell
+node scripts\preview-live.mjs           # opens live\current.pdf
+node scripts\preview-live.mjs --debug   # opens live\current-debug.pdf
+```
+
+`npm run preview` is the same thing. The helper finds SumatraPDF on `PATH`, at
+`%LOCALAPPDATA%\SumatraPDF`, or via `SUMATRAPDF_PATH`; with none found it falls
+back to the OS default PDF viewer (which may not live-reload).
+
+The `live/` folder is gitignored. To keep it off OneDrive (avoiding sync churn)
+point `GRAPHCOMPOSE_LIVE_DIR` at another path; disable the mirror entirely with
+`RENDER_NO_LIVE=1`.
+
 ## Inspect the Revision History
 
 ```powershell

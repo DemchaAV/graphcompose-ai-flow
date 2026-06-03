@@ -43,6 +43,11 @@ docs/private/
 /output.pdf
 /output.png
 
+# Live-preview mirror — a stable copy of the most recent render, regenerated on
+# every render so a watching viewer (SumatraPDF) reloads in place. Derived and
+# per-machine; never committed. Location is overridable via GRAPHCOMPOSE_LIVE_DIR.
+/live/
+
 # Shell interpolation accidents — files named after unexpanded variables or
 # stray shell punctuation. They come from PowerShell heredocs / pipelines that
 # write to ${command}, ${file}, etc. when the variable was empty. Never
