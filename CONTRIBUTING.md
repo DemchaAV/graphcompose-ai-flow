@@ -12,16 +12,16 @@ honest about its limitations.
 Phases 1 through 7 of the project plan are shipped. See
 [docs/roadmap.md](docs/roadmap.md) for the per-phase table and
 [docs/implementation-status.md](docs/implementation-status.md) for the
-honest claim-vs-reality matrix. GraphCompose 1.6.0 is reachable for
-fixture validation through JitPack as
-`com.github.DemchaAV:GraphCompose:v1.6.0`, and the five committed
-skill fixtures compile and run against it. The remaining gate is that
-the `render` subcommand in
-[tools/preview-renderer](tools/preview-renderer/) is still a
-skeleton: it detects the GraphCompose runtime but does not yet execute
-templates or write `output.pdf`. Until a full render + preview +
-visual-diff pass exists, every skill in the manifest stays at
-`status: needs-validation`.
+honest claim-vs-reality matrix. GraphCompose 1.6.7 is reachable for
+fixture validation through Maven Central as
+`io.github.demchaav:graph-compose:1.6.7` (older pins ≤ 1.6.5 still
+resolve via JitPack as `com.github.DemchaAV:GraphCompose:vX.Y.Z`), and
+the five committed skill fixtures compile and run against it. The
+preview renderer now executes compiled templates and writes
+`output.pdf` / `output.png` (see the invoice and CV reference
+examples). The remaining gate is the full visual-baseline
+orchestration; until that pass lands, every skill in the manifest
+stays at `status: needs-validation`.
 
 Open contribution areas:
 
@@ -37,8 +37,9 @@ Open contribution areas:
 - repository-contract checks in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 - bug fixes in any of the three `tools/` modules
 - new fixture scaffolds under `examples/skill-fixtures/`
-- fixture visual baselines once `preview-renderer render` writes
-  `output.pdf` and `output.png`
+- real visual baselines for the skill fixtures + visual-diff
+  regression (the renderer now writes `output.pdf` / `output.png`;
+  the baseline orchestration is the open gate)
 
 ## Filing issues
 
