@@ -29,9 +29,9 @@ document-kind agnostic by design.
 
 ![GraphCompose AI Template Flow — v2 routing: the visual reference on the left, the Orchestrator scoping each change into the 11-agent chain with data-only / asset-only / theme-only / refactor-only / visual-change fast lanes (plus skill-validation and asset-resolver caches and region-aware pixel diffing) in the middle, and the published template bundle on the right](assets/readme/graphcompose-ai-flow.png)
 
-<video src="https://github.com/DemchaAV/graphcompose-ai-flow/raw/main/assets/readme/graphcompose-ai-flow.mp4" controls muted loop playsinline width="100%"></video>
+[![GraphCompose AI Template Flow — 10s routing walkthrough (click to play on YouTube)](https://img.youtube.com/vi/wExK4sAOev0/maxresdefault.jpg)](https://youtu.be/wExK4sAOev0)
 
-> ▶️ **Animated walkthrough** (10 s) of the v2 routing flow. If the player doesn't render in your viewer (e.g. npm, IDE preview), [open the clip directly](assets/readme/graphcompose-ai-flow.mp4).
+> ▶️ **Animated walkthrough** (10 s) of the v2 routing flow — click the thumbnail to watch on YouTube. Prefer a local copy? [Open the raw clip directly](assets/readme/graphcompose-ai-flow.mp4).
 
 ## What you can run now
 
