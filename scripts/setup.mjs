@@ -107,8 +107,14 @@ try {
   }
 
   // --- 3. Java preview-renderer: package -----------------------------------
+  // Use maven.test.skip (not skipTests): it skips test *compilation and
+  // resources*, not just execution. That is correct for a jar build (we never
+  // need test classes here) and avoids a maven-resources-plugin copy of the
+  // test resources -- which fails with "Operation not permitted" when the repo
+  // is a Windows/OneDrive bind mount inside a dev container. CI runs the real
+  // preview-renderer test suite in its own job, so coverage is unaffected.
   head('Java preview-renderer (package)');
-  run('mvn -q -B -DskipTests=true package', 'tools/preview-renderer');
+  run('mvn -q -B -Dmaven.test.skip=true package', 'tools/preview-renderer');
 } catch (err) {
   const first = err && err.message ? err.message.split('\n')[0] : String(err);
   console.log(`\n${red('Setup failed:')} ${first}`);

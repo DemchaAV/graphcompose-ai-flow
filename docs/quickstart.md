@@ -14,6 +14,14 @@ Use it for three things:
 
 ## Requirements
 
+> **Zero local install — GitHub Codespaces / Dev Container.** This repo ships
+> [a dev container](../.devcontainer/devcontainer.json) with Java 21, Node 20,
+> Maven, and ImageMagick preconfigured. On GitHub: **Code -> Codespaces ->
+> Create**; or in VS Code: **Dev Containers: Reopen in Container**. It runs
+> `npm run setup` on first create, so the tools build automatically -- skip
+> straight to [First Smoke Test](#first-smoke-test). The manual requirements
+> below are only for a local (non-container) setup.
+
 Install these first:
 
 - Java 21 or newer
@@ -75,7 +83,7 @@ npm ci
 npm run build
 
 cd ..\preview-renderer
-mvn -q -B -DskipTests=true package
+mvn -q -B -Dmaven.test.skip=true package
 
 cd ..\..
 ```
