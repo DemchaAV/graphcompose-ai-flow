@@ -36,3 +36,141 @@ describe('init', () => {
     await expect(runInit('demo')).rejects.toThrow(/already exists/);
   });
 });
+
+describe('init --template', () => {
+  it('seeds a ready-to-render invoice project under examples/', async () => {
+    await buildFakeRepo(root);
+    const dir = await runInit('my-invoice', { template: 'invoice', repoRoot: root });
+    expect(dir).toBe(path.join(root, 'examples', 'my-invoice'));
+
+    const proj = JSON.parse(
+      await fs.readFile(path.join(dir, 'template-project.json'), 'utf8'),
+    ) as Record<string, any>;
+    expect(proj.projectName).toBe('my-invoice');
+    expect(proj.currentDraftRevisionId).toBe('revision-001');
+    expect(proj.currentApprovedRevisionId).toBeNull();
+    expect(proj.docKind).toBe('invoice');
+    expect(proj.render.templateClass).toContain('GeneratedInvoiceTemplate');
+    expect(proj.render.specProviderClass).toContain('SampleInvoiceSpecProvider');
+
+    // render-runner + reference + revision inputs copied
+    await fs.access(path.join(dir, 'render-runner', 'pom.xml'));
+    await fs.access(
+      path.join(
+        dir,
+        'render-runner/src/main/java/com/demcha/examples/invoice/SampleInvoiceSpecProvider.java',
+      ),
+    );
+    await fs.access(path.join(dir, 'reference', 'reference.md'));
+    await fs.access(path.join(dir, 'revisions/revision-001/generated-template.java'));
+    await fs.access(path.join(dir, 'revisions/revision-001/generated-test.java'));
+    await fs.access(path.join(dir, 'revisions/revision-001/user-request.md'));
+
+    // a fresh DRAFT revision-001 (not the seed's status/parent)
+    const rev = JSON.parse(
+      await fs.readFile(path.join(dir, 'revisions/revision-001/revision.json'), 'utf8'),
+    ) as Record<string, any>;
+    expect(rev.status).toBe('DRAFT');
+    expect(rev.parentRevisionId).toBeNull();
+    expect(rev.artifacts.template).toBe('generated-template.java');
+    expect(rev.pendingArtifacts).toContain('output.pdf');
+
+    // built render-runner/target/ must NOT be copied
+    await expect(fs.access(path.join(dir, 'render-runner', 'target'))).rejects.toBeTruthy();
+  });
+
+  it('omits the densely cross-linked narrative artifacts (minimal seed)', async () => {
+    await buildFakeRepo(root);
+    const dir = await runInit('inv-a', { template: 'invoice', repoRoot: root });
+    await expect(
+      fs.access(path.join(dir, 'revisions/revision-001/architecture-plan.md')),
+    ).rejects.toBeTruthy();
+  });
+
+  it('rejects an unknown template', async () => {
+    await buildFakeRepo(root);
+    await expect(runInit('x', { template: 'nope', repoRoot: root })).rejects.toThrow(
+      /unknown template/,
+    );
+  });
+
+  it('detects the repo root via package.json when repoRoot is not given', async () => {
+    await buildFakeRepo(root);
+    process.chdir(path.join(root, 'examples'));
+    const dir = await runInit('auto-inv', { template: 'invoice' });
+    expect(dir).toBe(path.join(root, 'examples', 'auto-inv'));
+  });
+});
+
+/** Build a minimal fake graphcompose-ai-flow repo with an invoice seed under `root`. */
+async function buildFakeRepo(root: string): Promise<void> {
+  await fs.writeFile(
+    path.join(root, 'package.json'),
+    JSON.stringify({ name: 'graphcompose-ai-flow' }),
+    'utf8',
+  );
+  const seed = path.join(root, 'examples', 'invoice-reference');
+  const runnerPkg = path.join(
+    seed,
+    'render-runner/src/main/java/com/demcha/examples/invoice',
+  );
+  const rev = path.join(seed, 'revisions', 'revision-001');
+  await fs.mkdir(path.join(seed, 'reference'), { recursive: true });
+  await fs.mkdir(runnerPkg, { recursive: true });
+  await fs.mkdir(path.join(seed, 'render-runner', 'target', 'classes'), { recursive: true });
+  await fs.mkdir(rev, { recursive: true });
+
+  await fs.writeFile(
+    path.join(seed, 'template-project.json'),
+    JSON.stringify({
+      projectName: 'invoice-reference',
+      referenceImage: 'reference/reference.png',
+      referenceDescription: 'reference/reference.md',
+      targetGraphComposeVersion: '1.6.7',
+      skillPack: 'skills/versions/graphcompose-1.6',
+      currentApprovedRevisionId: 'revision-003',
+      currentDraftRevisionId: null,
+      createdAt: '2026-05-18T12:00:00Z',
+      updatedAt: '2026-05-18T12:00:00Z',
+      docKind: 'invoice',
+      render: {
+        templateClass: 'com.demcha.examples.invoice.GeneratedInvoiceTemplate',
+        specProviderClass: 'com.demcha.examples.invoice.SampleInvoiceSpecProvider',
+        dataFileName: null,
+        pages: 1,
+        assetResolverEnabled: false,
+      },
+    }),
+    'utf8',
+  );
+  await fs.writeFile(path.join(seed, 'reference', 'reference.md'), '# reference\n', 'utf8');
+  await fs.writeFile(path.join(seed, 'render-runner', 'pom.xml'), '<project/>\n', 'utf8');
+  await fs.writeFile(path.join(runnerPkg, 'SampleInvoiceSpecProvider.java'), '// provider\n', 'utf8');
+  // a built artifact under target/ that must be excluded from the copy
+  await fs.writeFile(
+    path.join(seed, 'render-runner', 'target', 'classes', 'X.class'),
+    'binary',
+    'utf8',
+  );
+
+  await fs.writeFile(
+    path.join(rev, 'revision.json'),
+    JSON.stringify({
+      id: 'revision-001',
+      parentRevisionId: null,
+      status: 'DRAFT',
+      userRequest: 'Create an A4 invoice template from the reference image.',
+      targetGraphComposeVersion: '1.6.7',
+      skillPack: 'skills/versions/graphcompose-1.6',
+      changedComponents: ['Header', 'Footer'],
+      createdAt: '2026-05-18T12:30:00Z',
+      artifacts: { template: 'generated-template.java' },
+      pendingArtifacts: [],
+    }),
+    'utf8',
+  );
+  await fs.writeFile(path.join(rev, 'generated-template.java'), '// template\n', 'utf8');
+  await fs.writeFile(path.join(rev, 'generated-test.java'), '// test\n', 'utf8');
+  await fs.writeFile(path.join(rev, 'user-request.md'), '# User request\n\nseed\n', 'utf8');
+  await fs.writeFile(path.join(rev, 'architecture-plan.md'), '# plan\n', 'utf8');
+}

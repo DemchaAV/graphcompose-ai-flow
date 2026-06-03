@@ -23,6 +23,22 @@ export const REVISION_STATUSES: readonly RevisionStatus[] = [
   'REVERTED',
 ] as const;
 
+/**
+ * Render block consumed by scripts/lib/render-runtime.mjs. Only `templateClass`
+ * is required; every other field has a safe default in the runtime. Modelled
+ * here because the on-disk template-project.json already carries it (e.g.
+ * examples/invoice-reference) and `init --template` writes it.
+ */
+export interface RenderConfig {
+  templateClass: string;
+  specProviderClass?: string | null;
+  dataFileName?: string | null;
+  pages?: number;
+  runnerPomRelPath?: string;
+  debugPass?: boolean;
+  assetResolverEnabled?: boolean;
+}
+
 export interface TemplateProject {
   projectName: string;
   referenceImage?: string;
@@ -34,6 +50,12 @@ export interface TemplateProject {
   createdAt: string;
   updatedAt: string;
   notes?: string;
+  /** Document kind (invoice / cv / proposal / ...). Drives render defaults. */
+  docKind?: string;
+  /** Render configuration consumed by the render runtime. */
+  render?: RenderConfig;
+  /** Set by revert-approved bookkeeping; carried verbatim when present. */
+  previouslyApprovedRevisionId?: string | null;
 }
 
 export interface RevisionArtifacts {

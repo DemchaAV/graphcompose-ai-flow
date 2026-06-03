@@ -43,14 +43,31 @@ export function buildProgram(): Command {
   program
     .command('init <projectName>')
     .description('create a new template project folder')
-    .action(async (projectName: string) => {
-      try {
-        const dir = await runInit(projectName);
-        process.stdout.write(`initialised project at ${dir}\n`);
-      } catch (err) {
-        fail(err);
-      }
-    });
+    .option(
+      '--template <name>',
+      'seed a ready-to-render project from a bundled template (e.g. invoice)',
+    )
+    .action(
+      async (projectName: string, opts: { template?: string }) => {
+        try {
+          const dir = await runInit(projectName, { template: opts.template });
+          if (opts.template) {
+            process.stdout.write(`initialised ${opts.template} project at ${dir}\n\n`);
+            process.stdout.write('Next steps (from the repository root):\n');
+            process.stdout.write(
+              `  node scripts/render.mjs ${projectName} revision-001   # -> output.pdf + output.png\n`,
+            );
+            process.stdout.write(
+              `  node tools/revision-manager/bin/graphcompose-flow.mjs status --project examples/${projectName}\n`,
+            );
+          } else {
+            process.stdout.write(`initialised project at ${dir}\n`);
+          }
+        } catch (err) {
+          fail(err);
+        }
+      },
+    );
 
   projectOption(
     program
