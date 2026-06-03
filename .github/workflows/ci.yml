@@ -179,3 +179,25 @@ jobs:
       - name: validate revision.json + assets-manifest.json against schemas/
         working-directory: ${{ github.workspace }}
         run: node .github/scripts/validate-schemas.mjs
+
+  validate-skills:
+    name: skill validation (render fixtures)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: build visual-diff
+        working-directory: tools/visual-diff
+        run: npm ci && npm run build
+      # render-only: PNG baselines are platform-specific, so CI gates on the
+      # render path (compile + render to non-empty PDF/PNG), not pixel identity.
+      # The strict visual-diff vs baseline is a local developer check.
+      - name: render skill fixtures through preview-renderer
+        run: node scripts/validate-skills.mjs --render-only

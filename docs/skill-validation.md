@@ -161,13 +161,21 @@ Phase 4 has shipped:
   `invoice-layout`, and `pagination-basic` as future fixtures; those
   are not part of the Phase 4 scope.
 
-The current fixture smoke proves that the covered DSL calls compile
-and run against the real 1.6.0 artifact. It does not yet prove visual
-parity: the validation runner still needs to compile fixture
-templates into a classpath, call `preview-renderer render`, produce
-layout snapshots, and run visual-diff against committed baselines.
-Until that full pass exists, every skill in
-[`skill-manifest.json`](../skills/skill-manifest.json) stays at
-`status: needs-validation`. See
-[versioned-skills.md](versioned-skills.md) for the manifest,
-statuses, and the no-invented-API rule that validation enforces.
+The fixture smoke proves the covered DSL calls compile and run against
+the real 1.6.7 artifact. As of 2026-06-03 the render + visual-diff loop
+is built too: `scripts/validate-skills.mjs` renders each fixture
+through `tools/preview-renderer` (a no-arg `*FixtureDocument` adapter
+per fixture) and compares the PNG against a committed
+`expected-output/output.png` baseline via `tools/visual-diff`. All five
+fixtures render and re-render `IDENTICAL` vs baseline locally — see
+[`validation/reports/skill-render-validation-2026-06-03.md`](../validation/reports/skill-render-validation-2026-06-03.md).
+CI runs the loop in `--render-only` mode because PNG baselines are
+platform-specific (font rasterisation differs across OS/JDK).
+
+Every skill in [`skill-manifest.json`](../skills/skill-manifest.json)
+still reads `status: needs-validation`. Flipping the six
+fixture-covered skills to `active` is a deliberate follow-up pending an
+author review of the remaining criteria (no deprecated patterns;
+documented limitations). See
+[versioned-skills.md](versioned-skills.md) for the manifest, statuses,
+and the no-invented-API rule that validation enforces.
