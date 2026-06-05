@@ -38,25 +38,44 @@ composes its `Header` row.
 ## How to run
 
 1. `cd examples/skill-fixtures/row-basic`
-2. `mvn test`
+2. `mvn test` — the JUnit smoke test; asserts `compose(...)` does not
+   throw
 3. inspect `expected-output/layout-snapshot.json` for the intended
    region shape
 
-Phase 6 will additionally write `expected-output/output.pdf` and
-`expected-output/output.png` on every run.
+The committed render baseline is captured separately from the JUnit
+test. A no-arg
+[`RowBasicFixtureDocument`](src/main/java/com/demcha/compose/document/fixtures/rowbasic/RowBasicFixtureDocument.java)
+exposes the same `compose(DocumentSession)` the test exercises, and
+`tools/preview-renderer` drives it to `expected-output/output.pdf` and
+`output.png`. Run the loop from the repo root:
 
-## Deferred checks
+- `node scripts/validate-skills.mjs` — re-render and visual-diff the PNG
+  against the committed baseline (expects `IDENTICAL`).
+- `node scripts/validate-skills.mjs --update-baseline` — (re)capture the
+  `expected-output/output.{pdf,png}` baseline.
 
-The JUnit test currently asserts only that `compose(...)` does not
-throw. Three checks are pending the Phase 6 renderer and the Phase 7
-visual-diff tool:
+## Checks
 
-- layout-snapshot equality against
-  `expected-output/layout-snapshot.json`
-- PDF byte sanity (non-empty, valid header) on
-  `expected-output/output.pdf`
-- preview-image visual diff against a committed
-  `expected-output/output.png` baseline
+The JUnit test still asserts only that `compose(...)` does not throw. The
+render and visual-diff now run through the `RowBasicFixtureDocument`
+adapter and `node scripts/validate-skills.mjs`, not the test:
 
-Each deferred check is listed in a comment block inside
+- preview-image visual diff against the committed
+  `expected-output/output.png` — wired. `node scripts/validate-skills.mjs`
+  re-renders via `tools/preview-renderer` and compares the PNG with
+  `tools/visual-diff`, expecting `IDENTICAL` (AE == 0).
+- rendered-output sanity — wired. The runner asserts the render produced a
+  non-empty `output.pdf` and `output.png` (CI runs `--render-only`, since
+  PNG rasterisation is platform-specific). Full PDF byte equality is
+  intentionally skipped: PDFs carry timestamps, so parity is judged on the
+  PNG.
+- layout-snapshot equality against `expected-output/layout-snapshot.json`
+  — still not enforced. `layout-snapshot.json` stays illustrative; it
+  documents intent, not a measured engine run.
+
+The captured baseline sizes and the `IDENTICAL` result for all five
+fixtures are recorded in
+[`../../../validation/reports/skill-render-validation-2026-06-03.md`](../../../validation/reports/skill-render-validation-2026-06-03.md).
+The same three checks are noted in a comment block inside
 [`RowBasicFixtureTest`](src/test/java/com/demcha/compose/document/fixtures/rowbasic/RowBasicFixtureTest.java).
