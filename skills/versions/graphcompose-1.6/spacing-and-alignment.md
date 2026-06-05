@@ -55,19 +55,37 @@ token without touching unrelated spacing.
 
 ## Alignment grids and how primitives enforce them
 
-Rows align their children horizontally; sections align their
-children vertically. Both primitives expose alignment options that
-should be the first tool reached for, not bespoke offsets.
+Rows arrange their children horizontally (side by side); sections
+stack their children vertically. Neither primitive exposes a
+cross-axis alignment option in 1.6 — there is no row-level "centre
+the children vertically" knob and no section-level "centre the
+children horizontally" knob. Reach for the right structural tool
+instead of faking balance with blank space.
 
-- A row primitive aligns children along a shared baseline (top,
-  center, baseline-of-text, or bottom). Use the alignment option
-  rather than inserting blank space to fake vertical balance.
-- A section primitive aligns children along a shared edge (left,
-  right, center, or stretch). Use the section's alignment, not
-  per-child padding hacks.
+- A row places children along the horizontal axis by weight or
+  width. It does NOT vertically align children of different heights
+  — `RowBuilder` has no top / center / baseline / bottom option. To
+  put an icon and a text label on a shared vertical axis, give them
+  the same height, or wrap the pair in a shape container / layer
+  stack and centre each layer with `.center(...)` / `LayerAlign`
+  (see [`layer-stacks-and-overlays`](layer-stacks-and-overlays.md)
+  and [`shapes-and-containers`](shapes-and-containers.md)).
+- A section stacks children vertically at the content width. It has
+  no left / right / center / stretch child-alignment option; a
+  child's horizontal position comes from its own width and, for
+  text, the paragraph's `TextAlign`. For a centred badge or label
+  inside a box, use a shape container / layer-stack layer with a
+  `LayerAlign` anchor, not a section option.
 - When two adjacent regions must share a visual edge (a header
-  bottom flush with a hero top), align them through the parent
-  primitive rather than per-region padding fudges.
+  bottom flush with a hero top), align them by matching their
+  measured heights / widths and the parent gap, not by per-region
+  padding fudges.
+
+Note: 1.6 has no per-line vertical-centring control on text. A
+single line dropped into a taller box sits on its font baseline,
+not optically centred — centre the whole text layer with a shape
+container / layer-stack `.center(...)` rather than nudging it with
+blank lines or padding lifts.
 
 If the reference clearly uses a column grid (12 columns, 8 columns,
 etc.), the template should express that grid through the row or
@@ -107,7 +125,7 @@ Load this skill any time:
 - the reference uses an obvious column grid
 
 This skill chains with [`layout-primitives`](layout-primitives.md)
-(for alignment options on the row and section primitives),
+(for choosing the right primitive),
 [`tables`](tables.md) (for cell padding), and
 [`themes-and-colors`](themes-and-colors.md) (for the shared naming
 discipline).
@@ -134,8 +152,8 @@ discipline).
 
 - [`graphcompose-basics`](graphcompose-basics.md) for the place of
   layout in the semantic model
-- [`layout-primitives`](layout-primitives.md) for the primitive
-  alignment options
+- [`layout-primitives`](layout-primitives.md) for choosing the
+  right primitive
 - [`tables`](tables.md) for cell padding and table-internal gaps
 - [`themes-and-colors`](themes-and-colors.md) for the shared
   naming convention
