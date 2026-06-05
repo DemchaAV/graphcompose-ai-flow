@@ -81,6 +81,11 @@ mkdirp(targetSrcDir, targetDataDir, targetAssetsDir, targetIconsDir, targetPrevi
 
 const sourceClassFile = path.join(revisionDir, "generated-template.java");
 const targetClassFile = path.join(targetSrcDir, `${className}.java`);
+const sourceClassName =
+  simpleClassName(projectMeta.render && projectMeta.render.templateClass)
+  || simpleClassName(projectMeta.templateClass)
+  || inferPublicClassName(sourceClassFile)
+  || "GeneratedCvTemplate";
 // The template class carries the agent's editorial Javadoc polish on
 // top of the renamed source. Subsequent publishes preserve that work
 // by default — pass --force-template to overwrite (e.g. after a real
@@ -89,7 +94,7 @@ if (fs.existsSync(targetClassFile) && !args["force-template"]) {
   console.log(`[publish-template] ${path.relative(repoRoot, targetClassFile)} already exists; preserving the agent's Javadoc polish. Pass --force-template to overwrite.`);
 } else {
   copyJavaClass(sourceClassFile, targetClassFile, {
-    oldClassName: "GeneratedCvTemplate",
+    oldClassName: sourceClassName,
     newClassName: className,
   });
 }
@@ -261,6 +266,24 @@ function pascalCase(s) {
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join("");
+}
+
+function simpleClassName(fqcn) {
+  if (typeof fqcn !== "string" || fqcn.trim() === "") {
+    return null;
+  }
+  const parts = fqcn.trim().split(".");
+  return parts[parts.length - 1] || null;
+}
+
+function inferPublicClassName(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+  const content = fs.readFileSync(filePath, "utf8");
+  const match = content.match(/\bpublic\s+final\s+class\s+([A-Za-z_$][\w$]*)\b/)
+      || content.match(/\bpublic\s+class\s+([A-Za-z_$][\w$]*)\b/);
+  return match ? match[1] : null;
 }
 
 function readJsonIfExists(filePath) {
