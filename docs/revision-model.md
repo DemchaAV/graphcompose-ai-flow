@@ -20,7 +20,7 @@ Example:
   "projectName": "invoice-reference",
   "referenceImage": "reference/reference.png",
   "targetGraphComposeVersion": "1.6.0",
-  "skillPack": "skills/versions/graphcompose-1.6",
+  "skillPack": "skills/versions/graphcompose-1.7",
   "currentApprovedRevisionId": "revision-001",
   "currentDraftRevisionId": "revision-002",
   "createdAt": "2026-05-12T16:00:00Z",
@@ -50,7 +50,7 @@ Example:
   "status": "DRAFT",
   "userRequest": "Make the table darker and move the footer down",
   "targetGraphComposeVersion": "1.6.0",
-  "skillPack": "skills/versions/graphcompose-1.6",
+  "skillPack": "skills/versions/graphcompose-1.7",
   "changedComponents": [
     "LineItemsTable",
     "Footer"

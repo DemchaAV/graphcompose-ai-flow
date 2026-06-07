@@ -163,7 +163,7 @@ function readSkillIdsFromManifest(repoRoot) {
 
 function deriveTargetCoordinate(project) {
   const raw = project?.targetGraphComposeVersion;
-  if (!raw) return "io.github.demchaav:graph-compose:1.6.7";
+  if (!raw) return "io.github.demchaav:graph-compose:1.7.0";
   const cleaned = String(raw).replace(/^v/, "");
   // 1.6.7+ ships on Maven Central; pre-1.6.7 lives on JitPack.
   if (compareSemver(cleaned, "1.6.7") >= 0) {
@@ -274,7 +274,7 @@ function buildAutoPopulatedReport({
     "## Notes\n" +
     "\n" +
     "- The fixture matrix runs `mvn -B test` against each module,\n" +
-    "  picking up `io.github.demchaav:graph-compose:1.6.7` from Maven\n" +
+    "  picking up `io.github.demchaav:graph-compose:1.7.0` from Maven\n" +
     "  Central. A failing fixture would block the merge that produced\n" +
     "  this revision, so by induction the fixture-backed list is\n" +
     "  honest as long as the run is reproducible from main.\n" +

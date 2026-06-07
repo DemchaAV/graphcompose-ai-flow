@@ -12,14 +12,14 @@ The repository is no longer only documentation. The workflow
 scaffold, revision tooling, preview tooling, visual diff tooling,
 repository-contract checks, and five GraphCompose skill fixtures all
 exist on disk. The Java fixture projects compile and run against
-GraphCompose 1.6.7 through Maven Central using:
+GraphCompose 1.7.0 through Maven Central using:
 
 ```text
-io.github.demchaav:graph-compose:1.6.7
+io.github.demchaav:graph-compose:1.7.0
 ```
 
 Older pins (≤ v1.6.5) continue to resolve via JitPack as
-`com.github.DemchaAV:GraphCompose:vX.Y.Z`. GraphCompose 1.6.7 is
+`com.github.DemchaAV:GraphCompose:vX.Y.Z`. GraphCompose 1.7.0 is
 compiled for Java 21, so GraphCompose-backed Maven jobs run on Java
 21 in CI. The invoice and CV reference examples
 both render through local render-runner projects.
@@ -39,7 +39,7 @@ visual review loop completes against committed baselines.
 |---|---|---|
 | Documentation MVP | README, docs, AGENTS, prompts, contributing guide, limitations, roadmap | REAL |
 | Agent prompt pack | 10 prompt files under `prompts/` | REAL |
-| Versioned skill pack | 14 files under `skills/versions/graphcompose-1.6/` with manifest/frontmatter checks | REAL, still `needs-validation` |
+| Versioned skill pack | 14 files under `skills/versions/graphcompose-1.7/` with manifest/frontmatter checks | REAL, still `needs-validation` |
 | Manual invoice example | Three revisions under `examples/invoice-reference/`, render-runner, committed `output.pdf`/`output.png` | REAL-WITH-CAVEAT: visual baseline absent |
 | Manual CV example | Two two-page drafts under `examples/cv-reference/`, render-runner, committed `output.pdf`, `output.png`, and `output-page-2.png` for the current draft | REAL-WITH-CAVEAT: visual baseline absent |
 | Revision statuses | `DRAFT`, `APPROVED`, `REJECTED`, `SUPERSEDED`, `FAILED`, `REVERTED` in `tools/revision-manager/src/types.ts` | REAL |

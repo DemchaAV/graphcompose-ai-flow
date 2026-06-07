@@ -110,8 +110,8 @@ and a `render` path for compiled GraphCompose templates), and a Node
 visual-diff CLI. All three have passing test suites and are wired to
 GitHub Actions CI.
 
-GraphCompose 1.6.7 is reachable through Maven Central as
-`io.github.demchaav:graph-compose:1.6.7` (JitPack
+GraphCompose 1.7.0 is reachable through Maven Central as
+`io.github.demchaav:graph-compose:1.7.0` (JitPack
 `com.github.DemchaAV:GraphCompose:vX.Y.Z` still resolves for
 pre-1.6.7 pins), and the five fixture projects under
 [`examples/skill-fixtures/`](../examples/skill-fixtures/) compile

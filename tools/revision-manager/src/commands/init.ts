@@ -35,8 +35,8 @@ import {
 } from '../paths.js';
 import type { Revision, TemplateProject } from '../types.js';
 
-const DEFAULT_TARGET_VERSION = '1.6.0';
-const DEFAULT_SKILL_PACK = 'skills/versions/graphcompose-1.6';
+const DEFAULT_TARGET_VERSION = '1.7.0';
+const DEFAULT_SKILL_PACK = 'skills/versions/graphcompose-1.7';
 
 /** Template name -> example directory (relative to repo root) that backs it. */
 const TEMPLATE_REGISTRY: Record<string, string> = {

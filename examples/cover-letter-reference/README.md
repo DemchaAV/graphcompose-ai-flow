@@ -15,8 +15,8 @@ kick-off gesture that opens `revision-001`.
 ## Surface
 
 V2 layered (`com.demcha.compose.document.templates.coverletter.v2.*`)
-on GraphCompose 1.6.7 — the only surface upstream for cover letters
-as of the 1.6.7 release. See the upstream
+on GraphCompose 1.7.0 — the only surface upstream for cover letters
+as of the 1.7.0 release. See the upstream
 [v2-layered authoring cheatsheet](https://github.com/DemchaAV/GraphCompose/blob/main/docs/templates/v2-layered/authoring-presets.md)
 for the canonical reference.
 

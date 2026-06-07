@@ -407,7 +407,7 @@ public final class AiGeneratedInvoiceTemplate implements DocumentTemplate<Invoic
 
 The Architecture Mapper records the target surface under
 `Target GraphCompose Version`. The Template Coder MUST follow it
-verbatim. Two surfaces exist on the canonical side as of 1.6.7:
+verbatim. Two surfaces exist on the canonical side as of 1.7.0:
 
 - **V2 layered** (`com.demcha.compose.document.templates.cv.v2.*`,
   `com.demcha.compose.document.templates.coverletter.v2.*`) is
@@ -464,7 +464,20 @@ Helpers, type imports, and DSL idioms that are surface-agnostic
 `ShapeContainerBuilder`, `DocumentTextStyle`, `BusinessTheme`,
 `FontName`) are free to use regardless of surface.
 
-## @Beta SPI usage (1.6.7+)
+The GraphCompose 1.7.0 additive primitives are likewise
+surface-agnostic and `Stable` (not `@Beta`): inline shape runs
+(`ParagraphBuilder` / `RichText` `dot(...)` / `arrow(...)` /
+`checkbox(...)` / `shape(ShapeOutline, ...)`), `addTimeline(...)`,
+`LineBuilder.dashed(...)`, `headingBar(...)`, per-corner
+`roundedRect(w, h, DocumentCornerRadius)`,
+`verticalAlign(TextVerticalAlign)`, `FontName.JETBRAINS_MONO`, and
+`DocumentSession.availableHeight()`. Prefer them over the workarounds
+the 1.6.x pack described (font-glyph rating dots, hand-placed timeline
+bullets, CLIP_PATH-parent per-corner cards); the usage rules and the
+no-invented-API caveat live in the `skills/versions/graphcompose-1.7/`
+topic skills.
+
+## @Beta SPI usage (1.7.0+)
 
 When `architecture-plan.md` records a `@Beta` surface (currently only
 `com.demcha.compose.document.layout.NodeDefinition` — the custom
@@ -480,8 +493,8 @@ node-type seam), the Template Coder MUST:
    ```java
    /**
     * Custom timeline-spine overlay built on the @Beta NodeDefinition SPI.
-    * Verified against GraphCompose {@code io.github.demchaav:graph-compose:1.6.7}.
-    * The SPI shape may evolve in 1.7.x — see architecture-plan.md
+    * Verified against GraphCompose {@code io.github.demchaav:graph-compose:1.7.0}.
+    * The SPI shape may evolve in a future minor — see architecture-plan.md
     * "Known Limitations" for the recorded migration risk.
     */
    private void renderTimelineSpineBetaSpi(...) { ... }

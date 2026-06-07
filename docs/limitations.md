@@ -45,8 +45,8 @@ Three tools ship under [`../tools/`](../tools/) and pass CI:
   21 unit tests; functional.
 - The five fixture projects under
   [`../examples/skill-fixtures/`](../examples/skill-fixtures/) compile
-  and run with Maven against GraphCompose 1.6.7 from Maven Central:
-  `io.github.demchaav:graph-compose:1.6.7`. Pre-1.6.7 pins still
+  and run with Maven against GraphCompose 1.7.0 from Maven Central:
+  `io.github.demchaav:graph-compose:1.7.0`. Pre-1.6.7 pins still
   resolve via JitPack as `com.github.DemchaAV:GraphCompose:vX.Y.Z`.
 
 What is intentionally NOT in this repository today:

@@ -12,9 +12,9 @@ honest about its limitations.
 Phases 1 through 7 of the project plan are shipped. See
 [docs/roadmap.md](docs/roadmap.md) for the per-phase table and
 [docs/implementation-status.md](docs/implementation-status.md) for the
-honest claim-vs-reality matrix. GraphCompose 1.6.7 is reachable for
+honest claim-vs-reality matrix. GraphCompose 1.7.0 is reachable for
 fixture validation through Maven Central as
-`io.github.demchaav:graph-compose:1.6.7` (older pins ≤ 1.6.5 still
+`io.github.demchaav:graph-compose:1.7.0` (older pins ≤ 1.6.5 still
 resolve via JitPack as `com.github.DemchaAV:GraphCompose:vX.Y.Z`), and
 the five committed skill fixtures compile and run against it. The
 preview renderer now executes compiled templates and writes

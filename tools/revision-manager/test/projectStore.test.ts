@@ -26,7 +26,7 @@ describe('projectStore', () => {
     const project: TemplateProject = {
       projectName: 'sample',
       targetGraphComposeVersion: '1.6.0',
-      skillPack: 'skills/versions/graphcompose-1.6',
+      skillPack: 'skills/versions/graphcompose-1.7',
       currentApprovedRevisionId: null,
       currentDraftRevisionId: null,
       createdAt: nowIso(),

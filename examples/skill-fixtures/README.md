@@ -4,7 +4,7 @@ This folder is the home of the Phase 4 skill validation fixtures.
 
 A *skill fixture* is a small, self-contained Maven project that exercises
 one GraphCompose primitive documented by the
-[`skills/versions/graphcompose-1.6/`](../../skills/versions/graphcompose-1.6/)
+[`skills/versions/graphcompose-1.7/`](../../skills/versions/graphcompose-1.7/)
 skill pack. Each fixture proves, at the smallest possible scope, that the
 primitive the skill documents is real GraphCompose API surface and not
 fantasy documentation. The fixtures are the on-disk receipts for the

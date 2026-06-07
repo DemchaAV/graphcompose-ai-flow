@@ -15,7 +15,7 @@ kick-off gesture that opens `revision-001`.
 ## Surface
 
 `com.demcha.compose.document.templates.proposal.*` on GraphCompose
-1.6.7 — single-preset V2 architecture upstream (`ModernProposal` +
+1.7.0 — single-preset V2 architecture upstream (`ModernProposal` +
 `ProposalSpec`). New presets live in the same package and share
 `ProposalSpec` as the typed input.
 

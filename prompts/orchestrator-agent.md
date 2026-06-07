@@ -199,7 +199,7 @@ continuing. Halt the loop ONLY when one of these is true:
 | "Add a new section" / "new badge in the header" | Revision | `visual-change` |
 | "Rename the helper / extract this method" | Revision | `refactor-only` |
 | "Split the spec into nested records" | Revision | `refactor-only` |
-| "Upgrade to GraphCompose 1.6.7" | Revision | `refactor-only` |
+| "Upgrade to GraphCompose 1.7.0" | Revision | `refactor-only` |
 | "Re-resolve assets, output should match" | Revision | `refactor-only` |
 | "Previous version was better" | Undo last change | — (no new revision) |
 | "Return to approved version" | Revert to approved | — (no new revision) |
