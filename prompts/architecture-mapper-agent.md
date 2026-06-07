@@ -170,7 +170,7 @@ overlays add review-time value for this template:
 | section header anchors              | yes / no / partial | "yes — banner variants need consistent baseline"          |
 | row baselines                       | yes / no / partial | "no — single-column flow, baselines never drift"          |
 | layer-stack frames                  | yes / no / partial | "yes — badge sits half-off the card, frame proves clip"   |
-| pageBackgrounds bands               | yes / no / partial | "yes — multi-rect masthead per 1.6.7"                     |
+| pageBackgrounds bands               | yes / no / partial | "yes — multi-rect masthead per 1.7.0"                     |
 
 The debug PDF stays in the revision folder
 (`<revision>/output-debug.pdf` + per-page PNGs). Visual Review reads
@@ -228,7 +228,7 @@ Rules:
   is already V2 — do not author a `proposal/v2/` parallel package.
 - **New invoice → V1 classic.** Implement the canonical
   `InvoiceTemplate` interface; render through `InvoiceDocumentSpec`.
-  The V2 invoice stack is not landed upstream as of 1.6.7 — flag this
+  The V2 invoice stack is not landed upstream as of 1.7.0 — flag this
   in `Known Limitations` so a future migration has a clear
   starting point.
 - **Existing revision chain → stick with whatever the prior revision
@@ -255,6 +255,18 @@ edge cases rather than guessing.
 | Background shape | page background / shape container |
 | Accent border | theme token / section accent |
 | Exact decoration | `CanvasLayer` only if needed |
+| Skill rating dots / inline status mark | inline shape run — `ParagraphBuilder.dot(...)` / `shape(ShapeOutline, ...)` (1.7.0) |
+| Work history / milestones / numbered steps | `addTimeline(...)` with `TimelineMarker` (1.7.0) |
+| Dashed divider / cut-here rule | `LineBuilder.dashed(...)` (1.7.0) |
+| Section title on a filled plaque | `headingBar(text, ...)` (1.7.0) |
+| Card rounded on some corners only | `roundedRect(w, h, DocumentCornerRadius)` (1.7.0) |
+| Label centred in a tall pill | `verticalAlign(TextVerticalAlign.CENTER)` + centred layer (1.7.0) |
+
+These 1.7.0 primitives are additive — see
+[`skills/versions/graphcompose-1.7/`](../skills/versions/graphcompose-1.7/)
+(`typography`, `shapes-and-containers`, `layout-primitives`,
+`spacing-and-alignment`) for the usage rules and the
+no-invented-API caveat.
 
 ## Shape ownership mapping
 
@@ -278,14 +290,16 @@ version cannot express the relationship with a shape container,
 record a `Known Limitation` and stop the implementation path rather
 than inventing a visual overlay workaround.
 
-## @Beta surfaces (1.6.7+): record before picking
+## @Beta surfaces (1.7.0+): record before picking
 
 A `@Beta`-marked GraphCompose API is an **Extension SPI** — the
 library lets callers implement or reach it, but its shape MAY evolve
 between minor releases (one minor of `@Deprecated` warning then break).
-As of 1.6.7 the only `@Beta` surface is
+As of 1.7.0 the only `@Beta` surface is
 `com.demcha.compose.document.layout.NodeDefinition` (the custom
-node-type seam).
+node-type seam). The 1.7.0 additive primitives (inline shape runs,
+timelines, dashed lines, `headingBar`, per-corner `roundedRect`,
+vertical text align) are all `Stable`, not `@Beta`.
 
 When the Architecture Mapper picks a `@Beta` surface, the plan MUST:
 
@@ -293,7 +307,7 @@ When the Architecture Mapper picks a `@Beta` surface, the plan MUST:
    [`docs/architecture/package-map.md`](https://github.com/DemchaAV/GraphCompose/blob/main/docs/architecture/package-map.md)
    could express the same relationship. The decision order is the
    one from
-   [`skills/versions/graphcompose-1.6/layer-stacks-and-overlays.md`](../skills/versions/graphcompose-1.6/layer-stacks-and-overlays.md)
+   [`skills/versions/graphcompose-1.7/layer-stacks-and-overlays.md`](../skills/versions/graphcompose-1.7/layer-stacks-and-overlays.md)
    § "Custom node types are an @Beta SPI": documented primitive →
    `LayerStack` → `ShapeContainer` → `CanvasLayer` → `NodeDefinition`.
 2. Add a `Known Limitation` entry that records (a) which `@Beta`

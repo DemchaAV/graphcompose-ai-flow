@@ -21,12 +21,15 @@ first and load only the skill files it references.
 
 ## Current status
 
-Phase 2 has shipped the first skill pack under
-[`versions/graphcompose-1.6/`](versions/graphcompose-1.6/). It contains 14
-skill files, all listed in [`skill-manifest.json`](skill-manifest.json) with
+The active skill pack is
+[`versions/graphcompose-1.7/`](versions/graphcompose-1.7/) — a port of the
+1.6.x pack first shipped in Phase 2 (retained as a frozen snapshot under
+[`versions/graphcompose-1.6/`](versions/graphcompose-1.6/) for projects
+pinned back to 1.6.x). It contains 14 skill files, all listed in
+[`skill-manifest.json`](skill-manifest.json) with
 `status: needs-validation`. Five fixture projects now compile and run
-against GraphCompose 1.6.7 from Maven Central
-(`io.github.demchaav:graph-compose:1.6.7`; JitPack remains a fallback
+against GraphCompose 1.7.0 from Maven Central
+(`io.github.demchaav:graph-compose:1.7.0`; JitPack remains a fallback
 for pre-1.6.7 pins), which proves the covered API calls resolve
 against the real library. Full skill validation still requires the
 render + preview + visual-diff loop, so no skill is promoted to
@@ -61,7 +64,7 @@ agent MUST consult the hosted Javadoc rather than guess or grep an
 unverified copy of the GraphCompose source:
 
 - **Pinned-version Javadoc (current target):**
-  [javadoc.io/doc/io.github.demchaav/graph-compose/1.6.7](https://javadoc.io/doc/io.github.demchaav/graph-compose/1.6.7)
+  [javadoc.io/doc/io.github.demchaav/graph-compose/1.7.0](https://javadoc.io/doc/io.github.demchaav/graph-compose/1.7.0)
 - **Stable-version alias:**
   [javadoc.io/doc/io.github.demchaav/graph-compose](https://javadoc.io/doc/io.github.demchaav/graph-compose)
 

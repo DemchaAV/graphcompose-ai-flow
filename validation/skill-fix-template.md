@@ -11,7 +11,7 @@ in inside the copied report file.
 
 ## Affected skill
 
-`skills/versions/graphcompose-1.6/tables.md`
+`skills/versions/graphcompose-1.7/tables.md`
 
 ## GraphCompose version
 
@@ -62,7 +62,7 @@ FAILED / NEEDS UPDATE / FIXED
    validation run report or from
    [api-compatibility-checklist.md](api-compatibility-checklist.md).
 5. Update the affected skill file under
-   `../skills/versions/graphcompose-1.6/` and set the matching entry
+   `../skills/versions/graphcompose-1.7/` and set the matching entry
    in [../skills/skill-manifest.json](../skills/skill-manifest.json)
    to `failed-validation` until the fix lands, then to `active`
    once the fixture re-runs cleanly.

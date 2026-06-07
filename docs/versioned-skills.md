@@ -56,6 +56,11 @@ skills/
       visual-regression.md
       revision-discipline.md
       troubleshooting.md
+
+    graphcompose-1.7/
+      (same 14 files — the active pack, ported to 1.7.x and verified
+       against 1.7.0; graphcompose-1.6/ is retained as the frozen
+       1.6.x snapshot)
 ```
 
 Skills are physically duplicated per supported GraphCompose version

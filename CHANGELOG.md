@@ -7,6 +7,39 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### GraphCompose 1.7.0
+- **Dependency bumped 1.6.7 → 1.7.0.** All render-runner, skill-fixture,
+  and preview-renderer poms now resolve
+  `io.github.demchaav:graph-compose:1.7.0` from Maven Central; every live
+  example `template-project.json` (`targetGraphComposeVersion`) and the
+  `graphcompose-flow init` scaffold default move with them. 1.7.0 is
+  additive over 1.6.x (zero breaking changes), so existing generated
+  templates compile and render unchanged.
+- **New `skills/versions/graphcompose-1.7/` pack.** A port of the 1.6
+  pack (the frozen `graphcompose-1.6/` snapshot is retained for projects
+  pinned back) with the v1.7.0 additive primitives folded into the topic
+  skills: inline shape runs (rating dots / bullets / arrows / checkboxes
+  drawn from geometry, no font glyph), polygon `ShapeOutline` geometry,
+  composite inline figures + swappable tick/arrow styles, per-corner
+  `roundedRect(...)`, vertical text alignment
+  (`verticalAlign(TextVerticalAlign)`), semantic timelines
+  (`addTimeline(...)`), dashed/dotted lines (`LineBuilder.dashed(...)`),
+  `headingBar(...)`, `softPanel(..., stroke)`, `FontName.JETBRAINS_MONO`,
+  `DocumentSession.availableHeight()`, and the nested-stack
+  `position(...)` offset fix. The `spacing-and-alignment` "no per-line
+  vertical centring" note was corrected for the new `verticalAlign`.
+- **Manifest repointed to 1.7.x.** `skill-manifest.json` →
+  `skillsVersion 0.3.0`, `defaultGraphComposeVersion 1.7.x`,
+  `supportedGraphComposeVersions [1.6.x, 1.7.x]`, all 14 entries
+  `verifiedAgainst 1.7.0` (`status: needs-validation` until the render +
+  visual-diff loop runs on 1.7.0).
+- **Prompts + docs refreshed.** The Architecture Mapper gains mapping
+  rows for the 1.7.0 primitives; the Template Coder lists them as Stable,
+  surface-agnostic idioms; `AGENTS.md`, the quickstart / overview /
+  roadmap / limitations / implementation-status / skill-validation /
+  integration docs, README, and CONTRIBUTING move their "current target"
+  to 1.7.0 (the pre-1.6.7 JitPack boundary is left intact as history).
+
 ### Live preview
 - **`live/` mirror.** Every render now also writes a single stable copy of the
   latest output to `live/current.pdf` (plus `current-debug.pdf`, `current.png`,

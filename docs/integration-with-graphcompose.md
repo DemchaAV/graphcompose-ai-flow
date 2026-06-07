@@ -9,11 +9,12 @@ workflow that uses GraphCompose as the target language.
 GraphCompose itself is maintained at
 [https://github.com/DemchaAV/GraphCompose](https://github.com/DemchaAV/GraphCompose).
 The skill packs in this repository currently target GraphCompose
-`1.6.x` (the `defaultGraphComposeVersion` in `skills/skill-manifest.json`).
-A `1.5.x` skill pack is also planned per the structure in
-[versioned-skills.md](versioned-skills.md). When GraphCompose ships a
-new minor version, a new skill pack directory is added under
-`skills/versions/` rather than mutating the existing one.
+`1.7.x` (the `defaultGraphComposeVersion` in `skills/skill-manifest.json`),
+with the frozen `1.6.x` pack retained under `skills/versions/` for
+projects that pin back. When GraphCompose ships a new minor version, a
+new skill pack directory is added under `skills/versions/` rather than
+mutating the existing one — the `1.6.x` → `1.7.x` port followed exactly
+this rule (see [versioned-skills.md](versioned-skills.md)).
 
 ## How this strengthens GraphCompose positioning
 

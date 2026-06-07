@@ -64,8 +64,8 @@ java -jar target/preview-renderer.jar render \
   --page 0
 ```
 
-GraphCompose 1.6.7 ships through Maven Central as `io.github.demchaav:graph-compose:1.6.7`.
-The expected jar name is `graph-compose-1.6.7.jar` (resolved by Maven from
+GraphCompose 1.7.0 ships through Maven Central as `io.github.demchaav:graph-compose:1.7.0`.
+The expected jar name is `graph-compose-1.7.0.jar` (resolved by Maven from
 `https://repo1.maven.org/maven2`), and the canary classpath check looks for
 `com.demcha.compose.document.api.DocumentSession` inside it. Pre-1.6.7 pins
 continue to resolve via JitPack as `com.github.DemchaAV:GraphCompose:vX.Y.Z`

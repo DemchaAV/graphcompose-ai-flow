@@ -4,7 +4,7 @@
   "status": "DRAFT",
   "userRequest": "Create an A4 invoice template from the reference image.",
   "targetGraphComposeVersion": "1.6.0",
-  "skillPack": "skills/versions/graphcompose-1.6",
+  "skillPack": "skills/versions/graphcompose-1.7",
   "changedComponents": [
     "Header",
     "Hero",

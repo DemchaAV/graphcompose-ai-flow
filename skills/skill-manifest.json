@@ -1,95 +1,96 @@
 {
-  "skillsVersion": "0.2.0",
+  "skillsVersion": "0.3.0",
   "targetLibrary": "GraphCompose",
   "supportedGraphComposeVersions": [
-    "1.6.x"
+    "1.6.x",
+    "1.7.x"
   ],
-  "defaultGraphComposeVersion": "1.6.x",
+  "defaultGraphComposeVersion": "1.7.x",
   "skills": [
     {
       "id": "graphcompose-basics",
-      "file": "versions/graphcompose-1.6/graphcompose-basics.md",
-      "verifiedAgainst": "1.6.7",
+      "file": "versions/graphcompose-1.7/graphcompose-basics.md",
+      "verifiedAgainst": "1.7.0",
       "status": "needs-validation"
     },
     {
       "id": "visual-to-graphcompose-mapping",
-      "file": "versions/graphcompose-1.6/visual-to-graphcompose-mapping.md",
-      "verifiedAgainst": "1.6.7",
+      "file": "versions/graphcompose-1.7/visual-to-graphcompose-mapping.md",
+      "verifiedAgainst": "1.7.0",
       "status": "needs-validation"
     },
     {
       "id": "layout-primitives",
-      "file": "versions/graphcompose-1.6/layout-primitives.md",
-      "verifiedAgainst": "1.6.7",
+      "file": "versions/graphcompose-1.7/layout-primitives.md",
+      "verifiedAgainst": "1.7.0",
       "status": "needs-validation"
     },
     {
       "id": "tables",
-      "file": "versions/graphcompose-1.6/tables.md",
-      "verifiedAgainst": "1.6.7",
+      "file": "versions/graphcompose-1.7/tables.md",
+      "verifiedAgainst": "1.7.0",
       "status": "needs-validation"
     },
     {
       "id": "themes-and-colors",
-      "file": "versions/graphcompose-1.6/themes-and-colors.md",
-      "verifiedAgainst": "1.6.7",
+      "file": "versions/graphcompose-1.7/themes-and-colors.md",
+      "verifiedAgainst": "1.7.0",
       "status": "needs-validation"
     },
     {
       "id": "typography",
-      "file": "versions/graphcompose-1.6/typography.md",
-      "verifiedAgainst": "1.6.7",
+      "file": "versions/graphcompose-1.7/typography.md",
+      "verifiedAgainst": "1.7.0",
       "status": "needs-validation"
     },
     {
       "id": "spacing-and-alignment",
-      "file": "versions/graphcompose-1.6/spacing-and-alignment.md",
-      "verifiedAgainst": "1.6.7",
+      "file": "versions/graphcompose-1.7/spacing-and-alignment.md",
+      "verifiedAgainst": "1.7.0",
       "status": "needs-validation"
     },
     {
       "id": "backgrounds-and-panels",
-      "file": "versions/graphcompose-1.6/backgrounds-and-panels.md",
-      "verifiedAgainst": "1.6.7",
+      "file": "versions/graphcompose-1.7/backgrounds-and-panels.md",
+      "verifiedAgainst": "1.7.0",
       "status": "needs-validation"
     },
     {
       "id": "layer-stacks-and-overlays",
-      "file": "versions/graphcompose-1.6/layer-stacks-and-overlays.md",
-      "verifiedAgainst": "1.6.7",
+      "file": "versions/graphcompose-1.7/layer-stacks-and-overlays.md",
+      "verifiedAgainst": "1.7.0",
       "status": "needs-validation"
     },
     {
       "id": "shapes-and-containers",
-      "file": "versions/graphcompose-1.6/shapes-and-containers.md",
-      "verifiedAgainst": "1.6.7",
+      "file": "versions/graphcompose-1.7/shapes-and-containers.md",
+      "verifiedAgainst": "1.7.0",
       "status": "needs-validation"
     },
     {
       "id": "pagination",
-      "file": "versions/graphcompose-1.6/pagination.md",
-      "verifiedAgainst": "1.6.7",
+      "file": "versions/graphcompose-1.7/pagination.md",
+      "verifiedAgainst": "1.7.0",
       "status": "needs-validation"
     },
     {
       "id": "visual-regression",
-      "file": "versions/graphcompose-1.6/visual-regression.md",
-      "verifiedAgainst": "1.6.7",
+      "file": "versions/graphcompose-1.7/visual-regression.md",
+      "verifiedAgainst": "1.7.0",
       "status": "needs-validation"
     },
     {
       "id": "revision-discipline",
-      "file": "versions/graphcompose-1.6/revision-discipline.md",
-      "verifiedAgainst": "1.6.7",
+      "file": "versions/graphcompose-1.7/revision-discipline.md",
+      "verifiedAgainst": "1.7.0",
       "status": "needs-validation"
     },
     {
       "id": "troubleshooting",
-      "file": "versions/graphcompose-1.6/troubleshooting.md",
-      "verifiedAgainst": "1.6.7",
+      "file": "versions/graphcompose-1.7/troubleshooting.md",
+      "verifiedAgainst": "1.7.0",
       "status": "needs-validation"
     }
   ],
-  "notes": "Skill pack written for graphcompose-1.6.x. Five fixture projects compile and run against GraphCompose 1.6.7 from Maven Central (io.github.demchaav:graph-compose:1.6.7; pre-1.6.7 pins remain resolvable via JitPack as com.github.DemchaAV:GraphCompose:vX.Y.Z). All skills remain needs-validation until full render, preview, and visual-diff validation passes."
+  "notes": "Active skill pack targets graphcompose-1.7.x (verified against 1.7.0 from Maven Central: io.github.demchaav:graph-compose:1.7.0). v1.7.0 is additive over 1.6.x (zero breaking changes), so the pack is a port of graphcompose-1.6 plus the new 1.7 primitives (inline shape runs, polygon geometry, composite inline figures + checkboxes, swappable tick/arrow styles, softPanel stroke overloads, per-corner radius, vertical text alignment, JetBrains Mono, dashed/dotted lines, semantic timelines, availableHeight(), headingBar(...)) and the nested-stack position() fix. The frozen graphcompose-1.6 snapshot is retained on disk under versions/graphcompose-1.6/ so a project that pins back to 1.6.x still resolves a version-accurate pack; pre-1.6.7 pins remain resolvable via JitPack as com.github.DemchaAV:GraphCompose:vX.Y.Z. All skills remain needs-validation until the full render, preview, and visual-diff loop passes against 1.7.0."
 }
