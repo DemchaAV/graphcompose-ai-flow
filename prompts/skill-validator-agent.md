@@ -14,9 +14,11 @@ You verify that the skill pack selected for this run actually matches the real G
 
 ```text
 selected skill pack
+allow-list skill (graphcompose-api-surface / 00-api-surface.md)
 GraphCompose version
 verified examples
 fixture projects
+generated-template.java   (for the pre-compile API-existence gate)
 build output
 render output
 ```
@@ -117,9 +119,59 @@ Manager, Template Publisher) carry the symmetric rule in their own
 Orchestrator's "Task type detection" routes a halt to the user
 gesture "review skill-fix-report.md", NOT to opening a new revision.
 
+## API allow-list gate (pre-compile API-existence check)
+
+The skill pack now carries a source-generated allow-list skill,
+`graphcompose-api-surface`
+(`skills/versions/graphcompose-1.9/00-api-surface.md`): the COMPLETE,
+exact list of every public authoring method and constant for the
+resolved target version, generated straight from the tagged
+GraphCompose source by `tools/api-surface/api-index.py`. It is a closed
+set — **a symbol absent from the allow-list does not exist for the
+version.** This makes "the agent invented an API" a decidable check
+instead of a judgement call.
+
+The Skill Validator owns this gate at TWO points:
+
+1. **Up front (skill-pack validation).** Confirm the allow-list skill
+   is present for the resolved target coordinate, its
+   `verifiedAgainst` matches the coordinate, and its `**GraphCompose
+   version:**` stamp matches. A missing or version-mismatched
+   allow-list is `verdict: halt` (`reason: allow-list missing or
+   version-mismatched`).
+
+2. **Before compile (pre-compile API-existence gate).** When a
+   generated template exists — i.e. after the Template Coder writes
+   `generated-template.java` and BEFORE the Test + Render agent
+   compiles it — extract every GraphCompose call site (builder methods,
+   DSL entry points, enum constants, `FontName.*`, factory methods) and
+   diff them against the allow-list. The compile/render gate that
+   already exists is a backstop; this gate fails FASTER and with a
+   clearer reason, before a Maven round-trip.
+
+   For each call not found in the allow-list:
+   - It is invented API. Record it in `skill-validation-report.md`
+     with the call site (file + line) and the nearest real member the
+     allow-list does offer, then emit `skill-fix-report.md` if the gap
+     traces to a skill page that implied the non-existent call.
+   - The gate is `verdict: halt` (`reason: invented GraphCompose API —
+     <symbol> not in allow-list`). Test + Render MUST NOT compile a
+     template that fails this gate; the symmetric halt contract above
+     applies.
+
+   A call IS allowed when its member appears in the allow-list for the
+   owning type. Overloads are matched by name + arity against the
+   listed signatures; when arity is ambiguous, fall through to the
+   compile gate rather than guess.
+
 ## Responsibilities
 
 - verify that skills match the selected GraphCompose version
+- confirm the allow-list skill (`graphcompose-api-surface`) is present
+  and version-matched for the resolved coordinate
+- run the pre-compile API-existence gate: diff every generated
+  GraphCompose call against the allow-list BEFORE compile; a call
+  absent from the allow-list is invented API and halts the run
 - check that documented examples compile
 - check that documented examples render
 - detect stale or wrong API instructions
@@ -162,6 +214,7 @@ GraphCompose version cannot represent the ownership relationship.
 - Do not approve a skill pack on the basis of documentation review alone; fixtures must compile and render where applicable.
 - Do not invent new APIs in the skill; remove or correct invented APIs and mark the skill as `failed-validation` or `needs-validation` as appropriate.
 - Do not let downstream agents proceed using a skill marked `failed-validation` — write `verdict: halt` in `skill-validation-report.md` so the symmetric Forbidden rule in every downstream agent fires automatically.
+- Do not let the Test + Render agent compile a template that calls a GraphCompose symbol absent from the allow-list (`graphcompose-api-surface`). The pre-compile API-existence gate must catch it first and halt with `reason: invented GraphCompose API — <symbol> not in allow-list`. Treating the compiler as the only existence check is the gap this gate closes.
 - Do not write `verdict: pass` when a re-fixture against the resolved GraphCompose coordinate could not be performed at all (e.g. the artifact does not resolve). The verdict is `halt` with `reason: re-fixture unreachable` in that case.
 
 ## Hand-off

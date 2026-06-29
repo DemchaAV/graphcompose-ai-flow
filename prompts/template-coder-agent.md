@@ -334,7 +334,13 @@ Do not import PDFBox directly.
 ```
 
 ```text
-Do not invent GraphCompose API.
+Do not invent GraphCompose API. The allow-list skill
+`graphcompose-api-surface` (skills/versions/graphcompose-1.9/00-api-surface.md)
+is the CLOSED SET of every public authoring method/constant for the target
+version: if a method, overload, or enum constant is not listed there, it
+does not exist — do not call it. Before writing any GraphCompose call, grep
+the builder you are using (TableBuilder, ParagraphBuilder, LayerStackBuilder,
+...) in the allow-list and confirm the exact member is present.
 ```
 
 ```text
@@ -518,7 +524,7 @@ the coder side.
 - Do not write one huge compose method; every visible component must map to a named private render method or named layout block.
 - Do not import PDFBox directly.
 - Do not use raw coordinates as the main layout strategy.
-- Do not invent GraphCompose methods, builders, options, or configuration APIs. If a method is not documented in the selected skill version or verified examples, treat it as unavailable.
+- Do not invent GraphCompose methods, builders, options, or configuration APIs. The allow-list skill `graphcompose-api-surface` (`skills/versions/graphcompose-1.9/00-api-surface.md`) is the closed set of everything that exists for the target version: if a method, overload, or enum constant is not listed there, it does not exist — treat it as unavailable. Confirm every GraphCompose call against the allow-list (grep the builder you are using) before writing it. The Skill Validator diffs your generated GraphCompose calls against the allow-list BEFORE the Test + Render agent compiles, so an invented call fails the pre-compile API-existence gate, not just the compiler.
 - Do not use `CanvasLayer` for elements that semantic primitives can express; `CanvasLayer` is a last resort for tiny decorative details, exact background geometry, non-semantic ornaments, or visual marks that do not affect document structure.
 - Do not emulate text or icons inside a shape with sibling paragraphs, sibling rows, or negative margins. If the content belongs inside the shape, it must be a child of the shape via `center(...)`, `position(...)`, or a documented shape anchor helper.
 - Do not scatter hardcoded hex colors throughout the template; use theme tokens.

@@ -22,19 +22,30 @@ first and load only the skill files it references.
 ## Current status
 
 The active skill pack is
-[`versions/graphcompose-1.7/`](versions/graphcompose-1.7/) — a port of the
-1.6.x pack first shipped in Phase 2 (retained as a frozen snapshot under
+[`versions/graphcompose-1.9/`](versions/graphcompose-1.9/) — a port of the
+1.7.x pack (which itself ported the 1.6.x pack); 1.7.0 → 1.9.0 is additive
+with zero breaking changes, so the copies are a valid starting point. The
+earlier packs are retained as frozen snapshots under
+[`versions/graphcompose-1.7/`](versions/graphcompose-1.7/) and
 [`versions/graphcompose-1.6/`](versions/graphcompose-1.6/) for projects
-pinned back to 1.6.x). It contains 14 skill files, all listed in
-[`skill-manifest.json`](skill-manifest.json) with
-`status: needs-validation`. Five fixture projects now compile and run
-against GraphCompose 1.7.0 from Maven Central
-(`io.github.demchaav:graph-compose:1.7.0`; JitPack remains a fallback
-for pre-1.6.7 pins), which proves the covered API calls resolve
-against the real library. Full skill validation still requires the
-render + preview + visual-diff loop, so no skill is promoted to
-`status: active` yet. Skills found to conflict with the library will be
-marked `failed-validation` and fixed per the
+pinned back to those minors. The pack lists 15 skills in
+[`skill-manifest.json`](skill-manifest.json):
+
+- `graphcompose-api-surface`
+  ([`versions/graphcompose-1.9/00-api-surface.md`](versions/graphcompose-1.9/00-api-surface.md))
+  — the source-generated public-API allow-list, `status: active`. It is
+  verified-by-construction against the `v1.9.0` tag (a closed set, not a
+  visual render), so it is safe to rely on as the authoritative existence
+  check.
+- the 14 conceptual skills — `status: needs-validation`. Five fixture
+  projects compile and run against GraphCompose 1.9.0 from Maven Central
+  (`io.github.demchaav:graph-compose:1.9.0`; JitPack remains a fallback
+  for pre-1.6.7 pins), which proves the covered API calls resolve against
+  the real library, but full validation still requires the render +
+  preview + visual-diff loop, so none is promoted to `status: active`.
+
+Skills found to conflict with the library will be marked
+`failed-validation` and fixed per the
 [skill drift rule](../docs/skill-validation.md).
 
 ## Skill statuses
@@ -59,15 +70,26 @@ When unsure, the agent must generate a conservative template using known primiti
 
 ## Authoritative API reference
 
-When a skill page does not document the exact method signature, the
-agent MUST consult the hosted Javadoc rather than guess or grep an
+The lookup priority is **skill → allow-list → Javadoc**, not the old
+"skill → Javadoc → guess". When a skill page does not document the
+exact method signature, the agent MUST resolve it against the
+source-generated allow-list first, and NEVER guess or grep an
 unverified copy of the GraphCompose source:
 
-- **Pinned-version Javadoc (current target):**
-  [javadoc.io/doc/io.github.demchaav/graph-compose/1.7.0](https://javadoc.io/doc/io.github.demchaav/graph-compose/1.7.0)
-- **Stable-version alias:**
-  [javadoc.io/doc/io.github.demchaav/graph-compose](https://javadoc.io/doc/io.github.demchaav/graph-compose)
+1. **Allow-list (authoritative closed set):**
+   [`versions/graphcompose-1.9/00-api-surface.md`](versions/graphcompose-1.9/00-api-surface.md)
+   — the complete, source-generated list of every public authoring
+   method and constant for the target version. **Not listed = does not
+   exist; do not invent one.**
+2. **Pinned-version Javadoc (current target):**
+   [javadoc.io/doc/io.github.demchaav/graph-compose/1.9.0](https://javadoc.io/doc/io.github.demchaav/graph-compose/1.9.0)
+   — for parameter names and `@since` / `@Beta` tags the allow-list
+   does not carry.
+3. **Stable-version alias:**
+   [javadoc.io/doc/io.github.demchaav/graph-compose](https://javadoc.io/doc/io.github.demchaav/graph-compose)
 
-`graphcompose-basics` documents the lookup priority (skill → Javadoc
-→ fixture → ask the user) and the meaning of `@Beta` / `@since` tags
-in the published Javadoc.
+`graphcompose-basics` documents the full lookup priority (skill →
+allow-list → Javadoc → fixture → ask the user) and the meaning of
+`@Beta` / `@since` tags in the published Javadoc. The allow-list is
+regenerated per release by
+[`tools/api-surface/api-index.py`](../tools/api-surface/api-index.py).

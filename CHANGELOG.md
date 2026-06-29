@@ -7,6 +7,49 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### GraphCompose 1.9.0 — source-generated API allow-list + default retarget
+- **New `graphcompose-api-surface` allow-list skill.**
+  `skills/versions/graphcompose-1.9/00-api-surface.md` is generated
+  straight from the `v1.9.0` GraphCompose source (199 types, 1571
+  methods, 197 constants) and is the FIRST skill in the manifest. It is
+  the COMPLETE, exact list of every public authoring method/constant for
+  1.9.0 — a closed set: a symbol absent from it does not exist for the
+  version. This gives the agents a decidable API-existence check instead
+  of "skill → Javadoc → guess". `status: active` (verified-by-construction
+  against the tag; not a visual render).
+- **Vendored generator.** `tools/api-surface/api-index.py` (copied verbatim
+  from the GraphCompose repo's `.llm-wiki/tools/api-index/`) regenerates the
+  allow-list per release; `tools/api-surface/README.md` documents the
+  tag-checkout + generate flow. The generated body is never hand-edited.
+- **New `skills/versions/graphcompose-1.9/` pack.** A port of the 1.7 pack
+  (1.7.0 → 1.9.0 is additive, zero breaking changes); the frozen
+  `graphcompose-1.7/` and `graphcompose-1.6/` snapshots are retained for
+  pinned-back projects. All 14 conceptual skills re-stamped
+  `verifiedAgainst: 1.9.0` (`status: needs-validation`); version-pinned
+  Javadoc lookups now point at 1.9.0 while the historical "New in 1.7.0"
+  notes are preserved as accurate version history.
+- **Lookup priority flipped to skill → allow-list → Javadoc.**
+  `graphcompose-basics.md` and `skills/README.md` now make the allow-list
+  the authoritative existence check ("not listed = does not exist"),
+  ahead of the Javadoc.
+- **Prompts cite the allow-list as the closed set.**
+  `template-coder-agent.md` requires confirming every GraphCompose call
+  against the allow-list before writing it; `skill-validator-agent.md`
+  gains a pre-compile API-existence gate that diffs generated GraphCompose
+  calls against the allow-list BEFORE compile and halts on an invented
+  symbol — closing the "compile/render gate but no pre-compile
+  API-existence gate" gap.
+- **1.9 is the new default target.** `skill-manifest.json` →
+  `skillsVersion 0.4.0`, `defaultGraphComposeVersion 1.9.x`,
+  `supportedGraphComposeVersions [1.6.x, 1.7.x, 1.9.x]`; the
+  `graphcompose-flow init` scaffold default, the five skill-fixture poms,
+  the render gate's fallback coordinate (`deriveTargetCoordinate`), the
+  CI `skill-fixtures` job, and the `validate-skills` stub all move to
+  1.9.0. Existing committed example projects stay pinned at
+  `targetGraphComposeVersion: 1.7.0` (their renders carry 1.7.0 parity).
+  Verified: `io.github.demchaav:graph-compose:1.9.0` resolves from Maven
+  Central and the skill fixtures compile/render against it.
+
 ### GraphCompose 1.7.0
 - **Dependency bumped 1.6.7 → 1.7.0.** All render-runner, skill-fixture,
   and preview-renderer poms now resolve

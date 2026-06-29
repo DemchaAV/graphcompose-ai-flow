@@ -13,7 +13,7 @@ setup.
 **Works for any document kind** GraphCompose primitives can express — CV,
 cover letter, invoice, proposal, report, brochure, datasheet, single-page
 brand collateral. The four canonical template surfaces upstream are
-first-class targets as of GraphCompose 1.7.0:
+first-class targets as of GraphCompose 1.9.0:
 
 | Surface | Generation | Shape |
 |---|---|---|
@@ -63,7 +63,7 @@ Source reference: [`examples/cv-reference/`](examples/cv-reference/) → publish
 | Published template bundle (`mint-editorial-cv`) | Available |
 | GitHub Actions CI matrix | Green (Node 20 + Java 21 + Maven) |
 | Full visual baseline orchestration | In progress |
-| Skills under `skills/versions/graphcompose-1.7/` | `needs-validation` until baseline pass lands |
+| Skills under `skills/versions/graphcompose-1.9/` | allow-list `active`; 14 conceptual `needs-validation` until baseline pass lands |
 
 Full claim-vs-reality matrix: [`docs/implementation-status.md`](docs/implementation-status.md).
 
@@ -266,8 +266,8 @@ and a Node
 visual-diff CLI ([`visual-diff`](tools/visual-diff/)). All three ship
 with passing test suites and are wired to GitHub Actions CI.
 
-GraphCompose 1.7.0 is reachable for fixture validation through
-Maven Central as `io.github.demchaav:graph-compose:1.7.0`
+GraphCompose 1.9.0 is reachable for fixture validation through
+Maven Central as `io.github.demchaav:graph-compose:1.9.0`
 (JitPack `com.github.DemchaAV:GraphCompose:vX.Y.Z` still resolves for
 pre-1.6.7 pins). The five fixture projects under
 [`examples/skill-fixtures/`](examples/skill-fixtures/) compile and

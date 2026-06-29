@@ -5,9 +5,9 @@ and one manual example. Tooling starts at Phase 5.
 
 ## Current phase
 
-All seven phases of the project plan are shipped. GraphCompose 1.7.0
+All seven phases of the project plan are shipped. GraphCompose 1.9.0
 is reachable for fixture validation through Maven Central as
-`io.github.demchaav:graph-compose:1.7.0` (JitPack
+`io.github.demchaav:graph-compose:1.9.0` (JitPack
 `com.github.DemchaAV:GraphCompose:vX.Y.Z` remains the fallback for
 pre-1.6.7 pins), and the five skill fixtures compile and run against
 it. `preview-renderer render` can
