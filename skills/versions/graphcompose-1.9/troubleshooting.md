@@ -193,6 +193,40 @@ These are remedies, not skill drift: the primitives exist in 1.7.0. If
 a project is pinned to 1.6.x, the `graphcompose-1.6` pack documents the
 older workarounds and the missing-primitive flow above applies.
 
+## Verified findings from 1.9.0 template rendering
+
+These three failures were hit (and fixed) while rendering a real
+two-page CV template against `io.github.demchaav:graph-compose:1.9.0`.
+They compile cleanly — the symptom only appears at render — so they are
+not catchable by the allow-list alone; keep them in mind up front.
+
+- **`Bundled font resource not found: /fonts/google/<family>/...ttf`** at
+  render, even though `FontName.<FAMILY>` is a real allow-list constant.
+  Since **GraphCompose v1.8.0 the bundled Google Fonts ship in a separate
+  artifact**, not in the core jar. Add
+  `io.github.demchaav:graph-compose-fonts` (versioned independently —
+  `1.0.0` as of engine 1.9.0; the `graph-compose-bundle` aggregate pulls
+  both) to the render-runner's `pom.xml`. This is a packaging change, not
+  an API change: 1.7→1.9 is additive for the API surface but NOT for the
+  font packaging. See [`typography`](typography.md).
+- **`Row '...' cannot contain a nested horizontal row.`** A horizontal
+  `addRow(...)` cannot directly contain another horizontal row — and a
+  section that is itself a cell of a row counts, so `row → section → row`
+  trips it too. Remedies: keep the inner content inline in a single
+  paragraph (e.g. an inline glyph + text via `inlineImage(...)` +
+  `inlineText(...)`), stack it as sections in a vertical column, or wrap
+  the inner row in a `LayerStack` layer. See
+  [`layout-primitives`](layout-primitives.md) and
+  [`layer-stacks-and-overlays`](layer-stacks-and-overlays.md).
+- **An element must straddle / overlap a band edge** (e.g. a circular
+  photo hanging below a header band onto the zone beneath it). A flow row
+  always grows to contain its children, so it cannot overflow. Use a
+  `LayerStack`: the band is the back layer, the overlapping element is
+  added with `position(node, dx, dy, LayerAlign.TOP_LEFT)` and the stack
+  is set to `clipToBounds(false)` so the element renders past the band
+  edge. Lower the content directly beneath the overlap so it does not
+  collide. See [`layer-stacks-and-overlays`](layer-stacks-and-overlays.md).
+
 ## Containment principles
 
 Every troubleshooting response shares three principles:

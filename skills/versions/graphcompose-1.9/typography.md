@@ -88,6 +88,16 @@ source, and fallback before code generation. Specific font
 registration APIs must match the verified 1.9.0 examples — do not
 invent them.
 
+**Bundled fonts moved to a separate artifact in v1.8.0.** The bundled
+Google Fonts (`FontName.POPPINS`, `SPECTRAL`, `JETBRAINS_MONO`, …) are
+no longer in the core `graph-compose` jar. A template that uses a
+bundled `FontName.*` compiles (the constants still exist) but FAILS AT
+RENDER with `Bundled font resource not found` unless the render-runner
+depends on `io.github.demchaav:graph-compose-fonts` (the
+`graph-compose-bundle` aggregate pulls both). Make the fonts artifact a
+required render-runner dependency whenever a bundled font is used. See
+[`troubleshooting`](troubleshooting.md).
+
 ## Inline figures, monospace, and vertical seating (1.7.0)
 
 GraphCompose 1.7.0 adds three typography-adjacent capabilities. Each is

@@ -172,6 +172,20 @@ DocumentTextStyle.builder()
 // with FontLibrary.addFont(...) using FontFamilyDefinition.files(...).
 ```
 
+**GraphCompose 1.8.0+ font packaging (render-runner dependency).** The
+bundled Google Fonts (`FontName.POPPINS`, `SPECTRAL`, `JETBRAINS_MONO`,
+…) moved OUT of the core `graph-compose` jar into a SEPARATE artifact in
+v1.8.0. On the default 1.9.x target a template that references a bundled
+`FontName.*` compiles fine but FAILS AT RENDER with `Bundled font
+resource not found: /fonts/google/...` unless the render-runner
+`pom.xml` also depends on `io.github.demchaav:graph-compose-fonts`
+(versioned independently — `1.0.0` as of engine 1.9.0; the
+`io.github.demchaav:graph-compose-bundle` aggregate pulls both). Treat
+the fonts artifact as a REQUIRED render-runner dependency whenever a
+bundled font is used. This is a packaging break, not an API break — the
+allow-list lists `FontName.*` because the constants still exist; only
+their resource ships elsewhere. (Verified by rendering against 1.9.0.)
+
 Never bypass the manifest. If a needed asset is missing, surface the
 gap to the Asset Resolver Agent instead of inventing a substitute.
 
