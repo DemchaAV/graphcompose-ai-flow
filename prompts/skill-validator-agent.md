@@ -15,6 +15,7 @@ You verify that the skill pack selected for this run actually matches the real G
 ```text
 selected skill pack
 allow-list skill (graphcompose-api-surface / 00-api-surface.md)
+engine-guides skill (graphcompose-engine-guides / guides/00-index.md)
 GraphCompose version
 verified examples
 fixture projects
@@ -138,7 +139,11 @@ The Skill Validator owns this gate at TWO points:
    `verifiedAgainst` matches the coordinate, and its `**GraphCompose
    version:**` stamp matches. A missing or version-mismatched
    allow-list is `verdict: halt` (`reason: allow-list missing or
-   version-mismatched`).
+   version-mismatched`). Also confirm the engine-guides skill
+   (`graphcompose-engine-guides`, `guides/00-index.md`) is present and its
+   `verifiedAgainst` matches; a missing or stale guides index is a
+   `needs-validation` note, NOT a halt — the guides are usage references
+   (how to wire a primitive), not the existence gate.
 
 2. **Before compile (pre-compile API-existence gate).** When a
    generated template exists — i.e. after the Template Coder writes

@@ -28,10 +28,20 @@ the full visual-baseline pass is the gate to `1.0.0`.
   `verifiedAgainst: 1.9.0` (`status: needs-validation`); version-pinned
   Javadoc lookups now point at 1.9.0 while the historical "New in 1.7.0"
   notes are preserved as accurate version history.
-- **Lookup priority flipped to skill → allow-list → Javadoc.**
+- **New `graphcompose-engine-guides` (how-to-use-the-engine) skill.**
+  `tools/api-surface/sync-engine-guides.mjs` vendors the 13 verified,
+  render-proven developer guides from the GraphCompose LLM wiki
+  (`.llm-wiki/12-docs-extraction/`) into
+  `skills/versions/graphcompose-1.9/guides/`, each stamped with a provenance
+  header. Where the allow-list says WHAT exists, the guides show HOW to wire
+  the primitives. A flow-owned index (`guides/00-index.md`) is the manifest
+  entry (`status: needs-validation` until the snippets are re-smoked against
+  1.9.0 in this flow). Curated layer, so this is a re-sync, not a `--src`
+  regeneration.
+- **Lookup priority flipped to skill → allow-list → engine guides → Javadoc.**
   `graphcompose-basics.md` and `skills/README.md` now make the allow-list
-  the authoritative existence check ("not listed = does not exist"),
-  ahead of the Javadoc.
+  the authoritative existence check ("not listed = does not exist") and the
+  engine guides the how-to layer, ahead of the Javadoc.
 - **Prompts cite the allow-list as the closed set.**
   `template-coder-agent.md` requires confirming every GraphCompose call
   against the allow-list before writing it; `skill-validator-agent.md`

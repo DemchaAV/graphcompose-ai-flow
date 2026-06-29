@@ -340,7 +340,10 @@ is the CLOSED SET of every public authoring method/constant for the target
 version: if a method, overload, or enum constant is not listed there, it
 does not exist — do not call it. Before writing any GraphCompose call, grep
 the builder you are using (TableBuilder, ParagraphBuilder, LayerStackBuilder,
-...) in the allow-list and confirm the exact member is present.
+...) in the allow-list and confirm the exact member is present. For HOW to
+wire a primitive (working, render-proven snippets), consult the engine-guides
+skill `graphcompose-engine-guides` (skills/versions/graphcompose-1.9/guides/):
+the allow-list confirms a method exists, the guides show how to use it.
 ```
 
 ```text

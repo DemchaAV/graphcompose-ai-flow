@@ -36,6 +36,7 @@ been executed, and which skills are still pending validation.
 | Skill ID | Target version | Status | Fixture exists | Fixture executed | Drift detected | Last validated |
 |---|---|---|---|---|---|---|
 | graphcompose-api-surface | 1.9.0 | active | n/a (source-generated) | n/a | none (exact extraction from v1.9.0 tag) | 2026-06-29 |
+| graphcompose-engine-guides | 1.9.0 | needs-validation | n/a (vendored guides) | upstream compile-smoke + render-proof | not re-smoked in-flow yet | 2026-06-29 |
 | graphcompose-basics | 1.9.0 | needs-validation | no | no | unknown | 2026-06-01 |
 | visual-to-graphcompose-mapping | 1.9.0 | needs-validation | no | no | unknown | 2026-06-01 |
 | layout-primitives | 1.9.0 | needs-validation | yes | yes, render-only smoke (re-passed 2026-06-29 vs 1.9.0 Central) | no compile drift; visual pending | 2026-06-29 |

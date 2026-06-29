@@ -63,3 +63,30 @@ grep -c 'addTableOfContents\|addPageReference\|toImages' skills/versions/graphco
 
 The current allow-list is
 [skills/versions/graphcompose-1.9/00-api-surface.md](../../skills/versions/graphcompose-1.9/00-api-surface.md).
+
+## Engine guides — `sync-engine-guides.mjs`
+
+`sync-engine-guides.mjs` vendors the **how-to-use-the-engine** layer: the
+verified developer guides from the GraphCompose private LLM wiki
+(`.llm-wiki/12-docs-extraction/`). Where the allow-list says WHAT exists, these
+guides show HOW to wire the primitives together — each is intent-first and
+compile-smoke + render-proven upstream.
+
+Unlike the allow-list, the guides are **curated, not regenerated from a tag**,
+so this is a re-sync (copy + stamp), not a `--src` generation. The script
+copies each `NN-*.md` body guide verbatim and prepends a provenance header
+recording the source and the pinned release; the flow-owned index
+(`guides/00-index.md`) is never overwritten.
+
+```bash
+node tools/api-surface/sync-engine-guides.mjs \
+  --src "C:/Dev/Java/GraphCompose/.llm-wiki/12-docs-extraction" \
+  --out skills/versions/graphcompose-1.9/guides \
+  --verified 1.9.0
+```
+
+`--src` defaults to `$GRAPHCOMPOSE_WIKI/12-docs-extraction` when that env var is
+set. The vendored guides live under
+[skills/versions/graphcompose-1.9/guides/](../../skills/versions/graphcompose-1.9/guides/);
+the index ([guides/00-index.md](../../skills/versions/graphcompose-1.9/guides/00-index.md))
+is the `graphcompose-engine-guides` manifest skill.

@@ -70,10 +70,10 @@ When unsure, the agent must generate a conservative template using known primiti
 
 ## Authoritative API reference
 
-The lookup priority is **skill → allow-list → Javadoc**, not the old
-"skill → Javadoc → guess". When a skill page does not document the
-exact method signature, the agent MUST resolve it against the
-source-generated allow-list first, and NEVER guess or grep an
+The lookup priority is **skill → allow-list → engine guides → Javadoc**,
+not the old "skill → Javadoc → guess". When a skill page does not
+document the exact method signature, the agent MUST resolve it against
+the source-generated allow-list first, and NEVER guess or grep an
 unverified copy of the GraphCompose source:
 
 1. **Allow-list (authoritative closed set):**
@@ -81,15 +81,22 @@ unverified copy of the GraphCompose source:
    — the complete, source-generated list of every public authoring
    method and constant for the target version. **Not listed = does not
    exist; do not invent one.**
-2. **Pinned-version Javadoc (current target):**
+2. **Engine guides (how to use it):**
+   [`versions/graphcompose-1.9/guides/00-index.md`](versions/graphcompose-1.9/guides/00-index.md)
+   — verified, render-proven how-to guides vendored from the GraphCompose
+   LLM wiki. The allow-list says WHAT exists; the guides show HOW to wire
+   the primitives together.
+3. **Pinned-version Javadoc (current target):**
    [javadoc.io/doc/io.github.demchaav/graph-compose/1.9.0](https://javadoc.io/doc/io.github.demchaav/graph-compose/1.9.0)
    — for parameter names and `@since` / `@Beta` tags the allow-list
    does not carry.
-3. **Stable-version alias:**
+4. **Stable-version alias:**
    [javadoc.io/doc/io.github.demchaav/graph-compose](https://javadoc.io/doc/io.github.demchaav/graph-compose)
 
 `graphcompose-basics` documents the full lookup priority (skill →
-allow-list → Javadoc → fixture → ask the user) and the meaning of
-`@Beta` / `@since` tags in the published Javadoc. The allow-list is
-regenerated per release by
-[`tools/api-surface/api-index.py`](../tools/api-surface/api-index.py).
+allow-list → engine guides → Javadoc → fixture → ask the user) and the
+meaning of `@Beta` / `@since` tags in the published Javadoc. The
+allow-list is regenerated per release by
+[`tools/api-surface/api-index.py`](../tools/api-surface/api-index.py); the
+engine guides are re-synced by
+[`tools/api-surface/sync-engine-guides.mjs`](../tools/api-surface/sync-engine-guides.mjs).

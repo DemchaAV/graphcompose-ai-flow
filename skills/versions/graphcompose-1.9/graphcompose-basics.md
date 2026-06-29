@@ -129,11 +129,15 @@ Lookup priorities, in order:
 2. The **allow-list** ([`00-api-surface.md`](00-api-surface.md)) —
    authoritative for existence and exact signatures. Not listed = does
    not exist; do not invent.
-3. The hosted Javadoc at the version pinned in the skill manifest's
+3. The **engine guides** ([`guides/00-index.md`](guides/00-index.md)) —
+   the how-to-use-the-engine layer: verified, render-proven snippets that
+   show how to wire the primitives together. The allow-list says WHAT
+   exists; the guides show HOW to use it.
+4. The hosted Javadoc at the version pinned in the skill manifest's
    `verifiedAgainst` (currently 1.9.0) — for parameter names and tags.
-4. A fixture project under [`examples/skill-fixtures/`](../../../examples/skill-fixtures/)
+5. A fixture project under [`examples/skill-fixtures/`](../../../examples/skill-fixtures/)
    that uses the API in question (proves it actually resolves).
-5. Only after all of the above fail, ask the user — do not invent.
+6. Only after all of the above fail, ask the user — do not invent.
 
 Class-level `@since` tags landed in 1.6.6 on every entry-point type
 (`DocumentSession`, `DocumentDsl`, `BusinessTheme`, the 19 DSL
