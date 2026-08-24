@@ -1,11 +1,15 @@
 # Roadmap
 
-The project ships in seven phases. The first three are documentation
-and one manual example. Tooling starts at Phase 5.
+The original project shipped in seven phases: the first three
+documentation and one manual example, tooling from Phase 5 onward.
+Those seven are done. The project has since entered a second arc —
+the harness migration — described below and in
+[architecture.md](architecture.md).
 
 ## Current phase
 
-All seven phases of the project plan are shipped. GraphCompose 1.9.0
+The harness migration (Phase 0 of the new arc) has started. The
+seven original phases are shipped. GraphCompose 1.9.0
 is reachable for fixture validation through Maven Central as
 `io.github.demchaav:graph-compose:1.9.0` (JitPack
 `com.github.DemchaAV:GraphCompose:vX.Y.Z` remains the fallback for
@@ -28,7 +32,46 @@ layout snapshots and feed visual-diff against committed baselines.
 | 6 — Render and Preview Workflow | shipped (`preview` works; `render` executes compiled templates when runtime is on classpath) |
 | 7 — Visual Diff Experiment | shipped |
 
-## Phase 1 — Documentation MVP
+## Harness migration
+
+The seven phases above built a workflow kit: a human reads the docs,
+an agent interprets eleven prompt files, and the work happens inside
+a clone of this repository. The second arc turns that into an
+installable harness — an Agent Skill package for Claude Code and
+Codex that works inside the user's own Java project. The reasoning,
+the layer split and what is deliberately excluded are in
+[architecture.md](architecture.md).
+
+| Phase | Goal | Status |
+|---|---|---|
+| 0 — Architecture of record | Capture the target architecture; clean the repo root | in progress |
+| 1 — Single routing source | `config/pipeline.yaml` replaces the scope→stages duplication | not started |
+| 2 — Structured contracts | JSON schemas for orchestration, visual analysis, architecture, review | not started |
+| 3 — Workspace decoupling | Tools accept an external root; version resolved from the user's build file | not started |
+| 4 — Workflow skills | Eleven agent prompts become four skills | not started |
+| 5 — GraphCompose 2.2 skill pack | New default pack; 1.9 frozen alongside 1.6/1.7 | not started |
+| 6 — Progressive disclosure | Load only the topic skills a document kind needs | not started |
+| 7 — Claude Code plugin | Plugin manifest, slash commands, clean-project acceptance | not started |
+| 8 — Autonomous loop | Iterate to READY_FOR_APPROVAL or BLOCKED without prompting | not started |
+| 9 — Codex adapter | Same skills and tools, adapter only, no workflow fork | not started |
+| 10 — Harness tests and CI | Contract tests, routing fixtures, plugin package validation | not started |
+| 11 — Finalization | Short AGENTS.md, new README, demo, release | not started |
+
+Post-MVP, each needing its own plan: the `graphcompose-verify` GitHub
+Action, marketplace distribution, an MCP server (only once remote
+services exist), and a standalone runtime (only if running outside
+Codex/Claude ever becomes necessary).
+
+The step-by-step execution plan behind this table — actions,
+verification and resume points per phase — is kept locally under
+`docs/private/`, which is gitignored.
+
+## Original phases (shipped)
+
+The seven sections below are the first arc. They are numbered
+independently of the harness-migration phases above.
+
+### Phase 1 — Documentation MVP
 
 Goal: create the repository skeleton and explain the workflow
 clearly.
@@ -58,7 +101,7 @@ Commit:
 docs: introduce strict GraphCompose AI template flow
 ```
 
-## Phase 2 — Versioned Skills MVP
+### Phase 2 — Versioned Skills MVP
 
 Goal: create the first skill pack for the current GraphCompose
 version.
@@ -91,7 +134,7 @@ Commit:
 docs: add versioned GraphCompose skill pack
 ```
 
-## Phase 3 — Manual Example
+### Phase 3 — Manual Example
 
 Goal: show one full revision cycle manually.
 
@@ -120,7 +163,7 @@ Commit:
 docs: add manual invoice visual matching example
 ```
 
-## Phase 4 — Skill Validation Fixtures
+### Phase 4 — Skill Validation Fixtures
 
 Goal: prove that skills are not fantasy documentation.
 
@@ -145,7 +188,7 @@ Commit:
 test: add skill validation fixtures
 ```
 
-## Phase 5 — Revision Helper Tool
+### Phase 5 — Revision Helper Tool
 
 Goal: introduce the file-based revision manager.
 
@@ -175,7 +218,7 @@ Commit:
 tools: add file-based revision manager
 ```
 
-## Phase 6 — Render and Preview Workflow
+### Phase 6 — Render and Preview Workflow
 
 Goal: automate the compile/render/preview loop.
 
@@ -205,7 +248,7 @@ Commit:
 tools: add experimental render and preview workflow
 ```
 
-## Phase 7 — Visual Diff Experiment
+### Phase 7 — Visual Diff Experiment
 
 Goal: introduce basic visual comparison.
 
