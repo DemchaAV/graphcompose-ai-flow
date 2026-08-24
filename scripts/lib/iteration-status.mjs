@@ -52,6 +52,7 @@ function loadLoop(projectDir, revisionId) {
   const chain = [];
   const seen = new Set();
   let cursor = revisionId;
+  let truncatedAt = null;
 
   while (cursor) {
     if (seen.has(cursor)) {
@@ -61,7 +62,14 @@ function loadLoop(projectDir, revisionId) {
 
     const dir = path.join(projectDir, "revisions", cursor);
     const revision = readJsonOr(path.join(dir, "revision.json"));
-    if (!revision) break;
+    if (!revision) {
+      // Only a truncation if we were following a parent link. Stopping here
+      // silently would UNDER-count the loop, which makes every bound below more
+      // permissive exactly when the project is in a damaged state, so the
+      // caller is told the count is a lower bound.
+      if (chain.length > 0) truncatedAt = cursor;
+      break;
+    }
 
     // An APPROVED ancestor is where the previous loop ended; the current loop
     // starts after it, so stop before including it.
@@ -74,7 +82,7 @@ function loadLoop(projectDir, revisionId) {
     });
     cursor = revision.parentRevisionId;
   }
-  return chain;
+  return { chain, truncatedAt };
 }
 
 /** The mismatch this pass was about, if the review named one. */
@@ -121,7 +129,7 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     );
   }
 
-  const chain = loadLoop(projectDir, target);
+  const { chain, truncatedAt } = loadLoop(projectDir, target);
   if (chain.length === 0) {
     throw new IterationStatusError(`revision ${target} not found in ${projectDir}`);
   }
@@ -146,6 +154,14 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     reasons.push(
       `${latest.id} has no visual-review.json — a render without a review is not an iteration, ` +
         "it is an unfinished one",
+    );
+  }
+
+  if (truncatedAt) {
+    reasons.push(
+      `the chain stops at ${truncatedAt}, whose revision.json is missing or unreadable — ` +
+        `${iterations} is a LOWER BOUND on the iterations this loop has run, so the limits ` +
+        "below are more permissive than they look",
     );
   }
 
@@ -182,6 +198,8 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     failureCategory,
     largestMismatch,
     iterations,
+    iterationsAreLowerBound: Boolean(truncatedAt),
+    chainTruncatedAt: truncatedAt,
     consecutiveBuildFailures,
     sameMismatchAttempts,
     limits,

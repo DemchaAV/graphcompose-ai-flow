@@ -46,6 +46,12 @@ const DEFAULT_INSTALL_ROOT = path.resolve(
   "..",
 );
 
+/**
+ * A project id is one path segment. Must start with a letter or digit, so "."
+ * and ".." cannot be spelled, and carries no separator of either flavour.
+ */
+const PROJECT_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
 export class WorkspaceError extends Error {
   constructor(message) {
     super(`[workspace] ${message}`);
@@ -149,8 +155,15 @@ function readManifest(manifestPath) {
  * @returns {string}
  */
 export function projectDir(workspace, projectId) {
-  if (!projectId || projectId.includes("/") || projectId.includes("\\")) {
-    throw new WorkspaceError(`invalid project id ${JSON.stringify(projectId)}`);
+  // Allow-list rather than deny-list. Rejecting separators alone let "." and
+  // ".." through, and path.join happily resolved them out of the projects
+  // directory — ".." landed on the workspace root itself.
+  if (typeof projectId !== "string" || !PROJECT_ID.test(projectId)) {
+    throw new WorkspaceError(
+      `invalid project id ${JSON.stringify(projectId)} — ` +
+        "expected a single name of letters, digits, dots, dashes or underscores, " +
+        "starting with a letter or digit",
+    );
   }
   return path.join(workspace.projectsDir, projectId);
 }

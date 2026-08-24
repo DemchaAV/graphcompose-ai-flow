@@ -94,6 +94,89 @@ test("a version property is dereferenced", () => {
   assert.equal(readPinnedVersion(path.join(dir, "pom.xml")).version, "2.2.0");
 });
 
+test("the real dependency wins over a dependencyManagement pin", () => {
+  // A managed block states what a version WOULD be; the module may well use a
+  // newer one. Taking the first match in the file handed back the older line.
+  const dir = tempDir("managed");
+  write(
+    dir,
+    "pom.xml",
+    `<project>
+  <dependencyManagement><dependencies><dependency>
+    <groupId>io.github.demchaav</groupId><artifactId>graph-compose</artifactId><version>1.6.0</version>
+  </dependency></dependencies></dependencyManagement>
+  <dependencies><dependency>
+    <groupId>io.github.demchaav</groupId><artifactId>graph-compose</artifactId><version>2.2.0</version>
+  </dependency></dependencies>
+</project>`,
+  );
+  assert.equal(readPinnedVersion(path.join(dir, "pom.xml")).version, "2.2.0");
+});
+
+test("a managed-only pin is still an answer, just the fallback one", () => {
+  const dir = tempDir("managed-only");
+  write(
+    dir,
+    "pom.xml",
+    `<project>
+  <dependencyManagement><dependencies><dependency>
+    <groupId>io.github.demchaav</groupId><artifactId>graph-compose</artifactId><version>2.2.0</version>
+  </dependency></dependencies></dependencyManagement>
+</project>`,
+  );
+  assert.equal(readPinnedVersion(path.join(dir, "pom.xml")).version, "2.2.0");
+});
+
+test("a commented-out dependency is not a dependency", () => {
+  const dir = tempDir("commented");
+  write(
+    dir,
+    "pom.xml",
+    `<project>
+  <!-- <dependency>
+    <groupId>io.github.demchaav</groupId><artifactId>graph-compose</artifactId><version>1.6.0</version>
+  </dependency> -->
+  <dependencies><dependency>
+    <groupId>io.github.demchaav</groupId><artifactId>graph-compose</artifactId><version>2.2.0</version>
+  </dependency></dependencies>
+</project>`,
+  );
+  assert.equal(readPinnedVersion(path.join(dir, "pom.xml")).version, "2.2.0");
+});
+
+test("a version property defined in a parent pom is reported as exactly that", () => {
+  // Previously this said "declares no GraphCompose dependency", which sent the
+  // reader to the wrong file: the dependency is right there, the property is not.
+  const dir = tempDir("parent-property");
+  write(
+    dir,
+    "pom.xml",
+    `<project>
+  <parent><groupId>com.example</groupId><artifactId>parent</artifactId><version>1.0</version></parent>
+  <dependencies><dependency>
+    <groupId>io.github.demchaav</groupId><artifactId>graph-compose</artifactId>
+    <version>\${graphcompose.version}</version>
+  </dependency></dependencies>
+</project>`,
+  );
+
+  const pinned = readPinnedVersion(path.join(dir, "pom.xml"));
+  assert.equal(pinned.version, null);
+  assert.equal(pinned.coordinate, "io.github.demchaav:graph-compose");
+  assert.equal(pinned.unresolvedProperty, "${graphcompose.version}");
+
+  const result = resolveVersion({ projectDir: dir, install: repoRoot });
+  assert.equal(result.status, "unknown");
+  assert.equal(result.coordinate, "io.github.demchaav:graph-compose");
+  assert.doesNotMatch(
+    result.message,
+    /declares no GraphCompose dependency/,
+    "the message still claims the dependency is absent when it is declared",
+  );
+  assert.match(result.message, /graphcompose\.version/);
+  assert.match(result.message, /parent pom/);
+});
+
 test("the JitPack coordinate is recognised too", () => {
   const dir = tempDir("jitpack");
   write(

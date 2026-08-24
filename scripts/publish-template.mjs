@@ -43,6 +43,23 @@ const workspace = resolveWorkspace({ explicitRoot: args.root ?? null });
 const workspaceBanner = describeWorkspaceLine(workspace);
 if (workspaceBanner) console.log(workspaceBanner);
 
+/**
+ * Path as a reader can act on it. Relative to whichever root actually contains
+ * it — the workspace for work, the install for the harness — and absolute when
+ * it is inside neither. Printing everything relative to the install root gave
+ * "..\..\..\tmp\..." once the workspace moved out of this repository, which
+ * tells a user nothing about where their bundle went.
+ */
+function display(target) {
+  for (const base of [workspace.root, repoRoot]) {
+    const rel = path.relative(base, target);
+    if (rel && !rel.startsWith("..") && !path.isAbsolute(rel)) {
+      return base === repoRoot ? rel : path.join(path.basename(base), rel);
+    }
+  }
+  return target;
+}
+
 const projectDir = workspaceProjectDir(workspace, project);
 const projectMetaPath = path.join(projectDir, "template-project.json");
 if (!fs.existsSync(projectMetaPath)) {
@@ -85,7 +102,7 @@ console.log(`[publish-template] displayName   = ${displayName}`);
 console.log(`[publish-template] templateId    = ${templateId}`);
 console.log(`[publish-template] className     = ${className}`);
 console.log(`[publish-template] docKind       = ${docKind}`);
-console.log(`[publish-template] targetDir     = ${path.relative(repoRoot, targetDir)}`);
+console.log(`[publish-template] targetDir     = ${display(targetDir)}`);
 
 if (args["dry-run"]) {
   console.log("[publish-template] --dry-run set; not writing files.");
@@ -106,7 +123,7 @@ const sourceClassName =
 // by default — pass --force-template to overwrite (e.g. after a real
 // behavioural change in the revision's generated-template.java).
 if (fs.existsSync(targetClassFile) && !args["force-template"]) {
-  console.log(`[publish-template] ${path.relative(repoRoot, targetClassFile)} already exists; preserving the agent's Javadoc polish. Pass --force-template to overwrite.`);
+  console.log(`[publish-template] ${display(targetClassFile)} already exists; preserving the agent's Javadoc polish. Pass --force-template to overwrite.`);
 } else {
   copyJavaClass(sourceClassFile, targetClassFile, {
     oldClassName: sourceClassName,
@@ -130,7 +147,7 @@ const sourceDataFile = path.join(revisionDir, `${docKind}-data.json`);
 if (fs.existsSync(sourceDataFile)) {
   copyFile(sourceDataFile, path.join(targetDataDir, `${docKind}-data.example.json`));
 } else {
-  console.log(`[publish-template] data file ${path.relative(repoRoot, sourceDataFile)} not found; skipping data copy. Templates that ship hard-coded content do not need a data file.`);
+  console.log(`[publish-template] data file ${display(sourceDataFile)} not found; skipping data copy. Templates that ship hard-coded content do not need a data file.`);
 }
 
 const sourceAssetRequest = path.join(revisionDir, "asset-request.json");
@@ -216,7 +233,7 @@ const manifest = {
 };
 const manifestPath = path.join(targetDir, "template.json");
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
-console.log(`[publish-template] wrote ${path.relative(repoRoot, manifestPath)}`);
+console.log(`[publish-template] wrote ${display(manifestPath)}`);
 
 console.log(`[publish-template] done. Template Publisher Agent must now polish ${className}.java Javadoc and write/refresh README.md.`);
 
@@ -231,7 +248,7 @@ function copyJavaClass(srcPath, destPath, opts) {
     content = content.replace(new RegExp(`\\b${oldName}\\b`, "g"), newName);
   }
   fs.writeFileSync(destPath, content, "utf8");
-  console.log(`[publish-template] copied ${path.relative(repoRoot, srcPath)} -> ${path.relative(repoRoot, destPath)} (class renamed)`);
+  console.log(`[publish-template] copied ${display(srcPath)} -> ${display(destPath)} (class renamed)`);
 }
 
 function copyJavaSource(srcPath, destPath) {
@@ -239,12 +256,12 @@ function copyJavaSource(srcPath, destPath) {
     abort(`Source class missing: ${srcPath}`);
   }
   fs.copyFileSync(srcPath, destPath);
-  console.log(`[publish-template] copied ${path.relative(repoRoot, srcPath)} -> ${path.relative(repoRoot, destPath)}`);
+  console.log(`[publish-template] copied ${display(srcPath)} -> ${display(destPath)}`);
 }
 
 function copyFile(srcPath, destPath) {
   fs.copyFileSync(srcPath, destPath);
-  console.log(`[publish-template] copied ${path.relative(repoRoot, srcPath)} -> ${path.relative(repoRoot, destPath)}`);
+  console.log(`[publish-template] copied ${display(srcPath)} -> ${display(destPath)}`);
 }
 
 function mkdirp(...dirs) {
@@ -308,7 +325,7 @@ function readJsonIfExists(filePath) {
   try {
     return JSON.parse(fs.readFileSync(filePath, "utf8"));
   } catch (cause) {
-    console.warn(`[publish-template] WARN: could not parse ${path.relative(repoRoot, filePath)}: ${cause.message}`);
+    console.warn(`[publish-template] WARN: could not parse ${display(filePath)}: ${cause.message}`);
     return null;
   }
 }

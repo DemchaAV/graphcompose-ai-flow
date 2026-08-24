@@ -149,8 +149,37 @@ test("initWorkspace writes a valid manifest and never overwrites an existing one
 
 test("project lookup refuses ids that would escape the workspace", () => {
   const ws = resolveWorkspace({ env: {}, cwd: tempDir("escape"), install: repoRoot });
-  for (const bad of ["../elsewhere", "nested/project", "back\\slash", ""]) {
-    assert.throws(() => projectDir(ws, bad), WorkspaceError, `accepted project id ${JSON.stringify(bad)}`);
+  for (const bad of [
+    "../elsewhere",
+    "nested/project",
+    "back\\slash",
+    "",
+    // Dot segments used to slip past a separator-only guard: ".." resolved to
+    // the workspace root and "." to the projects directory itself.
+    "..",
+    ".",
+    "...",
+    ".hidden",
+    "..\\up",
+    null,
+    undefined,
+  ]) {
+    assert.throws(
+      () => projectDir(ws, bad),
+      WorkspaceError,
+      `accepted project id ${JSON.stringify(bad)}`,
+    );
+  }
+});
+
+test("project lookup still accepts the ids real projects use", () => {
+  const ws = resolveWorkspace({ env: {}, cwd: tempDir("good-ids"), install: repoRoot });
+  for (const good of ["cv-reference", "mint-editorial-cv", "demo-cv", "invoice2", "a_b.c-d"]) {
+    assert.equal(
+      projectDir(ws, good),
+      path.join(ws.projectsDir, good),
+      `rejected a legitimate project id: ${good}`,
+    );
   }
 });
 

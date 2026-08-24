@@ -223,6 +223,30 @@ test("a render with no review is called out rather than assumed fine", () => {
   assert.match(status.reasons.join(" "), /no visual-review\.json/);
 });
 
+test("a broken ancestor makes the iteration count a declared lower bound", () => {
+  // Stopping silently at an unreadable ancestor under-counts the loop, which
+  // makes every limit more permissive exactly when the project is damaged.
+  const dir = projectWith([
+    { verdict: "REVISE", mismatch: "a" },
+    { verdict: "REVISE", mismatch: "b" },
+    { verdict: "REVISE", mismatch: "c" },
+  ], "truncated");
+  fs.rmSync(path.join(dir, "revisions", "revision-002", "revision.json"));
+
+  const status = statusOf(dir);
+  assert.equal(status.iterations, 1, "the walk stops at the unreadable ancestor");
+  assert.equal(status.iterationsAreLowerBound, true, "the truncation is not reported");
+  assert.equal(status.chainTruncatedAt, "revision-002");
+  assert.match(status.reasons.join(" "), /LOWER BOUND/);
+  assert.match(status.reasons.join(" "), /revision-002/);
+});
+
+test("an intact chain does not claim to be a lower bound", () => {
+  const status = statusOf(projectWith([{ verdict: "REVISE", mismatch: "a" }], "intact"));
+  assert.equal(status.iterationsAreLowerBound, false);
+  assert.equal(status.chainTruncatedAt, null);
+});
+
 test("a missing project or revision is an error, not a silent zero", () => {
   assert.throws(() => statusOf(tempDir("empty")), IterationStatusError);
   const dir = projectWith([{ verdict: "REVISE", mismatch: "a" }], "missing");

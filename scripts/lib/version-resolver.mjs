@@ -69,24 +69,54 @@ export function readPinnedVersion(buildFile) {
 function readFromPom(xml) {
   const properties = readPomProperties(xml);
 
+  // Search the real dependencies first. A <dependencyManagement> block states
+  // what a version WOULD be if a module asked for it, and it routinely pins an
+  // older line than the module actually uses — taking the first match in the
+  // file would silently hand back that older line. Comments go too: a
+  // commented-out dependency is not a dependency.
+  const withoutComments = xml.replace(/<!--[\s\S]*?-->/g, "");
+  const declared = withoutComments.replace(
+    /<dependencyManagement>[\s\S]*?<\/dependencyManagement>/g,
+    "",
+  );
+
+  // Managed-only is still an answer, just a weaker one, so it is the fallback.
+  for (const scope of [declared, withoutComments]) {
+    const found = findCoordinate(scope, properties);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * @returns {{ version: string, coordinate: string }
+ *          | { version: null, coordinate: string, unresolvedProperty: string }
+ *          | null}
+ */
+function findCoordinate(xml, properties) {
   for (const [group, artifact] of [
     [MAVEN_GROUP, MAVEN_ARTIFACT],
     [JITPACK_GROUP, JITPACK_ARTIFACT],
   ]) {
     // Dependency blocks put the three tags in any order in principle, but in
     // practice groupId precedes artifactId precedes version; match that and
-    // tolerate whitespace and comments between them.
+    // tolerate whitespace between them.
     const pattern = new RegExp(
       `<groupId>\\s*${escape(group)}\\s*</groupId>[\\s\\S]{0,400}?` +
         `<artifactId>\\s*${escape(artifact)}\\s*</artifactId>[\\s\\S]{0,400}?` +
         `<version>\\s*([^<]+?)\\s*</version>`,
     );
     const hit = pattern.exec(xml);
-    if (hit) {
-      const raw = hit[1].trim();
-      const resolved = resolveProperty(raw, properties);
-      if (resolved) return { version: resolved, coordinate: `${group}:${artifact}` };
-    }
+    if (!hit) continue;
+
+    const raw = hit[1].trim();
+    const resolved = resolveProperty(raw, properties);
+    if (resolved) return { version: resolved, coordinate: `${group}:${artifact}` };
+
+    // The coordinate IS declared; only its version is a property this file does
+    // not define — normally because a parent pom does. Saying "no GraphCompose
+    // dependency" here would send the reader to the wrong file entirely.
+    return { version: null, coordinate: `${group}:${artifact}`, unresolvedProperty: raw };
   }
   return null;
 }
@@ -206,6 +236,24 @@ export function resolveVersion({ projectDir = process.cwd(), install, version = 
         message:
           `${buildFile} declares no GraphCompose dependency ` +
           `(${MAVEN_GROUP}:${MAVEN_ARTIFACT} or ${JITPACK_GROUP}:${JITPACK_ARTIFACT}).`,
+      };
+    }
+    if (pinned.version === null) {
+      return {
+        status: "unknown",
+        version: null,
+        line: null,
+        coordinate: pinned.coordinate,
+        buildFile,
+        skillPack: null,
+        availablePacks,
+        message:
+          `${buildFile} declares ${pinned.coordinate}, but its version is ` +
+          `${pinned.unresolvedProperty} and this file does not define that property — ` +
+          "a parent pom usually does. Pass --version <x.y.z> with the effective version, " +
+          "or run `mvn help:evaluate -Dexpression=" +
+          `${pinned.unresolvedProperty.replace(/^\$\{|\}$/g, "")}` +
+          "` to read it.",
       };
     }
   }
