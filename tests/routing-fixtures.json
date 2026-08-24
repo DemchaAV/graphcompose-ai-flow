@@ -1,0 +1,101 @@
+{
+  "$comment": [
+    "What scope a user gesture should route to. The scope decides which stages run",
+    "and what the result is compared against, so getting it wrong means a gate",
+    "checks the wrong baseline and passes work nobody reviewed.",
+    "",
+    "These fixtures are checked mechanically for shape only: every scope must exist",
+    "in config/pipeline.json, and every gate must be the one that scope declares.",
+    "Whether an agent ACTUALLY routes this way is a property of a live session and",
+    "is observed in the acceptance runs — building an LLM-in-the-loop CI to assert",
+    "it would test the model, not the harness.",
+    "",
+    "The `why` field is the point of each case: most of them exist because the",
+    "obvious reading of the phrase is wrong."
+  ],
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "gesture": "change the email to r.harris@example.com",
+      "scope": "data-only",
+      "why": "A field in <doc-kind>-data.json. If this needs Java, the template has content literals and the data-spec contract is broken."
+    },
+    {
+      "gesture": "fix the typo in the summary paragraph",
+      "scope": "data-only",
+      "why": "Same surface as the email: text lives in the data file."
+    },
+    {
+      "gesture": "use Material icons instead of Lucide",
+      "scope": "asset-only",
+      "why": "The diff lands in asset-request.json; the Java that places the icon does not change."
+    },
+    {
+      "gesture": "use Lato for the body text",
+      "scope": "asset-only",
+      "why": "A font swap is an asset swap, even though it changes how most of the page looks."
+    },
+    {
+      "gesture": "make it navy instead of teal",
+      "scope": "theme-only",
+      "why": "A palette token. Cross-cutting, which is why it is reviewed against the reference rather than diffed against the parent."
+    },
+    {
+      "gesture": "tighten the spacing throughout",
+      "scope": "theme-only",
+      "why": "A spacing token, not a layout change — provided the values are tokens and not per-section literals."
+    },
+    {
+      "gesture": "rename renderHeader to renderMasthead",
+      "scope": "refactor-only",
+      "why": "The render must come out byte-identical: AE == 0 on every page against the parent."
+    },
+    {
+      "gesture": "extract the spec record into its own file",
+      "scope": "refactor-only",
+      "why": "Structure moves, pixels do not."
+    },
+    {
+      "gesture": "upgrade GraphCompose to the next patch",
+      "scope": "refactor-only",
+      "why": "A dependency bump is a refactor until it is not: if the render moves, the gate fails and that is the finding."
+    },
+    {
+      "gesture": "make the sidebar wider",
+      "scope": "visual-change",
+      "why": "Geometry. Even a one-number edit changes the layout, so it is reviewed against the reference."
+    },
+    {
+      "gesture": "add a certifications section",
+      "scope": "visual-change",
+      "why": "New structure needs analysis and an architecture update, not just code."
+    },
+    {
+      "gesture": "redesign the header",
+      "scope": "visual-change",
+      "why": "The full chain: this is what the long scope is for."
+    },
+    {
+      "gesture": "add another award to the awards list",
+      "scope": "visual-change",
+      "why": "Reads like data-only, and is not: a list that grows can push the page and re-flow everything below it. The verification step exists for this case."
+    },
+    {
+      "gesture": "swap the avatar for a different photo",
+      "scope": "asset-only",
+      "why": "An asset, even though it is the most visible thing on the page; the regions that may differ are the ones that use it."
+    },
+    {
+      "gesture": "make the table header darker",
+      "scope": "ambiguous",
+      "why": "theme-only if it is a palette token, visual-change if it means new row striping. The orchestrator must ask exactly one question rather than guess.",
+      "expectsClarification": true
+    },
+    {
+      "gesture": "make it look more professional",
+      "scope": "ambiguous",
+      "why": "No surface named at all. Ask what specifically should change before opening any revision.",
+      "expectsClarification": true
+    }
+  ]
+}

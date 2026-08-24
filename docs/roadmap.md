@@ -54,7 +54,7 @@ the layer split and what is deliberately excluded are in
 | 7 — Claude Code plugin | Plugin manifest, slash commands, clean-project acceptance | packaging done; acceptance pending |
 | 8 — Autonomous loop | Iterate to READY_FOR_APPROVAL or BLOCKED without prompting | bounds enforced; autonomy observed in Phase 7 acceptance |
 | 9 — Codex adapter | Same skills and tools, adapter only, no workflow fork | adapter done; acceptance pending |
-| 10 — Harness tests and CI | Contract tests, routing fixtures, plugin package validation | not started |
+| 10 — Harness tests and CI | Contract tests, routing fixtures, plugin package validation | done |
 | 11 — Finalization | Short AGENTS.md, new README, demo, release | not started |
 
 Post-MVP, each needing its own plan: the `graphcompose-verify` GitHub
