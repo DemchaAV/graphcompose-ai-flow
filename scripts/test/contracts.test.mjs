@@ -184,6 +184,39 @@ test("verify declares which steps need more than Node, so a green --quick is not
   );
 });
 
+test("the package and the plugin report the same version", () => {
+  // Two manifests, one release. A user reading /plugin details and a
+  // contributor reading package.json must not see different numbers.
+  assert.equal(
+    readJson(".claude-plugin/plugin.json").version,
+    readJson("package.json").version,
+    ".claude-plugin/plugin.json and package.json disagree about the version",
+  );
+});
+
+test("the entry documents link only to files that exist", () => {
+  // README and AGENTS.md are the two front doors; a dead link there is the
+  // first thing a new reader hits.
+  for (const rel of ["README.md", "AGENTS.md", "docs/demo.md"]) {
+    const source = read(rel);
+    const base = path.dirname(path.join(repoRoot, rel));
+    for (const [, target] of source.matchAll(/\]\((?!https?:)([^)#]+)\)/g)) {
+      assert.ok(
+        fs.existsSync(path.resolve(base, target)),
+        `${rel} links to a missing path: ${target}`,
+      );
+    }
+  }
+});
+
+test("the README does not oversell what has not been verified", () => {
+  // The acceptance runs and the fixture port are outstanding; a README that
+  // omits them is the kind of claim this project's own gates exist to prevent.
+  const readme = read("README.md");
+  assert.match(readme, /acceptance runs are outstanding/i, "the README hides the outstanding acceptance runs");
+  assert.match(readme, /needs-validation/, "the README hides the fixture/validation gap");
+});
+
 test("the roadmap does not report a phase as done while its acceptance is outstanding", () => {
   const roadmap = read("docs/roadmap.md");
   const rows = roadmap.split("\n").filter((line) => /^\| \d+ —/.test(line));

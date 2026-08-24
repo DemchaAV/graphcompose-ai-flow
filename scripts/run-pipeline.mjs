@@ -133,6 +133,17 @@ console.log(
   `\n${bold("Pipeline")}  project=${args.project}  revision=${revisionId}  scope=${bold(scope)}\n`,
 );
 
+// Name the skill that owns this scope. Without it the stage list below — which
+// still points at prompts/ until those are removed — reads as the instruction,
+// and the prompts are superseded.
+const owningWorkflows = Object.entries(config.workflows ?? {})
+  .filter(([id]) => !id.startsWith("$"))
+  .filter(([, workflow]) => workflow.scopes?.includes(scope));
+if (owningWorkflows.length > 0) {
+  console.log(`  ${bold("follow")}: ${owningWorkflows.map(([, w]) => w.skill).join(" or ")}`);
+  console.log(dim("  the stages below are what that skill runs; the prompt files are historical\n"));
+}
+
 let missing = 0;
 stages.forEach((stage, i) => {
   const exists = fs.existsSync(path.join(repoRoot, stage.prompt));

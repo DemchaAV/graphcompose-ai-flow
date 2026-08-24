@@ -1,346 +1,148 @@
 # AGENTS.md — start here
 
-> Agent, this is your onboarding file. Read it end-to-end before
-> doing anything else in this repository. Every other file in the
-> tree is linked from here in the order you should reach for it.
-
-## Start with the skills, not with this file
-
-The eleven-prompt chain described below has been folded into four
-workflow skills. Use them; this file is being cut down to a dispatcher
-once the acceptance runs are green (see `docs/roadmap.md` § Harness
-migration).
-
-| I want to | Read |
-|---|---|
-| Turn a reference into a template | [`skills/workflows/create-template/SKILL.md`](skills/workflows/create-template/SKILL.md) |
-| Change an existing template | [`skills/workflows/revise-template/SKILL.md`](skills/workflows/revise-template/SKILL.md) |
-| Judge the current render | [`skills/workflows/review-template/SKILL.md`](skills/workflows/review-template/SKILL.md) |
-| Approve and publish | [`skills/workflows/approve-template/SKILL.md`](skills/workflows/approve-template/SKILL.md) |
-
-Four things are declared once and must not be restated anywhere:
-
-| Contract | Lives in |
-|---|---|
-| Which stages a scope runs, the gate it ends on, the loop bounds, the failure categories | [`config/pipeline.json`](config/pipeline.json) — print it with `node scripts/run-pipeline.mjs <project-id>` |
-| What GraphCompose can do, per version | [`skills/versions/`](skills/) — start at the pack's `00-loading-map.md` |
-| The shape of every on-disk artifact | [`schemas/`](schemas/) |
-| Where the work goes (the user's project, not this repo) | [`scripts/lib/workspace.mjs`](scripts/lib/workspace.mjs), explained in [`docs/architecture.md`](docs/architecture.md) |
-
-Using Codex? The skills install with
-[`node adapters/codex/install.mjs`](adapters/codex/README.md). Using
-Claude Code? The plugin is [`.claude-plugin/`](docs/plugin-installation.md).
+Agent: this file dispatches. It tells you which skill owns your task and
+where each contract is declared. It does not restate the contracts —
+everything below is a pointer, and where a pointer and this page ever
+disagree, the pointer wins.
 
 ## What this project is
 
-GraphCompose AI Template Flow turns a visual document reference (a
-PNG screenshot of a CV, invoice, proposal, cover letter, report,
-brochure, datasheet — ANY single-page or multi-page document
-GraphCompose primitives can express) into a maintainable Java
-template that targets GraphCompose 1.9.0 — with a strict visual
-parity contract, a typed data spec the user can edit without
-touching Java, a per-revision asset bundle (Iconify icons + Google
-Fonts), a clean and a debug render, and a publish-quality bundle
-under `templates/<id>/` once the user approves.
+A harness that turns a document reference — a screenshot, a PDF, a
+design image — into a maintainable GraphCompose Java template, then
+renders it, compares it against the reference, and iterates until it is
+ready for approval.
 
-The agent does NOT draw PDFs with raw coordinates. The agent
-reconstructs the document with semantic GraphCompose primitives
-(sections, rows, tables, layer stacks, weights, anchors). Every
-change creates a new revision; nothing is overwritten.
+It is not a code generator you run once. The loop is the method: a first
+render never matches, and the value is in the measured comparison and
+the one-fix-per-pass cycle that follows.
 
-**Document-kind contract.** The four canonical upstream surfaces
-are `cv`, `coverletter`, `invoice`, `proposal`, with three distinct
-generations as of GraphCompose 1.9.0:
+The harness supplies workflow, GraphCompose knowledge and gates. The
+host agent (Claude Code, Codex) supplies the model, the reasoning and
+the shell. Deterministic work — version resolution, asset fetching,
+rendering, diffing, revision bookkeeping, publishing — is done by CLIs,
+not by prose. See [`docs/architecture.md`](docs/architecture.md).
 
-- `cv` — V2 layered (data → theme → components → widgets → preset
-  orchestrator).
-- `coverletter` — V2 layered, pairs with a CV preset (shared
-  `CvIdentity` + `CvTheme`).
-- `proposal` — V2 single-preset (one preset class `ModernProposal`
-  over the flat `ProposalSpec`; new visual variants are new preset
-  classes that share the same spec, not a parallel layered stack).
-- `invoice` — V1 classic (one canonical `InvoiceTemplate` interface
-  built around `InvoiceDocumentSpec` / `InvoiceData`; presets are
-  alternative implementations of the same interface).
+## Is this a GraphCompose task?
 
-Any document kind outside the four still routes through this same
-pipeline because the 14 skills, the 11 agents, and the tooling chain
-are all primitive-level and document-kind agnostic — only the
-published-bundle factory and the template surface tables in
-`prompts/architecture-mapper-agent.md` care about the kind.
+Yes, if the user wants a document produced or changed and the project
+pins `io.github.demchaav:graph-compose`. Check with:
 
-## When the user gives you a request — entry-point dispatch
+```bash
+node scripts/resolve-version.mjs --project-dir <java-project> --json
+```
 
-Read the user's first message and match it to one of these gestures.
-Each gesture sends you to a different starting agent.
+Exit 0 means there is a skill pack for their pinned line. Exit 3 means
+there is not — stop and say so; authoring against another line's
+allow-list emits calls that do not compile. Exit 4 means the project
+does not use GraphCompose, so this is not your task.
 
-| User gesture | Start agent | What you do first |
-|---|---|---|
-| Drops a reference image and says "make a template like this" / "create from this screenshot" | `prompts/orchestrator-agent.md` → new generation | Create the project skeleton under `examples/<kebab-id>/`, drop the reference into `reference/`, open `revision-001`, run the chain top-to-bottom. |
-| Points at an existing project / revision and asks for a change ("make awards wider", "swap Poppins for Lato", "make these clickable") | `prompts/orchestrator-agent.md` → revision | Use the current draft as parent, open the next revision, route only through the agents whose region changed. |
-| Says "save" / "approve" / "сохрани" / "это хорошо" | `prompts/revision-manager-agent.md` → approve | Flip DRAFT → APPROVED, supersede the previous APPROVED, auto-trigger `prompts/template-publisher-agent.md` to rebuild `templates/<id>/`. |
-| Says "previous was better" / "undo" / "revert" | `prompts/revision-manager-agent.md` → undo / revert-to-approved | Create a new DRAFT from the parent (or approved); never overwrite history. |
-| Says "what changed" / "show diff" | `prompts/visual-review-agent.md` | Read the latest `visual-review.md`; do not start a new revision. |
-| Says "keep new awards but restore old header" | `prompts/revision-manager-agent.md` → selective rollback | Use `restore-component` semantics; works only because every visible region maps to a named private render method. |
+## Which skill
 
-If the gesture is ambiguous, ask one clarifying question before
-opening a revision. Never spawn a revision for ambiguous input.
+| The user wants | Skill |
+|---|---|
+| A template from a reference they supplied | [`create-template`](skills/workflows/create-template/SKILL.md) |
+| An existing template changed | [`revise-template`](skills/workflows/revise-template/SKILL.md) |
+| To know what is still different | [`review-template`](skills/workflows/review-template/SKILL.md) |
+| To accept the current draft | [`approve-template`](skills/workflows/approve-template/SKILL.md) |
+| To undo, revert, or restore one component | no skill — `graphcompose-flow undo` / `revert-approved` / `restore-component` |
 
-## The 11-agent chain (current)
+Read the skill before acting. Each is short and links to the four shared
+references: [workspace](skills/workflows/references/workspace.md),
+[scope routing](skills/workflows/references/scope-routing.md),
+[the iteration loop](skills/workflows/references/iteration-loop.md),
+[authoring rules](skills/workflows/references/authoring-rules.md).
+
+## Core invariants
+
+Seven rules. Everything else is judgement.
+
+1. **Never invent GraphCompose API.** The pinned pack's
+   `00-api-surface.md` is a closed set: absent means it does not exist.
+   If a skill disagrees with the library, the skill is wrong.
+2. **Every change opens a new revision.** Never overwrite an APPROVED
+   one. Statuses are owned by `tools/revision-manager`, not by editing
+   `revision.json`.
+3. **Derive geometry, do not hardcode it.** Widths and weights come from
+   a small set of base constants. A pixel value is for a genuinely
+   independent dimension only.
+4. **Anchor, do not compute offsets.** `LayerAlign`, `TextAlign`,
+   `weights(...)`. A computed offset bakes today's font metrics into the
+   template.
+5. **Content lives in `<doc-kind>-data.json`**, behind a typed spec. If
+   changing an email means editing Java, the contract is broken.
+6. **Prove parity, do not assert it.** "Looks identical" is not a gate
+   result; `magick compare -metric AE == 0` is. Quote the metric.
+7. **One visible region, one named render method.** That name is what
+   review, `changedComponents` and selective rollback all address.
+
+## Commands
+
+Every command is a plain `node …` invocation, so it runs unchanged in
+PowerShell, cmd and bash.
+
+| Do | Command |
+|---|---|
+| Resolve version and skill pack | `node scripts/resolve-version.mjs --project-dir <dir> --json` |
+| Print the chain for a project | `node scripts/run-pipeline.mjs <project-id>` |
+| Open a project / revision | `node tools/revision-manager/bin/graphcompose-flow.mjs init <name>` · `new-revision "<gesture>" --project <dir>` |
+| Render | `node scripts/render.mjs <project-id> <revision-id> [--root <workspace>]` |
+| Measure a diff | `node tools/visual-diff/bin/visual-diff.mjs <reference.png> <output.png> --json --update-revision <revision>` |
+| Ask whether the loop may continue | `node scripts/iterate-status.mjs <project-id>` — exit 0 ready, 2 revise, 3 blocked |
+| Approve and publish | `graphcompose-flow approve <id> --project <dir>` then `node scripts/publish-template.mjs --project <id>` |
+| Run every gate locally | `npm run verify` (`--quick` skips Java/Maven) |
+
+Exit 69 from `graphcompose-flow` or `visual-diff` means the tools are
+not built: run `npm run setup`.
+
+## Where things are declared
+
+Each of these is declared once. Do not restate them anywhere.
+
+| Contract | Declared in |
+|---|---|
+| Which stages a scope runs, its gate, the loop bounds, the failure categories | [`config/pipeline.json`](config/pipeline.json) |
+| What GraphCompose can do, per version | [`skills/versions/`](skills/) — start at the pack's `00-loading-map.md` |
+| The shape of every on-disk artifact | [`schemas/`](schemas/) |
+| Where the work goes | [`scripts/lib/workspace.mjs`](scripts/lib/workspace.mjs) |
+
+## Where state lives
+
+Work belongs to the user's project, not to this repository:
 
 ```text
-Template Orchestrator Agent          prompts/orchestrator-agent.md
-        ↓
-Version + Skill Resolver Agent       prompts/version-skill-resolver-agent.md
-        ↓
-Skill Validator Agent                 prompts/skill-validator-agent.md
-        ↓
-Visual Analyzer Agent                 prompts/visual-analyzer-agent.md
-        ↓
-Architecture Mapper Agent             prompts/architecture-mapper-agent.md
-        ↓
-Asset Resolver Agent                  prompts/asset-resolver-agent.md
-        ↓
-Template Coder Agent                  prompts/template-coder-agent.md
-        ↓
-Test + Render Agent                   prompts/test-render-agent.md
-        ↓
-Visual Review Agent                   prompts/visual-review-agent.md
-        ↓
-Revision Manager Agent                prompts/revision-manager-agent.md
-        ↓
-[user approves]
-        ↓
-Template Publisher Agent              prompts/template-publisher-agent.md
-        ↓
-templates/<template-id>/
+<their Java project>/
+└── graphcompose-flow/
+    ├── flow.config.json           marks the workspace
+    ├── projects/<project-id>/     template-project.json, reference/, revisions/
+    └── templates/<template-id>/   published bundles
 ```
 
-The master prompt that summarises the contract for all eleven is
-[`prompts/master-prompt.md`](prompts/master-prompt.md). The detailed
-per-agent docs (inputs / outputs / responsibilities / forbidden
-behaviors / hand-off) live in [`docs/agents.md`](docs/agents.md).
+Commands find it by walking up from the current directory; override with
+`--root` or `GRAPHCOMPOSE_FLOW_ROOT`. Inside a clone of this repository
+the workspace is its own `examples/` and `templates/`, which is correct
+here and nowhere else. Every command prints which workspace it resolved
+and how — believe that line.
 
-## Cross-cutting principles (NEVER violate)
+## Working on the harness itself
 
-The principles are encoded in the Shared Rules block at the bottom
-of every agent prompt. The ones that compound across the chain:
+Template work flows normally. Changes to the harness — `scripts/`,
+`tools/`, `skills/`, `config/`, `schemas/`, the docs — go on a topic
+branch and merge to `main` when finished; `main` is the clean state
+renders come from. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-1. **Relational geometry over pixel constants.** Layout widths and
-   weights are DERIVED from a small set of base constants (page
-   size, margins, column gaps, weights). Hardcoded pixel values
-   only for genuinely independent dimensions (icon size, line
-   marker height, fixed paddings). When a number CAN be derived it
-   MUST be derived. See
-   [`prompts/template-coder-agent.md`](prompts/template-coder-agent.md)
-   under "Relational geometry over pixel constants".
+Before committing: `npm run verify`.
 
-2. **Anchors and alignment over hand-computed offsets.** Element-
-   to-element positioning uses engine primitives (`LayerAlign`,
-   `TextAlign`, `InlineImageAlignment`, `DocumentTableTextAnchor`,
-   `RowBuilder.weights(...)`, `LayerStackBuilder.position(..., align)`,
-   `HAnchor`/`VAnchor`). The Visual Analyzer writes relationships,
-   the Architecture Mapper picks the named anchor, the Template
-   Coder reaches for the primitive.
+## Documentation map
 
-3. **Data-spec contract.** Variable content (names, contacts,
-   dates, jobs, awards) lives in `<revision>/<doc-kind>-data.json`.
-   The template renders from a typed Java spec record loaded by a
-   `--spec-provider`. The template body must not carry content
-   literals. See the data-spec contract in
-   [`prompts/template-coder-agent.md`](prompts/template-coder-agent.md).
+- [`docs/architecture.md`](docs/architecture.md) — the layer split, the loop, the contracts, what is deliberately excluded
+- [`docs/plugin-installation.md`](docs/plugin-installation.md) — installing into Claude Code
+- [`adapters/codex/README.md`](adapters/codex/README.md) — installing into Codex
+- [`docs/workflow.md`](docs/workflow.md) — the sixteen steps in full
+- [`docs/revision-model.md`](docs/revision-model.md) · [`docs/rollback.md`](docs/rollback.md) — statuses, undo, selective rollback
+- [`docs/visual-accuracy-contract.md`](docs/visual-accuracy-contract.md) — mismatch classification
+- [`docs/limitations.md`](docs/limitations.md) · [`docs/roadmap.md`](docs/roadmap.md) — honest scope, and what is coming
+- [`examples/cv-reference/`](examples/cv-reference/) — a worked chain; reading revisions 001 → 009 shows what iteration actually looks like
 
-4. **Asset flow.** Icons come from Iconify (HTTP API, rasterized to
-   PNG via ImageMagick). Fonts come from the GraphCompose bundled
-   Google Fonts list (no file copy needed) or are dropped as TTF
-   into `assets/fonts/`. The single source of truth is
-   `<revision>/assets-manifest.json`. See
-   [`tools/asset-resolver/README.md`](tools/asset-resolver/README.md).
-
-5. **Parity gate.** For "refactor only" revisions the Visual Review
-   Agent MUST run `magick compare -metric AE <parent> <child>` and
-   recommend APPROVE only on `AE == 0`. Quote the metric in
-   `visual-review.md`; don't paraphrase. See
-   [`prompts/visual-review-agent.md`](prompts/visual-review-agent.md).
-
-6. **Every change creates a new revision.** Never overwrite an
-   APPROVED revision. Status set: `DRAFT`, `APPROVED`, `REJECTED`,
-   `REVERTED`, `SUPERSEDED`, `FAILED`.
-
-7. **GraphCompose is the source of truth.** If a skill disagrees
-   with library behavior, the skill is wrong — fix the skill.
-   Never invent GraphCompose APIs.
-
-## Project anatomy (where things live)
-
-```
-examples/<project>/
-  template-project.json            project manifest (displayName, currentApproved/Draft, spec class, data file)
-  reference/reference.png          visual reference + reference.md description
-  reference/reference-page-N.png   additional pages
-  render-runner/                    Maven project compiling template + spec
-    pom.xml
-    src/main/java/com/demcha/examples/<kind>/
-      <Kind>Spec.java               typed data record (Jackson-bound)
-      <Kind>SpecProvider.java       loads <doc-kind>-data.json
-  revisions/revision-NNN/           one folder per revision
-    revision.json                   metadata: parent, status, artifacts, changedComponents
-    user-request.md                 captured user gesture
-    orchestration-decision.md       routing decision
-    version-resolution.md
-    skill-validation-report.md
-    visual-analysis.md              ratios, anchors, regions
-    architecture-plan.md            component mapping, theme tokens, design assets
-    asset-request.json              icons + fonts needed
-    data-schema.md                  data field documentation
-    assets-manifest.json            actual icons + font roles + paths
-    assets/icons/<token>.png        downloaded icons
-    assets/fonts/*.ttf              dropped fonts (non-bundled)
-    <doc-kind>-data.json            content (Rose Harris fixture etc.)
-    generated-template.java         the renderer
-    generated-test.java
-    output.pdf / output.png / output-page-N.png   clean render
-    output-debug.pdf / output-debug.png / ...      debug render with guideLines
-    layout-snapshot.json
-    visual-review.md                parity classification
-    status.md
-    test-result.md
-    render.log
-
-templates/<template-id>/             publish-quality bundle (built after APPROVE)
-  README.md / template.json
-  src/<TemplateClass>.java          renamed + polished Javadoc
-  src/<Spec>.java + <SpecProvider>.java
-  data/<doc-kind>-data.example.json
-  assets/asset-request.json + icons/ + fonts/
-  preview/output.pdf + output-page-N.png + output-debug.pdf + ...
-
-prompts/                              agent prompts (the contract)
-  master-prompt.md                    cross-agent contract
-  <agent>-agent.md × 11               per-agent prompts
-
-docs/                                 long-form reference
-  agents.md                           detailed agent chain
-  workflow.md                         step-by-step pipeline
-  versioned-skills.md
-  revision-model.md
-  rollback.md
-  visual-accuracy-contract.md
-  visual-review-loop.md
-  quickstart.md                       human-facing install + first render
-
-skills/                               versioned skill packs
-  skill-manifest.json
-  versions/graphcompose-1.9/          active skill pack, tied to GraphCompose 1.9.x (verified against 1.9.0);
-                                      00-api-surface.md is the source-generated public-API allow-list
-  versions/graphcompose-1.7/*.md      frozen 1.7.x snapshot (retained for projects pinned back to 1.7.x)
-  versions/graphcompose-1.6/*.md      frozen 1.6.x snapshot (retained for projects pinned back to 1.6.x)
-
-tools/
-  asset-resolver/                     Iconify + Google Fonts CLI (Node)
-  preview-renderer/                   Maven module: render + preview PDF→PNG (Java)
-  revision-manager/                   Node CLI: init, new-revision, approve, undo, ...
-  visual-diff/                        Node CLI (planned: snapshot regression)
-
-scripts/
-  setup.mjs                           one-command toolchain check + install + build
-  render.mjs                          project-agnostic render (examples/<project-id>)
-  render-cv-reference.mjs             clean + debug render for the cv example
-  render-invoice-reference.mjs        same for invoice
-  preview-live.mjs                    open live/current.pdf in SumatraPDF (auto-reload)
-  run-pipeline.mjs                    print / run the agent chain for one revision
-  publish-template.mjs                copy approved revision into templates/
-
-live/                                 gitignored mirror of the most recent render
-  current.pdf / current-debug.pdf     stable path to watch in SumatraPDF
-  current.png / current.txt           page-1 raster + project/revision stamp
-```
-
-## Quick recipes
-
-### New template from a reference
-
-1. User drops the reference image + says "make a template, call it
-   <name>".
-2. Compute `kebab-id` from the name; create
-   `examples/<kebab-id>/` with `template-project.json` + `reference/`
-   + `revisions/`.
-3. Open `revision-001`, write `user-request.md` capturing the gesture,
-   route through the agent chain top-to-bottom.
-4. Render through `scripts/render-<kebab-id>.mjs` (clone from
-   `scripts/render-cv-reference.mjs`).
-5. Return the preview to the user; iterate on user feedback.
-
-### Iterate on an existing revision
-
-1. User says "make X wider" / "swap font" / "this should be a link".
-2. Open the next revision off the current draft (parent =
-   `currentDraftRevisionId`).
-3. Route ONLY through the agents whose region changed (often just
-   Template Coder + Test+Render + Visual Review).
-4. Show the new preview; the parity gate against the parent
-   classifies the diff.
-
-### Approve the current draft
-
-1. User says "save" / "approve" / "сохрани".
-2. Revision Manager flips DRAFT → APPROVED, marks the previous
-   APPROVED as SUPERSEDED, updates
-   `template-project.json#currentApprovedRevisionId`.
-3. Auto-trigger Template Publisher: republish
-   `templates/<template-id>/` with `--force-template` if the
-   template class itself changed (constants, render logic). Re-apply
-   the polished Javadoc the publisher would otherwise overwrite.
-
-## Cardinal rules summary (fast reference)
-
-- Read this file (AGENTS.md) before doing anything else.
-- Read [`prompts/master-prompt.md`](prompts/master-prompt.md) and
-  the agent prompt for whichever stage you're entering.
-- Every change creates a new revision. Never overwrite APPROVED.
-- Relational geometry: derive widths from base constants, don't
-  hardcode pixels.
-- Anchor-first: use `LayerAlign` / `TextAlign` / `weights(...)`
-  instead of computing offsets.
-- Data-spec: content lives in `<doc-kind>-data.json`, not in Java.
-- Asset flow: Iconify icons via the resolver, bundled fonts via
-  `FontName.<NAME>`, manifest is the source of truth.
-- Parity gate: `magick compare -metric AE == 0` for refactor
-  revisions; quote the metric.
-- GraphCompose API is the source of truth; never invent.
-
-## Working on the flow itself (branch first)
-
-Template/document work (new revisions under `examples/<project>/`) is the
-product output and flows normally. But changes to the *flow itself* — `scripts/`,
-the `tools/` modules, `prompts/`, `skills/`, the docs — must not land directly
-on `main`: it is the clean state the user renders from. Cut a topic branch
-(`feat/…`, `fix/…`, `docs/…`, `chore/…`), do the work and render there, and
-merge to `main` only when it is finished. Releases are tagged from a
-known-good `main`. Full rules: [`CONTRIBUTING.md`](CONTRIBUTING.md) →
-"Branching and release workflow".
-
-## Editor / agent rule-packs
-
-If your tool supports project rules, it may have already loaded a thin pointer to
-this file: `CLAUDE.md` (Claude Code), `.cursor/rules/`, `.windsurf/rules/`, and
-`.github/copilot-instructions.md`. They all say the same thing — read this file
-first. `AGENTS.md` is the single source of truth; the rule-packs only summarize it.
-
-To print (or run) the ordered agent chain for a project's current revision in one
-command: `node scripts/run-pipeline.mjs <project-id>` (add `--render` to run the
-mechanical render step).
-
-## Where to go from here
-
-- [`prompts/master-prompt.md`](prompts/master-prompt.md) — the
-  cross-agent contract in one document.
-- [`docs/agents.md`](docs/agents.md) — long-form description of each
-  agent + the cross-chain principles (relational geometry, anchors).
-- [`docs/workflow.md`](docs/workflow.md) — step-by-step pipeline
-  with artifact lifecycle.
-- [`examples/cv-reference/`](examples/cv-reference/) — the worked
-  example. revision-009 is the current APPROVED baseline. Reading
-  revisions 001 → 009 in order shows how a real iteration looks.
-- [`templates/mint-editorial-cv/`](templates/mint-editorial-cv/) —
-  the published bundle the cv-reference flow emits.
+> **Historical:** [`prompts/`](prompts/) holds the eleven-agent chain this
+> harness replaced. It is kept until the Claude Code and Codex acceptance
+> runs are recorded, then removed. Follow the skills, not the prompts.

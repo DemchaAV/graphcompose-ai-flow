@@ -85,10 +85,12 @@ See [workflow.md](workflow.md) for the per-step contract.
 
 ## Documentation map
 
-The docs site is split into 14 self-contained pages:
+The docs site is split into 16 self-contained pages:
 
 - [overview.md](overview.md) — this page; landing summary and pointers
 - [architecture.md](architecture.md) — the target harness architecture and the layer split
+- [demo.md](demo.md) — real captured output of the deterministic half, end to end
+- [plugin-installation.md](plugin-installation.md) — installing the harness into Claude Code
 - [quickstart.md](quickstart.md) — practical setup, first render, and new-project workflow
 - [workflow.md](workflow.md) — full workflow with inputs, outputs, and per-step agent owners
 - [visual-accuracy-contract.md](visual-accuracy-contract.md) — strict parity rules and mismatch classification

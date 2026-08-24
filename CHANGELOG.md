@@ -7,6 +7,101 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.0-beta.1 — the harness migration
+
+The project stops being a workflow kit that a coding agent has to
+interpret and becomes an installable harness for Claude Code and Codex.
+The host supplies the model, the reasoning and the shell; this project
+supplies workflow, GraphCompose knowledge and gates; anything a script
+can decide is decided by a script.
+
+#### Public API
+
+- **Four workflow skills** replace the eleven-prompt chain —
+  `skills/workflows/{create,revise,review,approve}-template/SKILL.md`,
+  one per user gesture, over four shared references (workspace, scope
+  routing, iteration loop, authoring rules). `prompts/` is retained,
+  banner-marked as superseded, until the acceptance runs are recorded.
+- **`config/pipeline.json`** is the single source of scope → stages, the
+  gate each scope ends on, the loop bounds and the failure categories.
+  `scripts/run-pipeline.mjs` holds no chain of its own; the orchestrator
+  prompt and the revision schema point at the config instead of
+  restating it.
+- **Workspace decoupling.** Work lives in the user's Java project under
+  `graphcompose-flow/`, resolved by `--root`, `GRAPHCOMPOSE_FLOW_ROOT`,
+  discovery from the cwd, or this repository's own `examples/` in
+  development. `scripts/lib/workspace.mjs` is the only resolver.
+- **`scripts/resolve-version.mjs`** reads the GraphCompose pin from the
+  user's `pom.xml` / `build.gradle(.kts)` and maps it to a skill pack.
+  Exit 0 supported, 3 unsupported, 4 not a GraphCompose project. An
+  unsupported line is a stop, never a fallback to the nearest pack.
+- **`scripts/iterate-status.mjs`** enforces the loop bounds that were
+  previously only declared: exit 0 ready for approval, 2 revise, 3
+  blocked, counting iterations, consecutive build failures and repeats of
+  the same mismatch id.
+- **GraphCompose 2.2 skill pack** (`skills/versions/graphcompose-2.2/`),
+  generated from the `v2.2.0` tag — 268 types, 1886 methods, 317
+  constants — and now the manifest default. 1.9 joins 1.6 and 1.7 as a
+  frozen snapshot. Each pack gains a `00-loading-map.md` so a task opens
+  four to six files instead of seventeen.
+- **Packaging.** `.claude-plugin/plugin.json` + `marketplace.json` and
+  four slash commands for Claude Code; `adapters/codex/install.mjs` for
+  Codex, installing stubs that point at the canonical skills rather than
+  copying them.
+- **`npm run verify`** runs every gate locally, fail-fast, with `--quick`
+  for the steps that need no Java or network.
+- `graphcompose-flow fail` takes `--category`, `--stage` and `--message`.
+
+#### Fixed
+
+- `graphcompose-flow fail` wrote `status: FAILED` with no `failure`
+  record, which its own schema requires. Reproduced and confirmed with
+  ajv; it now always writes one, using `stage: "unspecified"` rather
+  than inventing a plausible stage.
+- `graphcompose-flow` and `visual-diff` died with a raw
+  `ERR_MODULE_NOT_FOUND` on a fresh clone, because `dist/` is not
+  committed. They now exit 69 naming `npm run setup`.
+- `tools/api-surface/api-index.py` silently wrote an **empty** allow-list
+  when it parsed nothing, and only understood the 1.x source layout. It
+  now refuses to write an empty index, scans the 2.x reactor modules
+  (`core/`, `templates/`), and emits the frontmatter the repository
+  contract requires.
+- Two documented commands used a bash line continuation, which PowerShell
+  reads as a literal.
+
+#### Documentation
+
+- `docs/architecture.md` — the layer split, the loop, the contracts, the
+  workspace model, and what is deliberately excluded (no LLM API, no MCP,
+  no standalone runtime).
+- `docs/plugin-installation.md`, `adapters/codex/README.md`,
+  `docs/demo.md` (real captured output), and a README that leads with
+  installation rather than concept.
+- `AGENTS.md` cut from 346 lines to a dispatcher: which skill owns the
+  task, seven invariants, the commands, where each contract is declared.
+
+#### Tests
+
+- 78 root contract tests on the built-in `node:test` runner (no new
+  dependency), plus 7 ajv schema tests, wired into CI as
+  `harness-contracts` — the root suite had not been running in CI at all.
+- Four new schemas (orchestration, visual analysis, architecture plan,
+  visual review) and a workspace-manifest schema, all bound to the
+  existing repo-wide validator.
+- `tests/routing-fixtures.json` — 16 gestures with the scope each should
+  route to, checked for shape; the routing itself is observed in the
+  acceptance runs rather than asserted with an LLM in CI.
+
+#### Known gaps
+
+- The Claude Code and Codex **acceptance runs are outstanding** —
+  whether a skill fires unprompted in a clean project is not yet
+  recorded. `prompts/` stays until they are.
+- The five skill fixtures still pin 1.9.0; four fail against 2.2.0
+  because `BusinessTheme` left the published library in 2.x. Until they
+  are ported, the 2.2 pack's compile-smoke evidence is inherited rather
+  than proven and every conceptual skill stays `needs-validation`.
+
 ### GraphCompose 1.9.0 — source-generated API allow-list + default retarget
 - **New `graphcompose-api-surface` allow-list skill.**
   `skills/versions/graphcompose-1.9/00-api-surface.md` is generated

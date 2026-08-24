@@ -1,306 +1,137 @@
-# GraphCompose AI Template Flow
+# GraphCompose AI Flow
 
-[![ci](https://github.com/DemchaAV/graphcompose-ai-flow/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DemchaAV/graphcompose-ai-flow/actions/workflows/ci.yml)
+Install a GraphCompose harness into your coding agent. Drop in a
+document reference. Ask Codex or Claude Code to recreate it. The agent
+generates, renders, compares and iterates until the template is ready
+for your approval.
 
-**Turn visual document references into maintainable GraphCompose Java templates.**
+```text
+Create a GraphCompose CV template from resume.png
+```
 
-This is not a magic screenshot-to-code app. It is a local workflow kit that
-helps an AI agent analyze a reference, generate a semantic GraphCompose
-template, render it, compare it visually, revise it, and publish an approved
-template bundle. See [docs/quickstart.md](docs/quickstart.md) for the 5-minute
-setup.
-
-**Works for any document kind** GraphCompose primitives can express — CV,
-cover letter, invoice, proposal, report, brochure, datasheet, single-page
-brand collateral. The four canonical template surfaces upstream are
-first-class targets as of GraphCompose 1.9.0:
-
-| Surface | Generation | Shape |
-|---|---|---|
-| `cv` | V2 layered | data → theme → components → widgets → preset orchestrator |
-| `coverletter` | V2 layered | pairs with a CV preset (shared `CvIdentity` + `CvTheme`) |
-| `invoice` | V1 classic | single canonical `InvoiceTemplate` interface, swap-in presets |
-| `proposal` | V2 single-preset | one preset (`ModernProposal`) + flat `ProposalSpec` |
-
-Anything outside the four routes through the same generic skill pack
-and DSL primitives. Reference examples skew toward CV today because
-those were the first end-to-end runs — the pipeline itself is
-document-kind agnostic by design.
-
-![GraphCompose AI Template Flow — v2 routing: the visual reference on the left, the Orchestrator scoping each change into the 11-agent chain with data-only / asset-only / theme-only / refactor-only / visual-change fast lanes (plus skill-validation and asset-resolver caches and region-aware pixel diffing) in the middle, and the published template bundle on the right](assets/readme/graphcompose-ai-flow.png)
-
-[![GraphCompose AI Template Flow — 10s routing walkthrough (click to play on YouTube)](https://img.youtube.com/vi/wExK4sAOev0/maxresdefault.jpg)](https://youtu.be/wExK4sAOev0)
-
-> ▶️ **Animated walkthrough** (10 s) of the v2 routing flow — click the thumbnail to watch on YouTube. Prefer a local copy? [Open the raw clip directly](assets/readme/graphcompose-ai-flow.mp4).
-
-## What you can run now
-
-- Render the [invoice reference example](examples/invoice-reference/) — three committed revisions with real `output.pdf` / `output.png`.
-- Render the [two-page CV reference example](examples/cv-reference/) end-to-end, with bundled `Poppins`, Iconify icons, and `mailto:` links.
-- Inspect revision history with the [`revision-manager`](tools/revision-manager/) CLI (`list`, `diff`, `undo`, `revert-approved`, `restore-component`).
-- Copy the published [`mint-editorial-cv`](templates/mint-editorial-cv/) bundle (Java source + data JSON + assets + previews + README) into your own project.
-
-## Example output
-
-The CV reference flows through the pipeline and lands in a published bundle.
-
-| Reference | Rendered (clean) | Rendered (debug overlay) |
-|---|---|---|
-| ![reference page 1](examples/cv-reference/reference/reference-page-1.png) | ![rendered page 1](templates/mint-editorial-cv/preview/output-page-1.png) | ![debug page 1](templates/mint-editorial-cv/preview/output-debug-page-1.png) |
-| ![reference page 2](examples/cv-reference/reference/reference-page-2.png) | ![rendered page 2](templates/mint-editorial-cv/preview/output-page-2.png) | ![debug page 2](templates/mint-editorial-cv/preview/output-debug-page-2.png) |
-
-Source reference: [`examples/cv-reference/`](examples/cv-reference/) → published bundle: [`templates/mint-editorial-cv/`](templates/mint-editorial-cv/).
-
-## Current status
-
-| Area | Status |
-|---|---|
-| Revision manager CLI | Working |
-| Preview renderer (PDF/PNG + GraphCompose render path) | Working |
-| Visual diff CLI | Working |
-| Invoice reference example | Renders, 3 committed revisions |
-| CV reference example | Renders end-to-end |
-| Published template bundle (`mint-editorial-cv`) | Available |
-| GitHub Actions CI matrix | Green (Node 20 + Java 21 + Maven) |
-| Full visual baseline orchestration | In progress |
-| Skills under `skills/versions/graphcompose-1.9/` | allow-list `active`; 14 conceptual `needs-validation` until baseline pass lands |
-
-Full claim-vs-reality matrix: [`docs/implementation-status.md`](docs/implementation-status.md).
-
-## For AI agents
-
-If you are an AI agent picking up this repository, read [`AGENTS.md`](AGENTS.md)
-FIRST. It is the onboarding file — explains the 11-agent chain, the
-user-gesture dispatch table, the cross-cutting principles (relational
-geometry, engine anchors, data-spec contract, parity gate), and where every
-artifact lives.
+The output is not a drawing that happens to match one screenshot. It is
+a maintainable Java template built from semantic GraphCompose primitives
+— sections, rows, weights, anchors — with the content in a JSON data
+file, the assets resolved and recorded, and every revision kept.
 
 ---
 
-A strict AI-assisted visual matching workflow for turning document references
-into maintainable GraphCompose Java templates.
+## Install
 
-AI-generated document code often becomes coordinate soup.
-
-This project explores a stricter approach.
-
-Instead of asking an AI agent to draw PDF elements with raw coordinates, the
-agent is given a visual reference and must reconstruct it using GraphCompose
-semantic primitives: sections, rows, tables, themes, layer stacks, shape
-containers, layout snapshots, and visual regression checks.
-
-The goal is strict visual parity with the reference.
-
-Every generated output is rendered, compared, reviewed, revised, and stored as
-a revision.
-
-GraphCompose becomes the target language for the agent.
-
-The agent does not just draw.
-
-The agent builds a maintainable document template.
-
-## What this is
-
-This repository documents and demonstrates an experimental workflow where AI
-agents analyze a visual reference, map it onto GraphCompose primitives,
-generate Java template code, render the result, compare the output against
-the reference, revise the template, and preserve revision history with
-support for undo, revert-to-approved, and selective rollback.
-
-This is a companion/lab repository for GraphCompose. It does not modify
-GraphCompose core.
-
-## Quickstart
-
-New users should start with [docs/quickstart.md](docs/quickstart.md).
-It explains what this repository is, how to install the local tooling,
-how to render the invoice example, and how to start a new document
-project.
-
-## Why this exists
-
-AI-generated PDF code tends to drift toward raw coordinates and one-shot
-draw calls. Those outputs are hard to read, hard to revise, and impossible to
-diff in a meaningful way.
-
-GraphCompose offers a semantic document language. By forcing the agent to
-target that language under a strict visual-matching contract, the workflow
-yields document templates that are reviewable, testable, and revisable like
-any other Java code.
-
-## Core idea
+### Claude Code
 
 ```text
-AI does not draw the PDF with raw coordinates.
-AI reconstructs the document using semantic GraphCompose components.
+/plugin marketplace add DemchaAV/graphcompose-ai-flow
+/plugin install graphcompose-flow@graphcompose
 ```
 
-## Visual accuracy contract
+### Codex
 
-The generated result must visually match the reference. Any visible mismatch
-is treated as a defect unless it is explicitly classified and documented as a
-known or accepted limitation. Revisions are approved only when no critical
-mismatches remain and all required artifacts exist. See
-[docs/visual-accuracy-contract.md](docs/visual-accuracy-contract.md).
+```bash
+git clone https://github.com/DemchaAV/graphcompose-ai-flow
+cd graphcompose-ai-flow
+node adapters/codex/install.mjs
+```
 
-## Workflow
+### Then, once, in either case
 
-The workflow runs: detect task type, resolve GraphCompose version, load and
-validate the matching skill pack, analyze the reference, plan the
-architecture, resolve external design assets (icons + fonts), generate the
-template, compile, render twice (clean + debug-with-guidelines), compare
-against the reference, write a visual review, then approve, reject, or
-roll back. On approval the publisher emits a polished bundle under
-[`templates/`](templates/). Every change creates a new revision. See
-[docs/workflow.md](docs/workflow.md).
+```bash
+npm run setup
+```
 
-## Agent architecture
+Two of the tools are TypeScript compiled into `dist/`, which is not
+committed, so a fresh install has no build output. Until setup has run,
+those two exit with code 69 and tell you this. Full instructions,
+requirements and troubleshooting:
+[`docs/plugin-installation.md`](docs/plugin-installation.md).
 
-Eleven agents form the chain: Orchestrator, Version + Skill Resolver,
-Skill Validator, Visual Analyzer, Architecture Mapper, **Asset Resolver**
-(icons + fonts), Template Coder, Test + Render, Visual Review, Revision
-Manager, and **Template Publisher** (publish-quality bundles on APPROVE).
-Each agent has a fixed set of inputs, outputs, and forbidden behaviors. See
-[docs/agents.md](docs/agents.md) and [AGENTS.md](AGENTS.md).
+You need Node 20+, Java 21+, Maven and ImageMagick, plus a Java project
+that pins GraphCompose — the version in *your* build file decides which
+skill pack the agent authors against.
 
-### v2 routing — the chain is not always linear
+## Use
 
-Only the first generation from a reference runs all eleven agents.
-Every later edit is **scoped to a lane** by the Orchestrator and routes
-through just the agents whose region changed — this is the "v2 routing"
-the banner above diagrams:
+Open your Java project in the agent, give it the reference, and say what
+you want. The skills fire from the words, so no command is needed:
 
-| Scope | Routes through | Parity gate |
-|---|---|---|
-| `data-only` — content JSON edit | Test + Render → Visual Review | region-aware AE; untouched regions `AE == 0` |
-| `asset-only` — icon/font swap | Asset Resolver → Test + Render → Visual Review | region-aware AE on asset regions |
-| `theme-only` — palette/spacing token | Template Coder (theme file) → Test + Render → Visual Review | layer-by-layer vs reference |
-| `refactor-only` — rename, dep upgrade | Template Coder → Test + Render → Visual Review | binary `AE == 0` vs parent |
-| `visual-change` — new layout / restyle | Visual Analyzer → Architecture Mapper → Asset Resolver → Template Coder → Test + Render → Visual Review | layer-by-layer vs reference |
+| You say | What happens |
+|---|---|
+| "Create this in GraphCompose" (+ a screenshot) | analyse → architecture → assets → code → compile → render → diff → fix the largest mismatch → repeat |
+| "Make the sidebar wider" | a new revision under the narrowest scope that fits, gated against the right baseline |
+| "What's still different?" | a measured verdict and a ranked mismatch list, without changing anything |
+| "approve" | DRAFT → APPROVED, the previous approved superseded, the bundle published |
 
-A `data-only` revision skips the Analyzer, Mapper, Asset Resolver, and
-Coder entirely — it just re-renders with the new JSON and diffs only the
-regions that read the changed fields. The full scope contract lives in
-[`prompts/orchestrator-agent.md`](prompts/orchestrator-agent.md) and
-[`prompts/visual-review-agent.md`](prompts/visual-review-agent.md).
+See [`docs/demo.md`](docs/demo.md) for a real transcript of the
+deterministic half — version resolution, workspace creation, the chain,
+the loop gate.
 
-## Data, assets, and published templates
+## How it works
 
-- **Asset Resolver** lives in [`tools/asset-resolver/`](tools/asset-resolver/)
-  and downloads Iconify icons (SVG → PNG via ImageMagick) and validates
-  Google Fonts against the GraphCompose bundled set. Output is a
-  per-revision `assets-manifest.json` plus the icon bundle.
-- **Data-driven templates** keep visible content in a per-revision
-  JSON file (e.g. `cv-data.json`) and a typed Java spec record loaded
-  through a `--spec-provider`. Editing content is one file change, no
-  Java edits.
-- **Template Publisher** runs only on APPROVE: it copies the polished
-  template, the spec record, the example data, the asset bundle, the
-  clean preview PDF, and the debug preview PDF (with GraphCompose
-  guide-line overlays) into [`templates/<template-id>/`](templates/). The
-  bundle is what downstream consumers copy into their own projects.
-
-## Versioned skills
-
-Skills are versioned contracts between the agent and a specific GraphCompose
-API. The agent must identify the target GraphCompose version, load the
-matching skill pack from `skills/versions/`, and never invent APIs. If the
-library and the skill disagree, the library wins and the skill is fixed. See
-[docs/versioned-skills.md](docs/versioned-skills.md).
-
-## Revision model
-
-Every change creates a new revision under `revisions/`. Revisions have
-explicit statuses (`DRAFT`, `APPROVED`, `REJECTED`, `REVERTED`,
-`SUPERSEDED`, `FAILED`), a parent pointer, and a fixed artifact layout.
-Approved revisions are never overwritten directly. See
-[docs/revision-model.md](docs/revision-model.md).
-
-## Example
-
-A documentation-grade manual revision cycle for an invoice reference
-lives under [`examples/invoice-reference/`](examples/invoice-reference/).
-It ships three revisions with every text artifact the workflow produces.
-The binary render artifacts (`output.pdf`, `output.png`) are now
-committed for all example revisions. They are produced by
-[`scripts/render-invoice-reference.mjs`](scripts/render-invoice-reference.mjs),
-which compiles the selected revision through
-[`examples/invoice-reference/render-runner`](examples/invoice-reference/render-runner/)
-and then calls [`tools/preview-renderer`](tools/preview-renderer/).
-
-A second worked reference under
-[`examples/cv-reference/`](examples/cv-reference/) shows the full flow
-end-to-end for a two-page graphic-designer CV screenshot pair —
-asset-resolver-managed Iconify icons (`mdi:phone-outline`,
-`entypo-social:*-with-circle`, ...), bundled `Poppins`, data-driven
-content via [`cv-data.json`](examples/cv-reference/revisions/revision-009/cv-data.json),
-clickable contact and social links, and references with `mailto:`
-hyperlinks. The approved baseline is published as
-[`templates/mint-editorial-cv/`](templates/mint-editorial-cv/), a
-self-contained bundle (Java + data + assets + previews + README) that
-can be dropped into another project.
-
-## Limitations
-
-This project does not promise perfect screenshot-to-code conversion. Human
-review remains part of the loop. Exact font matching and exact pixel parity
-may be limited depending on the renderer and the available fonts. See
-[docs/limitations.md](docs/limitations.md).
-
-## Roadmap
-
-The project ships in phases: documentation MVP, versioned skill pack, manual
-example, skill validation fixtures, revision helper tool, render and preview
-workflow, and visual diff experiment. See [docs/roadmap.md](docs/roadmap.md).
-
-## Status
-
-Phases 1 through 7 of the project plan have shipped. The
-[`tools/`](tools/) folder hosts three modules: a Node revision-manager
-CLI ([`revision-manager`](tools/revision-manager/)), a Java + Maven
-preview-renderer ([`preview-renderer`](tools/preview-renderer/) with a
-working `preview` PDF→PNG subcommand and a `render` path that executes
-compiled GraphCompose templates when the runtime is on the classpath),
-and a Node
-visual-diff CLI ([`visual-diff`](tools/visual-diff/)). All three ship
-with passing test suites and are wired to GitHub Actions CI.
-
-GraphCompose 1.9.0 is reachable for fixture validation through
-Maven Central as `io.github.demchaav:graph-compose:1.9.0`
-(JitPack `com.github.DemchaAV:GraphCompose:vX.Y.Z` still resolves for
-pre-1.6.7 pins). The five fixture projects under
-[`examples/skill-fixtures/`](examples/skill-fixtures/) compile and
-run against that artifact. The invoice reference example
-also renders through the shared preview-renderer path. The remaining
-gate is now visual validation orchestration: produce real layout
-snapshots and run visual-diff against committed baselines. Until that
-full visual pass exists, every skill in the manifest stays at
-`status: needs-validation`.
-See [`AUDIT.md`](AUDIT.md) for the historical audit and
-[`docs/implementation-status.md`](docs/implementation-status.md) for
-the current claim-vs-reality matrix.
-
-## Positioning
+The host agent supplies the model, the reasoning and the shell. This
+project supplies the workflow, the GraphCompose knowledge and the gates.
+Anything a script can decide is decided by a script:
 
 ```text
-GraphCompose-AI-Template-Flow is an experimental companion project for GraphCompose.
-
-It demonstrates how AI agents can turn visual document references into maintainable Java templates through a strict workflow:
-
-Analyze -> Version -> Skills -> Plan -> Generate -> Render -> Compare -> Revise -> Approve / Rollback
-
-The project treats GraphCompose as a semantic target language for AI-assisted document generation.
-
-It does not promise magic screenshot-to-code conversion.
-
-It focuses on engineering discipline:
-
-- versioned skills
-- API validation
-- semantic mapping
-- visual parity
-- testable output
-- revision history
-- rollback safety
+   your words              the loop                        the gate
+   ──────────              ────────                        ────────
+   reference    →   analyse · architect · code   →   render · diff · evaluate
+                              ↑                              │
+                              └────── fix one mismatch ──────┘
+                                                             │
+                                              READY_FOR_APPROVAL / BLOCKED
 ```
+
+Four things make that more than a prompt:
+
+- **The version decides the API.** `scripts/resolve-version.mjs` reads
+  your `pom.xml` or `build.gradle`, maps the line to a skill pack, and
+  stops if there is no pack — rather than authoring against an API your
+  version does not have.
+- **The gate is arithmetic.** A refactor must produce `AE == 0` against
+  its parent. A data edit may differ only in the regions it touched. The
+  metric is quoted, never paraphrased.
+- **The loop is bounded.** `scripts/iterate-status.mjs` counts the
+  iterations, the consecutive build failures and the repeats of the same
+  mismatch, and answers 0 ready / 2 revise / 3 blocked. An agent going
+  round in circles is the last thing qualified to notice it.
+- **Nothing is overwritten.** Every change opens a revision; approving
+  supersedes rather than replaces; a single component can be restored
+  from any earlier one.
+
+[`docs/architecture.md`](docs/architecture.md) has the full picture,
+including what this project deliberately does **not** build: no LLM API
+integration, no MCP server, no standalone runtime.
+
+## What is honest about the current state
+
+- The four workflow skills, the tools, the schemas, the packaging and
+  the CI gates are in place; `npm run verify` runs every gate locally.
+- The **acceptance runs are outstanding**: whether the skills fire
+  unprompted in a clean project, in each host, has not yet been recorded.
+- The GraphCompose **2.2 pack ships**, but the five compile-smoke
+  fixtures still pin 1.9.0, so every conceptual skill remains
+  `needs-validation`. See [`skills/README.md`](skills/README.md).
+- Details and scope limits: [`docs/limitations.md`](docs/limitations.md),
+  progress: [`docs/roadmap.md`](docs/roadmap.md).
+
+## For agents
+
+[`AGENTS.md`](AGENTS.md) dispatches: which skill owns the task, the
+seven invariants, the commands, and where each contract is declared.
+Start there, not here.
+
+## Repository
+
+| Path | What |
+|---|---|
+| [`skills/workflows/`](skills/workflows/README.md) | the four workflow skills and their shared references |
+| [`skills/versions/`](skills/) | GraphCompose knowledge, one pack per library line |
+| [`config/pipeline.json`](config/pipeline.json) | scope → stages, gates, loop bounds, failure categories |
+| [`schemas/`](schemas/) | every on-disk contract |
+| [`tools/`](tools/) | revision manager, renderer, visual diff, asset resolver |
+| [`scripts/`](scripts/) | version resolver, render, pipeline, loop gate, publish, verify |
+| [`examples/cv-reference/`](examples/cv-reference/) | a worked chain — revisions 001 → 009 |
+
+## License
+
+[MIT](LICENSE).
