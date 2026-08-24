@@ -27,25 +27,25 @@ file, the assets resolved and recorded, and every revision kept.
 /plugin install graphcompose-flow@graphcompose
 ```
 
+Then, once: `npm run setup` — two of the tools are TypeScript compiled
+into `dist/`, which is not committed, so a fresh install has no build
+output. Until setup has run, those two exit with code 69 and say so.
+Full instructions and troubleshooting:
+[`docs/plugin-installation.md`](docs/plugin-installation.md).
+
 ### Codex
 
 ```bash
 git clone https://github.com/DemchaAV/graphcompose-ai-flow
 cd graphcompose-ai-flow
+npm run setup
 node adapters/codex/install.mjs
 ```
 
-### Then, once, in either case
-
-```bash
-npm run setup
-```
-
-Two of the tools are TypeScript compiled into `dist/`, which is not
-committed, so a fresh install has no build output. Until setup has run,
-those two exit with code 69 and tell you this. Full instructions,
-requirements and troubleshooting:
-[`docs/plugin-installation.md`](docs/plugin-installation.md).
+That copies the runtime to `~/.codex/graphcompose-flow/<version>/` and
+installs four skills pointing into it, so **the clone is not needed
+afterwards** — move it, rename it or delete it and the skills keep
+working. See [`adapters/codex/README.md`](adapters/codex/README.md).
 
 You need Node 20+, Java 21+, Maven and ImageMagick, plus a Java project
 that pins GraphCompose — the version in *your* build file decides which

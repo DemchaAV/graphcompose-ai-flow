@@ -12,35 +12,64 @@ editing behaviour here, it belongs in
 ## Install
 
 ```bash
+npm run setup                      # once: builds the tools
 node adapters/codex/install.mjs
 ```
 
-That writes four skills into `~/.codex/skills/`:
-`graphcompose-create-template`, `graphcompose-revise-template`,
-`graphcompose-review-template`, `graphcompose-approve-template`.
+That installs two things:
+
+```text
+~/.codex/graphcompose-flow/<version>/   the harness runtime, copied (~6 MB)
+~/.codex/skills/graphcompose-*/         four stubs pointing into it
+```
+
+**The source checkout is not needed afterwards.** You can move it,
+rename it, put it on a drive you do not always mount, or delete it: the
+skills keep working, because they point at the installed copy rather
+than at where you happened to clone.
 
 | Flag | Effect |
 |---|---|
-| `--dry-run` | print what would be written, write nothing |
-| `--dest <dir>` | install somewhere other than `~/.codex/skills` |
+| `--home <dir>` | where the runtime goes (default `~/.codex/graphcompose-flow`) |
+| `--dest <dir>` | skills directory (default `~/.codex/skills`) |
 | `--prefix <p>` | change the `graphcompose-` name prefix |
-| `--uninstall` | remove the stubs again |
+| `--link` | point the skills at THIS checkout instead of copying |
+| `--skip-deps` | do not run `npm ci` inside the copy |
+| `--prune` | remove installed versions other than this one |
+| `--dry-run` | print what would happen, change nothing |
+| `--uninstall` | remove the stubs and the installed runtime |
 
-Re-run it after pulling: the stubs embed the absolute path of this
-checkout, so moving or re-cloning the repository invalidates them.
+Installing a new release writes a new version directory, so it cannot
+half-overwrite the one a running session is using. `--prune` reclaims
+the old ones when you want the disk back.
 
-Then run the one-time toolchain setup, if you have not already:
+Working on the harness itself? `--link` keeps the old behaviour — the
+skills track your working tree, and break if it moves. That trade is
+right for a contributor and wrong for everyone else.
 
-```bash
-npm run setup
-```
+## What is copied, and what is not
 
-## What gets installed, and why it is a stub
+Only what the skills actually reach for at run time: `config/`,
+`schemas/`, `scripts/`, `skills/` (all version packs), the four tools —
+the two TypeScript CLIs as their build output plus their runtime
+dependencies, the asset resolver as source, and the preview renderer's
+jar. Roughly 6 MB.
+
+Not copied: `examples/`, `templates/`, `docs/`, the site, and the
+superseded prompt chain. A "self-contained install" that mirrored the
+whole repository would ship the architecture this harness replaced.
+
+The install refuses to run against an unbuilt checkout — exit 69, the
+same code the CLIs use — because copying a tree with no `dist/` and no
+jar would produce an install that fails on first use instead of at
+install time.
+
+## Why each skill is a stub
 
 Each installed `SKILL.md` carries the frontmatter — copied verbatim,
 because the `description` is what makes Codex offer the skill at all —
-and then points at the canonical file in this checkout instead of
-repeating it.
+and then points at the canonical file inside the installed runtime
+instead of repeating it.
 
 The alternative was copying the skill bodies plus the four shared
 references into each flat directory. That is four copies of one

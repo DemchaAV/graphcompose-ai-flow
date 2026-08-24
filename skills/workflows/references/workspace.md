@@ -5,7 +5,7 @@ revision in the wrong place.
 
 | Root | Holds | How to get it |
 |---|---|---|
-| **install root** | the harness: `prompts/`, `skills/`, `config/`, `schemas/`, `tools/`, `scripts/` | the directory the scripts live in |
+| **install root** | the harness: `skills/`, `config/`, `schemas/`, `tools/`, `scripts/` | the directory the scripts live in |
 | **workspace root** | the work: projects, revisions, references, published bundles | resolved, see below |
 
 Inside the graphcompose-ai-flow repository itself they are the same

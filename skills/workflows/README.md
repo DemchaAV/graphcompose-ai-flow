@@ -1,8 +1,8 @@
 # Workflow skills
 
-Four skills, one per thing a user actually asks for. They replace the
-eleven-prompt chain in [`prompts/`](../../prompts/), which required a
-human to read the contract and an agent to interpret it.
+Four skills, one per thing a user actually asks for. They replace an
+eleven-prompt agent chain that required a human to read the contract and
+an agent to interpret it.
 
 | Skill | Fires on | Opens a revision? |
 |---|---|---|

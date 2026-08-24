@@ -82,9 +82,13 @@ test("each stub's description is the source description, verbatim", () => {
   }
 });
 
-test("each stub names its directory and points at the canonical file", () => {
+test("each stub names its directory and points into the installed runtime", () => {
+  const home = tempDir("home");
   const dest = tempDir("points");
-  run(["--dest", dest]);
+  run(["--home", home, "--dest", dest, "--skip-deps"]);
+
+  const version = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json"), "utf8")).version;
+  const runtimeRoot = path.join(home, version);
 
   for (const name of sourceSkills) {
     const installedName = `graphcompose-${name}`;
@@ -97,12 +101,58 @@ test("each stub names its directory and points at the canonical file", () => {
       `${installedName}: frontmatter name must match the directory, as every other ~/.codex skill does`,
     );
 
-    const canonical = path.join(workflowsDir, name, "SKILL.md");
+    // The whole point of the copy: the stub must point into the install, not
+    // at a checkout that can move, be renamed, or be deleted after install.
+    const installed = path.join(runtimeRoot, "skills", "workflows", name, "SKILL.md");
+    assert.ok(body.includes(installed), `${installedName} does not point at ${installed}`);
     assert.ok(
-      body.includes(canonical),
-      `${installedName} does not point at ${canonical}`,
+      !body.includes(path.join(repoRoot, "skills", "workflows", name)),
+      `${installedName} points back at the source checkout`,
     );
+    assert.ok(fs.existsSync(installed), `the installed runtime is missing ${installed}`);
   }
+});
+
+test("the installed runtime carries what the skills reach for, and nothing else", () => {
+  const home = tempDir("runtime");
+  run(["--home", home, "--dest", tempDir("runtime-skills"), "--skip-deps"]);
+  const version = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json"), "utf8")).version;
+  const root = path.join(home, version);
+
+  for (const needed of [
+    "config/pipeline.json",
+    "schemas/visual-review.schema.json",
+    "scripts/resolve-version.mjs",
+    "scripts/run-pipeline.mjs",
+    "scripts/lib/workspace.mjs",
+    "skills/skill-manifest.json",
+    "skills/versions/graphcompose-2.2/00-api-surface.md",
+    "tools/revision-manager/bin/graphcompose-flow.mjs",
+    "tools/revision-manager/dist/cli.js",
+    "tools/visual-diff/dist/cli.js",
+    "tools/preview-renderer/target/preview-renderer.jar",
+  ]) {
+    assert.ok(fs.existsSync(path.join(root, needed)), `the install is missing ${needed}`);
+  }
+
+  // Not runtime: shipping these would make the "self-contained" copy a mirror
+  // of the repository, including the chain this harness replaced.
+  for (const absent of ["examples", "templates", "prompts", "site", "docs", ".git"]) {
+    assert.ok(!fs.existsSync(path.join(root, absent)), `the install carries ${absent}, which is not runtime`);
+  }
+});
+
+test("--link keeps the contributor workflow pointing at the checkout", () => {
+  const dest = tempDir("linked");
+  const out = run(["--dest", dest, "--link"]);
+  assert.match(out, /linked checkout/i);
+
+  const body = fs.readFileSync(path.join(dest, `graphcompose-${sourceSkills[0]}`, "SKILL.md"), "utf8");
+  assert.ok(
+    body.includes(path.join(repoRoot, "skills", "workflows", sourceSkills[0], "SKILL.md")),
+    "--link did not point at this checkout",
+  );
+  assert.match(body, /tracks your working tree/, "--link does not warn that it is checkout-bound");
 });
 
 test("the stubs carry no copy of the instructions", () => {
