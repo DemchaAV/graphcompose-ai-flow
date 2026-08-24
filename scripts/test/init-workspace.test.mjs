@@ -191,6 +191,47 @@ test("re-creating an existing project is refused rather than merged into", () =>
   assert.match(output, /already exists/);
 });
 
+test("--template seeds into the workspace when the line matches the pin", () => {
+  const project = javaProject("1.7.0", "seedable");
+  run(["--project-dir", project, "--project", "inv", "--template", "invoice"]);
+
+  const dir = path.join(project, "graphcompose-flow", "projects", "inv");
+  assert.ok(fs.existsSync(path.join(dir, "render-runner", "pom.xml")), "no runner was seeded");
+  assert.ok(
+    fs.existsSync(path.join(dir, "revisions", "revision-001", "generated-template.java")),
+    "no template was seeded",
+  );
+  // The runner pins the library itself and nothing overrides it at render time.
+  const pom = fs.readFileSync(path.join(dir, "render-runner", "pom.xml"), "utf8");
+  assert.match(pom, /<graphcompose\.version>1\.7\.0<\/graphcompose\.version>/);
+});
+
+test("--template refuses a seed written for another line, and leaves no project behind", () => {
+  const project = javaProject("2.2.0", "crossmajor");
+  const { status, output } = runFailing([
+    "--project-dir",
+    project,
+    "--project",
+    "inv",
+    "--template",
+    "invoice",
+  ]);
+
+  assert.notEqual(status, 0);
+  assert.match(output, /written against GraphCompose 1\.7\.x/);
+  assert.ok(
+    !fs.existsSync(path.join(project, "graphcompose-flow", "projects", "inv")),
+    "a project was left behind after the refusal",
+  );
+});
+
+test("--template without --project is a usage error", () => {
+  const project = javaProject();
+  const { status, output } = runFailing(["--project-dir", project, "--template", "invoice"]);
+  assert.equal(status, 2);
+  assert.match(output, /--template needs --project/);
+});
+
 test("a missing flag value is a usage error, not a crash", () => {
   const { status, output } = runFailing(["--project-dir"]);
   assert.equal(status, 2);

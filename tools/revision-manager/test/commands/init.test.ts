@@ -38,10 +38,14 @@ describe('init', () => {
 });
 
 describe('init --template', () => {
-  it('seeds a ready-to-render invoice project under examples/', async () => {
+  it('seeds a ready-to-render invoice project in the current directory', async () => {
     await buildFakeRepo(root);
+    // Placement follows the caller, exactly like bare mode: in a workspace
+    // that is graphcompose-flow/projects, in a checkout it is examples/. It
+    // used to be forced to <install>/examples, which wrote a user's project
+    // into the harness install.
     const dir = await runInit('my-invoice', { template: 'invoice', repoRoot: root });
-    expect(dir).toBe(path.join(root, 'examples', 'my-invoice'));
+    expect(dir).toBe(path.resolve(root, 'my-invoice'));
 
     const proj = JSON.parse(
       await fs.readFile(path.join(dir, 'template-project.json'), 'utf8'),
@@ -96,11 +100,70 @@ describe('init --template', () => {
     );
   });
 
-  it('detects the repo root via package.json when repoRoot is not given', async () => {
+  it('finds the seed from the install root, not from the current directory', async () => {
+    // No fake repo and no repoRoot: the only way this can resolve a seed is by
+    // walking up from the module's own location. That is the whole install-mode
+    // fix — cwd here is a bare temp directory, which is what a user's Java
+    // project looks like from the tool's point of view.
+    const dir = await runInit('auto-inv', {
+      template: 'invoice',
+      targetGraphComposeVersion: '1.7.0',
+    });
+    expect(dir).toBe(path.resolve(root, 'auto-inv'));
+    await fs.access(path.join(dir, 'render-runner', 'pom.xml'));
+    await fs.access(path.join(dir, 'revisions/revision-001/generated-template.java'));
+  });
+
+  it('points the seeded runner at the requested version', async () => {
     await buildFakeRepo(root);
-    process.chdir(path.join(root, 'examples'));
-    const dir = await runInit('auto-inv', { template: 'invoice' });
-    expect(dir).toBe(path.join(root, 'examples', 'auto-inv'));
+    const dir = await runInit('pinned', {
+      template: 'invoice',
+      repoRoot: root,
+      targetGraphComposeVersion: '1.7.2',
+      skillPack: 'skills/versions/graphcompose-1.7',
+    });
+
+    // Nothing overrides graphcompose.version at render time, so an unrewritten
+    // runner would silently build against the seed's version instead.
+    const pom = await fs.readFile(path.join(dir, 'render-runner', 'pom.xml'), 'utf8');
+    expect(pom).toContain('<graphcompose.version>1.7.2</graphcompose.version>');
+    expect(pom).not.toContain('1.7.0');
+
+    const proj = JSON.parse(
+      await fs.readFile(path.join(dir, 'template-project.json'), 'utf8'),
+    ) as Record<string, any>;
+    expect(proj.targetGraphComposeVersion).toBe('1.7.2');
+
+    const rev = JSON.parse(
+      await fs.readFile(path.join(dir, 'revisions/revision-001/revision.json'), 'utf8'),
+    ) as Record<string, any>;
+    expect(rev.targetGraphComposeVersion).toBe('1.7.2');
+  });
+
+  it('refuses a seed written for another GraphCompose line', async () => {
+    await buildFakeRepo(root);
+    // The 1.7 invoice does not compile against 2.x at all, so seeding it would
+    // hand back a project whose first build fails with errors pointing at the
+    // library rather than at this decision.
+    await expect(
+      runInit('cross-major', {
+        template: 'invoice',
+        repoRoot: root,
+        targetGraphComposeVersion: '2.2.0',
+      }),
+    ).rejects.toThrow(/written against GraphCompose 1\.7\.x.*pins 2\.2\.0/s);
+
+    await expect(fs.access(path.resolve(root, 'cross-major'))).rejects.toBeTruthy();
+  });
+
+  it('accepts a patch difference within the seed line', async () => {
+    await buildFakeRepo(root);
+    const dir = await runInit('patchy', {
+      template: 'invoice',
+      repoRoot: root,
+      targetGraphComposeVersion: '1.7.9',
+    });
+    await fs.access(path.join(dir, 'template-project.json'));
   });
 });
 
@@ -146,7 +209,16 @@ async function buildFakeRepo(root: string): Promise<void> {
     'utf8',
   );
   await fs.writeFile(path.join(seed, 'reference', 'reference.md'), '# reference\n', 'utf8');
-  await fs.writeFile(path.join(seed, 'render-runner', 'pom.xml'), '<project/>\n', 'utf8');
+  // Carries the property the real runner declares: the seeded copy is
+  // repointed at the caller's version, and a seed without it is a drift the
+  // command refuses rather than ignores.
+  await fs.writeFile(
+    path.join(seed, 'render-runner', 'pom.xml'),
+    '<project><properties>' +
+      '<graphcompose.version>1.7.0</graphcompose.version>' +
+      '</properties></project>\n',
+    'utf8',
+  );
   await fs.writeFile(path.join(runnerPkg, 'SampleInvoiceSpecProvider.java'), '// provider\n', 'utf8');
   // a built artifact under target/ that must be excluded from the copy
   await fs.writeFile(

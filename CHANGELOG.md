@@ -7,6 +7,39 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.0-beta.3
+
+- **`init --template` works outside a checkout.** It looked for the seed
+  by walking up from `process.cwd()` for the repository, so an installed
+  user got "must run inside the graphcompose-ai-flow repository" and
+  could not use it at all. The seed ships with the harness, so it is now
+  found from the module's own location — true in a checkout, in
+  `~/.codex/graphcompose-flow/<version>/` and in the plugin cache alike.
+- **The seeded project lands where the caller stands**, exactly like the
+  empty scaffold, instead of being forced to `<install>/examples/<name>`.
+  That rule came from `runRender` resolving projects as
+  `examples/<projectId>`; it takes an explicit `projectDir` now, and
+  honouring the old rule would have written a user's project into the
+  harness install. `cd examples && init --template` in a checkout is
+  unaffected.
+- **Seeds are pinned to a GraphCompose line and cross-line seeding is
+  refused.** A seed is real Java against one API: the 1.7 invoice does
+  not compile against 2.x — the whole
+  `com.demcha.compose.document.templates.*` tree moved — so seeding it
+  into a 2.2 project produced something that could not build. The error
+  names both lines and points at the empty scaffold. Within a line the
+  caller's patch version wins, and the seeded runner's
+  `<graphcompose.version>` is repointed at it; nothing overrides that
+  property at render time, so an unrewritten runner silently built
+  against the seed's version.
+- **`scripts/init-workspace.mjs --template <name>`** threads the flag
+  through, so workspace, project and seed are one command.
+
+  **Known gap:** the only seed is `invoice` on the 1.7 line, so
+  `--template` is unavailable on 1.9 and 2.2 by design rather than by
+  accident. Closing it needs an invoice example ported to the current
+  line, which is example work, not a fix to this command.
+
 ### v0.5.0-beta.2
 
 - **`scripts/init-workspace.mjs`** — see the entry under Public API

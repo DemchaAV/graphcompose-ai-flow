@@ -67,12 +67,16 @@ export function buildProgram(): Command {
           });
           if (opts.template) {
             process.stdout.write(`initialised ${opts.template} project at ${dir}\n\n`);
-            process.stdout.write('Next steps (from the repository root):\n');
+            // Both lines used to assume a checkout — "from the repository root"
+            // and --project examples/<name> — which is wrong everywhere the
+            // harness is installed rather than cloned. The resolved directory
+            // is the one fact that holds in either.
+            process.stdout.write('Next steps:\n');
             process.stdout.write(
               `  node scripts/render.mjs ${projectName} revision-001   # -> output.pdf + output.png\n`,
             );
             process.stdout.write(
-              `  node tools/revision-manager/bin/graphcompose-flow.mjs status --project examples/${projectName}\n`,
+              `  node tools/revision-manager/bin/graphcompose-flow.mjs status --project ${dir}\n`,
             );
           } else {
             process.stdout.write(`initialised project at ${dir}\n`);

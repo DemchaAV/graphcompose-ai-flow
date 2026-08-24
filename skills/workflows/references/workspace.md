@@ -63,6 +63,14 @@ id, missing directory), 3 that project already exists. A project that
 pins no GraphCompose still gets a workspace — the manifest is simply
 written without pins, and the reason is printed.
 
+`--template <name>` seeds that project from a bundled example instead of
+an empty scaffold, and repoints its runner at the pinned version. A seed
+is real Java written against one GraphCompose line, so a seed from
+another line is **refused**, not adapted: the 1.7 invoice does not
+compile against 2.x at all. Today the only seed is `invoice` on 1.7, so
+on any other line use the empty scaffold and author the template
+against the pinned pack — which is what `create-template` does anyway.
+
 ## Which GraphCompose version, and therefore which skills
 
 Never ask the user and never assume. Read it from their build file:

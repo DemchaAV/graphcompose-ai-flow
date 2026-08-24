@@ -7,22 +7,38 @@
  *   <projectName>/reference/
  *   <projectName>/revisions/
  *
- * Template mode (--template invoice): seeds a ready-to-render project under
- * <repo>/examples/<projectName> by copying the minimal renderable subset of the
- * matching reference example -- render-runner (pom + spec provider), the
- * textual reference, and revision-001's generated-template.java /
- * generated-test.java -- then writes a fresh template-project.json (render
- * block carried over, revision pointers reset) and a DRAFT revision-001. With
- * --with-example the full worked-revision narrative artifacts are copied too.
+ * Template mode (--template invoice): seeds a ready-to-render project by
+ * copying the minimal renderable subset of the matching reference example --
+ * render-runner (pom + spec provider), the textual reference, and revision-001's
+ * generated-template.java / generated-test.java -- then writes a fresh
+ * template-project.json (render block carried over, revision pointers reset)
+ * and a DRAFT revision-001.
  *
- * A template project lands under examples/ specifically because the shared
- * renderer (scripts/lib/render-runtime.mjs) resolves projects as
- * examples/<projectId>; that is the only place `node scripts/render.mjs <name>`
- * can find it.
+ * Two roots are involved and they used to be one:
+ *
+ *   the seed comes from the INSTALL root, found by walking up from this
+ *   module's own location. It used to be found by walking up from process.cwd()
+ *   looking for the repository, which meant template mode simply refused to run
+ *   anywhere except inside a checkout -- an installed user could not use it at
+ *   all.
+ *
+ *   the project goes to the CURRENT DIRECTORY, exactly like bare mode, so it
+ *   lands in whatever workspace the caller stands in. It used to be written to
+ *   <install>/examples/<name> on the grounds that the renderer resolved
+ *   projects as examples/<projectId>; runRender takes an explicit projectDir
+ *   now, so that constraint is gone -- and honouring it would have written a
+ *   user's project into the harness install.
+ *
+ * Seeds are pinned to a GraphCompose line, because a seed is real Java written
+ * against one API. The 1.7 invoice does not compile against 2.x at all -- the
+ * whole com.demcha.compose.document.templates.* tree moved -- so seeding it
+ * into a 2.2 project would hand back something that cannot build. A line the
+ * registry has no seed for is refused, and says so.
  */
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { pathExists, readJson } from '../json.js';
 import { saveProject, nowIso } from '../projectStore.js';
 import { saveRevision } from '../revisionStore.js';
@@ -38,10 +54,27 @@ import type { Revision, TemplateProject } from '../types.js';
 const DEFAULT_TARGET_VERSION = '1.9.0';
 const DEFAULT_SKILL_PACK = 'skills/versions/graphcompose-1.9';
 
-/** Template name -> example directory (relative to repo root) that backs it. */
-const TEMPLATE_REGISTRY: Record<string, string> = {
-  invoice: 'examples/invoice-reference',
+/**
+ * Template name -> the example that backs it, and the GraphCompose line its
+ * Java is written against. `line` is not decoration: seeding across a major
+ * produces a project that does not compile.
+ */
+interface TemplateSeed {
+  /** Directory relative to the install root. */
+  readonly dir: string;
+  /** major.minor of the GraphCompose API the seed is written against. */
+  readonly line: string;
+}
+
+const TEMPLATE_REGISTRY: Record<string, TemplateSeed> = {
+  invoice: { dir: 'examples/invoice-reference', line: '1.7' },
 };
+
+/** "2.2.0" -> "2.2"; anything unparseable comes back as-is. */
+function lineOf(version: string): string {
+  const parts = version.split('.');
+  return parts.length >= 2 ? `${parts[0]}.${parts[1]}` : version;
+}
 
 /** Render inputs copied for a minimal seed (user-request.md is written, not copied). */
 const MINIMAL_ARTIFACTS: ReadonlyArray<{ label: string; file: string }> = [
@@ -97,29 +130,51 @@ async function runInitFromTemplate(
   template: string,
   options: InitOptions,
 ): Promise<string> {
-  const seedRel = TEMPLATE_REGISTRY[template];
-  if (!seedRel) {
+  const seed = TEMPLATE_REGISTRY[template];
+  if (!seed) {
     throw new Error(
       `unknown template "${template}". Available: ${Object.keys(TEMPLATE_REGISTRY).join(', ')}`,
     );
   }
 
-  const repoRoot = options.repoRoot ?? (await findRepoRoot(process.cwd()));
-  if (!repoRoot) {
+  // The seed ships with the harness, so it is found from this module's own
+  // location. Deriving it from process.cwd() is what made template mode
+  // repository-only.
+  const installRoot = options.repoRoot ?? (await findInstallRoot());
+  if (!installRoot) {
     throw new Error(
-      '--template must run inside the graphcompose-ai-flow repository ' +
-        '(could not locate the repo root). cd into the repo and retry.',
+      'could not locate the harness install root from this module. ' +
+        'The installation looks incomplete — reinstall, or run npm run setup.',
     );
   }
 
-  const seedDir = path.join(repoRoot, seedRel);
+  // A seed is real Java against one API. Refusing is the honest answer: the
+  // 1.7 invoice does not compile against 2.x, so seeding it would produce a
+  // project that fails at the first build with errors pointing at the library
+  // rather than at this decision.
+  const requested = options.targetGraphComposeVersion;
+  if (requested && lineOf(requested) !== seed.line) {
+    const lines = [...new Set(Object.values(TEMPLATE_REGISTRY).map((s) => s.line))].sort();
+    throw new Error(
+      `template "${template}" is written against GraphCompose ${seed.line}.x, ` +
+        `but this project pins ${requested}. Seeding it would not compile.\n` +
+        `Templates exist for: ${lines.join(', ')}.\n` +
+        'Use the empty scaffold instead (drop --template) and let the workflow ' +
+        'author the template against your pinned version.',
+    );
+  }
+
+  const seedDir = path.join(installRoot, seed.dir);
   if (!(await pathExists(projectFilePath(seedDir)))) {
     throw new Error(
-      `template seed not found: ${seedDir} (expected ${seedRel}/template-project.json)`,
+      `template seed not found: ${seedDir} (expected ${seed.dir}/template-project.json)`,
     );
   }
 
-  const targetDir = path.join(repoRoot, 'examples', projectName);
+  // Same placement rule as bare mode: the caller's directory decides. In a
+  // workspace that is graphcompose-flow/projects; in a checkout it is
+  // examples/, which is what `cd examples && init --template` always produced.
+  const targetDir = path.resolve(process.cwd(), projectName);
   await assertFreshTarget(targetDir);
 
   const seedRevDir = revisionDirPath(seedDir, 'revision-001');
@@ -127,6 +182,11 @@ async function runInitFromTemplate(
   await fs.mkdir(targetRevDir, { recursive: true });
 
   const seedProject = await readJson<TemplateProject>(projectFilePath(seedDir));
+
+  // Within the seed's own line the caller's patch version wins, so a project
+  // pinning 1.7.2 gets 1.7.2 everywhere rather than the seed's 1.7.0.
+  const targetVersion = requested ?? seedProject.targetGraphComposeVersion;
+  const targetPack = options.skillPack ?? seedProject.skillPack;
 
   // Minimal renderable seed: the reference description plus the only two real
   // render inputs, with a fresh DRAFT revision.json. Deliberately NO narrative
@@ -157,8 +217,8 @@ async function runInitFromTemplate(
     parentRevisionId: null,
     status: 'DRAFT',
     userRequest: seedRev.userRequest,
-    targetGraphComposeVersion: seedProject.targetGraphComposeVersion,
-    skillPack: seedProject.skillPack,
+    targetGraphComposeVersion: targetVersion,
+    skillPack: targetPack,
     createdAt: nowIso(),
     artifacts,
     pendingArtifacts: ['output.pdf', 'output.png'],
@@ -173,14 +233,23 @@ async function runInitFromTemplate(
     (rel) => !rel.split(path.sep).includes('target'),
   );
 
+  // The runner pins the library itself, and nothing overrides it at render
+  // time (revision.id is passed on the command line; graphcompose.version is
+  // not). Left alone, a project pinning 1.7.2 would still build against the
+  // seed's 1.7.0 and the mismatch would be invisible.
+  await rewriteRunnerVersion(
+    path.join(targetDir, 'render-runner', 'pom.xml'),
+    targetVersion,
+  );
+
   // template-project.json: reset pointers, carry the render block + docKind
   const now = nowIso();
   const project: TemplateProject = {
     projectName,
     referenceImage: seedProject.referenceImage,
     referenceDescription: seedProject.referenceDescription,
-    targetGraphComposeVersion: seedProject.targetGraphComposeVersion,
-    skillPack: seedProject.skillPack,
+    targetGraphComposeVersion: targetVersion,
+    skillPack: targetPack,
     currentApprovedRevisionId: null,
     currentDraftRevisionId: 'revision-001',
     createdAt: now,
@@ -188,7 +257,7 @@ async function runInitFromTemplate(
     docKind: seedProject.docKind,
     render: seedProject.render,
     notes:
-      `Seeded from the "${template}" template (${seedRel}) via ` +
+      `Seeded from the "${template}" template (${seed.dir}) via ` +
       `\`graphcompose-flow init --template ${template}\`.`,
   };
   await saveProject(targetDir, project);
@@ -205,9 +274,17 @@ async function assertFreshTarget(targetDir: string): Promise<void> {
   }
 }
 
-/** Walk up from `startDir` to the repo root (its package.json `name`). */
-async function findRepoRoot(startDir: string): Promise<string | null> {
-  let dir = path.resolve(startDir);
+/**
+ * Walk up from this module's own location to the harness install root.
+ *
+ * Deliberately not from process.cwd(): the seed ships with the harness, so
+ * where the user happens to be standing has nothing to do with finding it.
+ * This holds in a checkout, in ~/.codex/graphcompose-flow/<version>/ and in
+ * the Claude Code plugin cache alike, because the tool always sits inside the
+ * tree it belongs to.
+ */
+async function findInstallRoot(): Promise<string | null> {
+  let dir = path.dirname(fileURLToPath(import.meta.url));
   for (;;) {
     const pkg = path.join(dir, 'package.json');
     if (await pathExists(pkg)) {
@@ -222,6 +299,28 @@ async function findRepoRoot(startDir: string): Promise<string | null> {
     if (parent === dir) return null;
     dir = parent;
   }
+}
+
+/**
+ * Point the seeded runner at `version`. Only the property is touched; the
+ * dependency reads ${graphcompose.version} and nothing else in the pom names a
+ * version of the library.
+ */
+async function rewriteRunnerVersion(pomPath: string, version: string): Promise<void> {
+  if (!(await pathExists(pomPath))) return;
+  const pom = await fs.readFile(pomPath, 'utf8');
+  const property = /<graphcompose\.version>[^<]*<\/graphcompose\.version>/;
+  if (!property.test(pom)) {
+    throw new Error(
+      `seeded runner ${pomPath} has no <graphcompose.version> property to set. ` +
+        'The seed and this command disagree about the runner layout.',
+    );
+  }
+  await fs.writeFile(
+    pomPath,
+    pom.replace(property, `<graphcompose.version>${version}</graphcompose.version>`),
+    'utf8',
+  );
 }
 
 async function copyIfExists(src: string, dst: string): Promise<boolean> {

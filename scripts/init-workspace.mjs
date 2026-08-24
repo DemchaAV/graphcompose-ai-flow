@@ -42,9 +42,13 @@ const REVISION_MANAGER = path.join(
 
 function usage(code = 0) {
   process.stdout.write(
-    "usage: node scripts/init-workspace.mjs [--project-dir <dir>] [--project <id>] [--json]\n\n" +
+    "usage: node scripts/init-workspace.mjs [--project-dir <dir>] [--project <id>]\n" +
+      "                                       [--template <name>] [--json]\n\n" +
       "  --project-dir <dir>   Java project to create the workspace in (default: current directory)\n" +
-      "  --project <id>        also create an empty template project inside the workspace\n" +
+      "  --project <id>        also create a template project inside the workspace\n" +
+      "  --template <name>     seed that project from a bundled template instead of an\n" +
+      "                        empty scaffold; only seeds written for your pinned\n" +
+      "                        GraphCompose line are accepted\n" +
       "  --json                print the result as JSON\n\n" +
       `Creates <project-dir>/${WORKSPACE_DIR_NAME}/ with a flow.config.json manifest.\n` +
       "Idempotent: an existing manifest is left exactly as it is.\n",
@@ -53,19 +57,24 @@ function usage(code = 0) {
 }
 
 function parseArgs(argv) {
-  const out = { projectDir: process.cwd(), project: null, json: false };
+  const out = { projectDir: process.cwd(), project: null, template: null, json: false };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--help" || a === "-h") usage(0);
     else if (a === "--json") out.json = true;
     else if (a === "--project-dir" || a === "-C") out.projectDir = argv[++i];
     else if (a === "--project" || a === "-p") out.project = argv[++i];
+    else if (a === "--template" || a === "-t") out.template = argv[++i];
     else {
       process.stderr.write(`[init-workspace] unknown argument: ${a}\n`);
       usage(2);
     }
   }
-  if (out.projectDir === undefined || out.project === undefined) {
+  if (out.template && !out.project) {
+    process.stderr.write("[init-workspace] --template needs --project <id> to seed into\n");
+    usage(2);
+  }
+  if (out.projectDir === undefined || out.project === undefined || out.template === undefined) {
     process.stderr.write("[init-workspace] a flag is missing its value\n");
     usage(2);
   }
@@ -109,6 +118,9 @@ if (args.project) {
   const initArgs = ["init", args.project];
   if (seed.graphComposeVersion) initArgs.push("--target-version", seed.graphComposeVersion);
   if (seed.skillPack) initArgs.push("--skill-pack", seed.skillPack);
+  // Passing the version along is what lets the seed refuse a line it was not
+  // written for, instead of handing back a project that cannot compile.
+  if (args.template) initArgs.push("--template", args.template);
 
   // Run the revision manager rather than writing template-project.json here:
   // the project skeleton has exactly one owner, and this command is not it.
