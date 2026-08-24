@@ -1,5 +1,5 @@
 ---
-name: graphcompose-review
+name: review-template
 description: Compare a rendered GraphCompose template against its reference or its parent revision and report what is still different, without opening a new revision. Use when the user asks "what's still different?", "review the current version", "compare it with the screenshot", "show me the diff", "how close are we?" — or when a create/revise pass has just rendered and needs a verdict before deciding whether to iterate again.
 ---
 
@@ -16,7 +16,7 @@ template, or approve anything.
   to decide whether to iterate.
 
 If the user wants the difference *fixed*, this skill produces the
-verdict and `graphcompose-revise` acts on it.
+verdict and `revise-template` acts on it.
 
 ## Inputs
 

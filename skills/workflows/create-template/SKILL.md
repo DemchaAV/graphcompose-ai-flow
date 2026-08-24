@@ -1,5 +1,5 @@
 ---
-name: graphcompose-create
+name: create-template
 description: Turn a document reference — a screenshot, PDF, or design image of a CV, invoice, proposal, cover letter, report, certificate — into a maintainable GraphCompose Java template, then render, compare against the reference, and iterate until it is ready for approval. Use when the user supplies a reference and asks to recreate, rebuild, or generate it with GraphCompose: "create this document", "recreate this screenshot", "make this CV with GraphCompose", "build a template from this reference", "turn this PDF into a template".
 ---
 
@@ -14,7 +14,7 @@ is unmaintainable the moment anything changes.
 
 The user supplies a reference image or PDF and wants it as a template.
 If a template already exists and they want it changed, use
-`graphcompose-revise`.
+`revise-template`.
 
 ## Before the first stage
 
@@ -89,7 +89,7 @@ typed spec, no invented API.
 node scripts/render.mjs <project-id> <revision-id> [--root <workspace>]
 ```
 
-**Review** with `graphcompose-review` → `visual-review.json`.
+**Review** with `review-template` → `visual-review.json`.
 
 ## Then loop
 
@@ -106,7 +106,7 @@ Keep going until `READY_FOR_APPROVAL` or `BLOCKED`. Then report:
 - the paths to `output.pdf` and `output.png`
 - that it is waiting for approval
 
-Do not approve on the user's behalf. `graphcompose-approve` runs when
+Do not approve on the user's behalf. `approve-template` runs when
 they say so.
 
 ## Judgement calls

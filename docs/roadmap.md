@@ -51,7 +51,7 @@ the layer split and what is deliberately excluded are in
 | 4 — Workflow skills | Eleven agent prompts become four skills | done |
 | 5 — GraphCompose 2.2 skill pack | New default pack; 1.9 frozen alongside 1.6/1.7 | not started |
 | 6 — Progressive disclosure | Load only the topic skills a document kind needs | done |
-| 7 — Claude Code plugin | Plugin manifest, slash commands, clean-project acceptance | not started |
+| 7 — Claude Code plugin | Plugin manifest, slash commands, clean-project acceptance | packaging done; acceptance pending |
 | 8 — Autonomous loop | Iterate to READY_FOR_APPROVAL or BLOCKED without prompting | not started |
 | 9 — Codex adapter | Same skills and tools, adapter only, no workflow fork | not started |
 | 10 — Harness tests and CI | Contract tests, routing fixtures, plugin package validation | not started |

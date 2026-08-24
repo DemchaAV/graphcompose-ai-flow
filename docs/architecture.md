@@ -333,7 +333,9 @@ graphcompose-ai-flow/
 │   └── codex/
 │
 ├── .claude-plugin/
-│   └── plugin.json            Claude Code packaging
+│   ├── plugin.json            Claude Code packaging
+│   └── marketplace.json       the repo is its own marketplace
+├── commands/                  slash commands, one per workflow
 │
 ├── schemas/                   revision, orchestration, visual-analysis,
 │                              architecture-plan, visual-review

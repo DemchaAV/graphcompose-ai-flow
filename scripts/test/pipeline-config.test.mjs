@@ -293,6 +293,23 @@ test("every skill carries topic tags, and the always-loaded ones say so", () => 
   }
 });
 
+test("the built CLIs fail with an instruction, not a stack trace, when unbuilt", () => {
+  // dist/ is gitignored, so a fresh clone or plugin install has none. This is
+  // the first failure most new users would hit; it must be actionable.
+  for (const bin of [
+    "tools/revision-manager/bin/graphcompose-flow.mjs",
+    "tools/visual-diff/bin/visual-diff.mjs",
+  ]) {
+    const source = fs.readFileSync(path.join(repoRoot, bin), "utf8");
+    assert.match(source, /existsSync/, `${bin} does not check for its build output`);
+    assert.match(source, /npm run setup/, `${bin} does not name the fix`);
+    assert.ok(
+      !/^import ['"]\.\.\/dist/m.test(source),
+      `${bin} imports dist unconditionally, so the guard cannot run first`,
+    );
+  }
+});
+
 test("run-pipeline.mjs holds no chain of its own", () => {
   const source = fs.readFileSync(path.join(repoRoot, "scripts/run-pipeline.mjs"), "utf8");
   assert.ok(

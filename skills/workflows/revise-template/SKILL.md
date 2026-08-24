@@ -1,5 +1,5 @@
 ---
-name: graphcompose-revise
+name: revise-template
 description: Change an existing GraphCompose template — content, assets, theme, structure, or a pure refactor — as a new revision with the right gate. Use when the user asks for a modification to a document that already renders: "change the email", "make the header darker", "use Lato", "swap the icon set", "make the sidebar wider", "add a section", "rename that helper", "make it navy". Picks the narrowest scope the change really needs, runs only the stages that scope requires, and proves the result against the gate that scope implies.
 ---
 
@@ -12,8 +12,8 @@ honestly fits, because the scope decides both which stages run and what
 ## When this applies
 
 The document already renders and the user wants it different. If there
-is no template yet, use `graphcompose-create`. If they want to know
-what is different rather than change it, use `graphcompose-review`.
+is no template yet, use `create-template`. If they want to know
+what is different rather than change it, use `review-template`.
 
 ## Steps
 
@@ -79,7 +79,7 @@ node scripts/render.mjs <project-id> <revision-id> [--root <workspace>]
   outside the affected regions means the edit reached further than the
   scope claimed.
 - `theme-only` / `visual-change` → layer-by-layer review against the
-  reference (use `graphcompose-review`).
+  reference (use `review-template`).
 
 **6. Iterate or stop.** On `REVISE`, fix the single largest mismatch and
 render again, per [the iteration loop](../references/iteration-loop.md).

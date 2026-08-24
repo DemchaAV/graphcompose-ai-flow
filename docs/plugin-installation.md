@@ -1,0 +1,195 @@
+# Installing GraphCompose AI Flow
+
+Install the harness into your coding agent, open your own Java project,
+drop in a document reference, and ask for it back as a GraphCompose
+template.
+
+> **Status.** The plugin packaging is new. The install commands below
+> are filled in from the current Claude Code plugin documentation; if
+> your Claude Code version disagrees, trust `/help` in your session and
+> please open an issue.
+
+## What you need first
+
+| Requirement | Why | Check |
+|---|---|---|
+| **Node 20+** | every tool in the harness | `node --version` |
+| **Java 21+** | compiling and rendering the template | `java -version` |
+| **Maven** | building the render runner | `mvn -v` |
+| **ImageMagick** | the pixel-parity gates (`magick compare`) | `magick -version` |
+| **A Java project pinning GraphCompose** | the version decides which skill pack is used | see below |
+
+GraphCompose itself comes from your project's build file, not from this
+harness:
+
+```xml
+<dependency>
+  <groupId>io.github.demchaav</groupId>
+  <artifactId>graph-compose</artifactId>
+  <version>1.9.0</version>
+</dependency>
+```
+
+Check that the harness agrees with your pin:
+
+```bash
+node scripts/resolve-version.mjs --project-dir /path/to/your/java-project --json
+```
+
+Exit code `0` means there is a skill pack for that line. Exit `3` means
+there is not — the harness will stop rather than author against a
+different version's API, which would emit calls that do not compile.
+
+## Install into Claude Code
+
+The repository is both the marketplace and the plugin, so adding it once
+makes the plugin available:
+
+```text
+/plugin marketplace add DemchaAV/graphcompose-ai-flow
+/plugin install graphcompose-flow@graphcompose
+```
+
+Check that it loaded:
+
+```text
+/plugin list
+/plugin details graphcompose-flow@graphcompose
+```
+
+You should see four skills — `create-template`, `revise-template`,
+`review-template`, `approve-template` — and four commands.
+
+### Trying it before publishing
+
+From a local clone, either point Claude Code at the directory:
+
+```bash
+claude --plugin-dir /path/to/graphcompose-ai-flow
+```
+
+or add the clone as a local marketplace:
+
+```text
+/plugin marketplace add /path/to/graphcompose-ai-flow
+```
+
+After editing plugin files in place, reload without restarting:
+
+```text
+/reload-plugins
+```
+
+### Validating the packaging
+
+Before publishing a change to the manifests, run the official checker —
+it validates `plugin.json`, `marketplace.json` and every skill and
+command frontmatter:
+
+```bash
+claude plugin validate /path/to/graphcompose-ai-flow --strict
+```
+
+The repository's own test suite covers the same ground structurally
+(`npm test` → `scripts/test/plugin-package.test.mjs`), but only
+`claude plugin validate` speaks for the Claude Code version you are on.
+
+## One-time setup after installing
+
+**This step is not optional.** Two of the tools are TypeScript compiled
+into `dist/`, which is not committed, so a freshly installed copy has no
+build output and their dependencies are not installed:
+
+```bash
+npm run setup
+```
+
+It checks the toolchain, then installs and builds the Node tools. Until
+it has run, `graphcompose-flow` and `visual-diff` exit with code 69 and
+tell you to run it — that message is the symptom, this is the fix.
+
+To check the toolchain without installing anything:
+
+```bash
+npm run setup:check
+```
+
+## Where your work goes
+
+The harness lives wherever it was installed; **your work lives in your
+project**. On first use a workspace is created inside it:
+
+```text
+my-java-app/
+├── pom.xml
+├── src/main/java/…
+└── graphcompose-flow/
+    ├── flow.config.json           marks the workspace
+    ├── projects/<project-id>/     references, revisions, renders
+    └── templates/<template-id>/   published bundles
+```
+
+Commands find it by walking up from wherever you are, so running them
+from `src/main/java` works with no flags. Override with `--root` or
+`GRAPHCOMPOSE_FLOW_ROOT` when you need to.
+
+Every command prints which workspace it resolved and how. If that line
+names somewhere unexpected, believe it — do not work around it with
+absolute paths.
+
+## First use
+
+Open your Java project in the agent, give it the reference image, and
+say what you want. The skills fire from what you say, so no command is
+needed:
+
+```text
+Create a GraphCompose template from this screenshot.
+```
+
+The commands exist for when you would rather be explicit:
+
+| Command | Does |
+|---|---|
+| `/graphcompose-flow:create` | reference in, template out, loops to ready |
+| `/graphcompose-flow:revise` | change it under the narrowest scope that fits |
+| `/graphcompose-flow:review` | what is still different, without changing anything |
+| `/graphcompose-flow:approve` | approve the draft and publish the bundle |
+
+What follows is a loop, not a single shot: analyse the reference, write
+the template, compile, render, compare against the reference, fix the
+largest mismatch, render again — until it reports **ready for approval**
+or **blocked** with a reason. Then:
+
+```text
+approve
+```
+
+which flips the revision to APPROVED, supersedes the previous one, and
+publishes the bundle under `graphcompose-flow/templates/`.
+
+## Troubleshooting
+
+**`exit 69` and "not built yet"** — run `npm run setup`.
+
+**"Filename too long" while cloning on Windows** — the repository
+contains deep Java package paths. Either clone to a short path
+(`C:\dev\gcflow` rather than a nested temp directory), or enable long
+paths once:
+
+```bash
+git config --global core.longpaths true
+```
+
+**"unsupported: GraphCompose X.Y has no skill pack"** — your project
+pins a version this harness has no pack for. The packs on disk are
+listed in the error; either pin a supported line or add a pack.
+
+**A command resolved the wrong workspace** — check the `[workspace]`
+banner it printed. In development mode (running inside a clone of this
+repository) the workspace is the repository's own `examples/`, which is
+correct there and wrong everywhere else.
+
+**ImageMagick missing** — the parity gates cannot run, so refactor-only
+and data-only revisions cannot be proved. Install it before trusting a
+"no visual change" claim.

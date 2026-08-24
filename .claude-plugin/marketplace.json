@@ -1,0 +1,19 @@
+{
+  "$schema": "https://code.claude.com/schemas/marketplace.json",
+  "name": "graphcompose",
+  "description": "GraphCompose tooling for coding agents.",
+  "owner": {
+    "name": "DemchaAV",
+    "url": "https://github.com/DemchaAV"
+  },
+  "plugins": [
+    {
+      "name": "graphcompose-flow",
+      "source": "./",
+      "displayName": "GraphCompose AI Flow",
+      "description": "Reference in, GraphCompose template out — with a render/compare/revise loop and a visual parity contract.",
+      "category": "document-generation",
+      "keywords": ["graphcompose", "pdf", "java", "templates"]
+    }
+  ]
+}

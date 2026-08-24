@@ -1,0 +1,25 @@
+{
+  "$schema": "https://code.claude.com/schemas/plugin.json",
+  "name": "graphcompose-flow",
+  "displayName": "GraphCompose AI Flow",
+  "version": "0.1.0",
+  "description": "Turn a document reference — a screenshot, PDF or design image — into a maintainable GraphCompose Java template, then render, compare and iterate until it is ready for approval. Adds four workflow skills (create, revise, review, approve) plus the deterministic tools they call.",
+  "author": {
+    "name": "DemchaAV",
+    "url": "https://github.com/DemchaAV"
+  },
+  "homepage": "https://github.com/DemchaAV/graphcompose-ai-flow",
+  "repository": "https://github.com/DemchaAV/graphcompose-ai-flow",
+  "license": "MIT",
+  "keywords": [
+    "graphcompose",
+    "pdf",
+    "java",
+    "document-generation",
+    "templates",
+    "visual-parity"
+  ],
+  "skills": [
+    "./skills/workflows/"
+  ]
+}
