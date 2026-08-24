@@ -5,7 +5,11 @@
   "description": "Machine-readable verdict of one review pass, at examples/<project>/revisions/<id>/visual-review.json. This is the file the autonomous loop reads to decide whether to iterate, stop, or hand over for approval; visual-review.md is the human rendering of the same pass and carries the prose, the component-by-component walkthrough and the quoted parity metric. Only decision-bearing fields are required here — everything descriptive stays optional so the Markdown remains the richer document.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "verdict", "mismatches"],
+  "required": [
+    "schemaVersion",
+    "verdict",
+    "mismatches"
+  ],
   "properties": {
     "schemaVersion": {
       "type": "integer",
@@ -14,12 +18,20 @@
     },
     "verdict": {
       "type": "string",
-      "enum": ["READY_FOR_APPROVAL", "REVISE", "BLOCKED"],
+      "enum": [
+        "READY_FOR_APPROVAL",
+        "REVISE",
+        "BLOCKED"
+      ],
       "description": "Loop control. READY_FOR_APPROVAL stops the loop and hands over to the user; REVISE means iterate on the highest-severity actionable mismatch; BLOCKED means the loop cannot make progress and must report why in failureCategory."
     },
     "recommendation": {
       "type": "string",
-      "enum": ["APPROVE", "REVISE", "REJECT"],
+      "enum": [
+        "APPROVE",
+        "REVISE",
+        "REJECT"
+      ],
       "description": "The human-facing recommendation the Visual Review Agent has always emitted (skills/workflows/review-template/SKILL.md). Kept alongside `verdict` because the two answer different questions: this one advises the user, `verdict` drives the loop. Never write \"APPROVED\" — that is a revision status, not a recommendation."
     },
     "score": {
@@ -35,17 +47,26 @@
     },
     "comparedAgainst": {
       "type": "string",
-      "enum": ["reference", "parent"],
+      "enum": [
+        "reference",
+        "parent"
+      ],
       "description": "What this pass was compared with, which follows from the scope's gate in config/pipeline.json: exact-diff and region-diff compare against the parent revision, visual-review compares against the reference image."
     },
     "gate": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind"],
+      "required": [
+        "kind"
+      ],
       "properties": {
         "kind": {
           "type": "string",
-          "enum": ["exact-diff", "region-diff", "visual-review"],
+          "enum": [
+            "exact-diff",
+            "region-diff",
+            "visual-review"
+          ],
           "description": "Which gate the scope ends on. Vocabulary shared with config/pipeline.json → gates."
         },
         "passed": {
@@ -63,12 +84,29 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["page", "mismatchPixels"],
+            "required": [
+              "page",
+              "mismatchPixels"
+            ],
             "properties": {
-              "page": { "type": "integer", "minimum": 1 },
-              "mismatchPixels": { "type": "number", "minimum": 0 },
-              "percentOfPage": { "type": "number", "minimum": 0, "maximum": 100 },
-              "diffMask": { "type": "string", "minLength": 1, "description": "Path to the saved diff mask, relative to the revision folder." }
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "mismatchPixels": {
+                "type": "number",
+                "minimum": 0
+              },
+              "percentOfPage": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "diffMask": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Path to the saved diff mask, relative to the revision folder."
+              }
             }
           },
           "description": "Per-page evidence. Required in practice for the exact-diff and region-diff gates, where the AE number per page IS the verdict."
@@ -78,10 +116,19 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["region", "mismatchPixels"],
+            "required": [
+              "region",
+              "mismatchPixels"
+            ],
             "properties": {
-              "region": { "type": "string", "minLength": 1 },
-              "mismatchPixels": { "type": "number", "minimum": 0 },
+              "region": {
+                "type": "string",
+                "minLength": 1
+              },
+              "mismatchPixels": {
+                "type": "number",
+                "minimum": 0
+              },
               "affected": {
                 "type": "boolean",
                 "description": "True when this region is one the change was allowed to touch. Regions outside that set must report mismatchPixels 0."
@@ -99,7 +146,11 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "severity", "reason"],
+        "required": [
+          "id",
+          "severity",
+          "reason"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -108,7 +159,13 @@
           },
           "severity": {
             "type": "string",
-            "enum": ["CRITICAL", "MAJOR", "MINOR", "ACCEPTED_LIMITATION", "INTENTIONAL_DIFFERENCE"],
+            "enum": [
+              "CRITICAL",
+              "MAJOR",
+              "MINOR",
+              "ACCEPTED_LIMITATION",
+              "INTENTIONAL_DIFFERENCE"
+            ],
             "description": "Classification from docs/visual-accuracy-contract.md. ACCEPTED_LIMITATION is never assigned automatically — it requires a human note."
           },
           "region": {
@@ -133,7 +190,10 @@
           },
           "evidence": {
             "type": "array",
-            "items": { "type": "string", "minLength": 1 },
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
             "description": "Paths backing the claim (diff mask, cropped comparison), relative to the revision folder."
           }
         }
@@ -166,25 +226,54 @@
       "type": "string",
       "minLength": 1,
       "description": "One-paragraph summary. The long form lives in visual-review.md."
+    },
+    "notes": {
+      "type": "array",
+      "description": "Prose the rest of this schema cannot carry — a table comparing revisions, a paragraph of causal reasoning — emitted verbatim by scripts/render-artifact-md.mjs under a Notes heading. Markdown blocks. This exists so the reading copy stays generated: narrative belongs here, not in a hand-written .md twin that can disagree with this file.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     }
   },
   "allOf": [
     {
       "description": "A BLOCKED verdict must say why, in the shared vocabulary.",
       "if": {
-        "required": ["verdict"],
-        "properties": { "verdict": { "const": "BLOCKED" } }
+        "required": [
+          "verdict"
+        ],
+        "properties": {
+          "verdict": {
+            "const": "BLOCKED"
+          }
+        }
       },
-      "then": { "required": ["failureCategory"] }
+      "then": {
+        "required": [
+          "failureCategory"
+        ]
+      }
     },
     {
       "description": "REVISE means there is something to fix, so the list cannot be empty.",
       "if": {
-        "required": ["verdict"],
-        "properties": { "verdict": { "const": "REVISE" } }
+        "required": [
+          "verdict"
+        ],
+        "properties": {
+          "verdict": {
+            "const": "REVISE"
+          }
+        }
       },
       "then": {
-        "properties": { "mismatches": { "type": "array", "minItems": 1 } }
+        "properties": {
+          "mismatches": {
+            "type": "array",
+            "minItems": 1
+          }
+        }
       }
     }
   ]

@@ -47,8 +47,10 @@ to run with `node scripts/run-pipeline.mjs <project-id>`.
 ## The stages
 
 **Analyse the reference** → `visual-analysis.json`
-([schema](../../../schemas/visual-analysis.schema.json)) + the `.md`
-sibling.
+([schema](../../../schemas/visual-analysis.schema.json)).
+
+Write the JSON only. The readable `.md` is generated — see **Reading
+copies** below.
 
 Describe the page in **ratios and dependencies, not pixels**. Name every
 region with a stable kebab-case id — every later artifact addresses
@@ -65,7 +67,8 @@ is a question the user can answer later; a silent one becomes a bug with
 no author.
 
 **Map it to GraphCompose** → `architecture-plan.json`
-([schema](../../../schemas/architecture-plan.schema.json)) + the `.md`.
+([schema](../../../schemas/architecture-plan.schema.json)). JSON only,
+same as above.
 
 The spine is `componentMapping`: region → **named render method** →
 primitives. Every visible region gets its own method (`renderHeader`,
@@ -90,6 +93,26 @@ node scripts/render.mjs <project-id> <revision-id> [--root <workspace>]
 ```
 
 **Review** with `review-template` → `visual-review.json`.
+
+## Reading copies
+
+Three artifacts have a Markdown twin: `visual-analysis`,
+`architecture-plan`, `visual-review`. **Do not write them.** Generate
+them, once per revision, after the JSON is final:
+
+```bash
+node scripts/render-artifact-md.mjs --revision <revision-dir>
+```
+
+Writing both by hand cost the first acceptance run roughly 29k tokens
+across eight revisions — an eighth of the run — restating JSON that had
+just been written. The worse cost is that two documents describing one
+revision drift, and nothing notices which one is wrong.
+
+Anything the schema cannot carry — a table comparing this revision to
+the previous two, a paragraph explaining *why* something was wrong —
+goes in the JSON's `notes` array. The generator emits it verbatim, so
+the narrative survives without a second source of truth.
 
 ## Then loop
 

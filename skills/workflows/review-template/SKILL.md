@@ -65,8 +65,18 @@ then colour. Compare like with like — same page, same region.
 human note saying it was accepted.
 
 **4. Write `visual-review.json`** against
-[the schema](../../../schemas/visual-review.schema.json), then
-`visual-review.md` as the readable rendering.
+[the schema](../../../schemas/visual-review.schema.json). JSON only —
+the readable `.md` is generated:
+
+```bash
+node scripts/render-artifact-md.mjs <revision-dir>/visual-review.json
+```
+
+Never hand-write the `.md`. Two documents describing one revision drift,
+and a reviewer reading the prose can then disagree with the gate reading
+the JSON. Anything the schema cannot carry — a table comparing this
+revision to the last two, a paragraph of causal reasoning — goes in the
+JSON's `notes` array, which the generator emits verbatim.
 
 The three fields that carry weight:
 

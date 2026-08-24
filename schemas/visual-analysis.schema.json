@@ -5,7 +5,11 @@
   "description": "The machine-readable half of the reference analysis, at examples/<project>/revisions/<id>/visual-analysis.json. It carries the parts later stages have to address by name — the named regions, the relational geometry, the anchor relationships, the shape-ownership cases and the open questions. visual-analysis.md keeps the prose observations. Per skills/workflows/create-template/SKILL.md the analysis describes the page in RATIOS and DEPENDENCIES, not pixels, and it must not pick GraphCompose primitives — that is the Architecture Mapper's job.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "page", "regions"],
+  "required": [
+    "schemaVersion",
+    "page",
+    "regions"
+  ],
   "properties": {
     "schemaVersion": {
       "type": "integer",
@@ -15,13 +19,35 @@
     "page": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["format"],
+      "required": [
+        "format"
+      ],
       "properties": {
-        "format": { "type": "string", "minLength": 1, "description": "Page format, e.g. \"A4\"." },
-        "orientation": { "type": "string", "enum": ["portrait", "landscape"] },
-        "pageCount": { "type": "integer", "minimum": 1 },
-        "margins": { "type": "string", "minLength": 1, "description": "Margins expressed relationally where possible, e.g. \"~7% of page width\"." },
-        "background": { "type": "string", "minLength": 1 }
+        "format": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Page format, e.g. \"A4\"."
+        },
+        "orientation": {
+          "type": "string",
+          "enum": [
+            "portrait",
+            "landscape"
+          ]
+        },
+        "pageCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "margins": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Margins expressed relationally where possible, e.g. \"~7% of page width\"."
+        },
+        "background": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "regions": {
@@ -31,18 +57,32 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "label"],
+        "required": [
+          "id",
+          "label"
+        ],
         "properties": {
           "id": {
             "type": "string",
             "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
             "description": "Stable kebab-case id, e.g. \"header\", \"sidebar-skills\"."
           },
-          "label": { "type": "string", "minLength": 1, "description": "Human name for the region." },
-          "page": { "type": "integer", "minimum": 1, "description": "Page the region appears on." },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human name for the region."
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Page the region appears on."
+          },
           "contains": {
             "type": "array",
-            "items": { "type": "string", "minLength": 1 },
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
             "description": "Elements inside the region, named the way a reader would name them."
           },
           "proportions": {
@@ -50,7 +90,10 @@
             "minLength": 1,
             "description": "The region's share of its parent, as a ratio or weight — never a pixel width. E.g. \"0.31 of the content row\"."
           },
-          "notes": { "type": "string", "minLength": 1 }
+          "notes": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -58,9 +101,18 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "topLevelColumnsRows": { "type": "string", "minLength": 1 },
-        "nestedSplits": { "type": "string", "minLength": 1 },
-        "verticalProportions": { "type": "string", "minLength": 1 }
+        "topLevelColumnsRows": {
+          "type": "string",
+          "minLength": 1
+        },
+        "nestedSplits": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verticalProportions": {
+          "type": "string",
+          "minLength": 1
+        }
       },
       "description": "The page described in ratios and dependencies. Base constants derived from these land in architecture-plan.json."
     },
@@ -70,12 +122,30 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["element", "relatedTo", "relationship"],
+        "required": [
+          "element",
+          "relatedTo",
+          "relationship"
+        ],
         "properties": {
-          "element": { "type": "string", "minLength": 1 },
-          "relatedTo": { "type": "string", "minLength": 1 },
-          "relationship": { "type": "string", "minLength": 1, "description": "E.g. \"centred on\", \"pinned to the top-right of\", \"baseline-aligned with\"." },
-          "region": { "type": "string", "minLength": 1, "description": "Region id this anchor belongs to." }
+          "element": {
+            "type": "string",
+            "minLength": 1
+          },
+          "relatedTo": {
+            "type": "string",
+            "minLength": 1
+          },
+          "relationship": {
+            "type": "string",
+            "minLength": 1,
+            "description": "E.g. \"centred on\", \"pinned to the top-right of\", \"baseline-aligned with\"."
+          },
+          "region": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Region id this anchor belongs to."
+          }
         }
       }
     },
@@ -85,11 +155,24 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["container", "ownedContent", "relationship"],
+        "required": [
+          "container",
+          "ownedContent",
+          "relationship"
+        ],
         "properties": {
-          "container": { "type": "string", "minLength": 1 },
-          "ownedContent": { "type": "string", "minLength": 1 },
-          "relationship": { "type": "string", "minLength": 1 }
+          "container": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ownedContent": {
+            "type": "string",
+            "minLength": 1
+          },
+          "relationship": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -97,13 +180,35 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "title": { "type": "string", "minLength": 1 },
-        "headings": { "type": "string", "minLength": 1 },
-        "body": { "type": "string", "minLength": 1 },
-        "table": { "type": "string", "minLength": 1 },
-        "likelyFontFamily": { "type": "string", "minLength": 1 },
-        "googleFontsCandidate": { "type": "string", "minLength": 1 },
-        "scale": { "type": "string", "minLength": 1, "description": "Relative type scale, e.g. \"title 3.2x body\"." }
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "headings": {
+          "type": "string",
+          "minLength": 1
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1
+        },
+        "table": {
+          "type": "string",
+          "minLength": 1
+        },
+        "likelyFontFamily": {
+          "type": "string",
+          "minLength": 1
+        },
+        "googleFontsCandidate": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scale": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Relative type scale, e.g. \"title 3.2x body\"."
+        }
       }
     },
     "colors": {
@@ -112,11 +217,28 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["role", "value"],
+        "required": [
+          "role",
+          "value"
+        ],
         "properties": {
-          "role": { "type": "string", "minLength": 1, "description": "E.g. \"accent\", \"page-background\", \"body-text\"." },
-          "value": { "type": "string", "minLength": 1, "description": "Observed colour, hex where readable." },
-          "usedIn": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+          "role": {
+            "type": "string",
+            "minLength": 1,
+            "description": "E.g. \"accent\", \"page-background\", \"body-text\"."
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Observed colour, hex where readable."
+          },
+          "usedIn": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
         }
       }
     },
@@ -124,9 +246,28 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "icons": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-        "iconifyCandidates": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "Iconify set/name candidates, e.g. \"mdi:email-outline\"." },
-        "imagesLogos": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        "icons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "iconifyCandidates": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Iconify set/name candidates, e.g. \"mdi:email-outline\"."
+        },
+        "imagesLogos": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
       },
       "description": "What the Asset Resolver will have to fetch. The authoritative request is asset-request.json."
     },
@@ -134,9 +275,18 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "outerMargins": { "type": "string", "minLength": 1 },
-        "sectionSpacing": { "type": "string", "minLength": 1 },
-        "tableSpacing": { "type": "string", "minLength": 1 }
+        "outerMargins": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sectionSpacing": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tableSpacing": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "unclearParts": {
@@ -145,12 +295,33 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["item", "reason", "proposedAssumption"],
+        "required": [
+          "item",
+          "reason",
+          "proposedAssumption"
+        ],
         "properties": {
-          "item": { "type": "string", "minLength": 1 },
-          "reason": { "type": "string", "minLength": 1 },
-          "proposedAssumption": { "type": "string", "minLength": 1 }
+          "item": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "proposedAssumption": {
+            "type": "string",
+            "minLength": 1
+          }
         }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "description": "Prose the rest of this schema cannot carry — a table comparing revisions, a paragraph of causal reasoning — emitted verbatim by scripts/render-artifact-md.mjs under a Notes heading. Markdown blocks. This exists so the reading copy stays generated: narrative belongs here, not in a hand-written .md twin that can disagree with this file.",
+      "items": {
+        "type": "string",
+        "minLength": 1
       }
     }
   }

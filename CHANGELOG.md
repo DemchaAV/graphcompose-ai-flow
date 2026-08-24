@@ -7,6 +7,34 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.0-beta.5
+
+- **`scripts/render-artifact-md.mjs`** generates the Markdown half of
+  `visual-analysis`, `architecture-plan` and `visual-review` from their
+  JSON. The workflow skills now ask for the JSON only.
+
+  Writing both by hand cost the first acceptance run 24 Markdown files,
+  112 KB, roughly 29k tokens across eight revisions — about an eighth of
+  the run, restating JSON that had just been written. The larger problem
+  was never the tokens: two documents describing one revision drift, and
+  a reviewer reading the prose could disagree with the gate reading the
+  JSON with nothing to say which was right.
+
+  `--revision <dir>` renders every artifact present; `--check` re-renders
+  and compares instead of writing, so an edited reading copy fails
+  instead of quietly diverging. Exit 0 in sync, 1 drift or malformed
+  artifact, 2 usage.
+- **`notes` added to the three artifact schemas** — an array of Markdown
+  blocks emitted verbatim under a `Notes` heading. This is where the
+  narrative the schema cannot derive goes (a table comparing three
+  revisions, a paragraph of causal reasoning), so keeping it costs a
+  field rather than a second source of truth.
+
+  Existing hand-written twins under `examples/` are left as they are.
+  They are the worked chain the README teaches from, and regenerating
+  them would replace a narrative written for readers with a rendering of
+  its own data.
+
 ### v0.5.0-beta.4 — what the first acceptance run exposed
 
 The harness was run end to end for the first time, by hand, against a
