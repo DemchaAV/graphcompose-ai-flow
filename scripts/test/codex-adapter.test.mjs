@@ -34,8 +34,21 @@ function tempDir(label) {
   return dir;
 }
 
-const run = (args) =>
-  execFileSync(process.execPath, [installer, ...args], { encoding: "utf8", stdio: "pipe" });
+/**
+ * Run the installer, always sandboxed. Tests must never touch the real
+ * ~/.codex, and must not need the build outputs or the network: --home keeps
+ * the copy in a temp directory, --skip-build-check lets it run on an unbuilt
+ * checkout (CI builds only the one CLI it needs), and --skip-deps keeps npm out
+ * of the test path.
+ */
+const run = (args) => {
+  const sandboxed = args.includes("--home") ? args : ["--home", tempDir("home"), ...args];
+  const flags = args.includes("--link") ? [] : ["--skip-build-check", "--skip-deps"];
+  return execFileSync(process.execPath, [installer, ...sandboxed, ...flags], {
+    encoding: "utf8",
+    stdio: "pipe",
+  });
+};
 
 function frontmatter(file) {
   const match = /^---\r?\n([\s\S]*?)\r?\n---/.exec(fs.readFileSync(file, "utf8"));
@@ -85,7 +98,7 @@ test("each stub's description is the source description, verbatim", () => {
 test("each stub names its directory and points into the installed runtime", () => {
   const home = tempDir("home");
   const dest = tempDir("points");
-  run(["--home", home, "--dest", dest, "--skip-deps"]);
+  run(["--home", home, "--dest", dest]);
 
   const version = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json"), "utf8")).version;
   const runtimeRoot = path.join(home, version);
@@ -115,7 +128,7 @@ test("each stub names its directory and points into the installed runtime", () =
 
 test("the installed runtime carries what the skills reach for, and nothing else", () => {
   const home = tempDir("runtime");
-  run(["--home", home, "--dest", tempDir("runtime-skills"), "--skip-deps"]);
+  run(["--home", home, "--dest", tempDir("runtime-skills")]);
   const version = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json"), "utf8")).version;
   const root = path.join(home, version);
 
@@ -132,6 +145,10 @@ test("the installed runtime carries what the skills reach for, and nothing else"
     "tools/visual-diff/dist/cli.js",
     "tools/preview-renderer/target/preview-renderer.jar",
   ]) {
+    // Skip what this checkout has not built: CI builds only the CLI its own
+    // tests drive, and the point here is that the copy mirrors the runtime
+    // list, not that the machine ran a full setup.
+    if (!fs.existsSync(path.join(repoRoot, needed))) continue;
     assert.ok(fs.existsSync(path.join(root, needed)), `the install is missing ${needed}`);
   }
 
@@ -173,15 +190,16 @@ test("the stubs carry no copy of the instructions", () => {
 
 test("--dry-run writes nothing, --uninstall removes what was written", () => {
   const dest = tempDir("lifecycle");
+  const home = tempDir("lifecycle-home");
 
-  const dry = run(["--dest", dest, "--dry-run"]);
+  const dry = run(["--home", home, "--dest", dest, "--dry-run"]);
   assert.match(dry, /would write/);
   assert.ok(!fs.existsSync(path.join(dest, `graphcompose-${sourceSkills[0]}`)), "dry run wrote files");
 
-  run(["--dest", dest]);
+  run(["--home", home, "--dest", dest]);
   assert.ok(fs.existsSync(path.join(dest, `graphcompose-${sourceSkills[0]}`)));
 
-  run(["--dest", dest, "--uninstall"]);
+  run(["--home", home, "--dest", dest, "--uninstall"]);
   for (const name of sourceSkills) {
     assert.ok(
       !fs.existsSync(path.join(dest, `graphcompose-${name}`)),

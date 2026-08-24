@@ -87,6 +87,8 @@ function usage(code = 0) {
       "  --link          point the skills at THIS checkout instead of copying\n" +
       "                  (for contributors: the skills then track your working tree)\n" +
       "  --skip-deps     do not run npm ci inside the copy\n" +
+      "  --skip-build-check  copy even when the build outputs are missing. The result\n" +
+      "                  is NOT a working install; for CI and packaging only\n" +
       "  --prune         remove installed versions other than this one\n" +
       "  --dry-run       print what would happen, change nothing\n" +
       "  --uninstall     remove the stubs, and the runtime under --home\n",
@@ -101,6 +103,7 @@ function parseArgs(argv) {
     prefix: "graphcompose-",
     link: false,
     skipDeps: false,
+    skipBuildCheck: false,
     prune: false,
     dryRun: false,
     uninstall: false,
@@ -112,6 +115,7 @@ function parseArgs(argv) {
     else if (a === "--uninstall") out.uninstall = true;
     else if (a === "--link") out.link = true;
     else if (a === "--skip-deps") out.skipDeps = true;
+    else if (a === "--skip-build-check") out.skipBuildCheck = true;
     else if (a === "--prune") out.prune = true;
     else if (a === "--home") out.home = argv[++i];
     else if (a === "--dest") out.dest = argv[++i];
@@ -247,7 +251,7 @@ if (args.uninstall) {
 // --- resolve the runtime root ------------------------------------------------
 const runtimeRoot = args.link ? repoRoot : path.join(args.home, version);
 
-if (!args.link) {
+if (!args.link && !args.skipBuildCheck) {
   const unbuilt = REQUIRED_BUILDS.filter((rel) => !fs.existsSync(path.join(repoRoot, rel)));
   if (unbuilt.length > 0) {
     process.stderr.write(
@@ -274,7 +278,8 @@ if (!args.link) {
     for (const item of RUNTIME) {
       const source = path.join(repoRoot, item.from);
       if (!fs.existsSync(source)) {
-        if (item.optional) continue;
+        // With --skip-build-check the build outputs are legitimately absent.
+        if (item.optional || args.skipBuildCheck) continue;
         process.stderr.write(`[codex-install] missing ${item.from}\n`);
         process.exit(1);
       }
