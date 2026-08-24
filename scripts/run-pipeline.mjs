@@ -129,29 +129,28 @@ if (!stages) {
 const bold = (s) => (process.stdout.isTTY ? `\x1b[1m${s}\x1b[0m` : s);
 const dim = (s) => (process.stdout.isTTY ? `\x1b[2m${s}\x1b[0m` : s);
 
-console.log(
-  `\n${bold("Pipeline")}  project=${args.project}  revision=${revisionId}  scope=${bold(scope)}\n`,
-);
-
-// Name the skill that owns this scope. Without it the stage list below — which
-// still points at prompts/ until those are removed — reads as the instruction,
-// and the prompts are superseded.
 const owningWorkflows = Object.entries(config.workflows ?? {})
   .filter(([id]) => !id.startsWith("$"))
   .filter(([, workflow]) => workflow.scopes?.includes(scope));
-if (owningWorkflows.length > 0) {
-  console.log(`  ${bold("follow")}: ${owningWorkflows.map(([, w]) => w.skill).join(" or ")}`);
-  console.log(dim("  the stages below are what that skill runs; the prompt files are historical\n"));
-}
 
-let missing = 0;
+// The workflow that owns this scope is the instruction; the stages below are
+// what it runs. Naming stages by what they DO rather than by which file
+// currently implements them is what lets prompts/ be deleted without the chain
+// changing meaning.
+console.log(
+  `\n${bold("Workflow")}: ${owningWorkflows.map(([id]) => id).join(" or ") || "(none — this scope opens no revision)"}`,
+);
+console.log(`${bold("Scope")}:    ${scope}   ${dim(`project=${args.project} revision=${revisionId}`)}`);
+for (const [, workflow] of owningWorkflows) console.log(dim(`  follow: ${workflow.skill}`));
+console.log("");
+
+const labelWidth = Math.max(...stages.map((stage) => stage.label.length));
 stages.forEach((stage, i) => {
-  const exists = fs.existsSync(path.join(repoRoot, stage.prompt));
-  if (!exists) missing += 1;
-  const n = String(i + 1).padStart(2, " ");
-  const mark = exists ? " " : "!";
-  console.log(`  ${mark}${n}. ${stage.prompt}`);
-  console.log(`        ${dim(stage.description)}`);
+  const n = String(i + 1).padStart(2, "0");
+  console.log(
+    `  ${n}  ${stage.label.padEnd(labelWidth)}  ${stage.kind.toUpperCase().padEnd(4)}` +
+      `  ${dim(stage.description)}`,
+  );
 });
 
 console.log(`\n  ${bold("mechanical render")} (the Test+Render step):`);
@@ -160,9 +159,6 @@ console.log(`\n  ${bold("when parity is clean, approve")} (-> Revision Manager, 
 console.log(
   `        node tools/revision-manager/bin/graphcompose-flow.mjs approve ${revisionId} --project ${projectDisplay}`,
 );
-if (missing > 0) {
-  console.log(dim(`\n  (${missing} prompt file(s) marked "!" were not found under prompts/)`));
-}
 
 // --- optionally run the mechanical render -----------------------------------
 if (args.render) {

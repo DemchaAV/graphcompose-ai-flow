@@ -82,17 +82,46 @@ test("every stage referenced by a scope exists, and every stage is reachable", (
 test("every prompt and tool a stage names exists on disk", () => {
   for (const [stageId, stage] of Object.entries(config.stages)) {
     assert.ok(STAGE_KINDS.includes(stage.kind), `stages.${stageId}.kind is not a known kind`);
+
+    // A stage must be runnable by something. `prompt` is optional because it
+    // records today's implementation for the stages not yet mechanized, and
+    // goes away with prompts/; `tool` is optional for the same reason in
+    // reverse. Naming neither would leave a step nothing executes.
     assert.ok(
-      fs.existsSync(path.join(repoRoot, stage.prompt)),
-      `stages.${stageId}.prompt does not exist: ${stage.prompt}`,
+      stage.prompt || stage.tool,
+      `stages.${stageId} names neither a prompt nor a tool`,
     );
-    if (stage.tool) {
+    for (const key of ["prompt", "tool"]) {
+      if (!stage[key]) continue;
       assert.ok(
-        fs.existsSync(path.join(repoRoot, stage.tool)),
-        `stages.${stageId}.tool does not exist: ${stage.tool}`,
+        fs.existsSync(path.join(repoRoot, stage[key])),
+        `stages.${stageId}.${key} does not exist: ${stage[key]}`,
       );
     }
   }
+});
+
+test("every stage is labelled by what it does, not by the file that implements it", () => {
+  // The label is what run-pipeline prints. Printing filenames is what sent
+  // readers to the superseded prompt chain; a label survives its deletion.
+  const seen = new Set();
+  for (const [stageId, stage] of Object.entries(config.stages)) {
+    assert.match(
+      stage.label,
+      /^[a-z0-9]+(-[a-z0-9]+)*$/,
+      `stages.${stageId}.label should be a kebab-case verb phrase, got ${JSON.stringify(stage.label)}`,
+    );
+    assert.ok(!/prompt|agent|\.md$/.test(stage.label), `stages.${stageId}.label names a file, not a step`);
+    assert.ok(!seen.has(stage.label), `two stages share the label "${stage.label}"`);
+    seen.add(stage.label);
+  }
+
+  const source = fs.readFileSync(path.join(repoRoot, "scripts/run-pipeline.mjs"), "utf8");
+  assert.ok(
+    !/stage\.prompt/.test(source),
+    "run-pipeline prints stage.prompt again, which points readers at the superseded chain",
+  );
+  assert.match(source, /stage\.label/, "run-pipeline no longer prints stage labels");
 });
 
 test("every scope names a declared gate, and every gate is used", () => {

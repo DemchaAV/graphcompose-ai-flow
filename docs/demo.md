@@ -66,22 +66,29 @@ $ cd my-java-app/src/main/java
 $ node scripts/run-pipeline.mjs acme-invoice
 [workspace] ~/demo/my-java-app/graphcompose-flow (discovered)
 
-Pipeline  project=acme-invoice  revision=revision-001  scope=new
-
+Workflow: create-template
+Scope:    new   project=acme-invoice revision=revision-001
   follow: skills/workflows/create-template/SKILL.md
-  the stages below are what that skill runs; the prompt files are historical
 
-    1. prompts/orchestrator-agent.md
-        scope the change; open/route the revision
-    2. prompts/version-skill-resolver-agent.md
-        resolve GraphCompose version + skill pack
-    …
-    9. prompts/visual-review-agent.md
-        parity classification vs reference/parent
+  01  route               LLM   scope the change; open/route the revision
+  02  resolve-version     TOOL  resolve GraphCompose version + skill pack
+  03  validate-skills     TOOL  validate the skill pack against the target API
+  04  visual-analysis     LLM   ratios, anchors, regions from the reference
+  05  architecture        LLM   map regions to primitives + theme tokens
+  06  asset-resolve       TOOL  resolve Iconify icons + Google Fonts
+  07  template-authoring  LLM   write generated-template.java + data spec
+  08  compile-render      TOOL  compile + render (clean + debug)  <- mechanical
+  09  visual-evaluation   GATE  parity classification vs reference/parent
+  10  iterate             GATE  ask whether the loop may take another pass
 
   mechanical render (the Test+Render step):
         node scripts/render.mjs acme-invoice revision-001 --root ~/demo/my-java-app/graphcompose-flow
 ```
+
+Stages are named by what they do and tagged with who does it — `LLM`
+for judgement, `TOOL` for a CLI, `GATE` for a decision with an exit
+code. No filenames: which file implements a stage is an implementation
+detail that changes, and the chain should not.
 
 The workspace banner names where it resolved and how — `discovered`
 means it walked up from the current directory and found

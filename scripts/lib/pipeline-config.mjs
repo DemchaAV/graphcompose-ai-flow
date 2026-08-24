@@ -127,9 +127,17 @@ function validateStages(stages) {
         `${at}.kind must be one of ${STAGE_KINDS.join(" | ")}, got ${JSON.stringify(stage.kind)}`,
       );
     }
-    requireNonEmptyString(stage.prompt, `${at}.prompt`);
+    // The label is what callers display: it names what the stage DOES, so the
+    // chain stops being a list of filenames and survives prompts/ being deleted.
+    requireNonEmptyString(stage.label, `${at}.label`);
     requireNonEmptyString(stage.description, `${at}.description`);
+    // prompt is optional on purpose — it records today's implementation for the
+    // stages not yet mechanized, and disappears with prompts/.
+    if (stage.prompt !== undefined) requireNonEmptyString(stage.prompt, `${at}.prompt`);
     if (stage.tool !== undefined) requireNonEmptyString(stage.tool, `${at}.tool`);
+    if (stage.prompt === undefined && stage.tool === undefined) {
+      throw new PipelineConfigError(`${at} names neither a prompt nor a tool, so nothing runs it`);
+    }
   }
 }
 

@@ -13,56 +13,69 @@
     "Ported 1:1 from the SUBCHAINS constant that used to live in scripts/run-pipeline.mjs and",
     "from the scope descriptions in schemas/revision.schema.json. Semantics were not changed."
   ],
-
   "stages": {
     "orchestrator": {
       "kind": "llm",
       "prompt": "prompts/orchestrator-agent.md",
-      "description": "scope the change; open/route the revision"
+      "description": "scope the change; open/route the revision",
+      "label": "route"
     },
     "versionSkill": {
       "kind": "tool",
       "prompt": "prompts/version-skill-resolver-agent.md",
-      "description": "resolve GraphCompose version + skill pack"
+      "description": "resolve GraphCompose version + skill pack",
+      "label": "resolve-version"
     },
     "skillValidator": {
       "kind": "tool",
       "prompt": "prompts/skill-validator-agent.md",
-      "description": "validate the skill pack against the target API"
+      "description": "validate the skill pack against the target API",
+      "label": "validate-skills"
     },
     "visualAnalyzer": {
       "kind": "llm",
       "prompt": "prompts/visual-analyzer-agent.md",
-      "description": "ratios, anchors, regions from the reference"
+      "description": "ratios, anchors, regions from the reference",
+      "label": "visual-analysis"
     },
     "architectureMapper": {
       "kind": "llm",
       "prompt": "prompts/architecture-mapper-agent.md",
-      "description": "map regions to primitives + theme tokens"
+      "description": "map regions to primitives + theme tokens",
+      "label": "architecture"
     },
     "assetResolver": {
       "kind": "tool",
       "prompt": "prompts/asset-resolver-agent.md",
-      "description": "resolve Iconify icons + Google Fonts"
+      "description": "resolve Iconify icons + Google Fonts",
+      "label": "asset-resolve"
     },
     "templateCoder": {
       "kind": "llm",
       "prompt": "prompts/template-coder-agent.md",
-      "description": "write generated-template.java + data spec"
+      "description": "write generated-template.java + data spec",
+      "label": "template-authoring"
     },
     "testRender": {
       "kind": "tool",
       "prompt": "prompts/test-render-agent.md",
       "tool": "scripts/render.mjs",
-      "description": "compile + render (clean + debug)  <- mechanical"
+      "description": "compile + render (clean + debug)  <- mechanical",
+      "label": "compile-render"
     },
     "visualReview": {
       "kind": "gate",
       "prompt": "prompts/visual-review-agent.md",
-      "description": "parity classification vs reference/parent"
+      "description": "parity classification vs reference/parent",
+      "label": "visual-evaluation"
+    },
+    "iterate": {
+      "kind": "gate",
+      "label": "iterate",
+      "tool": "scripts/iterate-status.mjs",
+      "description": "ask whether the loop may take another pass (0 ready / 2 revise / 3 blocked)"
     }
   },
-
   "gates": {
     "exact-diff": {
       "summary": "Binary pixel diff against the parent revision.",
@@ -80,7 +93,6 @@
       "comparedAgainst": "reference"
     }
   },
-
   "preflight": {
     "skillValidation": {
       "summary": "Skill validation is enforced on EVERY scope, including the scopes whose chain has no skillValidator stage.",
@@ -89,7 +101,6 @@
       "onHalt": "the render process exits with status 4 (the halt contract in prompts/skill-validator-agent.md)"
     }
   },
-
   "scopes": {
     "new": {
       "description": "First revision of a project (revision-001, or parentRevisionId null). Runs the full chain.",
@@ -104,7 +115,8 @@
         "assetResolver",
         "templateCoder",
         "testRender",
-        "visualReview"
+        "visualReview",
+        "iterate"
       ]
     },
     "visual-change": {
@@ -117,31 +129,54 @@
         "assetResolver",
         "templateCoder",
         "testRender",
-        "visualReview"
+        "visualReview",
+        "iterate"
       ]
     },
     "refactor-only": {
       "description": "The render must look IDENTICAL to the parent (class rename, helper extraction, data-spec split, dependency upgrade, package move).",
       "gate": "exact-diff",
-      "stages": ["orchestrator", "templateCoder", "testRender", "visualReview"]
+      "stages": [
+        "orchestrator",
+        "templateCoder",
+        "testRender",
+        "visualReview",
+        "iterate"
+      ]
     },
     "data-only": {
       "description": "A field inside <doc-kind>-data.json changed (email, phone, heading, list item). Java, assets and theme unchanged.",
       "gate": "region-diff",
-      "stages": ["orchestrator", "testRender", "visualReview"]
+      "stages": [
+        "orchestrator",
+        "testRender",
+        "visualReview",
+        "iterate"
+      ]
     },
     "asset-only": {
       "description": "An entry inside asset-request.json changed (icon set swap, font family swap). Java, data and theme unchanged.",
       "gate": "region-diff",
-      "stages": ["orchestrator", "assetResolver", "testRender", "visualReview"]
+      "stages": [
+        "orchestrator",
+        "assetResolver",
+        "testRender",
+        "visualReview",
+        "iterate"
+      ]
     },
     "theme-only": {
       "description": "A token inside the theme bundle changed (palette colour, type scale, decoration glyph, spacing token). Cross-cutting visual effect, so reviewed against the reference rather than diffed against the parent.",
       "gate": "visual-review",
-      "stages": ["orchestrator", "templateCoder", "testRender", "visualReview"]
+      "stages": [
+        "orchestrator",
+        "templateCoder",
+        "testRender",
+        "visualReview",
+        "iterate"
+      ]
     }
   },
-
   "workflows": {
     "$comment": [
       "The four user gestures, each an installable skill. Not a 1:1 mapping onto stages:",
@@ -151,12 +186,20 @@
     "create-template": {
       "skill": "skills/workflows/create-template/SKILL.md",
       "summary": "Reference in, template out; loops until ready for approval.",
-      "scopes": ["new"]
+      "scopes": [
+        "new"
+      ]
     },
     "revise-template": {
       "skill": "skills/workflows/revise-template/SKILL.md",
       "summary": "Change an existing template as a new revision, under the narrowest scope that fits.",
-      "scopes": ["visual-change", "refactor-only", "data-only", "asset-only", "theme-only"]
+      "scopes": [
+        "visual-change",
+        "refactor-only",
+        "data-only",
+        "asset-only",
+        "theme-only"
+      ]
     },
     "review-template": {
       "skill": "skills/workflows/review-template/SKILL.md",
@@ -169,13 +212,11 @@
       "scopes": []
     }
   },
-
   "limits": {
     "maxIterations": 8,
     "maxConsecutiveBuildFailures": 3,
     "maxSameMismatchAttempts": 3
   },
-
   "failureCategories": [
     "BUILD_FAILED",
     "RENDER_FAILED",
