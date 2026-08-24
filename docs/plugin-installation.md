@@ -87,8 +87,24 @@ it validates `plugin.json`, `marketplace.json` and every skill and
 command frontmatter:
 
 ```bash
-claude plugin validate /path/to/graphcompose-ai-flow --strict
+claude plugin validate /path/to/graphcompose-ai-flow            # marketplace manifest
+claude plugin validate /path/to/graphcompose-ai-flow/.claude-plugin/plugin.json
+claude plugin validate /path/to/graphcompose-ai-flow/commands
 ```
+
+The path decides what is checked: a directory holding a
+`marketplace.json` validates the marketplace, the manifest file
+validates the plugin, and a component directory validates the files in
+it. All three pass today.
+
+**One known warning.** Validating the plugin manifest reports that
+`CLAUDE.md` at the repository root is not loaded as plugin context, and
+`--strict` turns that into a failure. The file is deliberate: it is the
+project-instructions file for people working *in* this repository, where
+Claude Code does load it. It is inert only when the repository is
+consumed as a plugin, and the plugin's own context ships as skills. So
+run `--strict` knowing that this one warning is expected, or drop the
+flag.
 
 The repository's own test suite covers the same ground structurally
 (`npm test` → `scripts/test/plugin-package.test.mjs`), but only
