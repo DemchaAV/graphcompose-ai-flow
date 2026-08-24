@@ -18,25 +18,35 @@ If a template already exists and they want it changed, use
 
 ## Before the first stage
 
-Establish the ground the whole run stands on — see
-[workspace and version](../references/workspace.md):
-
-1. **Resolve the workspace.** `--root`, else `GRAPHCOMPOSE_FLOW_ROOT`,
-   else a `graphcompose-flow/` above the cwd, else the harness's own
-   `examples/`. Create one in the user's project if there is none.
-2. **Resolve the version from their build file**, never by asking:
-   `node scripts/resolve-version.mjs --project-dir <java-project> --json`.
-   Exit 3 (no pack for that line) is a **stop** — report which version
-   they pin and which packs exist.
-3. **Load selectively.** Open the pack's `00-loading-map.md` and take
-   only what it lists for this document — plus `00-api-surface.md`,
-   grepped for the builders you will actually call. Sixteen files
-   exist; four to six are the answer. What you skip is context the
-   iteration loop gets to spend on the real mismatch.
-4. **Create the project and the first revision:**
+**Start with preflight.** One call answers everything deterministic about
+where you are and what you are about to run:
 
 ```bash
-node tools/revision-manager/bin/graphcompose-flow.mjs init <project-name>
+node scripts/preflight.mjs --project-dir <java-project> [--project <id>]
+```
+
+It returns the workspace and how it was resolved, the version read from
+their build file and the pack it maps to, the scope and stages this
+revision routes through, the loop bounds, the loading map as data, what
+previous runs already learned about this line, and whether the tools are
+built. Exit 3 means the pinned line has no pack — a **stop**, not a
+fallback. Exit 4 means this is not a GraphCompose project.
+
+It decides nothing. Which files to open is still yours; what it removes
+is the ten to twenty shell calls that used to go into establishing facts.
+
+Two things it hands you that are easy to skip and expensive to skip:
+
+- `skills.startingPoint` — the pack's own worked set for this document
+  kind, usually four to six files. Sixteen exist. What you do not load is
+  context the iteration loop gets to spend on the real mismatch.
+- `knowledge.observations` — behaviours previous runs paid to discover.
+  Read these before the first render, not after the third.
+
+Then create the project and the first revision:
+
+```bash
+node scripts/init-workspace.mjs --project-dir <java-project> --project <project-name>
 node tools/revision-manager/bin/graphcompose-flow.mjs new-revision "<the user's words>" --project <project-dir>
 ```
 
@@ -100,10 +110,17 @@ Before writing a page of Java to find out how something behaves, check what
 is already known and what can already be asked:
 
 ```bash
+node scripts/api-query.mjs --exists TimelineBuilder.entry
 node scripts/observations.mjs list
 node scripts/probe.mjs --list
 node scripts/probe.mjs anchor-alignment
 ```
+
+`api-query` answers the allow-list without reading it. `--exists
+Type.method` is the one to reach for before writing a call you are not
+certain of: exit 0 with the overloads, exit 3 with the type reported and
+no overloads. That is a closed answer, not a search result — the pack is
+generated from source, so absent means it does not exist.
 
 Observations are behaviours previous runs paid to discover, each confirmed
 by a probe that re-runs on demand. Probes answer one question about the

@@ -7,6 +7,42 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.0-beta.8 — preflight and api-query
+
+Two commands for the two things the acceptance run spent the most shell
+calls on: establishing where it was, and checking whether a method exists.
+
+- **`scripts/preflight.mjs`** answers in one call what used to take ten
+  to twenty: the workspace and how it resolved, the version read from the
+  build file and the pack it maps to, the scope and stages this revision
+  routes through, the loop bounds, the loading map as data, what previous
+  runs learned about this line, and whether the tools are built. Exit 3
+  unsupported line, 4 not a GraphCompose project — the same codes as
+  `resolve-version`, so a caller branches identically on either.
+
+  It decides nothing. Which files to open stays judgement; what it
+  removes is the calls spent establishing facts.
+
+- **`scripts/api-query.mjs`** answers the allow-list without reading it:
+  `--exists Type.method` returns the overloads and exit 0, or the type
+  with no overloads and exit 3. Also `--type`, `--method`, `--search`,
+  `--constant`, `--package`, `--dump`.
+
+  **No generated `00-api-surface.json`.** Emitting one would create a
+  second copy of a closed set that has to stay in step with the first —
+  the drift this repository keeps removing. Parsing 126 KB takes
+  milliseconds, so the Markdown stays the only source; `--dump` writes
+  the JSON to stdout for anyone who wants it.
+
+  The parser is checked against the totals the generated document states
+  about itself — 268 types, 1886 methods, 317 constants — which is the
+  cheap proof that a regex dropped nothing.
+
+Preflight's loading-map parser caught a real defect on its first run: the
+pack's worked starting point for a CV is followed by "Not `tables` unless
+the CV has genuinely tabular content", and reading backticks past the
+list added the one file the pack had just said to leave out.
+
 ### v0.5.0-beta.7 — telemetry
 
 The first acceptance run produced one number: about an hour, roughly 240k

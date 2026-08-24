@@ -82,6 +82,8 @@ PowerShell, cmd and bash.
 
 | Do | Command |
 |---|---|
+| **Start here in a new run** | `node scripts/preflight.mjs --project-dir <dir> [--project <id>]` |
+| Does this API exist? | `node scripts/api-query.mjs --exists <Type>.<method>` — exit 0 yes, 3 no |
 | Resolve version and skill pack | `node scripts/resolve-version.mjs --project-dir <dir> --json` |
 | Create the workspace (first thing in a new project) | `node scripts/init-workspace.mjs --project-dir <dir> --project <id>` |
 | Print the chain for a project | `node scripts/run-pipeline.mjs <project-id>` |
