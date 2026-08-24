@@ -137,6 +137,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      # The end-to-end workspace test drives the revision-manager CLI, which is
+      # TypeScript compiled into a gitignored dist/. Without this the CLI does
+      # what it is supposed to do on an unbuilt checkout -- exit 69 telling the
+      # caller to run setup -- and the test fails on a missing build rather than
+      # on anything it means to check.
+      - name: build the revision-manager CLI the workspace test drives
+        working-directory: tools/revision-manager
+        run: npm ci && npm run build
       - name: contract, workspace, loop, plugin and adapter tests
         run: npm test
 

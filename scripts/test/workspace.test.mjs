@@ -207,6 +207,15 @@ test("end to end: a project created from a user's Java project lands in their tr
   const projectsDir = path.join(root, "projects");
   const cli = path.join(repoRoot, "tools", "revision-manager", "bin", "graphcompose-flow.mjs");
 
+  // Stating the dependency beats letting the CLI's own "not built yet" message
+  // surface as an opaque subprocess failure, which is how this first showed up
+  // in CI.
+  assert.ok(
+    fs.existsSync(path.join(repoRoot, "tools", "revision-manager", "dist", "cli.js")),
+    "this test drives the revision-manager CLI, which is not built. Run `npm run setup` " +
+      "(CI builds it in the harness-contracts job).",
+  );
+
   execFileSync(process.execPath, [cli, "init", "demo-cv"], { cwd: projectsDir, stdio: "pipe" });
   execFileSync(process.execPath, [cli, "new-revision", "first pass", "--project", "demo-cv"], {
     cwd: projectsDir,
