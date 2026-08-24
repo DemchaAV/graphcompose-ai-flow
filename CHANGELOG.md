@@ -7,6 +7,43 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.0-beta.7 — telemetry
+
+The first acceptance run produced one number: about an hour, roughly 240k
+tokens. Enough to say the harness works, not enough to say whether a change
+made it better, which correction was expensive, or what a cache-read
+reduction is worth.
+
+- **`hooks/hooks.json`** — the harness ships plugin hooks for the first
+  time. They record timestamps and the transcript location, decide nothing,
+  call no model, and **always exit 0**: a hook that fails blocks the turn it
+  was measuring, and no measurement is worth that.
+- **`scripts/telemetry/`** — `core.mjs` (host-independent clocks, counters
+  and formatting), `providers/claude-code.mjs` (token accounting),
+  `providers/codex.mjs` (a named seam that says it is not implemented rather
+  than reporting zeros), `claude-hook.mjs`, `run-metrics.mjs`.
+- **Three clocks**: cycle (since the user last spoke), run (since the
+  workflow started), session. The cycle clock is the one that makes "what did
+  that correction cost" answerable at all.
+- **Five token figures, never one total.** In a real session: 843k output
+  against 443M cache read. Reported as a single number, a sixfold cache
+  reduction would be invisible next to a 5% output increase.
+- **Counters are derived from the workspace**, not accumulated — revisions,
+  renders and reviews are counted from what is on disk, so nothing has to
+  remember to increment and no counter can drift from its artifacts. There is
+  deliberately no "build failures" figure: nothing records one in a form that
+  could be counted honestly.
+- **Deduplication by `requestId`**, which is not optional: a real transcript
+  held 1699 assistant lines carrying usage and 846 distinct requests. Summing
+  lines would double every figure, and a doubled figure looks plausible.
+- The `create-template` and `revise-template` skills now end a handoff with
+  the metrics block, and are told to carry on silently when it is
+  unavailable.
+
+Also: the Codex runtime now ships `observations/` and `tools/diagnostics/`,
+which the previous release left behind — an installed agent would have
+rediscovered the same library behaviours the hard way.
+
 ### v0.5.0-beta.6 — probes and observations
 
 The first acceptance run wrote four probes by hand, 305 lines of Java, to

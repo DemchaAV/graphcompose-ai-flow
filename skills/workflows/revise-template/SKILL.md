@@ -111,6 +111,20 @@ work later ("keep the new awards but restore the old header").
   revision per intent keeps the diff attributable and the rollback
   useful.
 
+## Reporting back
+
+End the handoff with the metrics block when it is available:
+
+```bash
+node scripts/telemetry/run-metrics.mjs report --project <project-id> --status <verdict>
+```
+
+The cycle clock is what makes a correction's cost visible — it measures from
+the moment the user last spoke, so "the timeline is wrong" gets a number of
+its own rather than disappearing into a run total.
+
+Telemetry never fails the work: if it is unavailable, carry on without it.
+
 ## Related
 
 - [`../references/scope-routing.md`](../references/scope-routing.md) — picking the scope and its gate

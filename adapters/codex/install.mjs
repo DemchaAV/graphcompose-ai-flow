@@ -45,6 +45,11 @@ const RUNTIME = [
   { from: "skills" },
   { from: "AGENTS.md" },
   { from: "package.json" },
+  // What previous runs learned, and the probes that re-confirm it. Without
+  // these an installed agent rediscovers the same library behaviours the hard
+  // way, which is the cost this layer exists to remove.
+  { from: "observations" },
+  { from: "tools/diagnostics", skip: ["target"] },
   { from: "tools/asset-resolver", skip: ["node_modules"] },
   // The TypeScript CLIs ship as their build output plus the manifests needed to
   // install runtime dependencies; their source and dev toolchain stay behind.

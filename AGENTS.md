@@ -94,6 +94,7 @@ PowerShell, cmd and bash.
 | Ask whether the loop may continue | `node scripts/iterate-status.mjs <project-id>` — exit 0 ready, 2 revise, 3 blocked |
 | Approve and publish | `graphcompose-flow approve <id> --project <dir>` then `node scripts/publish-template.mjs --project <id>` |
 | Verify a published bundle | `node scripts/verify-published-template.mjs --template-id <id> --render` |
+| Report what a run cost | `node scripts/telemetry/run-metrics.mjs report --project <id>` |
 | Run every gate locally | `npm run verify` (`--quick` skips Java/Maven) |
 
 Exit 69 from `graphcompose-flow` or `visual-diff` means the tools are

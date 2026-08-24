@@ -115,6 +115,24 @@ If neither covers it, write a probe rather than a one-off in your project:
 that composes *your* template stays in your project — this is for questions
 about the library.
 
+## Reporting back
+
+Every handoff to the user — ready for approval, blocked, or answering a
+correction — ends with the metrics block when it is available:
+
+```bash
+node scripts/telemetry/run-metrics.mjs report --project <project-id> --status <verdict>
+```
+
+It prints three clocks (this cycle, this run, this session) and five token
+figures rather than one total, because a single number is dominated by
+cache reads and hides everything worth seeing.
+
+**Telemetry never fails the work.** If the command prints that no session is
+on record, or fails for any other reason, say nothing about it and carry on:
+a workflow that stopped because a measurement was unavailable would be worse
+than one with no measurements.
+
 ## Reading copies
 
 Three artifacts have a Markdown twin: `visual-analysis`,
