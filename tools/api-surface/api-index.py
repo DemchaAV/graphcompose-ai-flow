@@ -11,6 +11,7 @@ No build required — it parses src/main/java directly, so it always reflects th
 current working tree.
 """
 import argparse
+import datetime
 import os
 import re
 
@@ -36,6 +37,14 @@ PACKAGES = [
     "com/demcha/compose/document/templates/api",
     "com/demcha/compose/document/templates/theme",
     "com/demcha/compose/font",
+    # 2.x layered template surface. In 1.x these lived under document/theme and
+    # templates/builtins; from 2.0 the templates module owns them, split by
+    # document kind, with BrandTheme under templates/core/theme.
+    "com/demcha/compose/document/templates/core",
+    "com/demcha/compose/document/templates/cv",
+    "com/demcha/compose/document/templates/coverletter",
+    "com/demcha/compose/document/templates/invoice",
+    "com/demcha/compose/document/templates/proposal",
 ]
 
 MODIFIERS = {"static", "final", "abstract", "default", "synchronized", "native", "strictfp"}
@@ -121,17 +130,57 @@ def read_version(src_root):
         return "unknown"
 
 
+# Reactor modules that hold authoring surface, in 2.x. A 1.x checkout keeps
+# everything in the repo root, which is why "" is tried first.
+AUTHORING_MODULES = ["", "core", "templates"]
+
+
+def resolve_source_roots(src_root):
+    """Find every tree holding authoring sources, whatever layout this release uses.
+
+    GraphCompose 1.x kept them all at <repo>/src/main/java. From 2.0 the reactor
+    split them: the engine and DSL live in <repo>/core, and the CV / invoice /
+    proposal template surface — including BrandTheme, which used to be
+    document.theme — moved to <repo>/templates. Scanning only one of those
+    silently drops half the allow-list, and a missing entry reads to an agent as
+    "this API does not exist".
+
+    Returns (list of java source dirs, directory whose pom carries the version).
+    """
+    roots = []
+    version_root = None
+    for module in AUTHORING_MODULES:
+        root = os.path.join(src_root, module) if module else src_root
+        java = os.path.join(root, "src", "main", "java")
+        if os.path.isdir(os.path.join(java, "com", "demcha", "compose")):
+            roots.append(java)
+            if version_root is None:
+                version_root = root
+    if not roots:
+        raise SystemExit(
+            f"no GraphCompose authoring sources under {src_root} "
+            f"(looked in: {', '.join(m or '<root>' for m in AUTHORING_MODULES)})\n"
+            "Pass --src pointing at the repository root."
+        )
+    # The reactor root pom carries the release version; a module pom may inherit it.
+    return roots, (src_root if os.path.isfile(os.path.join(src_root, "pom.xml")) else version_root)
+
+
 def main():
     ap = argparse.ArgumentParser(description="Generate the GraphCompose authoring API allow-list.")
     ap.add_argument("--src", default=REPO, help="GraphCompose repo root to parse (default: this repo)")
     ap.add_argument("--out", default=os.path.join(REPO, ".llm-wiki", "00-api-surface.md"),
                     help="output markdown path")
+    ap.add_argument("--tag", default=None,
+                    help="git tag the sources came from (default: v<version>)")
+    ap.add_argument("--validated", default=datetime.date.today().isoformat(),
+                    help="lastValidated date for the frontmatter (default: today)")
     args = ap.parse_args()
     src_root = os.path.abspath(args.src)
-    src_java = os.path.join(src_root, "src", "main", "java")
-    version = read_version(src_root)
+    src_javas, version_root = resolve_source_roots(src_root)
+    version = read_version(version_root)
 
-    files = collect_files(src_java)
+    files = [f for java in src_javas for f in collect_files(java)]
     types = []
     for f in files:
         parsed = parse(f)
@@ -139,7 +188,24 @@ def main():
             types.append(parsed)
     types.sort(key=lambda t: (t[0], t[1]))
 
+    # The repository contract requires frontmatter on every manifest-listed
+    # skill file. Emitting it here rather than hand-adding it after generation
+    # means a regeneration cannot silently drop it.
     out = [
+        "---",
+        "skillId: graphcompose-api-surface",
+        "targetLibrary: GraphCompose",
+        f"targetVersion: {'.'.join(version.split('.')[:2])}.x",
+        f"verifiedAgainst: {version}",
+        "status: active",
+        f"lastValidated: {args.validated}",
+        "generator: tools/api-surface/api-index.py",
+        f'generatedFrom: "git tag {args.tag or ("v" + version)} '
+        f'(io.github.demchaav:graph-compose:{version})"',
+        'note: "Source-generated allow-list. Authoritative closed set: a symbol absent here '
+        'does not exist for this version. Regenerate, do not hand-edit the body below."',
+        "---",
+        "",
         "# GraphCompose — Public API Surface (authoring)",
         "",
         "> **Generated from source by `tools/api-index/api-index.py` — do not hand-edit.**",
@@ -171,6 +237,16 @@ def main():
         if consts:
             out.append(f"- constants: {', '.join('`' + c + '`' for c in consts)}")
         out.append("")
+
+    # An empty allow-list is the worst possible output: it reads as "nothing
+    # exists, do not call anything". Refuse to write one rather than shipping a
+    # file that silently disarms every skill that consults it.
+    if not types:
+        raise SystemExit(
+            f"parsed 0 public types from {', '.join(src_javas)} — refusing to write an empty allow-list.\n"
+            "Either --src points at the wrong tree, or the package layout moved "
+            "(see PACKAGES at the top of this script)."
+        )
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     open(args.out, "w", encoding="utf-8").write("\n".join(out))

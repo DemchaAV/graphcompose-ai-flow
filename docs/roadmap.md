@@ -49,7 +49,7 @@ the layer split and what is deliberately excluded are in
 | 2 — Structured contracts | JSON schemas for orchestration, visual analysis, architecture, review | done |
 | 3 — Workspace decoupling | Tools accept an external root; version resolved from the user's build file | done |
 | 4 — Workflow skills | Eleven agent prompts become four skills | done |
-| 5 — GraphCompose 2.2 skill pack | New default pack; 1.9 frozen alongside 1.6/1.7 | not started |
+| 5 — GraphCompose 2.2 skill pack | New default pack; 1.9 frozen alongside 1.6/1.7 | pack shipped; fixture port outstanding |
 | 6 — Progressive disclosure | Load only the topic skills a document kind needs | done |
 | 7 — Claude Code plugin | Plugin manifest, slash commands, clean-project acceptance | packaging done; acceptance pending |
 | 8 — Autonomous loop | Iterate to READY_FOR_APPROVAL or BLOCKED without prompting | bounds enforced; autonomy observed in Phase 7 acceptance |

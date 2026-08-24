@@ -143,15 +143,26 @@ test("a supported pin maps to a pack that exists on disk", () => {
   assert.ok(fs.existsSync(path.join(repoRoot, result.skillPack)), "resolved pack is not on disk");
 });
 
-test("a pin with no pack is unsupported, not rounded to the nearest one", () => {
-  const dir = tempDir("unsupported");
+test("the current line resolves to the current pack", () => {
+  const dir = tempDir("current");
   write(dir, "pom.xml", POM("2.2.0"));
   const result = resolveVersion({ projectDir: dir, install: repoRoot });
+  assert.equal(result.status, "supported");
+  assert.equal(result.line, "2.2");
+  assert.equal(result.skillPack, "skills/versions/graphcompose-2.2");
+});
+
+test("a pin with no pack is unsupported, not rounded to the nearest one", () => {
+  const dir = tempDir("unsupported");
+  // A line ahead of every pack on disk: the resolver must stop rather than
+  // hand back the newest pack it happens to have.
+  write(dir, "pom.xml", POM("3.0.0"));
+  const result = resolveVersion({ projectDir: dir, install: repoRoot });
   assert.equal(result.status, "unsupported");
-  assert.equal(result.version, "2.2.0");
+  assert.equal(result.version, "3.0.0");
   assert.equal(result.skillPack, null, "an unsupported version was given a skill pack anyway");
-  assert.match(result.message, /2\.2\.0/);
-  assert.ok(result.availablePacks.includes("1.9"), "the available packs were not reported");
+  assert.match(result.message, /3\.0\.0/);
+  assert.ok(result.availablePacks.includes("2.2"), "the available packs were not reported");
 });
 
 test("no build file and no GraphCompose dependency are both reported as unknown", () => {
@@ -210,7 +221,7 @@ test("the CLI exits 0 / 3 / 4 so a skill can branch without parsing prose", () =
   assert.equal(JSON.parse(ok.stdout).skillPack, "skills/versions/graphcompose-1.9");
 
   const future = tempDir("cli-unsupported");
-  write(future, "pom.xml", POM("2.2.0"));
+  write(future, "pom.xml", POM("3.0.0"));
   assert.equal(run(["--project-dir", future], repoRoot).code, 3, "unsupported did not exit 3");
 
   assert.equal(run(["--project-dir", tempDir("cli-unknown")], repoRoot).code, 4, "unknown did not exit 4");

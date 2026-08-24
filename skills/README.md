@@ -31,27 +31,47 @@ first and load only the skill files it references.
 ## Current status
 
 The active skill pack is
-[`versions/graphcompose-1.9/`](versions/graphcompose-1.9/) — a port of the
-1.7.x pack (which itself ported the 1.6.x pack); 1.7.0 → 1.9.0 is additive
-with zero breaking changes, so the copies are a valid starting point. The
-earlier packs are retained as frozen snapshots under
-[`versions/graphcompose-1.7/`](versions/graphcompose-1.7/) and
-[`versions/graphcompose-1.6/`](versions/graphcompose-1.6/) for projects
-pinned back to those minors. The pack lists 15 skills in
+[`versions/graphcompose-2.2/`](versions/graphcompose-2.2/), ported from
+the 1.9 pack. Unlike the earlier ports, this one crossed a major: 2.0
+reorganised the template surface, so the port was a diff against the
+regenerated allow-list rather than a copy. What moved is tabulated in
+[`versions/graphcompose-2.2/graphcompose-basics.md`](versions/graphcompose-2.2/graphcompose-basics.md)
+under "What moved in 2.0" — in short, `document.theme` became
+`templates.core.theme` (`BrandTheme`), `templates.builtins` became
+per-kind presets, and the legacy `GraphCompose.pdf(...)` surface is gone.
+
+Earlier packs are retained as frozen snapshots for projects pinned to
+those lines — [1.9](versions/graphcompose-1.9/),
+[1.7](versions/graphcompose-1.7/), [1.6](versions/graphcompose-1.6/).
+They are not listed in the manifest and are not updated; the resolver
+finds them on disk by directory name.
+
+The active pack lists 17 skills in
 [`skill-manifest.json`](skill-manifest.json):
 
 - `graphcompose-api-surface`
-  ([`versions/graphcompose-1.9/00-api-surface.md`](versions/graphcompose-1.9/00-api-surface.md))
+  ([`versions/graphcompose-2.2/00-api-surface.md`](versions/graphcompose-2.2/00-api-surface.md))
   — the source-generated public-API allow-list, `status: active`. It is
-  verified-by-construction against the `v1.9.0` tag (a closed set, not a
+  verified-by-construction against the `v2.2.0` tag (a closed set, not a
   visual render), so it is safe to rely on as the authoritative existence
-  check.
-- the 14 conceptual skills — `status: needs-validation`. Five fixture
-  projects compile and run against GraphCompose 1.9.0 from Maven Central
-  (`io.github.demchaav:graph-compose:1.9.0`; JitPack remains a fallback
-  for pre-1.6.7 pins), which proves the covered API calls resolve against
-  the real library, but full validation still requires the render +
-  preview + visual-diff loop, so none is promoted to `status: active`.
+  check: 268 types, 1886 methods, 317 constants across core and the
+  templates module.
+- `graphcompose-loading-map`
+  ([`versions/graphcompose-2.2/00-loading-map.md`](versions/graphcompose-2.2/00-loading-map.md))
+  — which files a given task should open, so a task loads four to six of
+  them rather than all seventeen.
+- the 15 conceptual skills — `status: needs-validation`, and for this
+  pack that status is doing real work. The five fixture projects under
+  [`examples/skill-fixtures/`](../examples/skill-fixtures/) still pin
+  **1.9.0**: four of them fail against 2.2.0 because they use
+  `com.demcha.compose.document.theme.BusinessTheme`, which 2.x removed
+  from the library — it now lives in GraphCompose's own `examples`
+  module and is not published. Porting them means rewriting the four
+  fixtures against the 2.2 surface (`DocumentColor` /
+  `DocumentTextStyle` directly, or `BrandTheme` from the separate
+  templates artifact); until that lands, the 2.2 pack's compile-smoke
+  evidence is inherited from 1.9 rather than proven, and no skill is
+  promoted to `status: active`.
 
 Skills found to conflict with the library will be marked
 `failed-validation` and fixed per the
@@ -86,17 +106,17 @@ the source-generated allow-list first, and NEVER guess or grep an
 unverified copy of the GraphCompose source:
 
 1. **Allow-list (authoritative closed set):**
-   [`versions/graphcompose-1.9/00-api-surface.md`](versions/graphcompose-1.9/00-api-surface.md)
+   [`versions/graphcompose-2.2/00-api-surface.md`](versions/graphcompose-2.2/00-api-surface.md)
    — the complete, source-generated list of every public authoring
    method and constant for the target version. **Not listed = does not
    exist; do not invent one.**
 2. **Engine guides (how to use it):**
-   [`versions/graphcompose-1.9/guides/00-index.md`](versions/graphcompose-1.9/guides/00-index.md)
+   [`versions/graphcompose-2.2/guides/00-index.md`](versions/graphcompose-2.2/guides/00-index.md)
    — verified, render-proven how-to guides vendored from the GraphCompose
    LLM wiki. The allow-list says WHAT exists; the guides show HOW to wire
    the primitives together.
 3. **Pinned-version Javadoc (current target):**
-   [javadoc.io/doc/io.github.demchaav/graph-compose/1.9.0](https://javadoc.io/doc/io.github.demchaav/graph-compose/1.9.0)
+   [javadoc.io/doc/io.github.demchaav/graph-compose/2.2.0](https://javadoc.io/doc/io.github.demchaav/graph-compose/2.2.0)
    — for parameter names and `@since` / `@Beta` tags the allow-list
    does not carry.
 4. **Stable-version alias:**
