@@ -46,6 +46,17 @@ const STEPS = [
     requires: ".github/scripts/node_modules",
   },
   {
+    // Static tier only: the build and render tiers need Maven and a resolved
+    // GraphCompose artifact, which is the "slow" contract this list keeps for
+    // the fixture step. What runs here is the check that would have caught the
+    // acceptance run's bundle shipping example data for an asset it lacked.
+    name: "published bundles",
+    kind: "fast",
+    why: "every published bundle contains what its own data and sources name",
+    cmd: process.execPath,
+    args: ["scripts/verify-published-template.mjs", "--template-id", "all"],
+  },
+  {
     name: "artifact schema tests",
     kind: "fast",
     why: "the schemas accept what they should and reject what they should not",

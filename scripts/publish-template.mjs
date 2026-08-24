@@ -3,10 +3,15 @@
  * Template Publisher — deterministic copy step.
  *
  * Promotes an APPROVED revision of an example project into a
- * publish-quality bundle under `templates/<template-id>/`. This script
- * owns the mechanical work (file copy, class renaming via string
- * substitution, manifest write); the Template Publisher Agent owns
- * the editorial Javadoc polish on top.
+ * publish-quality bundle under `templates/<template-id>/`. Everything here is
+ * mechanical — file copy, class renaming, manifest write — and the result is
+ * scanned before it is left on disk, so a bundle either matches its APPROVED
+ * revision or the publish fails.
+ *
+ * It deliberately owns no editorial step. An earlier version left the template
+ * class alone once it existed, so that a later publish would not discard the
+ * Javadoc an agent had written on top of it; the cost was that the bundle could
+ * silently stop matching the revision it claimed to come from.
  *
  * The project is read from, and the bundle written into, the resolved
  * workspace: --root, else GRAPHCOMPOSE_FLOW_ROOT, else a graphcompose-flow/
@@ -21,6 +26,7 @@
  *     [--template-id mint-editorial-cv]  (default: kebab(displayName))
  *     [--class-name MintEditorialCvTemplate] (default: pascal(displayName) + "Template")
  *     [--doc-kind cv]                    (default: derived from currentApprovedRevisionId's data file)
+ *     [--allow-unapproved]               (publish a non-APPROVED revision; development only)
  *     [--dry-run]                        (print plan only)
  */
 
@@ -80,8 +86,23 @@ if (!fs.existsSync(revisionMetaPath)) {
   abort(`revision.json missing in ${revisionDir}`);
 }
 const revisionMeta = JSON.parse(fs.readFileSync(revisionMetaPath, "utf8"));
+// A published bundle is what someone else builds against, so it may only ever
+// come from an APPROVED revision. This used to warn and continue, which meant
+// an explicit --revision could ship a DRAFT under the same template id as the
+// approved one — indistinguishable afterwards.
+if (revisionMeta.status !== "APPROVED" && !args["allow-unapproved"]) {
+  abort(
+    `revision ${revisionId} is ${revisionMeta.status}, not APPROVED. ` +
+      "Approve it first (graphcompose-flow approve), or pass --allow-unapproved " +
+      "if you are publishing a scratch bundle during development.",
+  );
+}
 if (revisionMeta.status !== "APPROVED") {
-  console.warn(`[publish-template] WARN: revision ${revisionId} status is "${revisionMeta.status}", not APPROVED. Proceeding anyway because --revision was provided explicitly.`);
+  console.warn(
+    `[publish-template] WARN: publishing ${revisionMeta.status} revision ${revisionId} ` +
+      "because --allow-unapproved was passed. This bundle does not correspond to an " +
+      "approved revision.",
+  );
 }
 
 const displayName = projectMeta.displayName || project;
@@ -118,29 +139,37 @@ const sourceClassName =
   || simpleClassName(projectMeta.templateClass)
   || inferPublicClassName(sourceClassFile)
   || "GeneratedCvTemplate";
-// The template class carries the agent's editorial Javadoc polish on
-// top of the renamed source. Subsequent publishes preserve that work
-// by default — pass --force-template to overwrite (e.g. after a real
-// behavioural change in the revision's generated-template.java).
-if (fs.existsSync(targetClassFile) && !args["force-template"]) {
-  console.log(`[publish-template] ${display(targetClassFile)} already exists; preserving the agent's Javadoc polish. Pass --force-template to overwrite.`);
-} else {
-  copyJavaClass(sourceClassFile, targetClassFile, {
-    oldClassName: sourceClassName,
-    newClassName: className,
-  });
-}
+// The published class is always rewritten from the revision. It used to be
+// preserved when it already existed, so that a later publish would not discard
+// the editorial Javadoc an agent had added on top — but the cost was that an
+// APPROVED revision and its published bundle could hold different code, with
+// nothing reporting the divergence. Editorial polish belongs in the revision's
+// generated-template.java, where the next render actually exercises it.
+copyJavaClass(sourceClassFile, targetClassFile, {
+  oldClassName: sourceClassName,
+  newClassName: className,
+});
 
 const runnerSrcDir = path.join(projectDir, "render-runner", "src", "main", "java");
 const specClassFqcn = projectMeta.specClass;
 const specProviderFqcn = projectMeta.specProviderClass;
+// The spec and provider were copied verbatim, so their Javadoc kept naming the
+// revision-local class ("GeneratedCvTemplate") that no longer exists in the
+// bundle. Every published source gets the same rename; the post-publish scan
+// below fails the run if any reference survives.
 if (specClassFqcn) {
   const specSrc = fqcnToPath(runnerSrcDir, specClassFqcn);
-  copyJavaSource(specSrc, path.join(targetSrcDir, path.basename(specSrc)));
+  copyJavaClass(specSrc, path.join(targetSrcDir, path.basename(specSrc)), {
+    oldClassName: sourceClassName,
+    newClassName: className,
+  });
 }
 if (specProviderFqcn) {
   const providerSrc = fqcnToPath(runnerSrcDir, specProviderFqcn);
-  copyJavaSource(providerSrc, path.join(targetSrcDir, path.basename(providerSrc)));
+  copyJavaClass(providerSrc, path.join(targetSrcDir, path.basename(providerSrc)), {
+    oldClassName: sourceClassName,
+    newClassName: className,
+  });
 }
 
 const sourceDataFile = path.join(revisionDir, `${docKind}-data.json`);
@@ -154,11 +183,14 @@ const sourceAssetRequest = path.join(revisionDir, "asset-request.json");
 if (fs.existsSync(sourceAssetRequest)) {
   copyFile(sourceAssetRequest, path.join(targetAssetsDir, "asset-request.json"));
 }
-const sourceIconsDir = path.join(revisionDir, "assets", "icons");
-if (fs.existsSync(sourceIconsDir)) {
-  for (const entry of fs.readdirSync(sourceIconsDir)) {
-    copyFile(path.join(sourceIconsDir, entry), path.join(targetIconsDir, entry));
-  }
+// Everything under the revision's assets/, not just icons/. The old code
+// copied assets/icons/* and assets/fonts/*, so an image the template actually
+// loads — an avatar, a logo, a signature — was dropped without a word, and the
+// published data file went on referencing it. A bundle that cannot render its
+// own example data is the failure this whole step exists to prevent.
+const sourceAssetsDir = path.join(revisionDir, "assets");
+if (fs.existsSync(sourceAssetsDir)) {
+  copyTree(sourceAssetsDir, targetAssetsDir, (rel) => !rel.startsWith("fonts"));
 }
 
 // Copy custom font files when the revision shipped any. Bundled
@@ -226,16 +258,120 @@ const manifest = {
   schemaVersion: "1.0.0",
   publishedAt: new Date().toISOString(),
   fonts: fontRoles,
-  dependencies: {
-    graphcompose: projectMeta.targetGraphComposeVersion ?? null,
-    jackson: "2.17.2",
-  },
+  dependencies: readRunnerDependencies(
+    path.join(projectDir, "render-runner", "pom.xml"),
+    projectMeta.targetGraphComposeVersion ?? null,
+  ),
 };
 const manifestPath = path.join(targetDir, "template.json");
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
 console.log(`[publish-template] wrote ${display(manifestPath)}`);
 
-console.log(`[publish-template] done. Template Publisher Agent must now polish ${className}.java Javadoc and write/refresh README.md.`);
+// Nothing above proves the bundle is self-consistent, and the failures it can
+// leave are quiet ones: a name that no longer resolves, a path that only exists
+// on the publishing machine. Both are cheap to detect and expensive to meet as
+// a consumer, so they fail the publish rather than being reported afterwards.
+const scanFindings = scanBundle(targetDir, { sourceClassName, className, revisionId });
+if (scanFindings.length > 0) {
+  for (const finding of scanFindings) {
+    console.error(`[publish-template] ${finding}`);
+  }
+  abort(`${scanFindings.length} problem(s) in the published bundle; not leaving it in this state`);
+}
+
+console.log(`[publish-template] done. Verify it builds and renders on its own:`);
+console.log(`[publish-template]   node scripts/verify-published-template.mjs --template-id ${templateId}` +
+  (args.root ? ` --root ${args.root}` : ""));
+
+/**
+ * Read what the render runner really depends on. The manifest used to hardcode
+ * graphcompose + jackson, so a bundle that needed graph-compose-fonts said so
+ * only in its README — the prose knew more than the machine-readable manifest,
+ * and a generated build file from that manifest would not compile.
+ */
+function readRunnerDependencies(pomPath, fallbackGraphCompose) {
+  const fallback = { graphcompose: fallbackGraphCompose };
+  if (!fs.existsSync(pomPath)) return fallback;
+
+  const pom = fs.readFileSync(pomPath, "utf8");
+  const properties = new Map();
+  for (const [, key, value] of pom.matchAll(/<([\w.]+)>([^<]*)<\/\1>/g)) {
+    if (key.includes(".")) properties.set(key, value.trim());
+  }
+  const resolve = (raw) => {
+    const text = (raw ?? "").trim();
+    const property = text.match(/^\$\{([\w.]+)\}$/);
+    return property ? (properties.get(property[1]) ?? null) : (text || null);
+  };
+
+  const found = {};
+  for (const [, block] of pom.matchAll(/<dependency>([\s\S]*?)<\/dependency>/g)) {
+    const groupId = block.match(/<groupId>([^<]*)<\/groupId>/)?.[1]?.trim();
+    const artifactId = block.match(/<artifactId>([^<]*)<\/artifactId>/)?.[1]?.trim();
+    if (!groupId || !artifactId) continue;
+    const version = resolve(block.match(/<version>([^<]*)<\/version>/)?.[1]);
+    found[`${groupId}:${artifactId}`] = version;
+  }
+  return Object.keys(found).length > 0 ? found : fallback;
+}
+
+/**
+ * Look for the two things a copy step gets wrong quietly: a name carried over
+ * from the revision that no longer exists here, and a path that only resolves
+ * on the machine that published.
+ */
+function scanBundle(root, { sourceClassName: oldName, className: newName, revisionId: revision }) {
+  const findings = [];
+  // `\b` has to be escaped twice here: once for the template literal, which
+  // would otherwise turn it into a backspace, and once for the regex.
+  const stale = oldName && oldName !== newName ? new RegExp(`\\b${oldName}\\b`) : null;
+  const absolute = /(?:^|[\s"'(<])(?:[A-Za-z]:[\\/]|\/(?:home|Users)\/)/;
+  const revisionLocal = revision ? new RegExp(`revisions[\\\\/]${revision}\\b`) : null;
+
+  for (const file of walkFiles(root)) {
+    if (!/\.(java|md|json)$/i.test(file)) continue;
+    const rel = path.relative(root, file);
+    const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
+    lines.forEach((line, index) => {
+      const at = `${rel}:${index + 1}`;
+      if (stale && stale.test(line)) {
+        findings.push(`${at} still names the revision-local class ${oldName} (should be ${newName})`);
+      }
+      if (absolute.test(line)) {
+        findings.push(`${at} carries an absolute path, which resolves only where this was published`);
+      }
+      if (revisionLocal && revisionLocal.test(line)) {
+        findings.push(`${at} points back into revisions/${revision}, which no consumer has`);
+      }
+    });
+  }
+  return findings;
+}
+
+function* walkFiles(dir) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) yield* walkFiles(full);
+    else if (entry.isFile()) yield full;
+  }
+}
+
+/** Copy a directory tree, skipping paths the filter rejects. */
+function copyTree(srcDir, destDir, keep = () => true, relPrefix = "") {
+  for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+    const rel = relPrefix ? path.join(relPrefix, entry.name) : entry.name;
+    if (!keep(rel)) continue;
+    const src = path.join(srcDir, entry.name);
+    const dest = path.join(destDir, entry.name);
+    if (entry.isDirectory()) {
+      fs.mkdirSync(dest, { recursive: true });
+      copyTree(src, dest, keep, rel);
+    } else if (entry.isFile()) {
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      copyFile(src, dest);
+    }
+  }
+}
 
 function copyJavaClass(srcPath, destPath, opts) {
   if (!fs.existsSync(srcPath)) {
@@ -247,8 +383,10 @@ function copyJavaClass(srcPath, destPath, opts) {
     const newName = opts.newClassName;
     content = content.replace(new RegExp(`\\b${oldName}\\b`, "g"), newName);
   }
+  const previous = fs.existsSync(destPath) ? fs.readFileSync(destPath, "utf8") : null;
   fs.writeFileSync(destPath, content, "utf8");
-  console.log(`[publish-template] copied ${display(srcPath)} -> ${display(destPath)} (class renamed)`);
+  const state = previous === null ? "new" : previous === content ? "unchanged" : "UPDATED";
+  console.log(`[publish-template] copied ${display(srcPath)} -> ${display(destPath)} (${state})`);
 }
 
 function copyJavaSource(srcPath, destPath) {

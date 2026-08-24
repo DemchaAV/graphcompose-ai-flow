@@ -7,6 +7,48 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.0-beta.4 — what the first acceptance run exposed
+
+The harness was run end to end for the first time, by hand, against a
+clean Java project pinning GraphCompose 2.2.0: eight revisions, five of
+them autonomous, then human visual feedback and two more, then approve
+and publish. The workflow held. The publisher did not, and every change
+below is a defect that run left on disk (`docs/private/acceptance-claude.md`).
+
+- **A published bundle now always matches its APPROVED revision.**
+  `--force-template` is gone. It existed so a re-publish would not
+  discard editorial Javadoc, and the cost was that the bundle could
+  silently stop matching the revision it named. Each copied source
+  reports `new` / `unchanged` / `UPDATED`.
+- **Every asset reaches the bundle**, not just `assets/icons/` and
+  `assets/fonts/`. The run's bundle referenced `assets/avatar.png` in its
+  example data, the file sat in the approved revision, and the publisher
+  had no rule that copied it.
+- **The rename covers every published source.** The spec and provider
+  were copied verbatim, so their Javadoc kept naming the revision-local
+  `GeneratedCvTemplate`, a class no consumer of the bundle has.
+- **Publishing a non-APPROVED revision fails.** It used to warn and
+  continue, so an explicit `--revision` could ship a DRAFT under the same
+  template id. `--allow-unapproved` keeps the development path and says
+  so in the output.
+- **`dependencies` come from the render runner.** They were hardcoded to
+  graphcompose + jackson while the run's README documented
+  `graph-compose-fonts:1.1.0` — the prose knew more than the manifest,
+  and a build file generated from the manifest would not have compiled.
+- **The publisher scans what it wrote** and fails rather than leaving a
+  bundle carrying a stale class name, an absolute path, or a reference
+  back into `revisions/<id>/`.
+- **`scripts/verify-published-template.mjs`** takes `templates/<id>/` and
+  nothing else and asks whether it works. Static by default (manifest,
+  sources, and every asset the example data names — no toolchain, runs in
+  CI); `--build` compiles it against the dependencies its own manifest
+  declares; `--render` renders its example data through the preview
+  renderer. Exit 0 verified, 1 broken, 2 usage.
+
+  Run against the acceptance bundle it reports the missing avatar in
+  under a second. Run against the republished one it compiles and renders
+  184 KB of PDF from the bundle alone.
+
 ### v0.5.0-beta.3
 
 - **`init --template` works outside a checkout.** It looked for the seed

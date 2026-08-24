@@ -90,6 +90,7 @@ PowerShell, cmd and bash.
 | Measure a diff | `node tools/visual-diff/bin/visual-diff.mjs <reference.png> <output.png> --json --update-revision <revision>` |
 | Ask whether the loop may continue | `node scripts/iterate-status.mjs <project-id>` — exit 0 ready, 2 revise, 3 blocked |
 | Approve and publish | `graphcompose-flow approve <id> --project <dir>` then `node scripts/publish-template.mjs --project <id>` |
+| Verify a published bundle | `node scripts/verify-published-template.mjs --template-id <id> --render` |
 | Run every gate locally | `npm run verify` (`--quick` skips Java/Maven) |
 
 Exit 69 from `graphcompose-flow` or `visual-diff` means the tools are

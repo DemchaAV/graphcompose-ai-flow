@@ -57,12 +57,31 @@ the same thing; the bookkeeping is the point.
 node scripts/publish-template.mjs --project <project-id> [--root <workspace>]
 ```
 
-Add `--force-template` when the template class itself changed
-(constants, render logic) — without it the publisher preserves the
-polished Javadoc already in the bundle. Pass `--dry-run` first if you
-want to show the user the plan before writing.
+The publisher is entirely mechanical: it always rewrites the bundle from
+the APPROVED revision, copies every asset, renames every source, and
+scans the result. There is no flag to preserve editorial polish, because
+a bundle that differs from its approved revision is the bug. Javadoc
+worth keeping belongs in the revision's `generated-template.java`, where
+the next render exercises it. Pass `--dry-run` first if you want to show
+the user the plan before writing.
 
-**5. Report.**
+Publishing a revision that is not APPROVED fails. `--allow-unapproved`
+exists for development and says so in the output.
+
+**5. Verify the bundle stands on its own.**
+
+```bash
+node scripts/verify-published-template.mjs --template-id <id> [--root <workspace>] --render
+```
+
+This takes `templates/<id>/` and nothing else, compiles it against the
+dependencies its own `template.json` declares, and renders its example
+data. Without `--render` it does the static checks only, which still
+catch the common failure: example data naming an asset the bundle does
+not contain. Do not report a published template before this passes —
+"the files were copied" is not the same claim as "it works".
+
+**6. Report.**
 
 Name the revision that was approved, the revision it superseded, the
 bundle path, and the files written. A published bundle the user cannot
