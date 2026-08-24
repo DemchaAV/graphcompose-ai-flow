@@ -21,14 +21,58 @@ places the loop ends on its own.
      └──── loop         └── stop, report, wait for the user
 ```
 
-## One mismatch per pass
+## What the user said comes first
 
-Each iteration fixes the **single** largest actionable mismatch — the
-one named in `largestMismatch` — and nothing else. Rewriting the
-template wholesale on every pass destroys the evidence about what
-actually helped, and makes a regression impossible to attribute.
+A difference the user names outranks the measured one. Record it in the
+review:
 
-The order to work in, when several mismatches are equally loud:
+```json
+"humanReportedMismatch": {
+  "id": "timeline-marker-placement",
+  "quote": "the timeline visually isn't aligned correctly",
+  "addressed": false
+}
+```
+
+`iterate-status` then names it as the next target instead of whatever
+occupies the most pixels, and keeps naming it until a review sets
+`addressed: true` — so a report cannot be lost to a louder measured
+mismatch appearing.
+
+Keep the quote verbatim. A paraphrase turns their observation into your
+interpretation of it, and the difference matters when the diagnosis turns
+out wrong.
+
+**This is not the user telling you how to fix it.** They said what looks
+wrong; why it is wrong and what to change stay yours. In the acceptance
+run the whole instruction was "the timeline is visually incorrect", and
+the loop diagnosed a rail overshoot and an anchor clamp from that. Do not
+ask them to diagnose, and do not treat the words as a specification.
+
+## One root cause per pass
+
+Each iteration fixes **one cause** — not one line, and not the template
+wholesale. Rewriting everything on every pass destroys the evidence about
+what actually helped and makes a regression impossible to attribute.
+
+One cause may show up as several symptoms. When it does, fix them
+together and record the link:
+
+```json
+{ "id": "timeline-rail-overshoot", "rootCause": "entry-band-height", "region": "main-experience" }
+{ "id": "marker-title-misalignment", "rootCause": "entry-band-height", "region": "main-experience" }
+```
+
+The condition is a shared `rootCause` **and** a shared region. An axis
+change that moves a marker, a rail and a title is one fix; three
+unrelated tweaks bundled to save a pass is not, and the shared id is what
+tells them apart afterwards.
+
+The bound counts causes, not ids. Three passes chasing three symptoms of
+one cause is the situation `maxSameMismatchAttempts` exists to catch, so
+it looks through the symptom to the `rootCause` when one is recorded.
+
+The order to work in, when several causes are equally loud:
 
 1. structural geometry, page and crop proportions
 2. large surfaces and panels

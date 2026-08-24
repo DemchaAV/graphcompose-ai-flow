@@ -249,3 +249,69 @@ test("every generated file says where it came from", () => {
   assert.match(text, /Generated from `visual-review\.json`/);
   assert.match(text, /render-artifact-md\.mjs/);
 });
+
+test("a user's own words lead the page, above the measured list", () => {
+  const { json, md } = artifact(
+    "visual-review",
+    {
+      ...REVIEW,
+      humanReportedMismatch: {
+        id: "timeline-marker-placement",
+        quote: "the timeline visually isn't aligned correctly",
+        addressed: false,
+      },
+      mismatches: [
+        { ...REVIEW.mismatches[0], id: "timeline-marker-placement", source: "human" },
+      ],
+    },
+    "reported",
+  );
+  run([json]);
+  const text = fs.readFileSync(md, "utf8");
+
+  assert.match(text, /\*\*Reported by the user\*\* \(outstanding\)/);
+  assert.match(text, /> the timeline visually isn't aligned correctly/);
+  assert.match(text, /\*\*← reported\*\*/);
+  // Before the table, because it is the first thing a reader needs.
+  assert.ok(
+    text.indexOf("Reported by the user") < text.indexOf("## Mismatches"),
+    "the report was buried below the measured list",
+  );
+});
+
+test("a shared root cause is rendered, so linked symptoms read as one fix", () => {
+  const { json, md } = artifact(
+    "visual-review",
+    {
+      ...REVIEW,
+      mismatches: [
+        { ...REVIEW.mismatches[0], id: "rail-overshoot", rootCause: "entry-band-height" },
+        { ...REVIEW.mismatches[0], id: "title-drift", rootCause: "entry-band-height" },
+      ],
+    },
+    "cause",
+  );
+  run([json]);
+  const text = fs.readFileSync(md, "utf8");
+
+  assert.match(text, /\| id \| severity \| cause \|/);
+  assert.ok(
+    (text.match(/entry-band-height/g) ?? []).length >= 2,
+    "the shared cause did not appear on both rows",
+  );
+});
+
+test("the renamed signal is used, and the old name still renders", () => {
+  const renamed = artifact(
+    "visual-review",
+    { ...REVIEW, score: undefined, pixelSimilaritySignal: 71 },
+    "renamed",
+  );
+  run([renamed.json]);
+  assert.match(fs.readFileSync(renamed.md, "utf8"), /Pixel similarity signal: 71/);
+
+  // A revision written before the rename must still produce a reading copy.
+  const legacy = artifact("visual-review", { ...REVIEW, score: 62 }, "legacy");
+  run([legacy.json]);
+  assert.match(fs.readFileSync(legacy.md, "utf8"), /Pixel similarity signal: 62/);
+});

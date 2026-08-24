@@ -111,6 +111,25 @@ work later ("keep the new awards but restore the old header").
   revision per intent keeps the diff attributable and the rollback
   useful.
 
+## When the change is "that looks wrong"
+
+Sometimes the user reports a symptom rather than requesting an edit —
+"the timeline is visually incorrect". That is a **redirect, not a
+specification**: it says where to look, not what to do.
+
+Record it in the new revision's review so the loop honours it:
+
+```json
+"humanReportedMismatch": { "id": "<stable-kebab-id>", "quote": "<their words>", "addressed": false }
+```
+
+Then diagnose it yourself. Do not ask them why it looks wrong, and do not
+treat their phrasing as a design instruction. In the acceptance run the
+entire input was that one sentence, and two revisions later the cause
+turned out to be a rail whose ends followed the band height and an
+over-tall child being top-clamped — neither of which the user could have
+named.
+
 ## Reporting back
 
 End the handoff with the metrics block when it is available:

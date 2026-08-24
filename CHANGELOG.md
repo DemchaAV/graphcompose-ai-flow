@@ -7,6 +7,44 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.0-beta.9 — the loop listens
+
+- **A difference the user names now outranks the measured one.**
+  `humanReportedMismatch` on the review carries their words verbatim and a
+  stable id; `iterate-status` names it as the next target instead of
+  whatever occupies the most pixels, and keeps naming it until a review
+  sets `addressed: true`.
+
+  This is the behaviour the acceptance run showed and nothing enforced.
+  The whole instruction was "the timeline is visually incorrect", and the
+  loop diagnosed a rail overshoot and an anchor clamp from it. The
+  contract now says plainly that this is a redirect, not a specification:
+  the user says what looks wrong, the diagnosis and the implementation
+  stay with the agent, and the quote is kept verbatim because a paraphrase
+  turns their observation into the agent's reading of it.
+
+- **"One mismatch per pass" is now "one root cause per pass."** Several
+  mismatches may be fixed together when they share a `rootCause` **and** a
+  region — an axis change that moves a marker, a rail and a title is one
+  fix. The link is recorded, so attribution survives.
+
+  The loop bound counts causes rather than ids. Counting ids alone let a
+  loop chase three symptoms of one cause and reset the counter every pass,
+  which is precisely the situation `maxSameMismatchAttempts` exists to
+  catch.
+
+- **`score` is now `pixelSimilaritySignal`.** Named for what it measures,
+  because a bare "score" reads as a verdict while the number
+  over-weights anti-aliasing and under-weights structural error — it can
+  fall while the document visibly improves. `score` is still read so
+  revisions written before the rename keep validating and rendering.
+
+  Not done: splitting it into geometry / alignment / typography / raster
+  signals. Nothing computes those, and four invented numbers would be
+  worse than one honestly named.
+
+- Run telemetry was already shipped in `v0.5.0-beta.7`.
+
 ### v0.5.0-beta.8 — preflight and api-query
 
 Two commands for the two things the acceptance run spent the most shell

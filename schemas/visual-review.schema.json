@@ -38,7 +38,7 @@
       "type": "number",
       "minimum": 0,
       "maximum": 100,
-      "description": "Reference parity score. A signal, not a gate (docs/visual-review-loop.md) — the gate is the metric under `gate`."
+      "description": "DEPRECATED name for pixelSimilaritySignal, kept so revisions written before the rename still validate. Readers should prefer pixelSimilaritySignal; writers should emit it."
     },
     "iteration": {
       "type": "integer",
@@ -195,6 +195,20 @@
               "minLength": 1
             },
             "description": "Paths backing the claim (diff mask, cropped comparison), relative to the revision folder."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "measured",
+              "human"
+            ],
+            "default": "measured",
+            "description": "Where this came from. `human` means the user named it; such a mismatch is never dropped for being small, because size is not why it matters."
+          },
+          "rootCause": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "Shared id linking symptoms of one underlying cause. A pass may fix several mismatches at once when they name the same rootCause and the same region - one axis change moving a marker, a rail and a title is one fix, not three. Attribution survives because the link is recorded here."
           }
         }
       }
@@ -233,6 +247,41 @@
       "items": {
         "type": "string",
         "minLength": 1
+      }
+    },
+    "pixelSimilaritySignal": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Whole-page pixel similarity, 0-100. Named for what it measures rather than `score`, because a bare score reads as a verdict: it over-weights anti-aliasing and under-weights structural error, so it can fall while the document visibly improves. A signal, not a gate - the gate is the metric under `gate`."
+    },
+    "humanReportedMismatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "quote"
+      ],
+      "description": "A difference the user named, which outranks the measured largestMismatch for the next pass. This is how a person saying \"the timeline looks wrong\" becomes the thing the loop works on next, without their having to say why or how - the diagnosis and the implementation stay with the agent.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "The stable mismatch id the report maps to. Reuse an existing mismatches[].id when the user is naming something already on the list; coin one when they are not."
+        },
+        "quote": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What the user actually said, verbatim. Kept because a paraphrase quietly turns their observation into the agent's interpretation of it."
+        },
+        "receivedAt": {
+          "type": "string",
+          "description": "When it was said."
+        },
+        "addressed": {
+          "type": "boolean",
+          "description": "Set once a later review judges it resolved. Until then it keeps priority, so a report cannot be lost by a louder measured mismatch appearing."
+        }
       }
     }
   },

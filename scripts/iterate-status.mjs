@@ -92,16 +92,28 @@ if (args.json) {
   console.log(
     `  consecutive build fails ${status.consecutiveBuildFailures}/${limits.maxConsecutiveBuildFailures}`,
   );
+  // Named "cause" because that is what the bound counts once a review records
+  // one: three symptoms of one cause are three attempts at it, not one each.
   console.log(
-    `  same mismatch attempts  ${status.sameMismatchAttempts}/${limits.maxSameMismatchAttempts}` +
-      (status.largestMismatch ? `   ("${status.largestMismatch}")` : ""),
+    `  same cause attempts     ${status.sameMismatchAttempts}/${limits.maxSameMismatchAttempts}` +
+      (status.rootCause
+        ? `   (cause "${status.rootCause}")`
+        : status.largestMismatch
+          ? `   ("${status.largestMismatch}")`
+          : ""),
   );
   if (status.failureCategory) console.log(`\n  failureCategory: ${status.failureCategory}`);
   for (const reason of status.reasons) console.log(`  - ${reason}`);
   if (verdict === "REVISE") {
-    console.log(
-      `\n  next: fix "${status.largestMismatch ?? "the largest mismatch"}" only, then render and review again.`,
-    );
+    // Say when the target came from the user. Reporting a person's own
+    // observation back as a measurement is a small lie that makes the loop
+    // look cleverer than it was.
+    const target = status.largestMismatch ?? "the largest mismatch";
+    const because = status.focusSource === "human" ? " (reported by the user)" : "";
+    const scope = status.rootCause
+      ? `everything sharing the cause "${status.rootCause}" in one region`
+      : "that one thing";
+    console.log(`\n  next: fix "${target}"${because} — ${scope}, then render and review again.`);
   } else if (verdict === "BLOCKED") {
     console.log("\n  next: stop iterating. Report the category above and what was tried.");
   } else {

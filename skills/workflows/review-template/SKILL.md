@@ -89,6 +89,18 @@ The three fields that carry weight:
 - `largestMismatch` — the one id the next pass should fix, with a
   concrete `action` ("reduce vertical padding"), not a diagnosis
   ("header is wrong").
+- `humanReportedMismatch` — set it whenever the user named a difference,
+  with their words verbatim in `quote`. It outranks `largestMismatch`
+  until a review sets `addressed: true`, which is what stops a person's
+  observation being displaced by whatever occupies the most pixels.
+- `mismatches[].rootCause` — a shared id when several mismatches are
+  symptoms of one cause in one region. A pass may then fix them
+  together, and the loop bound counts causes rather than symptoms.
+- `pixelSimilaritySignal` — the whole-page pixel figure, under the name
+  that says what it is. It over-weights anti-aliasing and under-weights
+  structural error, so it can fall while the document visibly improves;
+  never let it decide a verdict. `score` is the old name for the same
+  number and is still read.
 
 A `BLOCKED` verdict needs a `failureCategory`. Under a diff gate, put
 the measured numbers in `gate.pages[]` / `gate.regions[]` and the

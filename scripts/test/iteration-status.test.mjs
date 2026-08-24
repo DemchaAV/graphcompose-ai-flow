@@ -70,10 +70,17 @@ function projectWith(passes, label = "loop") {
         schemaVersion: 1,
         verdict: pass.verdict,
         mismatches: pass.mismatch
-          ? [{ id: pass.mismatch, severity: "MAJOR", reason: "differs", action: "fix it" }]
+          ? [{
+              id: pass.mismatch,
+              severity: "MAJOR",
+              reason: "differs",
+              action: "fix it",
+              ...(pass.rootCause ? { rootCause: pass.rootCause } : {}),
+            }]
           : [],
       };
       if (pass.mismatch) review.largestMismatch = pass.mismatch;
+      if (pass.reported) review.humanReportedMismatch = pass.reported;
       if (pass.failureCategory) review.failureCategory = pass.failureCategory;
       fs.writeFileSync(path.join(revDir, "visual-review.json"), JSON.stringify(review, null, 2));
     }
@@ -289,4 +296,82 @@ test("the CLI exits 0 / 2 / 3 for ready / revise / blocked", () => {
     ),
     3,
   );
+});
+
+// --------------------------------------------- what the user said comes first
+
+test("a difference the user named outranks the measured largest one", () => {
+  // The point of the override: a person saying "the timeline looks wrong" must
+  // not lose the next pass to whatever occupies the most pixels.
+  const dir = projectWith([
+    {
+      verdict: "REVISE",
+      mismatch: "raster-antialiasing",
+      reported: { id: "timeline-marker-placement", quote: "the timeline isn't aligned", addressed: false },
+    },
+  ], "override");
+
+  const status = statusOf(dir);
+  assert.equal(status.largestMismatch, "timeline-marker-placement");
+  assert.equal(status.focusSource, "human");
+});
+
+test("a report keeps priority until a review marks it addressed", () => {
+  const dir = projectWith([
+    {
+      verdict: "REVISE",
+      mismatch: "raster-antialiasing",
+      reported: { id: "timeline-marker-placement", quote: "the timeline isn't aligned", addressed: true },
+    },
+  ], "addressed");
+
+  const status = statusOf(dir);
+  assert.equal(status.largestMismatch, "raster-antialiasing", "an addressed report still held the loop");
+  assert.equal(status.focusSource, "measured");
+});
+
+test("with no report, the measured mismatch leads and says so", () => {
+  const dir = projectWith([{ verdict: "REVISE", mismatch: "header-height" }], "measured");
+  const status = statusOf(dir);
+  assert.equal(status.largestMismatch, "header-height");
+  assert.equal(status.focusSource, "measured");
+});
+
+// ------------------------------------------------- one root cause per pass
+
+test("three symptoms of one cause count as three attempts at that cause", () => {
+  // Counting ids alone would reset the bound every pass and let the loop chase
+  // one cause forever, which is exactly what the bound exists to catch.
+  const dir = projectWith([
+    { verdict: "REVISE", mismatch: "rail-overshoot", rootCause: "entry-band-height" },
+    { verdict: "REVISE", mismatch: "marker-misaligned", rootCause: "entry-band-height" },
+    { verdict: "REVISE", mismatch: "title-drift", rootCause: "entry-band-height" },
+  ], "cause");
+
+  const status = statusOf(dir);
+  assert.equal(status.sameMismatchAttempts, 3);
+  assert.equal(status.rootCause, "entry-band-height");
+  assert.equal(status.verdict, "BLOCKED");
+});
+
+test("symptoms of different causes are different attempts", () => {
+  const dir = projectWith([
+    { verdict: "REVISE", mismatch: "rail-overshoot", rootCause: "entry-band-height" },
+    { verdict: "REVISE", mismatch: "sidebar-width", rootCause: "column-split" },
+  ], "causes");
+
+  const status = statusOf(dir);
+  assert.equal(status.sameMismatchAttempts, 1);
+  assert.equal(status.verdict, "REVISE");
+});
+
+test("without a rootCause the bound still counts by id, as before", () => {
+  const dir = projectWith([
+    { verdict: "REVISE", mismatch: "header-height" },
+    { verdict: "REVISE", mismatch: "header-height" },
+  ], "byid");
+
+  const status = statusOf(dir);
+  assert.equal(status.sameMismatchAttempts, 2);
+  assert.equal(status.rootCause, null, "a cause was invented where none was recorded");
 });

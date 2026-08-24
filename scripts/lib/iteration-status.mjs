@@ -85,13 +85,47 @@ function loadLoop(projectDir, revisionId) {
   return { chain, truncatedAt };
 }
 
+/**
+ * What the next pass should be about.
+ *
+ * A difference the user named outranks the measured largest one. That is the
+ * whole point of the override: when a person says "the timeline looks wrong",
+ * the loop must not spend the next pass on whatever happens to occupy the most
+ * pixels. It stays in front until a review marks it addressed, so it cannot be
+ * lost to a louder measured mismatch appearing.
+ */
+function focusOf(entry) {
+  const review = entry.review;
+  if (!review) return { id: null, source: null };
+
+  const reported = review.humanReportedMismatch;
+  if (reported?.id && reported.addressed !== true) {
+    return { id: reported.id, source: "human" };
+  }
+  if (review.largestMismatch) return { id: review.largestMismatch, source: "measured" };
+  const first = Array.isArray(review.mismatches) ? review.mismatches[0] : null;
+  return { id: first?.id ?? null, source: first ? "measured" : null };
+}
+
 /** The mismatch this pass was about, if the review named one. */
 function mismatchOf(entry) {
-  const review = entry.review;
-  if (!review) return null;
-  if (review.largestMismatch) return review.largestMismatch;
-  const first = Array.isArray(review.mismatches) ? review.mismatches[0] : null;
-  return first?.id ?? null;
+  return focusOf(entry).id;
+}
+
+/**
+ * What the bound counts as "the same thing again".
+ *
+ * The root cause, when the review records one. Counting ids alone would let a
+ * loop chase three symptoms of one cause and reset the counter every pass —
+ * the bound exists precisely to catch that, so it must see through the
+ * symptoms to the cause.
+ */
+function focusKeyOf(entry) {
+  const id = mismatchOf(entry);
+  if (!id) return null;
+  const mismatches = Array.isArray(entry.review?.mismatches) ? entry.review.mismatches : [];
+  const named = mismatches.find((m) => m.id === id);
+  return named?.rootCause ?? id;
 }
 
 function isBuildFailure(entry) {
@@ -135,12 +169,14 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
   }
 
   const latest = chain[chain.length - 1];
-  const largestMismatch = mismatchOf(latest);
+  const focus = focusOf(latest);
+  const largestMismatch = focus.id;
+  const focusKey = focusKeyOf(latest);
 
   const iterations = chain.length;
   const consecutiveBuildFailures = trailingRun(chain, isBuildFailure);
-  const sameMismatchAttempts = largestMismatch
-    ? trailingRun(chain, (entry) => mismatchOf(entry) === largestMismatch)
+  const sameMismatchAttempts = focusKey
+    ? trailingRun(chain, (entry) => focusKeyOf(entry) === focusKey)
     : 0;
 
   const limits = config.limits;
@@ -197,6 +233,10 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     verdict,
     failureCategory,
     largestMismatch,
+    // Named so a caller can say "because you asked" rather than reporting a
+    // user's own observation back to them as a measurement.
+    focusSource: focus.source,
+    rootCause: focusKey !== largestMismatch ? focusKey : null,
     iterations,
     iterationsAreLowerBound: Boolean(truncatedAt),
     chainTruncatedAt: truncatedAt,

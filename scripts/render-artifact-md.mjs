@@ -308,12 +308,25 @@ function renderVisualReview(a) {
     if (gate.regions) out.push("", `Regions: ${inline(gate.regions)}`);
   }
 
-  if (Number.isFinite(a.score)) {
+  // `score` is the old name for the same number; both are read so a revision
+  // written before the rename still renders.
+  const similarity = Number.isFinite(a.pixelSimilaritySignal) ? a.pixelSimilaritySignal : a.score;
+  if (Number.isFinite(similarity)) {
     out.push(
       "",
-      `Pixel similarity signal: ${a.score}. A signal, not a gate — it over-weights` +
-        " anti-aliasing and under-weights structural error.",
+      `Pixel similarity signal: ${similarity}. A signal, not a gate — it over-weights` +
+        " anti-aliasing and under-weights structural error, and can fall while the" +
+        " document visibly improves.",
     );
+  }
+
+  // The user's own words, before the measured list. If a person named
+  // something, that is the first thing a reader of this page should see.
+  const reported = a.humanReportedMismatch;
+  if (reported?.id) {
+    const state = reported.addressed === true ? "addressed" : "outstanding";
+    out.push("", `**Reported by the user** (${state}): \`${reported.id}\``);
+    if (reported.quote) out.push("", `> ${reported.quote}`);
   }
 
   // `mismatches` is required by the schema, so an empty list is a claim —
@@ -323,10 +336,13 @@ function renderVisualReview(a) {
     out.push("", "## Mismatches (0)", "", "None recorded against this render.");
   }
   out.push(...section(`Mismatches (${mismatches.length})`, table(
-    ["id", "severity", "region", "component", "reason", "action"],
+    ["id", "severity", "cause", "region", "component", "reason", "action"],
     mismatches.map((m) => [
-      code(m.id) + (m.id === a.largestMismatch ? " **← largest**" : ""),
+      code(m.id)
+        + (m.id === a.largestMismatch ? " **← largest**" : "")
+        + (m.source === "human" ? " **← reported**" : ""),
       m.severity,
+      code(m.rootCause),
       code(m.region),
       code(m.component),
       m.reason,
