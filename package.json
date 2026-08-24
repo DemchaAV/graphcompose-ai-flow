@@ -1,14 +1,18 @@
 {
   "name": "graphcompose-ai-flow",
-  "version": "0.0.0",
+  "version": "0.5.0-beta.1",
   "private": true,
-  "description": "Local workflow kit that turns visual document references into maintainable GraphCompose Java templates.",
+  "description": "Installable GraphCompose harness for coding agents: drop in a document reference, get a maintainable Java template, rendered, compared and iterated until ready for approval.",
   "type": "module",
   "scripts": {
     "setup": "node scripts/setup.mjs",
     "setup:check": "node scripts/setup.mjs --check",
     "preview": "node scripts/preview-live.mjs",
-    "preview:debug": "node scripts/preview-live.mjs --debug"
+    "preview:debug": "node scripts/preview-live.mjs --debug",
+    "test": "node --test \"scripts/test/**/*.test.mjs\"",
+    "validate:schemas": "node .github/scripts/validate-schemas.mjs",
+    "verify": "node scripts/verify.mjs",
+    "verify:quick": "node scripts/verify.mjs --quick"
   },
   "engines": {
     "node": ">=20"

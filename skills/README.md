@@ -1,5 +1,14 @@
 # GraphCompose Skills
 
+Two kinds of skill live here, and they change on different clocks:
+
+| Directory | Answers | Changes with |
+|---|---|---|
+| [`workflows/`](workflows/README.md) | *how the work is done* — create, revise, review, approve | this project |
+| [`versions/`](versions/) | *what GraphCompose can do*, per library version | the library |
+
+The rest of this page is about the versioned packs.
+
 Skills are versioned instructions for AI agents.
 
 They explain how to use GraphCompose correctly for a specific library version.
@@ -22,19 +31,50 @@ first and load only the skill files it references.
 ## Current status
 
 The active skill pack is
-[`versions/graphcompose-1.7/`](versions/graphcompose-1.7/) — a port of the
-1.6.x pack first shipped in Phase 2 (retained as a frozen snapshot under
-[`versions/graphcompose-1.6/`](versions/graphcompose-1.6/) for projects
-pinned back to 1.6.x). It contains 14 skill files, all listed in
-[`skill-manifest.json`](skill-manifest.json) with
-`status: needs-validation`. Five fixture projects now compile and run
-against GraphCompose 1.7.0 from Maven Central
-(`io.github.demchaav:graph-compose:1.7.0`; JitPack remains a fallback
-for pre-1.6.7 pins), which proves the covered API calls resolve
-against the real library. Full skill validation still requires the
-render + preview + visual-diff loop, so no skill is promoted to
-`status: active` yet. Skills found to conflict with the library will be
-marked `failed-validation` and fixed per the
+[`versions/graphcompose-2.2/`](versions/graphcompose-2.2/), ported from
+the 1.9 pack. Unlike the earlier ports, this one crossed a major: 2.0
+reorganised the template surface, so the port was a diff against the
+regenerated allow-list rather than a copy. What moved is tabulated in
+[`versions/graphcompose-2.2/graphcompose-basics.md`](versions/graphcompose-2.2/graphcompose-basics.md)
+under "What moved in 2.0" — in short, `document.theme` became
+`templates.core.theme` (`BrandTheme`), `templates.builtins` became
+per-kind presets, and the legacy `GraphCompose.pdf(...)` surface is gone.
+
+Earlier packs are retained as frozen snapshots for projects pinned to
+those lines — [1.9](versions/graphcompose-1.9/),
+[1.7](versions/graphcompose-1.7/), [1.6](versions/graphcompose-1.6/).
+They are not listed in the manifest and are not updated; the resolver
+finds them on disk by directory name.
+
+The active pack lists 17 skills in
+[`skill-manifest.json`](skill-manifest.json):
+
+- `graphcompose-api-surface`
+  ([`versions/graphcompose-2.2/00-api-surface.md`](versions/graphcompose-2.2/00-api-surface.md))
+  — the source-generated public-API allow-list, `status: active`. It is
+  verified-by-construction against the `v2.2.0` tag (a closed set, not a
+  visual render), so it is safe to rely on as the authoritative existence
+  check: 268 types, 1886 methods, 317 constants across core and the
+  templates module.
+- `graphcompose-loading-map`
+  ([`versions/graphcompose-2.2/00-loading-map.md`](versions/graphcompose-2.2/00-loading-map.md))
+  — which files a given task should open, so a task loads four to six of
+  them rather than all seventeen.
+- the 15 conceptual skills — `status: needs-validation`, and for this
+  pack that status is doing real work. The five fixture projects under
+  [`examples/skill-fixtures/`](../examples/skill-fixtures/) still pin
+  **1.9.0**: four of them fail against 2.2.0 because they use
+  `com.demcha.compose.document.theme.BusinessTheme`, which 2.x removed
+  from the library — it now lives in GraphCompose's own `examples`
+  module and is not published. Porting them means rewriting the four
+  fixtures against the 2.2 surface (`DocumentColor` /
+  `DocumentTextStyle` directly, or `BrandTheme` from the separate
+  templates artifact); until that lands, the 2.2 pack's compile-smoke
+  evidence is inherited from 1.9 rather than proven, and no skill is
+  promoted to `status: active`.
+
+Skills found to conflict with the library will be marked
+`failed-validation` and fixed per the
 [skill drift rule](../docs/skill-validation.md).
 
 ## Skill statuses
@@ -59,15 +99,33 @@ When unsure, the agent must generate a conservative template using known primiti
 
 ## Authoritative API reference
 
-When a skill page does not document the exact method signature, the
-agent MUST consult the hosted Javadoc rather than guess or grep an
+The lookup priority is **skill → allow-list → engine guides → Javadoc**,
+not the old "skill → Javadoc → guess". When a skill page does not
+document the exact method signature, the agent MUST resolve it against
+the source-generated allow-list first, and NEVER guess or grep an
 unverified copy of the GraphCompose source:
 
-- **Pinned-version Javadoc (current target):**
-  [javadoc.io/doc/io.github.demchaav/graph-compose/1.7.0](https://javadoc.io/doc/io.github.demchaav/graph-compose/1.7.0)
-- **Stable-version alias:**
-  [javadoc.io/doc/io.github.demchaav/graph-compose](https://javadoc.io/doc/io.github.demchaav/graph-compose)
+1. **Allow-list (authoritative closed set):**
+   [`versions/graphcompose-2.2/00-api-surface.md`](versions/graphcompose-2.2/00-api-surface.md)
+   — the complete, source-generated list of every public authoring
+   method and constant for the target version. **Not listed = does not
+   exist; do not invent one.**
+2. **Engine guides (how to use it):**
+   [`versions/graphcompose-2.2/guides/00-index.md`](versions/graphcompose-2.2/guides/00-index.md)
+   — verified, render-proven how-to guides vendored from the GraphCompose
+   LLM wiki. The allow-list says WHAT exists; the guides show HOW to wire
+   the primitives together.
+3. **Pinned-version Javadoc (current target):**
+   [javadoc.io/doc/io.github.demchaav/graph-compose/2.2.0](https://javadoc.io/doc/io.github.demchaav/graph-compose/2.2.0)
+   — for parameter names and `@since` / `@Beta` tags the allow-list
+   does not carry.
+4. **Stable-version alias:**
+   [javadoc.io/doc/io.github.demchaav/graph-compose](https://javadoc.io/doc/io.github.demchaav/graph-compose)
 
-`graphcompose-basics` documents the lookup priority (skill → Javadoc
-→ fixture → ask the user) and the meaning of `@Beta` / `@since` tags
-in the published Javadoc.
+`graphcompose-basics` documents the full lookup priority (skill →
+allow-list → engine guides → Javadoc → fixture → ask the user) and the
+meaning of `@Beta` / `@since` tags in the published Javadoc. The
+allow-list is regenerated per release by
+[`tools/api-surface/api-index.py`](../tools/api-surface/api-index.py); the
+engine guides are re-synced by
+[`tools/api-surface/sync-engine-guides.mjs`](../tools/api-surface/sync-engine-guides.mjs).

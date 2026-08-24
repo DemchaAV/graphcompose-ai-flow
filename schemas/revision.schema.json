@@ -34,7 +34,7 @@
     "scope": {
       "type": "string",
       "enum": ["visual-change", "refactor-only", "data-only", "asset-only", "theme-only"],
-      "description": "Optional scope marker the orchestrator writes per prompts/orchestrator-agent.md § Revision scope. Five values, each gating a different agent subchain and a different Visual Review gate: visual-change (full pipeline → layer-by-layer review vs reference image); refactor-only (Template Coder + Test+Render → binary AE==0 vs parent); data-only (Test+Render only → region-aware AE on affected regions, AE==0 elsewhere); asset-only (Asset Resolver + Test+Render → region-aware AE on affected regions, AE==0 elsewhere); theme-only (Template Coder theme file + Test+Render → layer-by-layer vs reference image)."
+      "description": "Optional scope marker the orchestrator writes per prompts/orchestrator-agent.md § Revision scope. This enum fixes the vocabulary only: which stages each scope runs, and which gate it ends on, is declared once in config/pipeline.json and read through scripts/lib/pipeline-config.mjs. The inferred scope \"new\" is deliberately absent — it applies to a first revision, which has no parent to diff against, and is never written into revision.json. scripts/test/pipeline-config.test.mjs asserts that this enum and the config agree."
     },
     "targetGraphComposeVersion": {
       "type": "string",
@@ -51,6 +51,16 @@
       "items": { "type": "string", "minLength": 1 },
       "uniqueItems": true,
       "description": "Optional list of named private render methods whose output this revision modified — feeds the selective rollback model."
+    },
+    "reviewVerdict": {
+      "type": "string",
+      "enum": ["READY_FOR_APPROVAL", "REVISE", "BLOCKED"],
+      "description": "Outcome of the last review pass over this revision, copied from visual-review.json. Deliberately separate from `status`: the revision stays DRAFT until a human approves it, so READY_FOR_APPROVAL records that the loop has stopped and is waiting, not that anything was approved."
+    },
+    "iteration": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "1-based position of this revision inside one autonomous fix loop (fix → build → render → review → fix). Absent on revisions a human opened directly. Bounded by limits.maxIterations in config/pipeline.json."
     },
     "createdAt": {
       "type": "string",
@@ -96,8 +106,12 @@
       "properties": {
         "stage": {
           "type": "string",
-          "enum": ["compile", "render", "preview", "visual-diff", "test", "asset-resolve", "skill-validate", "architecture-map"],
-          "description": "Pipeline stage that produced the failure."
+          "enum": ["compile", "render", "preview", "visual-diff", "test", "asset-resolve", "skill-validate", "architecture-map", "unspecified"],
+          "description": "Pipeline stage that produced the failure. \"unspecified\" is written when a revision is failed without naming a stage — honest about the gap rather than guessing one."
+        },
+        "category": {
+          "$ref": "#/$defs/failureCategory",
+          "description": "Why the run stopped, as opposed to `stage`, which records where. The vocabulary is shared with config/pipeline.json → failureCategories."
         },
         "summary": {
           "type": "string",
@@ -117,11 +131,28 @@
     }
   },
   "$defs": {
+    "failureCategory": {
+      "type": "string",
+      "enum": [
+        "BUILD_FAILED",
+        "RENDER_FAILED",
+        "ASSET_FAILED",
+        "VISUAL_MISMATCH",
+        "GRAPHCOMPOSE_API_LIMITATION",
+        "MISSING_REFERENCE_INFORMATION",
+        "ITERATION_LIMIT"
+      ],
+      "description": "Why an attempt stopped. Kept in $defs so every contract that has to report a stop reason — the failure record here, visual-review.schema.json, and the blocked-run record a later phase adds — shares one vocabulary with config/pipeline.json → failureCategories."
+    },
     "artifactsWithLabels": {
       "type": "object",
       "properties": {
         "userRequest": { "type": "string", "minLength": 1 },
         "orchestrationDecision": { "type": "string", "minLength": 1 },
+        "orchestrationDecisionJson": { "type": "string", "minLength": 1 },
+        "visualAnalysisJson": { "type": "string", "minLength": 1 },
+        "architecturePlanJson": { "type": "string", "minLength": 1 },
+        "visualReviewJson": { "type": "string", "minLength": 1 },
         "versionResolution": { "type": "string", "minLength": 1 },
         "skillValidation": { "type": "string", "minLength": 1 },
         "visualAnalysis": { "type": "string", "minLength": 1 },

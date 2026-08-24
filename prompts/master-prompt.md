@@ -1,5 +1,15 @@
 # Master Prompt for Coding Agent
 
+> **Superseded by [`skills/workflows/`](../skills/workflows/README.md).**
+> The eleven-prompt chain has been folded into four workflow skills —
+> create, revise, review, approve — which carry the same contract with
+> the deterministic stages called as CLIs instead of described in prose.
+> These prompt files are kept until the acceptance tests for the Claude
+> Code plugin and the Codex adapter are green, then removed; see
+> `docs/roadmap.md` § Harness migration. New work should follow the
+> skills. Where the two disagree, the skills and
+> `config/pipeline.json` win.
+
 > **Entry point:** the agent's onboarding file is
 > [`AGENTS.md`](../AGENTS.md) at the repo root. Read it FIRST — it
 > dispatches user gestures to the right agent in the chain, lists

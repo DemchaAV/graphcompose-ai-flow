@@ -103,7 +103,7 @@ jobs:
           node scripts/render-cv-reference.mjs revision-002
 
   skill-fixtures:
-    name: skill-fixtures (GraphCompose 1.7.0 via Maven Central)
+    name: skill-fixtures (GraphCompose 1.9.0 via Maven Central)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -123,6 +123,24 @@ jobs:
           cache: 'maven'
       - run: mvn -B test
         working-directory: examples/skill-fixtures/${{ matrix.fixture }}
+
+  harness-contracts:
+    # The cross-cutting gate: one routing source, schemas and config agreeing,
+    # skills that exist and name tools that exist, plugin and Codex packaging
+    # matching the skills they ship, and the docs not drifting back to the old
+    # agent-chain story. Cheap and first, so an inconsistency does not wait
+    # behind four minutes of Maven.
+    name: harness contracts (Node 20)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: contract, workspace, loop, plugin and adapter tests
+        run: npm test
+      - name: routing fixtures are well formed
+        run: node --test "scripts/test/contracts.test.mjs"
 
   repository-contract:
     name: repository contract
@@ -176,9 +194,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: .github/scripts/package-lock.json
       - run: npm ci
-      - name: validate revision.json + assets-manifest.json against schemas/
+      - name: validate every on-disk artifact against schemas/
         working-directory: ${{ github.workspace }}
         run: node .github/scripts/validate-schemas.mjs
+      - name: the artifact schemas accept and reject what they should
+        run: npm test
 
   validate-skills:
     name: skill validation (render fixtures)

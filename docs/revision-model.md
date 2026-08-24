@@ -19,8 +19,8 @@ Example:
 {
   "projectName": "invoice-reference",
   "referenceImage": "reference/reference.png",
-  "targetGraphComposeVersion": "1.6.0",
-  "skillPack": "skills/versions/graphcompose-1.7",
+  "targetGraphComposeVersion": "1.9.0",
+  "skillPack": "skills/versions/graphcompose-1.9",
   "currentApprovedRevisionId": "revision-001",
   "currentDraftRevisionId": "revision-002",
   "createdAt": "2026-05-12T16:00:00Z",
@@ -49,8 +49,8 @@ Example:
   "parentRevisionId": "revision-001",
   "status": "DRAFT",
   "userRequest": "Make the table darker and move the footer down",
-  "targetGraphComposeVersion": "1.6.0",
-  "skillPack": "skills/versions/graphcompose-1.7",
+  "targetGraphComposeVersion": "1.9.0",
+  "skillPack": "skills/versions/graphcompose-1.9",
   "changedComponents": [
     "LineItemsTable",
     "Footer"

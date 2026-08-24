@@ -85,9 +85,12 @@ See [workflow.md](workflow.md) for the per-step contract.
 
 ## Documentation map
 
-The docs site is split into 13 self-contained pages:
+The docs site is split into 16 self-contained pages:
 
 - [overview.md](overview.md) — this page; landing summary and pointers
+- [architecture.md](architecture.md) — the target harness architecture and the layer split
+- [demo.md](demo.md) — real captured output of the deterministic half, end to end
+- [plugin-installation.md](plugin-installation.md) — installing the harness into Claude Code
 - [quickstart.md](quickstart.md) — practical setup, first render, and new-project workflow
 - [workflow.md](workflow.md) — full workflow with inputs, outputs, and per-step agent owners
 - [visual-accuracy-contract.md](visual-accuracy-contract.md) — strict parity rules and mismatch classification
@@ -110,8 +113,8 @@ and a `render` path for compiled GraphCompose templates), and a Node
 visual-diff CLI. All three have passing test suites and are wired to
 GitHub Actions CI.
 
-GraphCompose 1.7.0 is reachable through Maven Central as
-`io.github.demchaav:graph-compose:1.7.0` (JitPack
+GraphCompose 1.9.0 is reachable through Maven Central as
+`io.github.demchaav:graph-compose:1.9.0` (JitPack
 `com.github.DemchaAV:GraphCompose:vX.Y.Z` still resolves for
 pre-1.6.7 pins), and the five fixture projects under
 [`examples/skill-fixtures/`](../examples/skill-fixtures/) compile

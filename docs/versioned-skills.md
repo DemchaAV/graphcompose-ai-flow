@@ -57,10 +57,11 @@ skills/
       revision-discipline.md
       troubleshooting.md
 
-    graphcompose-1.7/
-      (same 14 files — the active pack, ported to 1.7.x and verified
-       against 1.7.0; graphcompose-1.6/ is retained as the frozen
-       1.6.x snapshot)
+    graphcompose-1.9/
+      00-api-surface.md   (source-generated public-API allow-list)
+      (+ the same 14 files — the active pack, ported to 1.9.x and
+       verified against 1.9.0; graphcompose-1.7/ and graphcompose-1.6/
+       are retained as the frozen 1.7.x / 1.6.x snapshots)
 ```
 
 Skills are physically duplicated per supported GraphCompose version

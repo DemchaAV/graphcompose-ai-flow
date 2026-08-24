@@ -18,6 +18,7 @@ import { runRevertApproved } from './commands/revertApproved.js';
 import { runRestoreComponent } from './commands/restoreComponent.js';
 import { runHistory, formatHistory } from './commands/history.js';
 import { runDiff } from './commands/diff.js';
+import { FAILURE_CATEGORIES, FAILURE_STAGES } from './types.js';
 
 interface CommonOptions {
   project?: string;
@@ -139,15 +140,33 @@ export function buildProgram(): Command {
     program
       .command('fail [revisionId]')
       .description('mark a revision FAILED (compile/render breakage; preserves artifacts)')
-      .option('--reason <text>', 'short note appended to the userRequest')
+      .option('--reason <text>', 'short note appended to the userRequest and used as the failure summary')
+      .option(
+        '--category <category>',
+        `why the run stopped: ${FAILURE_CATEGORIES.join(' | ')}`,
+      )
+      .option(
+        '--stage <stage>',
+        `where it broke: ${FAILURE_STAGES.join(' | ')} (defaults from --category when unambiguous)`,
+      )
+      .option('--message <text>', 'verbatim error output from the failing stage')
       .action(
         async (
           revisionId: string | undefined,
-          opts: CommonOptions & { reason?: string },
+          opts: CommonOptions & {
+            reason?: string;
+            category?: string;
+            stage?: string;
+            message?: string;
+          },
         ) => {
           try {
             const root = resolveProjectRoot(opts.project);
-            const failed = await runFail(root, revisionId, opts.reason);
+            const failed = await runFail(root, revisionId, opts.reason, {
+              category: opts.category,
+              stage: opts.stage,
+              message: opts.message,
+            });
             process.stdout.write(`failed ${failed.id}\n`);
           } catch (err) {
             fail(err);

@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DemchaAV/graphcompose-ai-flow/schemas/orchestration.schema.json",
+  "title": "Orchestration decision",
+  "description": "The routing decision for one revision, at examples/<project>/revisions/<id>/orchestration-decision.json. Records what the user asked for, which pipeline scope that maps to, and therefore which stages run — so a later stage can read the routing instead of re-deriving it from prose. orchestration-decision.md stays the human rendering. The stage and scope vocabularies come from config/pipeline.json, which remains the routing source of truth; this file records the choice, not the rules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "intent", "scope", "parentRevision", "stages"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "On-disk contract version for this artifact."
+    },
+    "intent": {
+      "type": "string",
+      "enum": [
+        "NEW_GENERATION",
+        "REVISION",
+        "UNDO",
+        "REVERT_TO_APPROVED",
+        "SELECTIVE_ROLLBACK",
+        "APPROVAL",
+        "DIFF_REVIEW",
+        "REVISION_SUMMARY"
+      ],
+      "description": "Task type detected from the user gesture, per prompts/orchestrator-agent.md § Task type detection (New generation, Revision, Undo last change, Revert to approved, Selective rollback, Approval, Diff / review, Revision summary)."
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["new", "visual-change", "refactor-only", "data-only", "asset-only", "theme-only"],
+      "description": "Pipeline scope chosen for this revision. Matches the scope keys in config/pipeline.json — including the inferred \"new\", which routes a first revision through the full chain and is never written into revision.json."
+    },
+    "parentRevision": {
+      "type": ["string", "null"],
+      "pattern": "^revision-\\d{3,}$",
+      "description": "Revision this one is based on; null for the first revision in a chain."
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Ordered stage ids that will run, copied from the scope's entry in config/pipeline.json. Recorded so the artifact is self-contained for audit; the config is still what decides."
+    },
+    "gate": {
+      "type": "string",
+      "enum": ["exact-diff", "region-diff", "visual-review"],
+      "description": "The gate this scope ends on, from config/pipeline.json → gates."
+    },
+    "affectedComponents": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Named private render methods this revision is expected to touch. Feeds the region-aware gate and the selective rollback model."
+    },
+    "detectedGesture": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The user gesture verbatim, or a one-line summary of it."
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Why this scope and not the neighbouring one — the sentence that would otherwise be lost when the routing is questioned later."
+    },
+    "clarifyingQuestion": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Present when the gesture was ambiguous. The orchestrator asks exactly ONE question and does not open a revision until it is answered."
+    },
+    "skippedStages": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Stages the short scope deliberately skips, recorded so \"why did nobody run the Visual Analyzer\" has an answer in the artifact."
+    }
+  },
+  "allOf": [
+    {
+      "description": "A revision-producing intent must name a scope that produces a render; the bookkeeping intents (approval, undo, review) may reuse the parent's.",
+      "if": {
+        "required": ["intent"],
+        "properties": { "intent": { "const": "NEW_GENERATION" } }
+      },
+      "then": {
+        "properties": {
+          "scope": { "const": "new" },
+          "parentRevision": { "type": "null" }
+        }
+      }
+    }
+  ]
+}

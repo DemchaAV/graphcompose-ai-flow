@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DemchaAV/graphcompose-ai-flow/schemas/architecture-plan.schema.json",
+  "title": "Architecture plan",
+  "description": "How the analysed reference maps onto GraphCompose, at examples/<project>/revisions/<id>/architecture-plan.json. The load-bearing part is componentMapping: region -> named render method -> primitives, which is what makes selective rollback and per-region review possible at all. architecture-plan.md keeps the reasoning, the risks and the layer-split narrative. Primitives named here must exist in the pinned skill pack's API allow-list — the plan is not the place to invent GraphCompose APIs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "targetGraphComposeVersion", "templateSurface", "componentMapping"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "On-disk contract version for this artifact."
+    },
+    "targetGraphComposeVersion": {
+      "type": "string",
+      "pattern": "^v?\\d+\\.\\d+(\\.\\d+)?(-[A-Za-z0-9.]+)?$",
+      "description": "GraphCompose version this plan targets. Must agree with targetGraphComposeVersion in revision.json."
+    },
+    "templateSurface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lane", "documentKind"],
+      "properties": {
+        "lane": {
+          "type": "string",
+          "enum": ["V2 layered", "V2 single-preset", "V1 classic"],
+          "description": "Which upstream template generation this document kind sits on. Per AGENTS.md: cv and coverletter are V2 layered, proposal is V2 single-preset, invoice is V1 classic."
+        },
+        "documentKind": {
+          "type": "string",
+          "enum": ["cv", "coverletter", "invoice", "proposal", "other"],
+          "description": "Canonical document kind. \"other\" still routes through the same primitive-level pipeline; only the published-bundle factory cares about the kind."
+        },
+        "upstreamCheatsheet": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The upstream authoring document this plan follows, e.g. docs/templates/v2-layered/authoring-presets.md."
+        }
+      }
+    },
+    "componentMapping": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One entry per visual region. This is the spine of the whole contract: visual-review.json reports mismatches against these component names, changedComponents in revision.json lists them, and selective rollback restores them one at a time.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["region", "renderMethod"],
+        "properties": {
+          "region": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Region id from visual-analysis.json."
+          },
+          "renderMethod": {
+            "type": "string",
+            "pattern": "^[a-z][A-Za-z0-9]*$",
+            "description": "Named private render method that owns the region, e.g. \"renderHeader\". Every visible region maps to exactly one, which is what makes component-level rollback work."
+          },
+          "primitives": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "description": "GraphCompose primitives the method reaches for, e.g. [\"RowBuilder.weights\", \"LayerStackBuilder.position\"]. Must appear in the pinned skill pack's allow-list."
+          },
+          "notes": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "baseConstants": {
+      "type": "array",
+      "description": "The small set of constants every derived dimension comes from. Relational geometry means widths and weights are derived from these; a hardcoded pixel value belongs here only when the dimension is genuinely independent (icon size, marker height, fixed padding).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "value"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "value": { "oneOf": [{ "type": "string" }, { "type": "number" }] },
+          "derivation": {
+            "type": "string",
+            "minLength": 1,
+            "description": "How dependent dimensions are derived from this constant. Absent means the constant is independent."
+          }
+        }
+      }
+    },
+    "themeTokens": {
+      "type": "array",
+      "description": "Theme-level tokens, the surface a theme-only revision is allowed to touch.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["token", "value"],
+        "properties": {
+          "token": { "type": "string", "minLength": 1 },
+          "value": { "oneOf": [{ "type": "string" }, { "type": "number" }] },
+          "role": { "type": "string", "minLength": 1, "description": "Colour role or type-scale role this token fills, from visual-analysis.json." }
+        }
+      }
+    },
+    "selectedSkills": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Skill ids from skills/skill-manifest.json this plan relies on. With progressive disclosure these are the files the coder is expected to have read."
+    },
+    "layerSplit": {
+      "type": "array",
+      "description": "V2 layered lane only: what this revision puts in each layer. Omit for the V1 classic lane.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["layer", "content", "status"],
+        "properties": {
+          "layer": { "type": "string", "enum": ["data", "theme", "components", "widgets", "presets"] },
+          "content": { "type": "string", "minLength": 1 },
+          "status": { "type": "string", "enum": ["new", "reused"] }
+        }
+      }
+    },
+    "widgetReuseAudit": {
+      "type": "array",
+      "description": "V2 layered lane only: for each visual need, whether an existing widget covers it. A NEW verdict without a justification is what this audit exists to prevent.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["need", "verdict"],
+        "properties": {
+          "need": { "type": "string", "minLength": 1, "description": "The visual region or element that needs a widget." },
+          "existingWidget": { "type": "string", "minLength": 1 },
+          "verdict": { "type": "string", "enum": ["reuse", "reuse-with-variant", "new"] },
+          "justification": { "type": "string", "minLength": 1, "description": "Required when the verdict is new." }
+        },
+        "allOf": [
+          {
+            "if": { "required": ["verdict"], "properties": { "verdict": { "const": "new" } } },
+            "then": { "required": ["justification"] }
+          }
+        ]
+      }
+    },
+    "dataModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "specClass": { "type": "string", "minLength": 1 },
+        "providerClass": { "type": "string", "minLength": 1, "description": "E.g. MintEditorialCvSpecProvider#create()." },
+        "dataFile": { "type": "string", "minLength": 1, "description": "The <doc-kind>-data.json the template renders from. Content literals must not live in the Java body." }
+      },
+      "description": "The data-spec contract. data-schema.md documents the fields; this records where they live."
+    },
+    "visualRisks": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "What is most likely to come out wrong on the first render. prompts/architecture-mapper-agent.md forbids skipping this."
+    },
+    "knownLimitations": {
+      "type": "array",
+      "description": "What the plan knowingly cannot reproduce, and what it is betting on. A @Beta surface must record which one, the version it was verified against, and the migration risk on the next minor bump.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["limitation"],
+        "properties": {
+          "limitation": { "type": "string", "minLength": 1 },
+          "betaSurface": { "type": "string", "minLength": 1 },
+          "verifiedAgainstVersion": { "type": "string", "minLength": 1 },
+          "migrationRisk": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "description": "The layered lanes are the ones that have layers to split; V1 classic has none.",
+      "if": {
+        "required": ["templateSurface"],
+        "properties": {
+          "templateSurface": {
+            "type": "object",
+            "required": ["lane"],
+            "properties": { "lane": { "const": "V1 classic" } }
+          }
+        }
+      },
+      "then": {
+        "not": { "required": ["layerSplit"] }
+      }
+    }
+  ]
+}

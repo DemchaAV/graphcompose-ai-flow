@@ -5,7 +5,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "validate-schemas": "node validate-schemas.mjs"
+    "validate-schemas": "node validate-schemas.mjs",
+    "test": "node --test \"test/**/*.test.mjs\""
   },
   "dependencies": {
     "ajv": "^8.17.1",

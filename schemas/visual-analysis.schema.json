@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DemchaAV/graphcompose-ai-flow/schemas/visual-analysis.schema.json",
+  "title": "Visual analysis",
+  "description": "The machine-readable half of the reference analysis, at examples/<project>/revisions/<id>/visual-analysis.json. It carries the parts later stages have to address by name — the named regions, the relational geometry, the anchor relationships, the shape-ownership cases and the open questions. visual-analysis.md keeps the prose observations. Per prompts/visual-analyzer-agent.md the analysis describes the page in RATIOS and DEPENDENCIES, not pixels, and it must not pick GraphCompose primitives — that is the Architecture Mapper's job.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "page", "regions"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "On-disk contract version for this artifact."
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format"],
+      "properties": {
+        "format": { "type": "string", "minLength": 1, "description": "Page format, e.g. \"A4\"." },
+        "orientation": { "type": "string", "enum": ["portrait", "landscape"] },
+        "pageCount": { "type": "integer", "minimum": 1 },
+        "margins": { "type": "string", "minLength": 1, "description": "Margins expressed relationally where possible, e.g. \"~7% of page width\"." },
+        "background": { "type": "string", "minLength": 1 }
+      }
+    },
+    "regions": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Named regions of the reference, in reading order. Every later artifact addresses regions by these ids: architecture-plan.json maps region -> render method, and visual-review.json reports mismatches per region.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "Stable kebab-case id, e.g. \"header\", \"sidebar-skills\"."
+          },
+          "label": { "type": "string", "minLength": 1, "description": "Human name for the region." },
+          "page": { "type": "integer", "minimum": 1, "description": "Page the region appears on." },
+          "contains": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "description": "Elements inside the region, named the way a reader would name them."
+          },
+          "proportions": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The region's share of its parent, as a ratio or weight — never a pixel width. E.g. \"0.31 of the content row\"."
+          },
+          "notes": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "layoutProportions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "topLevelColumnsRows": { "type": "string", "minLength": 1 },
+        "nestedSplits": { "type": "string", "minLength": 1 },
+        "verticalProportions": { "type": "string", "minLength": 1 }
+      },
+      "description": "The page described in ratios and dependencies. Base constants derived from these land in architecture-plan.json."
+    },
+    "anchors": {
+      "type": "array",
+      "description": "Every element whose placement depends on another element, stated as a relationship rather than an offset. The Architecture Mapper turns each into a named engine primitive (LayerAlign, TextAlign, weights(...), ...).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["element", "relatedTo", "relationship"],
+        "properties": {
+          "element": { "type": "string", "minLength": 1 },
+          "relatedTo": { "type": "string", "minLength": 1 },
+          "relationship": { "type": "string", "minLength": 1, "description": "E.g. \"centred on\", \"pinned to the top-right of\", \"baseline-aligned with\"." },
+          "region": { "type": "string", "minLength": 1, "description": "Region id this anchor belongs to." }
+        }
+      }
+    },
+    "shapeOwnership": {
+      "type": "array",
+      "description": "Mandatory for the five cases prompts/visual-analyzer-agent.md names: initials or icons inside circles, text inside pills or badges, content inside rounded cards, images clipped by rounded or circular shapes, and badges anchored inside or on a shape boundary.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["container", "ownedContent", "relationship"],
+        "properties": {
+          "container": { "type": "string", "minLength": 1 },
+          "ownedContent": { "type": "string", "minLength": 1 },
+          "relationship": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "typography": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "headings": { "type": "string", "minLength": 1 },
+        "body": { "type": "string", "minLength": 1 },
+        "table": { "type": "string", "minLength": 1 },
+        "likelyFontFamily": { "type": "string", "minLength": 1 },
+        "googleFontsCandidate": { "type": "string", "minLength": 1 },
+        "scale": { "type": "string", "minLength": 1, "description": "Relative type scale, e.g. \"title 3.2x body\"." }
+      }
+    },
+    "colors": {
+      "type": "array",
+      "description": "Colour roles rather than a raw swatch list, so the theme tokens in architecture-plan.json have something to map to.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "value"],
+        "properties": {
+          "role": { "type": "string", "minLength": 1, "description": "E.g. \"accent\", \"page-background\", \"body-text\"." },
+          "value": { "type": "string", "minLength": 1, "description": "Observed colour, hex where readable." },
+          "usedIn": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "icons": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "iconifyCandidates": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "Iconify set/name candidates, e.g. \"mdi:email-outline\"." },
+        "imagesLogos": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      },
+      "description": "What the Asset Resolver will have to fetch. The authoritative request is asset-request.json."
+    },
+    "spacing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "outerMargins": { "type": "string", "minLength": 1 },
+        "sectionSpacing": { "type": "string", "minLength": 1 },
+        "tableSpacing": { "type": "string", "minLength": 1 }
+      }
+    },
+    "unclearParts": {
+      "type": "array",
+      "description": "Where the reference could not be read with confidence. prompts/visual-analyzer-agent.md forbids silently guessing, so an assumption recorded here is the contract for what was assumed.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["item", "reason", "proposedAssumption"],
+        "properties": {
+          "item": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 },
+          "proposedAssumption": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

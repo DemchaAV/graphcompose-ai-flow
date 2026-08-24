@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DemchaAV/graphcompose-ai-flow/schemas/visual-review.schema.json",
+  "title": "Visual review",
+  "description": "Machine-readable verdict of one review pass, at examples/<project>/revisions/<id>/visual-review.json. This is the file the autonomous loop reads to decide whether to iterate, stop, or hand over for approval; visual-review.md is the human rendering of the same pass and carries the prose, the component-by-component walkthrough and the quoted parity metric. Only decision-bearing fields are required here — everything descriptive stays optional so the Markdown remains the richer document.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "verdict", "mismatches"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "On-disk contract version for this artifact."
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["READY_FOR_APPROVAL", "REVISE", "BLOCKED"],
+      "description": "Loop control. READY_FOR_APPROVAL stops the loop and hands over to the user; REVISE means iterate on the highest-severity actionable mismatch; BLOCKED means the loop cannot make progress and must report why in failureCategory."
+    },
+    "recommendation": {
+      "type": "string",
+      "enum": ["APPROVE", "REVISE", "REJECT"],
+      "description": "The human-facing recommendation the Visual Review Agent has always emitted (prompts/visual-review-agent.md). Kept alongside `verdict` because the two answer different questions: this one advises the user, `verdict` drives the loop. Never write \"APPROVED\" — that is a revision status, not a recommendation."
+    },
+    "score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Reference parity score. A signal, not a gate (docs/visual-review-loop.md) — the gate is the metric under `gate`."
+    },
+    "iteration": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "1-based position of this review inside one autonomous fix loop. Bounded by limits.maxIterations in config/pipeline.json."
+    },
+    "comparedAgainst": {
+      "type": "string",
+      "enum": ["reference", "parent"],
+      "description": "What this pass was compared with, which follows from the scope's gate in config/pipeline.json: exact-diff and region-diff compare against the parent revision, visual-review compares against the reference image."
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["exact-diff", "region-diff", "visual-review"],
+          "description": "Which gate the scope ends on. Vocabulary shared with config/pipeline.json → gates."
+        },
+        "passed": {
+          "type": "boolean",
+          "description": "Whether the gate's own rule was satisfied, independent of the softer parity score."
+        },
+        "metric": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The comparison metric quoted VERBATIM, e.g. \"magick compare -metric AE => 0\". prompts/visual-review-agent.md forbids paraphrasing it."
+        },
+        "pages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["page", "mismatchPixels"],
+            "properties": {
+              "page": { "type": "integer", "minimum": 1 },
+              "mismatchPixels": { "type": "number", "minimum": 0 },
+              "percentOfPage": { "type": "number", "minimum": 0, "maximum": 100 },
+              "diffMask": { "type": "string", "minLength": 1, "description": "Path to the saved diff mask, relative to the revision folder." }
+            }
+          },
+          "description": "Per-page evidence. Required in practice for the exact-diff and region-diff gates, where the AE number per page IS the verdict."
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["region", "mismatchPixels"],
+            "properties": {
+              "region": { "type": "string", "minLength": 1 },
+              "mismatchPixels": { "type": "number", "minimum": 0 },
+              "affected": {
+                "type": "boolean",
+                "description": "True when this region is one the change was allowed to touch. Regions outside that set must report mismatchPixels 0."
+              }
+            }
+          },
+          "description": "Per-region evidence for the region-diff gate."
+        }
+      },
+      "description": "The deterministic half of the review. The model interprets; this records what was measured."
+    },
+    "mismatches": {
+      "type": "array",
+      "description": "Every difference found, ranked most severe first. Empty only when the render matches. prompts/visual-review-agent.md: every mismatch must be documented, and classifications outside the closed set must not be invented.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "severity", "reason"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "Stable kebab-case identifier for this mismatch, e.g. \"header-height\". Stable across iterations: repeating the same id is how limits.maxSameMismatchAttempts detects a loop that is not converging."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["CRITICAL", "MAJOR", "MINOR", "ACCEPTED_LIMITATION", "INTENTIONAL_DIFFERENCE"],
+            "description": "Classification from docs/visual-accuracy-contract.md. ACCEPTED_LIMITATION is never assigned automatically — it requires a human note."
+          },
+          "region": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Region id from visual-analysis.json."
+          },
+          "component": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Named private render method that owns the region, e.g. \"renderHeader\". This is what the next iteration edits, and what changedComponents in revision.json records."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What differs from the expected result, in one sentence."
+          },
+          "action": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The concrete next edit, e.g. \"Reduce vertical padding\". Required in spirit for anything the loop is expected to fix; omit only when the mismatch is accepted."
+          },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "description": "Paths backing the claim (diff mask, cropped comparison), relative to the revision folder."
+          }
+        }
+      }
+    },
+    "largestMismatch": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Id of the one mismatch the next iteration must fix. The loop fixes exactly one thing per pass, so naming it here removes the ambiguity of re-ranking the list."
+    },
+    "failureCategory": {
+      "type": "string",
+      "enum": [
+        "BUILD_FAILED",
+        "RENDER_FAILED",
+        "ASSET_FAILED",
+        "VISUAL_MISMATCH",
+        "GRAPHCOMPOSE_API_LIMITATION",
+        "MISSING_REFERENCE_INFORMATION",
+        "ITERATION_LIMIT"
+      ],
+      "description": "Why the loop stopped. Required when verdict is BLOCKED. The enum is duplicated from config/pipeline.json and schemas/revision.schema.json rather than $ref-ed across files, because the validator compiles each schema standalone; scripts/test/pipeline-config.test.mjs asserts the three copies agree."
+    },
+    "blockedDetail": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What specifically blocks progress — the missing information, or the GraphCompose behaviour that was verified and cannot be worked around."
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One-paragraph summary. The long form lives in visual-review.md."
+    }
+  },
+  "allOf": [
+    {
+      "description": "A BLOCKED verdict must say why, in the shared vocabulary.",
+      "if": {
+        "required": ["verdict"],
+        "properties": { "verdict": { "const": "BLOCKED" } }
+      },
+      "then": { "required": ["failureCategory"] }
+    },
+    {
+      "description": "REVISE means there is something to fix, so the list cannot be empty.",
+      "if": {
+        "required": ["verdict"],
+        "properties": { "verdict": { "const": "REVISE" } }
+      },
+      "then": {
+        "properties": { "mismatches": { "type": "array", "minItems": 1 } }
+      }
+    }
+  ]
+}

@@ -70,6 +70,23 @@ See [rollback.md](rollback.md) for how the rollback task types are
 implemented and [revision-model.md](revision-model.md) for the
 revision statuses involved.
 
+## Which steps actually run
+
+The sixteen steps below are the full chain. A revision runs the
+subset its scope requires, and that mapping is declared once in
+[`config/pipeline.json`](../config/pipeline.json) — scope to ordered
+stages, plus the gate each scope ends on. Nothing else may restate
+it; `scripts/test/pipeline-config.test.mjs` fails the build when a
+copy drifts. To print the live chain for a project:
+
+```bash
+node scripts/run-pipeline.mjs <project-id>
+```
+
+The scope values and how the orchestrator picks between them are in
+[`prompts/orchestrator-agent.md`](../prompts/orchestrator-agent.md)
+§ "Revision scope".
+
 ## Steps
 
 ### 1. Detect Task Type

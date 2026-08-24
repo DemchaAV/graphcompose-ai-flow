@@ -11,9 +11,9 @@
  * to open, in order, plus the mechanical render command. With --render it runs
  * the deterministic render step (scripts/render.mjs).
  *
- * Routing source of truth: prompts/orchestrator-agent.md (§ Revision scope) and
- * schemas/revision.schema.json. Scopes:
- *   new | visual-change | refactor-only | data-only | asset-only | theme-only
+ * Routing source of truth: config/pipeline.json, read through
+ * scripts/lib/pipeline-config.mjs. This script holds no chain of its own — when
+ * a scope gains or loses a stage, the config is the only file to edit.
  * "new" is inferred for a first revision (revision-001 / parentRevisionId null)
  * and runs the full chain.
  */
@@ -23,50 +23,45 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+import {
+  loadPipelineConfig,
+  resolveScope,
+  scopeNames,
+  stagesForScope,
+} from "./lib/pipeline-config.mjs";
+import {
+  describeWorkspaceLine,
+  installRoot,
+  projectDir as workspaceProjectDir,
+  resolveWorkspace,
+} from "./lib/workspace.mjs";
 
-// agent key -> [prompt file (repo-relative), one-line description]
-const AGENTS = {
-  orchestrator: ["prompts/orchestrator-agent.md", "scope the change; open/route the revision"],
-  versionSkill: ["prompts/version-skill-resolver-agent.md", "resolve GraphCompose version + skill pack"],
-  skillValidator: ["prompts/skill-validator-agent.md", "validate the skill pack against the target API"],
-  visualAnalyzer: ["prompts/visual-analyzer-agent.md", "ratios, anchors, regions from the reference"],
-  architectureMapper: ["prompts/architecture-mapper-agent.md", "map regions to primitives + theme tokens"],
-  assetResolver: ["prompts/asset-resolver-agent.md", "resolve Iconify icons + Google Fonts"],
-  templateCoder: ["prompts/template-coder-agent.md", "write generated-template.java + data spec"],
-  testRender: ["prompts/test-render-agent.md", "compile + render (clean + debug)  <- mechanical"],
-  visualReview: ["prompts/visual-review-agent.md", "parity classification vs reference/parent"],
-};
+const repoRoot = installRoot();
 
-// scope -> ordered agent keys AFTER the orchestrator (which always runs first).
-const SUBCHAINS = {
-  "new": ["versionSkill", "skillValidator", "visualAnalyzer", "architectureMapper", "assetResolver", "templateCoder", "testRender", "visualReview"],
-  "visual-change": ["visualAnalyzer", "architectureMapper", "assetResolver", "templateCoder", "testRender", "visualReview"],
-  "refactor-only": ["templateCoder", "testRender", "visualReview"],
-  "data-only": ["testRender", "visualReview"],
-  "asset-only": ["assetResolver", "testRender", "visualReview"],
-  "theme-only": ["templateCoder", "testRender", "visualReview"],
-};
+const config = loadPipelineConfig({ repoRoot });
 
 function usage(code = 0) {
   process.stdout.write(
-    "usage: node scripts/run-pipeline.mjs <project-id> [--revision <id>] [--scope <scope>] [--render]\n\n" +
+    "usage: node scripts/run-pipeline.mjs <project-id> [--revision <id>] [--scope <scope>] [--render] [--root <workspace>]\n\n" +
       "  --revision <id>   default: project currentDraftRevisionId, else revision-001\n" +
-      "  --scope <scope>   new | visual-change | refactor-only | data-only | asset-only | theme-only\n" +
+      `  --scope <scope>   ${scopeNames(config).join(" | ")}\n` +
       "                    default: revision.json scope, else inferred\n" +
-      "  --render          run the mechanical render step (scripts/render.mjs)\n",
+      "  --render          run the mechanical render step (scripts/render.mjs)\n" +
+      "  --root <dir>      workspace holding the projects; default: GRAPHCOMPOSE_FLOW_ROOT,\n" +
+      "                    a graphcompose-flow/ found above the cwd, else this repo's examples/\n",
   );
   process.exit(code);
 }
 
 function parseArgs(argv) {
-  const out = { project: null, revision: null, scope: null, render: false };
+  const out = { project: null, revision: null, scope: null, render: false, root: null };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--help" || a === "-h") usage(0);
     else if (a === "--render") out.render = true;
     else if (a === "--revision" || a === "-r") out.revision = argv[++i];
     else if (a === "--scope" || a === "-s") out.scope = argv[++i];
+    else if (a === "--root") out.root = argv[++i];
     else if (!a.startsWith("-") && !out.project) out.project = a;
   }
   return out;
@@ -83,10 +78,17 @@ function readJsonOr(p, fallback) {
 const args = parseArgs(process.argv.slice(2));
 if (!args.project) usage(2);
 
-const projectDir = path.join(repoRoot, "examples", args.project);
+const workspace = resolveWorkspace({ explicitRoot: args.root });
+const workspaceBanner = describeWorkspaceLine(workspace);
+if (workspaceBanner) console.log(workspaceBanner);
+
+const projectDir = workspaceProjectDir(workspace, args.project);
 const projectFile = path.join(projectDir, "template-project.json");
 if (!fs.existsSync(projectFile)) {
-  console.error(`[run-pipeline] project not found: examples/${args.project}/template-project.json`);
+  console.error(
+    `[run-pipeline] project not found: ${path.relative(workspace.root, projectFile) || projectFile}` +
+      ` (workspace ${workspace.root}, resolved by: ${workspace.mode})`,
+  );
   process.exit(2);
 }
 const project = readJsonOr(projectFile, {});
@@ -95,23 +97,30 @@ const revisionId =
   args.revision || project.currentDraftRevisionId || "revision-001";
 const revisionDir = path.join(projectDir, "revisions", revisionId);
 const revision = readJsonOr(path.join(revisionDir, "revision.json"), null);
+// In install mode the project lives at examples/<id> and the printed commands
+// stay exactly what they always were; in a user workspace they carry --root so
+// they can be copied out of the terminal and run anywhere.
+// Forward slashes: these strings are printed as commands to paste into a
+// shell, where a Windows path.join separator would be an escape character.
+const posix = (p) => p.split(path.sep).join("/");
+const projectDisplay =
+  workspace.mode === "install" ? `examples/${args.project}` : posix(projectDir);
+const rootFlag = workspace.mode === "install" ? "" : ` --root ${workspace.root}`;
+
 if (!revision && !args.render) {
   console.error(
-    `[run-pipeline] note: ${path.join("examples", args.project, "revisions", revisionId, "revision.json")} not found yet; ` +
+    `[run-pipeline] note: ${posix(path.join(projectDir, "revisions", revisionId, "revision.json"))} not found yet; ` +
       `treating it as a new revision to author.`,
   );
 }
 
 // Resolve scope: explicit flag > revision.json scope > inference.
-const isFirst =
-  revisionId === "revision-001" || (revision && revision.parentRevisionId == null);
-const scope =
-  args.scope || (revision && revision.scope) || (isFirst ? "new" : "visual-change");
+const scope = resolveScope({ explicitScope: args.scope, revision, revisionId });
 
-const chain = SUBCHAINS[scope];
-if (!chain) {
+const stages = stagesForScope(config, scope);
+if (!stages) {
   console.error(
-    `[run-pipeline] unknown scope "${scope}". Known: ${["new", ...Object.keys(SUBCHAINS).filter((s) => s !== "new")].join(", ")}`,
+    `[run-pipeline] unknown scope "${scope}". Known: ${scopeNames(config).join(", ")}`,
   );
   process.exit(2);
 }
@@ -124,23 +133,32 @@ console.log(
   `\n${bold("Pipeline")}  project=${args.project}  revision=${revisionId}  scope=${bold(scope)}\n`,
 );
 
-const steps = ["orchestrator", ...chain];
+// Name the skill that owns this scope. Without it the stage list below — which
+// still points at prompts/ until those are removed — reads as the instruction,
+// and the prompts are superseded.
+const owningWorkflows = Object.entries(config.workflows ?? {})
+  .filter(([id]) => !id.startsWith("$"))
+  .filter(([, workflow]) => workflow.scopes?.includes(scope));
+if (owningWorkflows.length > 0) {
+  console.log(`  ${bold("follow")}: ${owningWorkflows.map(([, w]) => w.skill).join(" or ")}`);
+  console.log(dim("  the stages below are what that skill runs; the prompt files are historical\n"));
+}
+
 let missing = 0;
-steps.forEach((key, i) => {
-  const [file, desc] = AGENTS[key];
-  const exists = fs.existsSync(path.join(repoRoot, file));
+stages.forEach((stage, i) => {
+  const exists = fs.existsSync(path.join(repoRoot, stage.prompt));
   if (!exists) missing += 1;
   const n = String(i + 1).padStart(2, " ");
   const mark = exists ? " " : "!";
-  console.log(`  ${mark}${n}. ${file}`);
-  console.log(`        ${dim(desc)}`);
+  console.log(`  ${mark}${n}. ${stage.prompt}`);
+  console.log(`        ${dim(stage.description)}`);
 });
 
 console.log(`\n  ${bold("mechanical render")} (the Test+Render step):`);
-console.log(`        node scripts/render.mjs ${args.project} ${revisionId}`);
+console.log(`        node scripts/render.mjs ${args.project} ${revisionId}${rootFlag}`);
 console.log(`\n  ${bold("when parity is clean, approve")} (-> Revision Manager, then Template Publisher rebuilds templates/):`);
 console.log(
-  `        node tools/revision-manager/bin/graphcompose-flow.mjs approve ${revisionId} --project examples/${args.project}`,
+  `        node tools/revision-manager/bin/graphcompose-flow.mjs approve ${revisionId} --project ${projectDisplay}`,
 );
 if (missing > 0) {
   console.log(dim(`\n  (${missing} prompt file(s) marked "!" were not found under prompts/)`));
@@ -149,7 +167,9 @@ if (missing > 0) {
 // --- optionally run the mechanical render -----------------------------------
 if (args.render) {
   console.log(`\n${bold("> running render step")}: node scripts/render.mjs ${args.project} ${revisionId}\n`);
-  const res = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "render.mjs"), args.project, revisionId], {
+  const renderArgs = [path.join(repoRoot, "scripts", "render.mjs"), args.project, revisionId];
+  if (workspace.mode !== "install") renderArgs.push("--root", workspace.root);
+  const res = spawnSync(process.execPath, renderArgs, {
     cwd: repoRoot,
     stdio: "inherit",
   });

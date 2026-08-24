@@ -25,8 +25,18 @@ GraphCompose version
 ## Outputs
 
 ```text
-orchestration-decision.md
+orchestration-decision.json   <- write this FIRST; schemas/orchestration.schema.json
+orchestration-decision.md     <- the human rendering of the same decision
 ```
+
+Write the JSON first: it records the routing decision as data
+(`intent`, `scope`, `parentRevision`, the ordered `stages`, and the
+`gate` the scope ends on), so a later stage reads the decision instead
+of re-deriving it from prose. Copy `stages` and `gate` from the scope's
+entry in `config/pipeline.json` rather than retyping a chain from
+memory — `node scripts/run-pipeline.mjs <project-id>` prints exactly
+what belongs there. The gesture reading, the alternatives weighed and
+the out-of-scope notes stay in the Markdown.
 
 ## Responsibilities
 
@@ -46,6 +56,15 @@ written into `user-request.md` before any downstream agent runs.
 The scope determines BOTH which downstream agents run AND which
 gate Visual Review applies. The five values are ordered from
 shortest (fewest agents) to longest (full pipeline):
+
+**Source of truth.** Which stages a scope runs, and which gate it
+ends on, is declared once in
+[`config/pipeline.json`](../config/pipeline.json) and read by
+`scripts/run-pipeline.mjs`. The table below is the human rendering of
+that file — it is here for the "means" and "how to pick" columns,
+which the config does not carry. If the two ever disagree, the config
+wins and `scripts/test/pipeline-config.test.mjs` fails the build.
+Print the live chain with `node scripts/run-pipeline.mjs <project-id>`.
 
 | Scope value | Means | Agents that run | Visual Review gate |
 |---|---|---|---|
@@ -82,9 +101,13 @@ against the project's diff surface:
    (new row striping). When the gesture is ambiguous, ask before
    opening the revision; do NOT default.
 
-Skill Validator still runs first on every scope; halt verdict
-blocks every downstream agent regardless of scope (per
-`prompts/skill-validator-agent.md` § "Downstream halt contract").
+Skill validation applies on every scope, even though only the `new`
+chain carries a Skill Validator stage: `scripts/lib/render-runtime.mjs`
+runs the gate in `scripts/lib/skill-validation-gate.mjs` on every
+render, and a `halt` verdict exits the render with status 4 — the
+same halt contract, enforced by the tool rather than by a prompt
+(per `prompts/skill-validator-agent.md` § "Downstream halt contract").
+`config/pipeline.json` records this as `preflight.skillValidation`.
 
 ## Autonomous visual iteration loop
 

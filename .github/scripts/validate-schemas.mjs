@@ -39,6 +39,28 @@ const SCHEMA_BINDINGS = [
     filename: 'revision.json',
     schemaFile: 'revision.schema.json',
   },
+  // The structured half of the artifacts the agent chain writes. Each has a
+  // Markdown sibling that carries the prose; these carry what the loop reads.
+  {
+    filename: 'orchestration-decision.json',
+    schemaFile: 'orchestration.schema.json',
+  },
+  {
+    filename: 'visual-analysis.json',
+    schemaFile: 'visual-analysis.schema.json',
+  },
+  {
+    filename: 'architecture-plan.json',
+    schemaFile: 'architecture-plan.schema.json',
+  },
+  {
+    filename: 'visual-review.json',
+    schemaFile: 'visual-review.schema.json',
+  },
+  {
+    filename: 'flow.config.json',
+    schemaFile: 'flow-config.schema.json',
+  },
 ];
 
 const SKIP_DIRS = new Set([
