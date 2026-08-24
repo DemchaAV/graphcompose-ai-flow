@@ -154,8 +154,14 @@ test("the installed runtime carries what the skills reach for, and nothing else"
 
   // Not runtime: shipping these would make the "self-contained" copy a mirror
   // of the repository, including the chain this harness replaced.
-  for (const absent of ["examples", "templates", "prompts", "site", "docs", ".git"]) {
+  for (const absent of ["templates", "prompts", "site", "docs", ".git"]) {
     assert.ok(!fs.existsSync(path.join(root, absent)), `the install carries ${absent}, which is not runtime`);
+  }
+  // examples/ is the one exception, and only the sliver of it the template
+  // seeder reads. Everything else under it stays behind — see the seed test.
+  if (fs.existsSync(path.join(root, "examples"))) {
+    const examples = fs.readdirSync(path.join(root, "examples"));
+    assert.deepEqual(examples, ["invoice-reference"], `the install carries examples it does not use: ${examples}`);
   }
 });
 
@@ -238,4 +244,63 @@ test("the skills document no shell-specific syntax, so Codex on Windows can run 
       }
     });
   }
+});
+
+// ------------------------------------- what the first Codex acceptance found
+
+test("the bundled template seed ships, so --template does not work only in a clone", () => {
+  // The plugin cache is a full git clone and has examples/ by accident; a Codex
+  // install is a curated copy and did not. `init --template invoice` therefore
+  // failed in one packaging and worked in the other — the divergence this
+  // adapter exists to prevent.
+  const version = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json"), "utf8")).version;
+  const home = tempDir("seed-home");
+  run(["--home", home, "--dest", tempDir("seed-skills")]);
+  const runtime = path.join(home, version);
+
+  const seed = path.join(runtime, "examples", "invoice-reference");
+  for (const relative of [
+    "template-project.json",
+    "reference/reference.md",
+    "revisions/revision-001/revision.json",
+    "revisions/revision-001/generated-template.java",
+    "revisions/revision-001/generated-test.java",
+    "render-runner/pom.xml",
+  ]) {
+    assert.ok(
+      fs.existsSync(path.join(seed, ...relative.split("/"))),
+      `the seeder reads ${relative}, and the install does not ship it`,
+    );
+  }
+
+  // The 1.5 MB of revision artifacts the seeder never reads stay behind.
+  assert.ok(
+    !fs.existsSync(path.join(seed, "revisions", "revision-001", "output.pdf")),
+    "the install carries revision artifacts it has no use for",
+  );
+});
+
+test("the renderer is shipped built, and nothing in the install can rebuild it", () => {
+  // Shipping pom.xml without src/ was actively harmful: `mvn package` there
+  // succeeds and produces a jar with no classes, overwriting the working one.
+  // The render then dies on "Could not find or load main class".
+  const version = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json"), "utf8")).version;
+  const home = tempDir("jar-home");
+  run(["--home", home, "--dest", tempDir("jar-skills")]);
+  const renderer = path.join(home, version, "tools", "preview-renderer");
+
+  assert.ok(
+    !fs.existsSync(path.join(renderer, "src")),
+    "renderer sources shipped; if that becomes deliberate, drop the guard in render-runtime.mjs",
+  );
+
+  const runtime = fs.readFileSync(
+    path.join(repoRoot, "scripts", "lib", "render-runtime.mjs"),
+    "utf8",
+  );
+  assert.match(
+    runtime,
+    /rendererSources[\s\S]{0,200}existsSync/,
+    "render-runtime no longer checks for renderer sources before rebuilding",
+  );
 });

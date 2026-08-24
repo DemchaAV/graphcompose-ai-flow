@@ -7,6 +7,46 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.0-beta.10 — what the Codex install actually did
+
+The Codex adapter was driven against a sandboxed install with the source
+clone deleted — the claim the design stakes itself on. It held, but two
+defects turned up first, and both would have ended a live run in its
+opening minutes.
+
+- **The bundled template seed never shipped.** `init --template invoice`
+  failed with "template seed not found" because the runtime copy has no
+  `examples/`. The Claude plugin cache is a full git clone and has it by
+  accident, so the same command worked in one packaging and not the
+  other — the divergence the adapter exists to prevent. Now shipped, but
+  only the sliver the seeder reads: 60 KB against 1.5 MB for the example
+  wholesale.
+
+- **The render destroyed its own renderer.** `render.mjs` runs
+  `mvn package` on the preview renderer before using it. An install ships
+  the built jar and the pom but not the sources, so that build did not
+  fail — it succeeded, produced a jar with no classes, and overwrote the
+  working one. The render then died on "Could not find or load main
+  class", and every later run would have failed the same way with no way
+  back short of reinstalling.
+
+  `scripts/lib/render-runtime.mjs` now rebuilds the renderer only where
+  its `src/` exists, uses the shipped jar otherwise, and aborts clearly
+  when there is neither.
+
+With both fixed, the full deterministic chain runs from an install with
+no clone anywhere: workspace, seeded project, compile, render, PDF and
+PNG — plus probes, observation verification and telemetry.
+
+Held by two tests in `scripts/test/codex-adapter.test.mjs`. One existing
+test had to change with them: `examples/` is no longer absent from an
+install, so it now asserts that exactly one example ships and nothing
+else.
+
+**Still outstanding:** the live half. Whether the skill fires from a
+plain sentence in a session nobody prepared is a question only a Codex
+session can answer, and it is the last release blocker.
+
 ### v0.5.0-beta.9 — the loop listens
 
 - **A difference the user names now outranks the measured one.**

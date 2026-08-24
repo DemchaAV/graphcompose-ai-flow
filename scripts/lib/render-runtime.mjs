@@ -310,10 +310,25 @@ export function runRender({ repoRoot, projectId, revisionId, projectDir: explici
       `> mvn package skipped (scope=${scope}; runner target/classes + preview-renderer.jar reused)`,
     );
   } else {
-    runMaven(
-      ["-q", "-B", "-f", previewRendererPom, "-DskipTests=true", "package"],
-      repoRoot,
-    );
+    // Only rebuild the renderer where its source actually lives. An installed
+    // harness ships the built jar and the pom but not the sources, and a
+    // `package` there does not fail — it succeeds, producing a jar with no
+    // classes in it, overwriting the working one. The first Codex acceptance
+    // run died on "Could not find or load main class" for exactly this.
+    const rendererSources = path.join(previewRendererDir, "src");
+    if (fs.existsSync(rendererSources)) {
+      runMaven(
+        ["-q", "-B", "-f", previewRendererPom, "-DskipTests=true", "package"],
+        repoRoot,
+      );
+    } else if (fs.existsSync(previewRendererJar)) {
+      console.log("> preview-renderer build skipped (installed copy; using the shipped jar)");
+    } else {
+      abort(
+        `preview renderer missing and not buildable here: ${previewRendererJar} does not exist ` +
+          `and ${rendererSources} was not shipped. Reinstall the harness, or run npm run setup in a checkout.`,
+      );
+    }
     runMaven(
       [
         "-q",

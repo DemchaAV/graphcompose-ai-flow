@@ -50,6 +50,18 @@ const RUNTIME = [
   // way, which is the cost this layer exists to remove.
   { from: "observations" },
   { from: "tools/diagnostics", skip: ["target"] },
+  // The bundled template seed, and only the files the seeder actually reads.
+  // Copying examples/invoice-reference wholesale would bring 1.5 MB of revision
+  // artifacts for 52 KB of use. Without these, `init --template` fails in an
+  // installed copy while working in the plugin — which is a full clone — and
+  // the two packagings quietly stop behaving the same.
+  { from: "examples/invoice-reference/template-project.json" },
+  { from: "examples/invoice-reference/reference/reference.md" },
+  { from: "examples/invoice-reference/revisions/revision-001/revision.json" },
+  { from: "examples/invoice-reference/revisions/revision-001/generated-template.java" },
+  { from: "examples/invoice-reference/revisions/revision-001/generated-test.java" },
+  { from: "examples/invoice-reference/revisions/revision-001/user-request.md" },
+  { from: "examples/invoice-reference/render-runner", skip: ["target"] },
   { from: "tools/asset-resolver", skip: ["node_modules"] },
   // The TypeScript CLIs ship as their build output plus the manifests needed to
   // install runtime dependencies; their source and dev toolchain stay behind.
