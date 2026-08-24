@@ -29,30 +29,39 @@ import {
   scopeNames,
   stagesForScope,
 } from "./lib/pipeline-config.mjs";
+import {
+  describeWorkspaceLine,
+  installRoot,
+  projectDir as workspaceProjectDir,
+  resolveWorkspace,
+} from "./lib/workspace.mjs";
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = installRoot();
 
 const config = loadPipelineConfig({ repoRoot });
 
 function usage(code = 0) {
   process.stdout.write(
-    "usage: node scripts/run-pipeline.mjs <project-id> [--revision <id>] [--scope <scope>] [--render]\n\n" +
+    "usage: node scripts/run-pipeline.mjs <project-id> [--revision <id>] [--scope <scope>] [--render] [--root <workspace>]\n\n" +
       "  --revision <id>   default: project currentDraftRevisionId, else revision-001\n" +
       `  --scope <scope>   ${scopeNames(config).join(" | ")}\n` +
       "                    default: revision.json scope, else inferred\n" +
-      "  --render          run the mechanical render step (scripts/render.mjs)\n",
+      "  --render          run the mechanical render step (scripts/render.mjs)\n" +
+      "  --root <dir>      workspace holding the projects; default: GRAPHCOMPOSE_FLOW_ROOT,\n" +
+      "                    a graphcompose-flow/ found above the cwd, else this repo's examples/\n",
   );
   process.exit(code);
 }
 
 function parseArgs(argv) {
-  const out = { project: null, revision: null, scope: null, render: false };
+  const out = { project: null, revision: null, scope: null, render: false, root: null };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--help" || a === "-h") usage(0);
     else if (a === "--render") out.render = true;
     else if (a === "--revision" || a === "-r") out.revision = argv[++i];
     else if (a === "--scope" || a === "-s") out.scope = argv[++i];
+    else if (a === "--root") out.root = argv[++i];
     else if (!a.startsWith("-") && !out.project) out.project = a;
   }
   return out;
@@ -69,10 +78,17 @@ function readJsonOr(p, fallback) {
 const args = parseArgs(process.argv.slice(2));
 if (!args.project) usage(2);
 
-const projectDir = path.join(repoRoot, "examples", args.project);
+const workspace = resolveWorkspace({ explicitRoot: args.root });
+const workspaceBanner = describeWorkspaceLine(workspace);
+if (workspaceBanner) console.log(workspaceBanner);
+
+const projectDir = workspaceProjectDir(workspace, args.project);
 const projectFile = path.join(projectDir, "template-project.json");
 if (!fs.existsSync(projectFile)) {
-  console.error(`[run-pipeline] project not found: examples/${args.project}/template-project.json`);
+  console.error(
+    `[run-pipeline] project not found: ${path.relative(workspace.root, projectFile) || projectFile}` +
+      ` (workspace ${workspace.root}, resolved by: ${workspace.mode})`,
+  );
   process.exit(2);
 }
 const project = readJsonOr(projectFile, {});
@@ -81,9 +97,19 @@ const revisionId =
   args.revision || project.currentDraftRevisionId || "revision-001";
 const revisionDir = path.join(projectDir, "revisions", revisionId);
 const revision = readJsonOr(path.join(revisionDir, "revision.json"), null);
+// In install mode the project lives at examples/<id> and the printed commands
+// stay exactly what they always were; in a user workspace they carry --root so
+// they can be copied out of the terminal and run anywhere.
+// Forward slashes: these strings are printed as commands to paste into a
+// shell, where a Windows path.join separator would be an escape character.
+const posix = (p) => p.split(path.sep).join("/");
+const projectDisplay =
+  workspace.mode === "install" ? `examples/${args.project}` : posix(projectDir);
+const rootFlag = workspace.mode === "install" ? "" : ` --root ${workspace.root}`;
+
 if (!revision && !args.render) {
   console.error(
-    `[run-pipeline] note: ${path.join("examples", args.project, "revisions", revisionId, "revision.json")} not found yet; ` +
+    `[run-pipeline] note: ${posix(path.join(projectDir, "revisions", revisionId, "revision.json"))} not found yet; ` +
       `treating it as a new revision to author.`,
   );
 }
@@ -118,10 +144,10 @@ stages.forEach((stage, i) => {
 });
 
 console.log(`\n  ${bold("mechanical render")} (the Test+Render step):`);
-console.log(`        node scripts/render.mjs ${args.project} ${revisionId}`);
+console.log(`        node scripts/render.mjs ${args.project} ${revisionId}${rootFlag}`);
 console.log(`\n  ${bold("when parity is clean, approve")} (-> Revision Manager, then Template Publisher rebuilds templates/):`);
 console.log(
-  `        node tools/revision-manager/bin/graphcompose-flow.mjs approve ${revisionId} --project examples/${args.project}`,
+  `        node tools/revision-manager/bin/graphcompose-flow.mjs approve ${revisionId} --project ${projectDisplay}`,
 );
 if (missing > 0) {
   console.log(dim(`\n  (${missing} prompt file(s) marked "!" were not found under prompts/)`));
@@ -130,7 +156,9 @@ if (missing > 0) {
 // --- optionally run the mechanical render -----------------------------------
 if (args.render) {
   console.log(`\n${bold("> running render step")}: node scripts/render.mjs ${args.project} ${revisionId}\n`);
-  const res = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "render.mjs"), args.project, revisionId], {
+  const renderArgs = [path.join(repoRoot, "scripts", "render.mjs"), args.project, revisionId];
+  if (workspace.mode !== "install") renderArgs.push("--root", workspace.root);
+  const res = spawnSync(process.execPath, renderArgs, {
     cwd: repoRoot,
     stdio: "inherit",
   });

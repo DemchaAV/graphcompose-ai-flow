@@ -175,8 +175,17 @@ function createLiveMirror(repoRoot) {
   };
 }
 
-export function runRender({ repoRoot, projectId, revisionId }) {
-  const projectDir = path.join(repoRoot, "examples", projectId);
+/**
+ * Render one revision.
+ *
+ * `repoRoot` is the INSTALL root — where preview-renderer, the asset resolver
+ * and the live mirror live. `projectDir` is where the work is, which is only
+ * the same tree in development mode; callers that resolve a workspace pass it
+ * explicitly. Left out, it falls back to <install>/examples/<projectId> so the
+ * per-example shims keep working unchanged.
+ */
+export function runRender({ repoRoot, projectId, revisionId, projectDir: explicitProjectDir }) {
+  const projectDir = explicitProjectDir ?? path.join(repoRoot, "examples", projectId);
   const templateProjectPath = path.join(projectDir, "template-project.json");
   if (!fs.existsSync(templateProjectPath)) {
     abort(`template-project.json not found: ${templateProjectPath}`);

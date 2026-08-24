@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DemchaAV/graphcompose-ai-flow/schemas/flow-config.schema.json",
+  "title": "Workspace manifest",
+  "description": "The manifest at <user-project>/graphcompose-flow/flow.config.json. Its presence is what marks a directory as a GraphCompose AI Flow workspace: the tools walk up from the current directory looking for it, so a user standing anywhere inside their Java project gets the right projects and templates. Everything in it is optional except the contract version — the manifest pins choices, it does not carry state.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "On-disk contract version for the workspace manifest."
+    },
+    "graphComposeVersion": {
+      "type": "string",
+      "pattern": "^v?\\d+\\.\\d+(\\.\\d+)?(-[A-Za-z0-9.]+)?$",
+      "description": "GraphCompose version this workspace targets. Written when the pin should not be re-derived from the host project's build file — otherwise scripts/resolve-version.mjs reads pom.xml / build.gradle(.kts) and this stays absent."
+    },
+    "skillPack": {
+      "type": "string",
+      "pattern": "^skills/versions/.+$",
+      "description": "Skill pack the projects here author against, relative to the harness install root. Normally derived from graphComposeVersion; pinned explicitly only to hold a pack across a version bump."
+    },
+    "hostProject": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the Java project this workspace serves, relative to the workspace directory. Defaults to the parent directory, which is where the build file usually is."
+    },
+    "projects": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "description": "Optional index of the project ids under projects/. The directory listing is authoritative; this exists so a workspace can declare an intended order."
+    },
+    "notes": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Free-form note for whoever opens this workspace next."
+    }
+  }
+}

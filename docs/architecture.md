@@ -238,6 +238,65 @@ and leave everything descriptive optional. The Markdown stays the
 richer document; the JSON stays cheap enough that an agent produces it
 without ceremony.
 
+## Workspace: where the harness ends and the work begins
+
+Two roots were conflated while this repository *was* the workspace,
+both of them called `repoRoot`:
+
+| Root | Holds | Resolved from |
+|---|---|---|
+| **install root** | `prompts/`, `skills/`, `config/`, `schemas/`, `tools/` — the harness itself | the script's own location, always |
+| **workspace root** | projects, revisions, references, published bundles — the user's work | the resolution order below |
+
+Inside this repo they are the same directory, which is why the
+distinction never had to exist. Once the harness is installed as a
+plugin they are not: the tools live in the plugin directory and the
+work belongs to whichever Java project the user has open. Anything
+reaching for a project asks
+[`scripts/lib/workspace.mjs`](../scripts/lib/workspace.mjs); joining
+`examples/` onto the install root is now a bug.
+
+A workspace is a directory inside the user's Java project:
+
+```text
+my-java-app/
+├── pom.xml                        the GraphCompose pin lives here
+├── src/main/java/…
+└── graphcompose-flow/             the workspace
+    ├── flow.config.json           manifest — presence marks the workspace
+    ├── projects/<project-id>/     template-project.json, reference/, revisions/
+    └── templates/<template-id>/   published bundles
+```
+
+It is a visible directory rather than a dotfile because its contents
+are work product the user reviews, edits and commits — revisions, data
+JSON, rendered previews — not tool internals to be hidden away.
+
+Resolution order, first match wins:
+
+1. an explicit `--root`
+2. the `GRAPHCOMPOSE_FLOW_ROOT` environment variable
+3. a `graphcompose-flow/flow.config.json` found by walking up from the
+   current directory — so standing anywhere inside the Java project
+   works with no flags
+4. the install root's own `examples/` and `templates/` — development
+   mode, which is how this repository keeps dogfooding the same code
+   path it ships
+
+Every command prints which workspace it resolved and how, except in
+development mode where the answer is "the repository you are standing
+in".
+
+The GraphCompose version comes from the user's build file, not from a
+prompt: [`scripts/resolve-version.mjs`](../scripts/resolve-version.mjs)
+reads `pom.xml` or `build.gradle(.kts)`, finds the
+`io.github.demchaav:graph-compose` (or JitPack) coordinate, and maps
+its major.minor line to a pack under `skills/versions/`. A line with
+no pack exits `3` and says so. It is never rounded to the nearest pack
+that happens to exist — authoring against a different line's allow-list
+produces calls that do not compile, so an honest gap beats a
+confident wrong answer.
+
 ## Target repository shape
 
 ```text

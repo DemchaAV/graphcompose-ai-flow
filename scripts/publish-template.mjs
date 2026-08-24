@@ -8,9 +8,15 @@
  * substitution, manifest write); the Template Publisher Agent owns
  * the editorial Javadoc polish on top.
  *
+ * The project is read from, and the bundle written into, the resolved
+ * workspace: --root, else GRAPHCOMPOSE_FLOW_ROOT, else a graphcompose-flow/
+ * directory found above the cwd, else this repository's own examples/ +
+ * templates/ (see scripts/lib/workspace.mjs).
+ *
  * Usage:
  *   node scripts/publish-template.mjs \
- *     --project cv-reference            (required — examples/<project>/)
+ *     --project cv-reference            (required — a project in the workspace)
+ *     [--root <workspace>]               (default: discovered, see above)
  *     [--revision revision-006]          (default: template-project.json#currentApprovedRevisionId)
  *     [--template-id mint-editorial-cv]  (default: kebab(displayName))
  *     [--class-name MintEditorialCvTemplate] (default: pascal(displayName) + "Template")
@@ -20,15 +26,24 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
 
-const scriptPath = fileURLToPath(import.meta.url);
-const repoRoot = path.resolve(path.dirname(scriptPath), "..");
+import {
+  describeWorkspaceLine,
+  installRoot,
+  projectDir as workspaceProjectDir,
+  resolveWorkspace,
+} from "./lib/workspace.mjs";
+
+const repoRoot = installRoot();
 
 const args = parseArgs(process.argv.slice(2));
 const project = required(args, "project");
-const projectDir = path.join(repoRoot, "examples", project);
+const workspace = resolveWorkspace({ explicitRoot: args.root ?? null });
+const workspaceBanner = describeWorkspaceLine(workspace);
+if (workspaceBanner) console.log(workspaceBanner);
+
+const projectDir = workspaceProjectDir(workspace, project);
 const projectMetaPath = path.join(projectDir, "template-project.json");
 if (!fs.existsSync(projectMetaPath)) {
   abort(`template-project.json not found: ${projectMetaPath}`);
@@ -57,7 +72,7 @@ const templateId = args["template-id"] || toKebab(displayName);
 const className = args["class-name"] || pascalCase(displayName) + "Template";
 const docKind = args["doc-kind"] || inferDocKind(revisionDir);
 
-const targetDir = path.join(repoRoot, "templates", templateId);
+const targetDir = path.join(workspace.templatesDir, templateId);
 const targetSrcDir = path.join(targetDir, "src");
 const targetDataDir = path.join(targetDir, "data");
 const targetAssetsDir = path.join(targetDir, "assets");

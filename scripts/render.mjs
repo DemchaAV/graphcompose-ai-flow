@@ -5,9 +5,13 @@
  *   node scripts/render.mjs <project-id> [revision-id]
  *   node scripts/render.mjs --project cv-reference --revision revision-009
  *
- * All doc-kind-specific knobs live in
- * examples/<project-id>/template-project.json under the `render` block
- * (see scripts/lib/render-runtime.mjs for the contract).
+ * All doc-kind-specific knobs live in the project's
+ * template-project.json under the `render` block (see
+ * scripts/lib/render-runtime.mjs for the contract).
+ *
+ * The project is looked up in the resolved workspace: --root, else
+ * GRAPHCOMPOSE_FLOW_ROOT, else a graphcompose-flow/ directory found above the
+ * cwd, else this repository's own examples/ (see scripts/lib/workspace.mjs).
  *
  * Backward compat: scripts/render-cv-reference.mjs and
  * scripts/render-invoice-reference.mjs are thin shims that delegate
@@ -17,28 +21,43 @@
  * RENDER_NO_SKIP=1 forces the full pipeline regardless of revision scope.
  */
 
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
 import { runRender } from "./lib/render-runtime.mjs";
+import {
+  describeWorkspaceLine,
+  installRoot,
+  requireProjectDir,
+  resolveWorkspace,
+} from "./lib/workspace.mjs";
 
-const scriptPath = fileURLToPath(import.meta.url);
-const repoRoot = path.resolve(path.dirname(scriptPath), "..");
+const repoRoot = installRoot();
 
-const { projectId, revisionId } = parseArgs(process.argv.slice(2));
+const { projectId, revisionId, root } = parseArgs(process.argv.slice(2));
 if (!projectId) {
   console.error(
-    "usage: node scripts/render.mjs <project-id> [revision-id]\n" +
+    "usage: node scripts/render.mjs <project-id> [revision-id] [--root <workspace>]\n" +
       "       node scripts/render.mjs --project <id> --revision <id>",
   );
   process.exit(2);
 }
 
-runRender({ repoRoot, projectId, revisionId });
+const workspace = resolveWorkspace({ explicitRoot: root });
+const banner = describeWorkspaceLine(workspace);
+if (banner) console.log(banner);
+
+let projectDir;
+try {
+  projectDir = requireProjectDir(workspace, projectId);
+} catch (err) {
+  console.error(err.message);
+  process.exit(2);
+}
+
+runRender({ repoRoot, projectId, revisionId, projectDir });
 
 function parseArgs(args) {
   let projectId = null;
   let revisionId = null;
+  let root = null;
   const positional = [];
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
@@ -52,10 +71,15 @@ function parseArgs(args) {
       i += 1;
       continue;
     }
+    if (arg === "--root") {
+      root = args[i + 1];
+      i += 1;
+      continue;
+    }
     if (!arg.startsWith("--")) positional.push(arg);
   }
   projectId = projectId ?? positional[0] ?? null;
   revisionId = revisionId ?? positional[1] ?? null;
   if (!revisionId) revisionId = "revision-001";
-  return { projectId, revisionId };
+  return { projectId, revisionId, root };
 }

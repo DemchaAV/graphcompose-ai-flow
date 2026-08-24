@@ -47,7 +47,7 @@ the layer split and what is deliberately excluded are in
 | 0 — Architecture of record | Capture the target architecture; clean the repo root | done |
 | 1 — Single routing source | `config/pipeline.json` replaces the scope→stages duplication | done |
 | 2 — Structured contracts | JSON schemas for orchestration, visual analysis, architecture, review | done |
-| 3 — Workspace decoupling | Tools accept an external root; version resolved from the user's build file | not started |
+| 3 — Workspace decoupling | Tools accept an external root; version resolved from the user's build file | done |
 | 4 — Workflow skills | Eleven agent prompts become four skills | not started |
 | 5 — GraphCompose 2.2 skill pack | New default pack; 1.9 frozen alongside 1.6/1.7 | not started |
 | 6 — Progressive disclosure | Load only the topic skills a document kind needs | not started |

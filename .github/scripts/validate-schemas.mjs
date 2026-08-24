@@ -57,6 +57,10 @@ const SCHEMA_BINDINGS = [
     filename: 'visual-review.json',
     schemaFile: 'visual-review.schema.json',
   },
+  {
+    filename: 'flow.config.json',
+    schemaFile: 'flow-config.schema.json',
+  },
 ];
 
 const SKIP_DIRS = new Set([

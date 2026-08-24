@@ -14,6 +14,7 @@ job.
 | [`visual-analysis.schema.json`](visual-analysis.schema.json) | written by Visual Analyzer Agent, read by Architecture Mapper and Visual Review | `visual-analysis.json` — named regions, relational geometry, anchors, shape ownership, open questions. |
 | [`architecture-plan.schema.json`](architecture-plan.schema.json) | written by Architecture Mapper Agent, read by Template Coder | `architecture-plan.json` — region → render method → primitives, base constants, theme tokens, lane and document kind. |
 | [`visual-review.schema.json`](visual-review.schema.json) | written by Visual Review Agent, read by the iteration loop | `visual-review.json` — verdict, ranked mismatches, gate evidence, and the failure category when the loop is blocked. |
+| [`flow-config.schema.json`](flow-config.schema.json) | written by `scripts/lib/workspace.mjs`, read by every script that resolves a workspace | `graphcompose-flow/flow.config.json` in the user's Java project — the manifest whose presence marks a workspace, plus any version or skill-pack pin. |
 
 ## Structured artifacts and their Markdown siblings
 
