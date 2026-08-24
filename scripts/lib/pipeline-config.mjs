@@ -88,10 +88,31 @@ export function validatePipelineConfig(config) {
   validateStages(config.stages);
   validateGates(config.gates);
   validateScopes(config.scopes, config.stages, config.gates);
+  validateWorkflows(config.workflows, config.scopes);
   validateLimits(config.limits);
   validateFailureCategories(config.failureCategories);
 
   return config;
+}
+
+function validateWorkflows(workflows, scopes) {
+  if (workflows === undefined) return; // optional until every consumer declares one
+  if (!isPlainObject(workflows)) throw new PipelineConfigError("workflows must be an object");
+  for (const [id, workflow] of Object.entries(workflows)) {
+    if (id.startsWith("$")) continue; // $comment and friends
+    const at = `workflows.${id}`;
+    if (!isPlainObject(workflow)) throw new PipelineConfigError(`${at} must be an object`);
+    requireNonEmptyString(workflow.skill, `${at}.skill`);
+    requireNonEmptyString(workflow.summary, `${at}.summary`);
+    if (!Array.isArray(workflow.scopes)) {
+      throw new PipelineConfigError(`${at}.scopes must be an array (empty when it opens no revision)`);
+    }
+    for (const scopeName of workflow.scopes) {
+      if (!Object.hasOwn(scopes, scopeName)) {
+        throw new PipelineConfigError(`${at}.scopes references unknown scope ${JSON.stringify(scopeName)}`);
+      }
+    }
+  }
 }
 
 function validateStages(stages) {

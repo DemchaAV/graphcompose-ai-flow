@@ -1,5 +1,14 @@
 # GraphCompose Skills
 
+Two kinds of skill live here, and they change on different clocks:
+
+| Directory | Answers | Changes with |
+|---|---|---|
+| [`workflows/`](workflows/README.md) | *how the work is done* — create, revise, review, approve | this project |
+| [`versions/`](versions/) | *what GraphCompose can do*, per library version | the library |
+
+The rest of this page is about the versioned packs.
+
 Skills are versioned instructions for AI agents.
 
 They explain how to use GraphCompose correctly for a specific library version.

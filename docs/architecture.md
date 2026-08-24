@@ -95,7 +95,9 @@ were deterministic steps in prose. The classification changes:
 | Publisher | deterministic tool |
 
 What remains is four workflow skills, one per user gesture, plus the
-tools they call *(planned)*:
+tools they call. They live in
+[`skills/workflows/`](../skills/workflows/README.md) and are declared in
+`config/pipeline.json` under `workflows`:
 
 - **`create-template`** — "Create this document", "Recreate this
   screenshot", "Build a template from this reference". Runs the full
@@ -115,6 +117,13 @@ GraphCompose API knowledge stays separate from workflow, in the
 versioned skill packs under [`skills/versions/`](../skills/), and is
 loaded selectively — a two-column CV needs rows, weights, sections,
 typography and layer stacks, not the table and canvas documentation.
+The split holds because the two change on different clocks: workflow
+with this project, the API with the library.
+
+The mapping from stages to skills is deliberately not one-to-one. A
+stage such as `visualAnalyzer` belongs to more than one workflow, and
+review and approve run no pipeline chain at all — they are gestures,
+not stages.
 
 ## The iteration loop
 

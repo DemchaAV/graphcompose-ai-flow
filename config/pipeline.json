@@ -142,6 +142,34 @@
     }
   },
 
+  "workflows": {
+    "$comment": [
+      "The four user gestures, each an installable skill. Not a 1:1 mapping onto stages:",
+      "a stage like visualAnalyzer belongs to more than one workflow, and approve/review run",
+      "no pipeline chain at all. `scopes` records which scopes a workflow can open."
+    ],
+    "create-template": {
+      "skill": "skills/workflows/create-template/SKILL.md",
+      "summary": "Reference in, template out; loops until ready for approval.",
+      "scopes": ["new"]
+    },
+    "revise-template": {
+      "skill": "skills/workflows/revise-template/SKILL.md",
+      "summary": "Change an existing template as a new revision, under the narrowest scope that fits.",
+      "scopes": ["visual-change", "refactor-only", "data-only", "asset-only", "theme-only"]
+    },
+    "review-template": {
+      "skill": "skills/workflows/review-template/SKILL.md",
+      "summary": "Measure and judge the current render; opens no revision.",
+      "scopes": []
+    },
+    "approve-template": {
+      "skill": "skills/workflows/approve-template/SKILL.md",
+      "summary": "DRAFT to APPROVED, supersede the previous, publish the bundle.",
+      "scopes": []
+    }
+  },
+
   "limits": {
     "maxIterations": 8,
     "maxConsecutiveBuildFailures": 3,

@@ -200,6 +200,51 @@ test("every structured artifact schema exists and is bound in the revision schem
   }
 });
 
+test("every declared workflow skill exists and is a well-formed skill", () => {
+  const workflows = Object.entries(config.workflows).filter(([id]) => !id.startsWith("$"));
+  assert.equal(workflows.length, 4, "expected the four user-gesture workflows");
+
+  for (const [id, workflow] of workflows) {
+    const file = path.join(repoRoot, workflow.skill);
+    assert.ok(fs.existsSync(file), `workflows.${id}.skill does not exist: ${workflow.skill}`);
+
+    const source = fs.readFileSync(file, "utf8");
+    const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(source);
+    assert.ok(frontmatter, `${workflow.skill} has no YAML frontmatter`);
+    assert.match(frontmatter[1], /^name:\s*\S+/m, `${workflow.skill} frontmatter has no name`);
+    assert.match(frontmatter[1], /^description:\s*\S+/m, `${workflow.skill} frontmatter has no description`);
+
+    // The description is what makes a skill fire without an explicit
+    // invocation, so an empty-ish one silently disables the skill.
+    const description = /^description:\s*(.+)$/m.exec(frontmatter[1])[1];
+    assert.ok(
+      description.length > 80,
+      `${workflow.skill} description is too thin to trigger on (${description.length} chars)`,
+    );
+  }
+});
+
+test("every scope is reachable from some workflow, and every link in a skill resolves", () => {
+  const workflows = Object.entries(config.workflows).filter(([id]) => !id.startsWith("$"));
+
+  const reachable = new Set(workflows.flatMap(([, workflow]) => workflow.scopes));
+  for (const scopeName of Object.keys(config.scopes)) {
+    assert.ok(reachable.has(scopeName), `no workflow can open the "${scopeName}" scope`);
+  }
+
+  for (const [, workflow] of workflows) {
+    const file = path.join(repoRoot, workflow.skill);
+    const dir = path.dirname(file);
+    const source = fs.readFileSync(file, "utf8");
+    for (const [, target] of source.matchAll(/\]\((\.\.?\/[^)]+)\)/g)) {
+      assert.ok(
+        fs.existsSync(path.resolve(dir, target)),
+        `${workflow.skill} links to a missing file: ${target}`,
+      );
+    }
+  }
+});
+
 test("run-pipeline.mjs holds no chain of its own", () => {
   const source = fs.readFileSync(path.join(repoRoot, "scripts/run-pipeline.mjs"), "utf8");
   assert.ok(
