@@ -197,8 +197,10 @@ failure categories below, so the loop reads its own limits.
 **JSON is the machine source of truth; Markdown is the human view.**
 The loop has to read decisions back, and prose is not readable by a
 script. Every stage that produces a judgement writes a schema-validated
-`.json` first, and the `.md` beside it is the rendering of that file
-*(planned)*:
+`.json` first, and the `.md` beside it is the rendering of that file.
+The schemas live in [`schemas/`](../schemas/) and are enforced by the
+repo-wide validator; the stages that populate them are being migrated
+phase by phase:
 
 ```text
 orchestration-decision.json    →  routing decision
@@ -229,6 +231,12 @@ A verdict is therefore a structure, not a paragraph:
 
 The next iteration then works on `renderHeader`, and repeated attempts
 at the same `id` are what `maxSameMismatchAttempts` counts.
+
+The schemas are deliberately asymmetric: they require the
+decision-bearing fields — a verdict, a region id, a render method —
+and leave everything descriptive optional. The Markdown stays the
+richer document; the JSON stays cheap enough that an agent produces it
+without ceremony.
 
 ## Target repository shape
 

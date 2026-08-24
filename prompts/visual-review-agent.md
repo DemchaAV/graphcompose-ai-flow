@@ -36,8 +36,32 @@ explanation.
 ## Outputs
 
 ```text
-visual-review.md
+visual-review.json        <- write this FIRST; schemas/visual-review.schema.json
+visual-review.md          <- the human rendering of the same review
 ```
+
+Write the JSON first. It is the file the loop reads to decide whether
+to iterate, stop, or hand over for approval, and prose is not
+something a script can act on. Three fields carry that weight:
+
+- `verdict` — `READY_FOR_APPROVAL` | `REVISE` | `BLOCKED`. This drives
+  the loop. It is not the same field as `recommendation`
+  (`APPROVE` / `REVISE` / `REJECT`), which advises the human; record
+  both when both apply, and never write `APPROVED`.
+- `mismatches[].id` — a stable kebab-case id per mismatch, reused
+  verbatim when the same problem survives a fix. That reuse is how
+  `limits.maxSameMismatchAttempts` in `config/pipeline.json` notices a
+  loop that is not converging, so renaming a surviving mismatch
+  defeats the safeguard.
+- `largestMismatch` — the one id the next iteration must fix. The loop
+  fixes exactly one thing per pass.
+
+A `BLOCKED` verdict must carry a `failureCategory` from the shared
+vocabulary. Under the exact-diff and region-diff gates, put the
+measured numbers in `gate.pages[]` / `gate.regions[]` and the command
+output in `gate.metric` — quoted verbatim, never paraphrased. The
+component-by-component walkthrough, the evidence discussion and the
+patch-target narrative stay in the Markdown.
 
 ## Responsibilities
 

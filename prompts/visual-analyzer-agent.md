@@ -21,10 +21,20 @@ optional user notes
 ## Outputs
 
 ```text
-visual-analysis.md
+visual-analysis.json      <- write this FIRST; schemas/visual-analysis.schema.json
+visual-analysis.md        <- the human rendering of the same pass
 ```
 
-Suggested output structure:
+Write the JSON first. It is what later stages address by name — the
+Architecture Mapper maps `regions[].id` to render methods, and Visual
+Review reports mismatches against those same region ids — so the ids
+have to exist before the prose is written. The schema requires only
+`page` and `regions`; `anchors`, `shapeOwnership` and `unclearParts`
+are optional to the validator but still mandatory to this agent
+wherever the sections below say so. Everything the schema has no field
+for (observations, reasoning, comparisons) belongs in the Markdown.
+
+Suggested structure for the Markdown:
 
 ```markdown
 # Visual Analysis

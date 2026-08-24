@@ -57,6 +57,63 @@ describe('fail', () => {
     await expect(runFail(projectRoot)).rejects.toThrow(/no revision id/);
   });
 
+  it('always writes a failure record, because the schema requires one when status is FAILED', async () => {
+    await runNewRevision(projectRoot, 'first');
+    const failed = await runFail(projectRoot);
+    // Nothing was stated, so nothing is guessed: the stage is recorded as
+    // unspecified rather than inventing a plausible one.
+    expect(failed.failure).toEqual({
+      stage: 'unspecified',
+      summary: 'marked FAILED without a stated reason',
+    });
+    const onDisk = await loadRevision(projectRoot, failed.id);
+    expect(onDisk.failure).toBeDefined();
+  });
+
+  it('records the category and derives the stage from it', async () => {
+    await runNewRevision(projectRoot, 'first');
+    const failed = await runFail(projectRoot, undefined, 'javac exit 1', {
+      category: 'BUILD_FAILED',
+    });
+    expect(failed.failure).toMatchObject({
+      stage: 'compile',
+      category: 'BUILD_FAILED',
+      summary: 'javac exit 1',
+    });
+  });
+
+  it('keeps an explicit stage over the one the category implies', async () => {
+    await runNewRevision(projectRoot, 'first');
+    const failed = await runFail(projectRoot, undefined, 'broke late', {
+      category: 'BUILD_FAILED',
+      stage: 'test',
+      message: 'AssertionError: expected 2 pages',
+    });
+    expect(failed.failure).toMatchObject({
+      stage: 'test',
+      category: 'BUILD_FAILED',
+      message: 'AssertionError: expected 2 pages',
+    });
+  });
+
+  it('leaves the stage unspecified when the category does not imply one', async () => {
+    await runNewRevision(projectRoot, 'first');
+    const failed = await runFail(projectRoot, undefined, 'out of attempts', {
+      category: 'ITERATION_LIMIT',
+    });
+    expect(failed.failure).toMatchObject({ stage: 'unspecified', category: 'ITERATION_LIMIT' });
+  });
+
+  it('rejects a category or stage outside the shared vocabulary', async () => {
+    await runNewRevision(projectRoot, 'first');
+    await expect(
+      runFail(projectRoot, undefined, undefined, { category: 'EVERYTHING_BROKE' }),
+    ).rejects.toThrow(/unknown failure category/);
+    await expect(
+      runFail(projectRoot, undefined, undefined, { stage: 'vibes' }),
+    ).rejects.toThrow(/unknown failure stage/);
+  });
+
   it('preserves artifacts on the failed revision', async () => {
     await runNewRevision(projectRoot, 'first');
     const before = await loadRevision(projectRoot, 'revision-001');

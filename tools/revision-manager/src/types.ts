@@ -68,6 +68,47 @@ export interface TemplateProject {
   schemaVersion?: number;
 }
 
+/**
+ * Why an attempt stopped. Mirrors `failureCategories` in config/pipeline.json
+ * and `$defs/failureCategory` in schemas/revision.schema.json — the three must
+ * stay in step.
+ */
+export const FAILURE_CATEGORIES = [
+  'BUILD_FAILED',
+  'RENDER_FAILED',
+  'ASSET_FAILED',
+  'VISUAL_MISMATCH',
+  'GRAPHCOMPOSE_API_LIMITATION',
+  'MISSING_REFERENCE_INFORMATION',
+  'ITERATION_LIMIT',
+] as const;
+
+export type FailureCategory = (typeof FAILURE_CATEGORIES)[number];
+
+/** Pipeline stage a failure came from; mirrors `failure.stage` in the schema. */
+export const FAILURE_STAGES = [
+  'compile',
+  'render',
+  'preview',
+  'visual-diff',
+  'test',
+  'asset-resolve',
+  'skill-validate',
+  'architecture-map',
+  'unspecified',
+] as const;
+
+export type FailureStage = (typeof FAILURE_STAGES)[number];
+
+/** The `failure` record a FAILED revision must carry (see revision.schema.json). */
+export interface RevisionFailure {
+  stage: FailureStage;
+  summary: string;
+  category?: FailureCategory;
+  message?: string;
+  currentUsableDraft?: string | null;
+}
+
 export interface RevisionArtifacts {
   // Free-form mapping; keys are well-known labels, values are filenames relative
   // to the revision folder. We do not validate the set strictly here because

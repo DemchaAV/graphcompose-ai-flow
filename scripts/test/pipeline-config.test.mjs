@@ -145,6 +145,61 @@ test("limits and failure categories are present and sane", () => {
   }
 });
 
+test("the failure category vocabulary agrees across every file that spells it out", () => {
+  const fromRevision = readJson("schemas/revision.schema.json").$defs.failureCategory.enum;
+  const fromReview = readJson("schemas/visual-review.schema.json").properties.failureCategory.enum;
+  const fromTool = fs.readFileSync(path.join(repoRoot, "tools/revision-manager/src/types.ts"), "utf8");
+
+  assert.deepEqual(
+    [...fromRevision].sort(),
+    [...config.failureCategories].sort(),
+    "schemas/revision.schema.json and config/pipeline.json disagree about the failure categories",
+  );
+  assert.deepEqual(
+    [...fromReview].sort(),
+    [...config.failureCategories].sort(),
+    "schemas/visual-review.schema.json and config/pipeline.json disagree about the failure categories",
+  );
+  for (const category of config.failureCategories) {
+    assert.match(
+      fromTool,
+      new RegExp(`'${category}'`),
+      `tools/revision-manager/src/types.ts is missing the ${category} category`,
+    );
+  }
+});
+
+test("the failure stage vocabulary agrees between the schema and the tool", () => {
+  const fromSchema = readJson("schemas/revision.schema.json").properties.failure.properties.stage.enum;
+  const fromTool = fs.readFileSync(path.join(repoRoot, "tools/revision-manager/src/types.ts"), "utf8");
+  for (const stage of fromSchema) {
+    assert.match(
+      fromTool,
+      new RegExp(`'${stage}'`),
+      `tools/revision-manager/src/types.ts is missing the ${stage} failure stage`,
+    );
+  }
+});
+
+test("every structured artifact schema exists and is bound in the revision schema", () => {
+  const labels = readJson("schemas/revision.schema.json").$defs.artifactsWithLabels.properties;
+  for (const [schemaFile, label] of [
+    ["orchestration.schema.json", "orchestrationDecisionJson"],
+    ["visual-analysis.schema.json", "visualAnalysisJson"],
+    ["architecture-plan.schema.json", "architecturePlanJson"],
+    ["visual-review.schema.json", "visualReviewJson"],
+  ]) {
+    assert.ok(
+      fs.existsSync(path.join(repoRoot, "schemas", schemaFile)),
+      `schemas/${schemaFile} is missing`,
+    );
+    assert.ok(
+      Object.hasOwn(labels, label),
+      `revision.schema.json has no artifact label "${label}" for schemas/${schemaFile}`,
+    );
+  }
+});
+
 test("run-pipeline.mjs holds no chain of its own", () => {
   const source = fs.readFileSync(path.join(repoRoot, "scripts/run-pipeline.mjs"), "utf8");
   assert.ok(

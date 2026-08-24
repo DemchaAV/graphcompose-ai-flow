@@ -25,8 +25,18 @@ GraphCompose version
 ## Outputs
 
 ```text
-orchestration-decision.md
+orchestration-decision.json   <- write this FIRST; schemas/orchestration.schema.json
+orchestration-decision.md     <- the human rendering of the same decision
 ```
+
+Write the JSON first: it records the routing decision as data
+(`intent`, `scope`, `parentRevision`, the ordered `stages`, and the
+`gate` the scope ends on), so a later stage reads the decision instead
+of re-deriving it from prose. Copy `stages` and `gate` from the scope's
+entry in `config/pipeline.json` rather than retyping a chain from
+memory — `node scripts/run-pipeline.mjs <project-id>` prints exactly
+what belongs there. The gesture reading, the alternatives weighed and
+the out-of-scope notes stay in the Markdown.
 
 ## Responsibilities
 

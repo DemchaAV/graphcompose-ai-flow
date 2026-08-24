@@ -22,10 +22,22 @@ reference image
 ## Outputs
 
 ```text
-architecture-plan.md
+architecture-plan.json    <- write this FIRST; schemas/architecture-plan.schema.json
+architecture-plan.md      <- the human rendering of the same plan
 asset-request.json
 data-schema.md            (optional but required when content is templated)
 ```
+
+Write the JSON first. Its `componentMapping` (region -> named render
+method -> primitives) is the spine the rest of the contract hangs
+from: `changedComponents` in revision.json lists those method names,
+Visual Review reports mismatches against them, and selective rollback
+restores them one at a time. The schema requires
+`targetGraphComposeVersion`, `templateSurface` and `componentMapping`;
+the layer split, widget audit, base constants and theme tokens are
+optional to the validator but still required by the sections below
+wherever they apply. The reasoning, the risks and the narrative stay
+in the Markdown.
 
 When the template renders variable content (a CV, an invoice, a
 proposal, ...), the Architecture Mapper MUST split data from
