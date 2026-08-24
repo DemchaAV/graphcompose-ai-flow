@@ -30,6 +30,10 @@ The scope decides what "different" is even measured against — see
 `refactor-only` revision against the reference image instead of its
 parent answers the wrong question entirely.
 
+Reviewing needs one skill file, not a pack: `visual-regression.md`, per
+the pack's `00-loading-map.md`. Reach for a topic file only when a
+mismatch turns out to be about that topic.
+
 ## Steps
 
 **1. Measure.** Run the deterministic comparison before looking at

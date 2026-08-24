@@ -245,6 +245,54 @@ test("every scope is reachable from some workflow, and every link in a skill res
   }
 });
 
+test("the active pack has a loading map, and everything it names exists", () => {
+  const manifest = readJson("skills/skill-manifest.json");
+  const mapEntry = manifest.skills.find((skill) => skill.id === "graphcompose-loading-map");
+  assert.ok(mapEntry, "the manifest declares no loading map for the active pack");
+
+  const mapPath = path.join(repoRoot, "skills", mapEntry.file);
+  assert.ok(fs.existsSync(mapPath), `loading map missing: skills/${mapEntry.file}`);
+
+  const packDir = path.dirname(mapPath);
+  const source = fs.readFileSync(mapPath, "utf8");
+  for (const [, target] of source.matchAll(/\]\(([^)#]+\.md)\)/g)) {
+    assert.ok(
+      fs.existsSync(path.resolve(packDir, target)),
+      `the loading map links to a missing file: ${target}`,
+    );
+  }
+});
+
+test("every skill in the active pack is reachable from the loading map", () => {
+  const manifest = readJson("skills/skill-manifest.json");
+  const mapEntry = manifest.skills.find((skill) => skill.id === "graphcompose-loading-map");
+  const packPrefix = path.posix.dirname(mapEntry.file);
+  const source = fs.readFileSync(path.join(repoRoot, "skills", mapEntry.file), "utf8");
+
+  for (const skill of manifest.skills) {
+    if (!skill.file.startsWith(`${packPrefix}/`)) continue; // frozen packs are not mapped
+    if (skill.id === "graphcompose-loading-map") continue; // the map does not list itself
+
+    const basename = path.posix.basename(skill.file);
+    const named = source.includes(basename) || source.includes(skill.file.replace(`${packPrefix}/`, ""));
+    assert.ok(named, `${skill.id} (${basename}) is in the pack but nothing in the loading map points at it`);
+  }
+});
+
+test("every skill carries topic tags, and the always-loaded ones say so", () => {
+  const manifest = readJson("skills/skill-manifest.json");
+  for (const skill of manifest.skills) {
+    assert.ok(
+      Array.isArray(skill.topics) && skill.topics.length > 0,
+      `${skill.id} has no topics array — the loading map cannot be derived from the manifest`,
+    );
+  }
+  const always = manifest.skills.filter((skill) => skill.topics.includes("always")).map((s) => s.id);
+  for (const required of ["graphcompose-api-surface", "graphcompose-basics"]) {
+    assert.ok(always.includes(required), `${required} should be tagged "always"`);
+  }
+});
+
 test("run-pipeline.mjs holds no chain of its own", () => {
   const source = fs.readFileSync(path.join(repoRoot, "scripts/run-pipeline.mjs"), "utf8");
   assert.ok(

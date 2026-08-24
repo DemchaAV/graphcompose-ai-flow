@@ -82,8 +82,22 @@ ask, rather than guessing a version.
 
 ## Loading the pack
 
-Read the pack's `00-api-surface.md` for every builder you intend to call,
-plus only the topic files the document kind needs. A two-column CV needs
-rows, weights, sections, typography and layer stacks; it does not need
-the table or canvas documentation. Loading the whole pack buries the
-part that matters.
+Open the pack's `00-loading-map.md` first and load only what it lists
+for the task in front of you. A pack has sixteen files; a typical task
+needs four to six.
+
+The shape of the answer:
+
+- **always** — `00-api-surface.md` (grepped for the builders you will
+  call, not read front to back) and `graphcompose-basics.md`
+- **by task** — reading a reference, writing code, judging a render,
+  and opening a revision each pull a different small set
+- **by what the reference actually contains** — load `tables.md` because
+  the document has a table, not because invoices usually do
+- **by scope** — a `data-only` revision loads no topic file at all; a
+  `visual-change` loads the files for the region that changed
+
+The omissions are the point. Every file loaded "to be safe" is context
+the loop cannot spend on the mismatch it is about to fix. If the map
+looks wrong for the document in front of you, follow the document and
+say so — the map is a starting point, not a gate.

@@ -28,8 +28,11 @@ Establish the ground the whole run stands on — see
    `node scripts/resolve-version.mjs --project-dir <java-project> --json`.
    Exit 3 (no pack for that line) is a **stop** — report which version
    they pin and which packs exist.
-3. **Load only the topic skills the document kind needs**, plus
-   `00-api-surface.md` for every builder you will call.
+3. **Load selectively.** Open the pack's `00-loading-map.md` and take
+   only what it lists for this document — plus `00-api-surface.md`,
+   grepped for the builders you will actually call. Sixteen files
+   exist; four to six are the answer. What you skip is context the
+   iteration loop gets to spend on the real mismatch.
 4. **Create the project and the first revision:**
 
 ```bash

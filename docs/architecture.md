@@ -115,8 +115,16 @@ tools they call. They live in
 
 GraphCompose API knowledge stays separate from workflow, in the
 versioned skill packs under [`skills/versions/`](../skills/), and is
-loaded selectively — a two-column CV needs rows, weights, sections,
-typography and layer stacks, not the table and canvas documentation.
+loaded selectively. Each pack carries a `00-loading-map.md` answering
+one question — given this task, which files do I open? — organised by
+what the reference actually contains rather than by document kind, so
+`tables.md` loads because there is a table, not because invoices
+usually have one. A pack holds sixteen files; a typical task needs four
+to six, and the omissions are the point: every file loaded "to be safe"
+is context the iteration loop cannot spend on the mismatch it is about
+to fix. The `topics` array in `skills/skill-manifest.json` is the
+machine-readable half, and a contract test fails the build when a pack
+skill is unreachable from the map.
 The split holds because the two change on different clocks: workflow
 with this project, the API with the library.
 

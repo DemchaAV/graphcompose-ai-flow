@@ -52,6 +52,12 @@ For `visual-change`, re-analyse **only the region that changed**. Doing
 a whole-document analysis for a sidebar tweak invents differences in
 regions nobody touched.
 
+Load skills the same way: the pack's `00-loading-map.md` has a
+per-scope row. A `data-only` revision needs no topic file at all; a
+`theme-only` needs colours and possibly typography; a `refactor-only`
+needs the allow-list for the primitives being moved. Reloading the
+whole pack for a one-line change is the cost the map exists to avoid.
+
 Follow [the authoring rules](../references/authoring-rules.md)
 throughout: derived geometry, named anchors, no content literals in
 Java, no invented API.

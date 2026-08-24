@@ -9,100 +9,197 @@
   "defaultGraphComposeVersion": "1.9.x",
   "skills": [
     {
+      "id": "graphcompose-loading-map",
+      "file": "versions/graphcompose-1.9/00-loading-map.md",
+      "verifiedAgainst": "1.9.0",
+      "status": "active",
+      "topics": [
+        "always",
+        "index",
+        "progressive-disclosure"
+      ]
+    },
+    {
       "id": "graphcompose-api-surface",
       "file": "versions/graphcompose-1.9/00-api-surface.md",
       "verifiedAgainst": "1.9.0",
-      "status": "active"
+      "status": "active",
+      "topics": [
+        "always",
+        "api-allow-list"
+      ]
     },
     {
       "id": "graphcompose-engine-guides",
       "file": "versions/graphcompose-1.9/guides/00-index.md",
       "verifiedAgainst": "1.9.0",
-      "status": "needs-validation"
+      "status": "needs-validation",
+      "topics": [
+        "usage-examples",
+        "recipes"
+      ]
     },
     {
       "id": "graphcompose-basics",
       "file": "versions/graphcompose-1.9/graphcompose-basics.md",
       "verifiedAgainst": "1.9.0",
-      "status": "needs-validation"
+      "status": "needs-validation",
+      "topics": [
+        "always",
+        "foundation"
+      ]
     },
     {
       "id": "visual-to-graphcompose-mapping",
       "file": "versions/graphcompose-1.9/visual-to-graphcompose-mapping.md",
       "verifiedAgainst": "1.9.0",
-      "status": "needs-validation"
+      "status": "needs-validation",
+      "topics": [
+        "reference-analysis",
+        "create",
+        "visual-change"
+      ]
     },
     {
       "id": "layout-primitives",
       "file": "versions/graphcompose-1.9/layout-primitives.md",
       "verifiedAgainst": "1.9.0",
-      "status": "needs-validation"
+      "status": "needs-validation",
+      "topics": [
+        "layout",
+        "rows",
+        "sections",
+        "weights",
+        "create",
+        "visual-change"
+      ]
     },
     {
       "id": "tables",
       "file": "versions/graphcompose-1.9/tables.md",
       "verifiedAgainst": "1.9.0",
-      "status": "needs-validation"
+      "status": "needs-validation",
+      "topics": [
+        "tables",
+        "line-items",
+        "invoice",
+        "proposal"
+      ]
     },
     {
       "id": "themes-and-colors",
       "file": "versions/graphcompose-1.9/themes-and-colors.md",
       "verifiedAgainst": "1.9.0",
-      "status": "needs-validation"
+      "status": "needs-validation",
+      "topics": [
+        "color",
+        "theme-tokens",
+        "theme-only"
+      ]
     },
     {
       "id": "typography",
       "file": "versions/graphcompose-1.9/typography.md",
       "verifiedAgainst": "1.9.0",
-      "status": "needs-validation"
+      "status": "needs-validation",
+      "topics": [
+        "typography",
+        "fonts",
+        "type-scale",
+        "theme-only",
+        "asset-only"
+      ]
     },
     {
       "id": "spacing-and-alignment",
       "file": "versions/graphcompose-1.9/spacing-and-alignment.md",
       "verifiedAgainst": "1.9.0",
-      "status": "needs-validation"
+      "status": "needs-validation",
+      "topics": [
+        "spacing",
+        "margins",
+        "alignment",
+        "create",
+        "visual-change"
+      ]
     },
     {
       "id": "backgrounds-and-panels",
       "file": "versions/graphcompose-1.9/backgrounds-and-panels.md",
       "verifiedAgainst": "1.9.0",
-      "status": "needs-validation"
+      "status": "needs-validation",
+      "topics": [
+        "panels",
+        "bands",
+        "surfaces"
+      ]
     },
     {
       "id": "layer-stacks-and-overlays",
       "file": "versions/graphcompose-1.9/layer-stacks-and-overlays.md",
       "verifiedAgainst": "1.9.0",
-      "status": "needs-validation"
+      "status": "needs-validation",
+      "topics": [
+        "overlays",
+        "layer-stack",
+        "badges"
+      ]
     },
     {
       "id": "shapes-and-containers",
       "file": "versions/graphcompose-1.9/shapes-and-containers.md",
       "verifiedAgainst": "1.9.0",
-      "status": "needs-validation"
+      "status": "needs-validation",
+      "topics": [
+        "shapes",
+        "circles",
+        "pills",
+        "rounded-cards",
+        "clipping"
+      ]
     },
     {
       "id": "pagination",
       "file": "versions/graphcompose-1.9/pagination.md",
       "verifiedAgainst": "1.9.0",
-      "status": "needs-validation"
+      "status": "needs-validation",
+      "topics": [
+        "pagination",
+        "multi-page",
+        "overflow"
+      ]
     },
     {
       "id": "visual-regression",
       "file": "versions/graphcompose-1.9/visual-regression.md",
       "verifiedAgainst": "1.9.0",
-      "status": "needs-validation"
+      "status": "needs-validation",
+      "topics": [
+        "review",
+        "parity",
+        "diff"
+      ]
     },
     {
       "id": "revision-discipline",
       "file": "versions/graphcompose-1.9/revision-discipline.md",
       "verifiedAgainst": "1.9.0",
-      "status": "needs-validation"
+      "status": "needs-validation",
+      "topics": [
+        "revisions",
+        "process",
+        "rollback"
+      ]
     },
     {
       "id": "troubleshooting",
       "file": "versions/graphcompose-1.9/troubleshooting.md",
       "verifiedAgainst": "1.9.0",
-      "status": "needs-validation"
+      "status": "needs-validation",
+      "topics": [
+        "troubleshooting",
+        "failure"
+      ]
     }
   ],
   "notes": "Active skill pack targets graphcompose-1.9.x (verified against 1.9.0 from Maven Central: io.github.demchaav:graph-compose:1.9.0). The FIRST skill, graphcompose-api-surface (versions/graphcompose-1.9/00-api-surface.md), is the source-generated public-API allow-list: the COMPLETE list of every public authoring method/constant for 1.9.0, regenerated per release by tools/api-surface/api-index.py straight from the tagged GraphCompose source. It is a closed set — a symbol absent from it does not exist for the version, so it is the authoritative existence check that lets the template-coder and skill-validator agents stop inventing API. It is status: active because it is verified-by-construction against the 1.9.0 tag (there is no visual render to validate). The SECOND skill, graphcompose-engine-guides (versions/graphcompose-1.9/guides/00-index.md), is the how-to-use-the-engine layer: 13 intent-first developer guides vendored from the GraphCompose LLM wiki's 12-docs-extraction (compile-smoke + render-proven upstream) by tools/api-surface/sync-engine-guides.mjs. The allow-list says WHAT exists; the guides say HOW to use it. They are needs-validation until their snippets are re-smoked against 1.9.0 inside this flow. The 14 conceptual skills are a port of the graphcompose-1.7 pack: 1.7.0 -> 1.9.0 is additive (zero breaking changes), so the copies are a valid starting point re-stamped verifiedAgainst: 1.9.0. They remain needs-validation until the full render/preview/visual-diff loop passes against 1.9.0; their version-pinned Javadoc lookups now point at 1.9.0 while the historical \"New in 1.7.0\" notes are kept as accurate version history (the allow-list, not those notes, is the completeness source and reflects 1.8.x/1.9.0 additions such as addTableOfContents, addPageReference, toImage/toImages). The frozen graphcompose-1.7 and graphcompose-1.6 snapshots are retained on disk under versions/ so a project that pins back to 1.7.x or 1.6.x still resolves a version-accurate pack; pre-1.6.7 pins remain resolvable via JitPack as com.github.DemchaAV:GraphCompose:vX.Y.Z."

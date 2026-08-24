@@ -50,7 +50,7 @@ the layer split and what is deliberately excluded are in
 | 3 — Workspace decoupling | Tools accept an external root; version resolved from the user's build file | done |
 | 4 — Workflow skills | Eleven agent prompts become four skills | done |
 | 5 — GraphCompose 2.2 skill pack | New default pack; 1.9 frozen alongside 1.6/1.7 | not started |
-| 6 — Progressive disclosure | Load only the topic skills a document kind needs | not started |
+| 6 — Progressive disclosure | Load only the topic skills a document kind needs | done |
 | 7 — Claude Code plugin | Plugin manifest, slash commands, clean-project acceptance | not started |
 | 8 — Autonomous loop | Iterate to READY_FOR_APPROVAL or BLOCKED without prompting | not started |
 | 9 — Codex adapter | Same skills and tools, adapter only, no workflow fork | not started |
