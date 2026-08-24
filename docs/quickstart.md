@@ -202,6 +202,16 @@ node ..\tools\revision-manager\bin\graphcompose-flow.mjs init my-document
 cd ..
 ```
 
+> This page is the **contributor** path, where the workspace is this
+> repository's own `examples/`. In your own Java project it is one
+> command instead, and it is the first one to run:
+>
+> ```powershell
+> node scripts\init-workspace.mjs --project-dir C:\path\to\java-project --project my-document
+> ```
+>
+> See [`plugin-installation.md`](plugin-installation.md).
+
 Add your reference material:
 
 ```text

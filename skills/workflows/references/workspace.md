@@ -38,13 +38,30 @@ my-java-app/
     └── templates/<template-id>/   published bundles
 ```
 
-Creating one is idempotent, and an existing manifest is never
-overwritten:
+Create it with the CLI — never by hand, and never by importing
+`workspace.mjs` inline:
 
-```js
-import { initWorkspace } from "<install-root>/scripts/lib/workspace.mjs";
-initWorkspace("<user-project-dir>", { graphComposeVersion, skillPack });
+```bash
+node scripts/init-workspace.mjs --project-dir <java-project> --project <project-id>
 ```
+
+It resolves the pinned GraphCompose version, writes the manifest seeded
+with it, and creates the project inside `projects/`. Idempotent: an
+existing manifest is returned untouched, so a second run never
+overwrites a user's pins. Drop `--project` to create the workspace
+alone; add `--json` for the machine-readable result.
+
+**This is the first thing to run in a project that has no
+`graphcompose-flow/` yet.** Skipping it does not fail loudly — with no
+manifest, resolution falls through to install mode and the projects
+directory becomes the *harness install's* own `examples/`, so the work
+lands inside the installed runtime and every later command agrees it
+belongs there.
+
+Exit codes: 0 created or already present, 2 a usage error (bad project
+id, missing directory), 3 that project already exists. A project that
+pins no GraphCompose still gets a workspace — the manifest is simply
+written without pins, and the reason is printed.
 
 ## Which GraphCompose version, and therefore which skills
 

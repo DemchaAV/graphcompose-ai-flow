@@ -32,6 +32,25 @@ can decide is decided by a script.
   `graphcompose-flow/`, resolved by `--root`, `GRAPHCOMPOSE_FLOW_ROOT`,
   discovery from the cwd, or this repository's own `examples/` in
   development. `scripts/lib/workspace.mjs` is the only resolver.
+- **`scripts/init-workspace.mjs`** creates that workspace, and is the
+  first command to run in a project that has none. It resolves the
+  GraphCompose pin, seeds the manifest with it, and with `--project <id>`
+  creates the project inside `projects/`. Idempotent; exit 0 created or
+  present, 2 usage error, 3 project exists.
+
+  This closes a hole rather than adding a convenience. `initWorkspace()`
+  existed but no CLI called it — the workflow reference told the agent to
+  import the module inline — so the step deciding *where every later
+  command writes* had no deterministic backstop, and skipping it failed
+  silently: with no manifest, resolution falls through to install mode,
+  whose projects directory is the harness's own `examples/`. A user
+  following the documented flow would have had their work written into
+  the installed runtime, with every command agreeing it belonged there.
+- **`graphcompose-flow init` accepts `--target-version` / `--skill-pack`.**
+  Both were reachable from `runInit` but not from the CLI, so every
+  project it created claimed GraphCompose 1.9.0 whatever the project
+  actually pinned, and the mismatch first surfaced as a compile error
+  against the wrong allow-list.
 - **`scripts/resolve-version.mjs`** reads the GraphCompose pin from the
   user's `pom.xml` / `build.gradle(.kts)` and maps it to a skill pack.
   Exit 0 supported, 3 unsupported, 4 not a GraphCompose project. An

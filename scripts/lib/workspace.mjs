@@ -5,7 +5,7 @@
  *
  * Two roots were conflated until now, both called "repoRoot":
  *
- *   install root    prompts/, skills/, config/, tools/, schemas/ — the harness
+ *   install root    skills/, config/, tools/, schemas/, scripts/ — the harness
  *                   itself. Always derived from the script's own location.
  *   workspace root  projects, revisions, references, published templates — the
  *                   user's work product.
@@ -23,6 +23,11 @@
  *   2. the GRAPHCOMPOSE_FLOW_ROOT environment variable
  *   3. a graphcompose-flow/flow.config.json found by walking up from cwd
  *   4. the install root's own examples/ + templates/ (development mode)
+ *
+ * Step 4 is a correct default only inside this repository. Anywhere else it
+ * means the work is about to be written into the harness install, so the
+ * manifest that stops it is not optional: scripts/init-workspace.mjs writes
+ * one, and is the first thing to run in a project that has none.
  */
 
 import fs from "node:fs";
@@ -190,6 +195,9 @@ export function requireProjectDir(workspace, projectId) {
 /**
  * Create a workspace directory with its manifest. Idempotent: an existing
  * manifest is returned untouched, so this never overwrites a user's pins.
+ *
+ * Callers should prefer scripts/init-workspace.mjs, which resolves the pinned
+ * GraphCompose version to seed the manifest and can create the project too.
  *
  * @param {string} hostDir the user project the workspace is created inside
  * @param {{ graphComposeVersion?: string, skillPack?: string }} [seed]

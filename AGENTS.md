@@ -83,8 +83,9 @@ PowerShell, cmd and bash.
 | Do | Command |
 |---|---|
 | Resolve version and skill pack | `node scripts/resolve-version.mjs --project-dir <dir> --json` |
+| Create the workspace (first thing in a new project) | `node scripts/init-workspace.mjs --project-dir <dir> --project <id>` |
 | Print the chain for a project | `node scripts/run-pipeline.mjs <project-id>` |
-| Open a project / revision | `node tools/revision-manager/bin/graphcompose-flow.mjs init <name>` · `new-revision "<gesture>" --project <dir>` |
+| Open a revision | `node tools/revision-manager/bin/graphcompose-flow.mjs new-revision "<gesture>" --project <dir>` |
 | Render | `node scripts/render.mjs <project-id> <revision-id> [--root <workspace>]` |
 | Measure a diff | `node tools/visual-diff/bin/visual-diff.mjs <reference.png> <output.png> --json --update-revision <revision>` |
 | Ask whether the loop may continue | `node scripts/iterate-status.mjs <project-id>` — exit 0 ready, 2 revise, 3 blocked |
@@ -116,6 +117,10 @@ Work belongs to the user's project, not to this repository:
     ├── projects/<project-id>/     template-project.json, reference/, revisions/
     └── templates/<template-id>/   published bundles
 ```
+
+`node scripts/init-workspace.mjs --project-dir <dir>` creates it. Nothing
+else does, and without it commands fall back to the harness install's own
+`examples/` — so the work would be written into the installed runtime.
 
 Commands find it by walking up from the current directory; override with
 `--root` or `GRAPHCOMPOSE_FLOW_ROOT`. Inside a clone of this repository

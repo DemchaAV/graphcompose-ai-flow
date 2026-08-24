@@ -133,7 +133,21 @@ npm run setup:check
 ## Where your work goes
 
 The harness lives wherever it was installed; **your work lives in your
-project**. On first use a workspace is created inside it:
+project**. Create the workspace inside it once, before anything else:
+
+```bash
+node scripts/init-workspace.mjs --project-dir /path/to/your/java-project
+```
+
+That reads your GraphCompose pin, writes the manifest seeded with it, and
+gives you the layout below. Running it twice is safe — an existing
+manifest is never overwritten. Add `--project <id>` to create the first
+template project in the same step.
+
+This step matters more than it looks. Without the manifest, commands
+fall back to the harness install's own `examples/`, so your work would be
+written *into the installed runtime* — consistently, and without an
+error.
 
 ```text
 my-java-app/

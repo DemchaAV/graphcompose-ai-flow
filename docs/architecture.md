@@ -308,6 +308,15 @@ Every command prints which workspace it resolved and how, except in
 development mode where the answer is "the repository you are standing
 in".
 
+`node scripts/init-workspace.mjs --project-dir <dir>` is what creates
+step 3's manifest, and nothing else does. That matters because step 4 is
+a silent fallback, not an error: in a project with no manifest the
+projects directory becomes the *harness install's* `examples/`, so the
+work is written into the installed runtime and every command afterwards
+agrees that is where it lives. The manifest is the only thing standing
+between the two roots, so writing it is a deterministic step with a CLI
+rather than something the workflow is trusted to remember.
+
 The GraphCompose version comes from the user's build file, not from a
 prompt: [`scripts/resolve-version.mjs`](../scripts/resolve-version.mjs)
 reads `pom.xml` or `build.gradle(.kts)`, finds the

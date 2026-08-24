@@ -48,10 +48,23 @@ export function buildProgram(): Command {
       '--template <name>',
       'seed a ready-to-render project from a bundled template (e.g. invoice)',
     )
+    // The pins were reachable from runInit but not from the CLI, so every
+    // project created through it claimed the built-in default regardless of
+    // what the Java project actually pins. scripts/init-workspace.mjs resolves
+    // the real version and passes it through here.
+    .option('--target-version <x.y.z>', 'GraphCompose version this project targets')
+    .option('--skill-pack <path>', 'skill pack backing that version')
     .action(
-      async (projectName: string, opts: { template?: string }) => {
+      async (
+        projectName: string,
+        opts: { template?: string; targetVersion?: string; skillPack?: string },
+      ) => {
         try {
-          const dir = await runInit(projectName, { template: opts.template });
+          const dir = await runInit(projectName, {
+            template: opts.template,
+            targetGraphComposeVersion: opts.targetVersion,
+            skillPack: opts.skillPack,
+          });
           if (opts.template) {
             process.stdout.write(`initialised ${opts.template} project at ${dir}\n\n`);
             process.stdout.write('Next steps (from the repository root):\n');

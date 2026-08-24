@@ -157,7 +157,7 @@ than a user's project. `npm run verify` runs every gate CI runs.
 | [`config/pipeline.json`](config/pipeline.json) | scope → stages, gates, loop bounds, failure categories |
 | [`schemas/`](schemas/) | every on-disk contract |
 | [`tools/`](tools/) | revision manager, renderer, visual diff, asset resolver |
-| [`scripts/`](scripts/) | version resolver, render, pipeline, loop gate, publish, verify |
+| [`scripts/`](scripts/) | version resolver, workspace init, render, pipeline, loop gate, publish, verify |
 | [`examples/cv-reference/`](examples/cv-reference/) | a worked chain — revisions 001 → 009 |
 
 ## License
