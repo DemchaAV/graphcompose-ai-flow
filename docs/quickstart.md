@@ -1,9 +1,16 @@
-# Quickstart
+# Quickstart — working inside this repository
 
-This repository is not a hosted app and not a one-command
-screenshot-to-template product yet. It is a local workflow kit for
-building GraphCompose Java templates from visual document references with
-revision history, rendering, and visual review.
+> **Using the harness rather than developing it?** You do not need this
+> page. Install it into your agent —
+> [`docs/plugin-installation.md`](plugin-installation.md) for Claude
+> Code, [`adapters/codex/README.md`](../adapters/codex/README.md) for
+> Codex — then open your own Java project and ask. Your work lands in
+> that project, not here.
+
+This page is the contributor path: running the harness from a clone, in
+what the tools call **development mode**, where the workspace is this
+repository's own `examples/` and `templates/` rather than a user's
+project. Everything below assumes that.
 
 Use it for three things:
 
@@ -219,20 +226,23 @@ That creates:
 examples/my-document/revisions/revision-001/
 ```
 
-Fill the revision artifacts by following the prompt chain in
-`prompts/`:
+Fill the revision artifacts by following the workflow skill that owns
+the gesture — for a first draft from a reference that is
+[`skills/workflows/create-template/SKILL.md`](../skills/workflows/create-template/SKILL.md).
+To see the exact stages and commands for this project and revision:
 
-```text
-orchestrator-agent.md
-version-skill-resolver-agent.md
-skill-validator-agent.md
-visual-analyzer-agent.md
-architecture-mapper-agent.md
-template-coder-agent.md
-test-render-agent.md
-visual-review-agent.md
-revision-manager-agent.md
+```powershell
+node scripts\run-pipeline.mjs my-document
 ```
+
+That prints the skill to follow, the ordered stages, the render command
+and the approve command. The chain comes from
+[`config/pipeline.json`](../config/pipeline.json), which is the only
+place it is declared.
+
+The `prompts/` directory still holds the eleven-agent chain this
+replaced. It is kept until the acceptance runs are recorded and then
+removed; follow the skills.
 
 The generated Java template should live in:
 

@@ -100,10 +100,32 @@ test("no live document still claims the old agent-chain figures", () => {
 
 test("documents that point at prompts/ acknowledge that it is superseded", () => {
   // prompts/ survives until the acceptance runs are green. Anything sending a
-  // reader there must say so, or it reads as current guidance.
-  const banner = read("prompts/master-prompt.md");
-  assert.match(banner, /[Ss]uperseded by/, "prompts/master-prompt.md lost its superseded banner");
-  assert.match(banner, /skills\/workflows/, "the banner does not name the replacement");
+  // reader there must say so, or it reads as current guidance. docs/agents.md
+  // is the twin of the master prompt and was found still describing the chain
+  // as the way the work is done.
+  for (const file of ["prompts/master-prompt.md", "docs/agents.md"]) {
+    const source = read(file);
+    assert.match(source, /[Ss]uperseded by/, `${file} lost its superseded banner`);
+    assert.match(source, /skills\/workflows/, `${file}'s banner does not name the replacement`);
+  }
+});
+
+test("the contributor quickstart does not hand out the old prompt chain", () => {
+  // It used to end "fill the revision artifacts by following the prompt chain
+  // in prompts/", which teaches the superseded model to the one reader most
+  // likely to follow it literally.
+  const quickstart = read("docs/quickstart.md");
+  assert.doesNotMatch(
+    quickstart,
+    /following the prompt chain/,
+    "quickstart still instructs the reader to follow prompts/",
+  );
+  assert.match(quickstart, /skills\/workflows\/create-template/, "quickstart names no skill");
+  assert.match(
+    quickstart,
+    /plugin-installation/,
+    "quickstart does not tell a user who only wants to USE the harness where to go",
+  );
 });
 
 test("the workspace layout is described identically wherever it appears", () => {

@@ -1,5 +1,17 @@
 # Agents
 
+> **Superseded by [`skills/workflows/`](../skills/workflows/README.md).**
+> The agent chain described here has been folded into four workflow
+> skills — create, revise, review, approve — with the deterministic
+> stages called as CLIs rather than described in prose. Which stages a
+> scope runs is declared in [`config/pipeline.json`](../config/pipeline.json)
+> and printed by `node scripts/run-pipeline.mjs <project-id>`. This page
+> is kept as the record of the previous design, alongside `prompts/`,
+> until the acceptance runs are recorded. Follow the skills.
+>
+> Note also that this page says "nine" while the chain grew to eleven —
+> the drift that motivated declaring the routing in one place.
+
 Nine agents own the chain from a user request to an approved
 revision. The chain is strictly ordered. Each agent has a single
 purpose, a documented input, a documented output, and a list of

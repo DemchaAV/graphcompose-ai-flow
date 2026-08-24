@@ -1,5 +1,13 @@
 # Implementation Status
 
+> **Predates the harness migration.** The matrix below describes the
+> original seven phases and was last checked before the workflow kit
+> became an installable harness. For the current state read
+> [`docs/roadmap.md`](roadmap.md) § Harness migration and the "What is
+> honest about the current state" section of the
+> [README](../README.md); the two gaps that matter today are the
+> unrecorded acceptance runs and the skill fixtures still pinning 1.9.0.
+
 Current claim/reality matrix for the Phase 1-7 deliverables and CI.
 This file supersedes the historical audit notes in `AUDIT.md` when
 they disagree with the current tree.

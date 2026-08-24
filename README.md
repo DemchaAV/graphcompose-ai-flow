@@ -1,5 +1,7 @@
 # GraphCompose AI Flow
 
+[![ci](https://github.com/DemchaAV/graphcompose-ai-flow/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DemchaAV/graphcompose-ai-flow/actions/workflows/ci.yml)
+
 Install a GraphCompose harness into your coding agent. Drop in a
 document reference. Ask Codex or Claude Code to recreate it. The agent
 generates, renders, compares and iterates until the template is ready
@@ -65,6 +67,22 @@ See [`docs/demo.md`](docs/demo.md) for a real transcript of the
 deterministic half — version resolution, workspace creation, the chain,
 the loop gate.
 
+## What it produces
+
+A two-page CV, reconstructed from the reference on the left. The third
+column is the same render with the layout guides on, which is what the
+review pass reads:
+
+| Reference | Rendered | With layout guides |
+|---|---|---|
+| ![reference page 1](examples/cv-reference/reference/reference-page-1.png) | ![rendered page 1](templates/mint-editorial-cv/preview/output-page-1.png) | ![debug page 1](templates/mint-editorial-cv/preview/output-debug-page-1.png) |
+| ![reference page 2](examples/cv-reference/reference/reference-page-2.png) | ![rendered page 2](templates/mint-editorial-cv/preview/output-page-2.png) | ![debug page 2](templates/mint-editorial-cv/preview/output-debug-page-2.png) |
+
+Source: [`examples/cv-reference/`](examples/cv-reference/) — reading its
+revisions 001 → 009 in order shows what the loop actually does. Result:
+[`templates/mint-editorial-cv/`](templates/mint-editorial-cv/), a bundle
+you can copy into your own project.
+
 ## How it works
 
 The host agent supplies the model, the reasoning and the shell. This
@@ -119,6 +137,13 @@ integration, no MCP server, no standalone runtime.
 [`AGENTS.md`](AGENTS.md) dispatches: which skill owns the task, the
 seven invariants, the commands, and where each contract is declared.
 Start there, not here.
+
+## Working on the harness itself
+
+Clone it, run `npm run setup`, and read
+[`docs/quickstart.md`](docs/quickstart.md) — that is the contributor
+path, where the workspace is this repository's own `examples/` rather
+than a user's project. `npm run verify` runs every gate CI runs.
 
 ## Repository
 
