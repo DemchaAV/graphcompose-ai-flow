@@ -28,12 +28,22 @@ const SURFACE = path.join(repoRoot, "skills", "versions", "graphcompose-2.2", "0
 function run(args) {
   const result = spawnSync(process.execPath, [CLI, ...args], { encoding: "utf8" });
   let parsed = null;
+  let parseError = null;
   try {
     parsed = JSON.parse(result.stdout);
-  } catch {
-    /* left null; the raw output is in the assertion message */
+  } catch (cause) {
+    // Say why. A truncated --dump used to surface as "cannot read properties
+    // of null", which describes the symptom three steps downstream of the
+    // cause and cost a CI round-trip to identify.
+    parseError = `${cause.message} (stdout was ${result.stdout?.length ?? 0} bytes, ` +
+      `ending ${JSON.stringify(result.stdout?.slice(-40) ?? "")})`;
   }
-  return { status: result.status, parsed, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
+  return {
+    status: result.status,
+    parsed,
+    parseError,
+    output: `${result.stdout ?? ""}${result.stderr ?? ""}`,
+  };
 }
 
 test("the parse accounts for every symbol the document says it has", () => {
@@ -43,7 +53,8 @@ test("the parse accounts for every symbol the document says it has", () => {
   const stated = text.match(/Types:\s*(\d+)\s*·\s*methods:\s*(\d+)\s*·\s*constants:\s*(\d+)/);
   assert.ok(stated, "the allow-list no longer states its own totals");
 
-  const { parsed } = run(["--dump"]);
+  const { parsed, parseError } = run(["--dump"]);
+  assert.equal(parseError, null, `--dump did not produce parseable JSON: ${parseError}`);
   assert.equal(parsed.typeCount, Number(stated[1]));
   assert.equal(parsed.methodCount, Number(stated[2]));
   assert.equal(parsed.constantCount, Number(stated[3]));

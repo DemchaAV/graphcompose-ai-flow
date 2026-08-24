@@ -96,14 +96,19 @@ if (!fs.existsSync(surfacePath)) {
 
 const surface = parseSurface(fs.readFileSync(surfacePath, "utf8"), line);
 
+// `process.exit()` after a large write truncates it: writes to a pipe are
+// asynchronous and exiting does not wait for them to drain. --dump is half a
+// megabyte, so a caller reading it through a pipe got a cut-off document and a
+// JSON parse error — which is how CI failed on Linux while Windows passed.
+// Setting exitCode lets the process end once stdout has flushed.
 if (args.dump) {
   process.stdout.write(`${JSON.stringify(surface, null, 2)}\n`);
-  process.exit(0);
+  process.exitCode = 0;
+} else {
+  const answer = query(surface, args);
+  process.stdout.write(`${JSON.stringify(answer, null, 2)}\n`);
+  process.exitCode = answer.found ? 0 : 3;
 }
-
-const answer = query(surface, args);
-process.stdout.write(`${JSON.stringify(answer, null, 2)}\n`);
-process.exit(answer.found ? 0 : 3);
 
 // --------------------------------------------------------------- resolving ---
 
