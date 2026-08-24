@@ -241,9 +241,16 @@ function query(index, options) {
   };
 
   if (options.exists) {
-    const [typeName, methodName] = options.exists.split(".");
+    // Accept a fully-qualified name as well as Type.method. Splitting on the
+    // first dot turned "com.demcha.compose.dsl.TimelineMarker.dot" into type
+    // "com" and answered "no type com — it does not exist for this version":
+    // a confident, authoritative, wrong negative, from the one tool whose
+    // whole value is that its "no" can be trusted.
+    const parts = options.exists.split(".").filter(Boolean);
+    const methodName = parts.length > 1 ? parts[parts.length - 1] : null;
+    const typeName = parts.length > 1 ? parts[parts.length - 2] : null;
     if (!typeName || !methodName) {
-      process.stderr.write("[api-query] --exists takes Type.method\n");
+      process.stderr.write("[api-query] --exists takes Type.method or a fully-qualified name\n");
       process.exit(2);
     }
     const type = index.types.find((t) => t.name === typeName);

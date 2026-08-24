@@ -213,9 +213,16 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     } else if (sameMismatchAttempts >= limits.maxSameMismatchAttempts) {
       verdict = "BLOCKED";
       failureCategory = "VISUAL_MISMATCH";
+      // Attribute it truthfully. When the focus came from the user, the passes
+      // in between may have worked on other things — what survived is their
+      // report, not necessarily the same attempt repeated.
       reasons.push(
-        `"${largestMismatch}" has survived ${sameMismatchAttempts} attempts ` +
-          `(limit ${limits.maxSameMismatchAttempts}) — the next attempt would be the same attempt`,
+        focus.source === "human"
+          ? `what the user reported ("${largestMismatch}") is still open after ` +
+            `${sameMismatchAttempts} passes (limit ${limits.maxSameMismatchAttempts}) — ` +
+            "stop and ask them, rather than guessing again"
+          : `"${largestMismatch}" has survived ${sameMismatchAttempts} attempts ` +
+            `(limit ${limits.maxSameMismatchAttempts}) — the next attempt would be the same attempt`,
       );
     } else if (iterations >= limits.maxIterations) {
       verdict = "BLOCKED";

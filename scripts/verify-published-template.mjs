@@ -100,7 +100,13 @@ if (args.templateId === ALL) {
   }
   let failed = 0;
   for (const id of templates) {
-    const forwarded = process.argv.slice(2).map((a) => (a === ALL ? id : a));
+    // Replace only the value that follows --template-id. Rewriting every
+    // argument equal to "all" would also rewrite, say, `--root all`.
+    const original = process.argv.slice(2);
+    const forwarded = original.map((a, index) => {
+      const flag = original[index - 1];
+      return (flag === "--template-id" || flag === "-t") && a === ALL ? id : a;
+    });
     const run = spawnSync(process.execPath, [fileURLToPath(import.meta.url), ...forwarded], {
       stdio: "inherit",
     });

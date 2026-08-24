@@ -187,13 +187,32 @@ function buildReport() {
   };
 }
 
+/**
+ * Parsed events per transcript, read at most once per invocation.
+ *
+ * A report covers three windows and an archive one per cycle. Parsing per
+ * window meant a 37 MB transcript was read three times for a report and N
+ * times for an archive — linear in cycles, which is the one place this could
+ * have become genuinely slow.
+ */
+const eventCache = new Map();
+
+function eventsOf(transcriptPath) {
+  if (!transcriptPath) return [];
+  if (!eventCache.has(transcriptPath)) {
+    eventCache.set(transcriptPath, provider.readEvents(transcriptPath));
+  }
+  return eventCache.get(transcriptPath);
+}
+
 /** Main-session usage in a window, plus every subagent transcript recorded. */
 function usageBetween(since, until) {
-  let total = provider.readUsage(state.transcriptPath, { since, until }).usage;
+  if (!state.transcriptPath) return emptyUsage();
+  let total = provider.foldEvents(eventsOf(state.transcriptPath), { since, until }).usage;
   for (const extra of state.subagentTranscripts ?? []) {
-    total = addUsage(total, provider.readUsage(extra, { since, until }).usage);
+    total = addUsage(total, provider.foldEvents(eventsOf(extra), { since, until }).usage);
   }
-  return total.requests === 0 && !state.transcriptPath ? emptyUsage() : total;
+  return total;
 }
 
 /**

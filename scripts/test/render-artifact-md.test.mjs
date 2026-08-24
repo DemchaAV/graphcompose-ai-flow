@@ -315,3 +315,20 @@ test("the renamed signal is used, and the old name still renders", () => {
   run([legacy.json]);
   assert.match(fs.readFileSync(legacy.md, "utf8"), /Pixel similarity signal: 62/);
 });
+
+test("--out with --revision is refused rather than writing everything to one file", () => {
+  // It used to render each artifact over the last and report success for each,
+  // so two of three vanished silently.
+  const dir = tempDir("outclash");
+  fs.writeFileSync(path.join(dir, "visual-review.json"), JSON.stringify(REVIEW), "utf8");
+  fs.writeFileSync(
+    path.join(dir, "visual-analysis.json"),
+    JSON.stringify({ schemaVersion: 1, page: { format: "A4" }, regions: [] }),
+    "utf8",
+  );
+
+  const result = run(["--revision", dir, "--out", path.join(dir, "combined.md")]);
+  assert.equal(result.status, 2);
+  assert.match(result.output, /--out takes one destination/);
+  assert.ok(!fs.existsSync(path.join(dir, "combined.md")), "it wrote anyway");
+});

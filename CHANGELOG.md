@@ -7,6 +7,45 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.0-beta.11 — review of the day's work
+
+A review of everything shipped today, looking for broken loops, holes,
+wiring and things that will not scale. Every tool proved reachable from a
+skill or `AGENTS.md` — no orphans — and the loop is sound. Six defects
+turned up, all in code written today.
+
+- **`api-query --exists` answered about the wrong thing.** A
+  fully-qualified name split on its first dot, so
+  `com.demcha.compose.dsl.TimelineMarker.dot` was reported as "no type
+  `com` — it does not exist for this version": a confident, authoritative,
+  wrong negative, from the one tool whose whole value is that its "no" can
+  be trusted. It now reads the last two segments.
+- **`render-artifact-md --revision --out` lost data silently.** It
+  rendered each artifact over the last and reported success for every one.
+  Refused now.
+- **`observations promote` was not idempotent** — a second run appended
+  the section again — and it accepted a target outside the harness, which
+  recorded `promotedTo` as `../../../Users/...`. Both refused.
+- **Telemetry parsed the transcript once per window.** A report read a
+  37 MB file three times and an archive once per cycle. Parsing and
+  folding are now separate: read once, fold many. A report went from
+  736 ms to 129 ms, and `finish` stopped being linear in cycles.
+- **`verify-published-template --template-id all` rewrote any argument
+  equal to `all`**, including a `--root all`. Only the value after
+  `--template-id` is substituted now.
+- **The loop's blocking message misattributed a user's report.** When the
+  focus came from the user, intervening passes may have worked on other
+  things, so "the next attempt would be the same attempt" was untrue — and
+  it is the sentence a human reads when the loop stops. It now says what
+  the user reported is still open and to ask them.
+
+Not defects, recorded so they are not rediscovered: `writeState` in the
+telemetry hook is a read-modify-write with no locking, which two hooks
+firing together could race — cheap to hit, harmless when it does, and a
+lock is disproportionate. `preflight` spends most of its ~900 ms probing
+for java, mvn and magick; that is the cost of answering "are the tools
+ready" before a run rather than twenty minutes into one.
+
 ### v0.5.0-beta.10 — what the Codex install actually did
 
 The Codex adapter was driven against a sandboxed install with the source

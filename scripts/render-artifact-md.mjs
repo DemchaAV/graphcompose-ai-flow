@@ -67,6 +67,16 @@ function parseArgs(argv) {
     process.stderr.write("[render-artifact-md] pass an artifact path or --revision, not both\n");
     usage(2);
   }
+  // --revision renders several artifacts; one --out for all of them wrote each
+  // over the last and reported success for every one. Silent loss, so it is
+  // refused rather than resolved to something clever.
+  if (out.revision && out.outFile) {
+    process.stderr.write(
+      "[render-artifact-md] --out takes one destination, and --revision renders several. " +
+        "Render one artifact at a time when you need --out.\n",
+    );
+    usage(2);
+  }
   return out;
 }
 

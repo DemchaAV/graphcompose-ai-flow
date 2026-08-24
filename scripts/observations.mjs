@@ -200,9 +200,30 @@ if (command === "promote") {
     process.exit(1);
   }
 
+  // Appending twice duplicates the section, and nothing noticed: promote
+  // checked confidence but not whether this had already been promoted.
+  if (found.body.promotedTo) {
+    process.stderr.write(
+      `[observations] "${id}" was already promoted to ${found.body.promotedTo}. ` +
+        "Edit that file, or clear promotedTo first if it was removed.\n",
+    );
+    process.exit(1);
+  }
+
   const target = path.isAbsolute(args.into) ? args.into : path.join(repoRoot, args.into);
   if (!fs.existsSync(target)) {
     process.stderr.write(`[observations] no such skill file: ${target}\n`);
+    process.exit(1);
+  }
+  // A target outside the repository records a promotedTo like
+  // "../../../Users/..." — meaningless to anyone else, and unresolvable from a
+  // different machine.
+  const relative = path.relative(repoRoot, target);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    process.stderr.write(
+      `[observations] ${target} is outside this harness. Promote into a skill pack ` +
+        "under skills/, so the record points somewhere every reader has.\n",
+    );
     process.exit(1);
   }
 

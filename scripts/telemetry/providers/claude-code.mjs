@@ -11,6 +11,13 @@
  * appears about twice. Summing the lines would have doubled every figure and
  * the error would have looked plausible, which is the worst kind.
  *
+ * **Parsing is separated from folding** for a reason that only shows up at
+ * size. A report covers three windows (cycle, run, session) and an archive
+ * covers one per cycle; parsing the file once per window meant a 37 MB
+ * transcript was read three times for a report and N times for an archive.
+ * `readEvents` reads and dedupes once, `foldEvents` answers any number of
+ * windows from that.
+ *
  * The transcript is also written asynchronously, so a read taken while a turn
  * is still being written misses its tail. Everything here is therefore "as far
  * as the transcript goes", and the Stop hook is what turns a cycle's figures
@@ -22,36 +29,23 @@ import fs from "node:fs";
 import { addUsage, emptyUsage } from "../core.mjs";
 
 /**
- * Sum usage over a transcript, optionally windowed by time.
+ * Every usage-bearing message in a transcript, deduplicated, in file order.
  *
  * @param {string} transcriptPath
- * @param {{ since?: string|null, until?: string|null, includeSidechains?: boolean }} [options]
- * @returns {{ usage: object, sidechainUsage: object, firstAt: string|null, lastAt: string|null }}
+ * @returns {Array<{at: string|null, atMs: number|null, isSidechain: boolean, usage: object}>}
  */
-export function readUsage(transcriptPath, options = {}) {
-  const { since = null, until = null, includeSidechains = true } = options;
-  const empty = {
-    usage: emptyUsage(),
-    sidechainUsage: emptyUsage(),
-    firstAt: null,
-    lastAt: null,
-  };
-  if (!transcriptPath || !fs.existsSync(transcriptPath)) return empty;
+export function readEvents(transcriptPath) {
+  if (!transcriptPath || !fs.existsSync(transcriptPath)) return [];
 
   let raw;
   try {
     raw = fs.readFileSync(transcriptPath, "utf8");
   } catch {
-    return empty;
+    return [];
   }
 
-  const sinceMs = since ? Date.parse(since) : null;
-  const untilMs = until ? Date.parse(until) : null;
   const seen = new Set();
-  let main = emptyUsage();
-  let sidechain = emptyUsage();
-  let firstAt = null;
-  let lastAt = null;
+  const events = [];
 
   for (const line of raw.split("\n")) {
     if (!line.trim()) continue;
@@ -64,15 +58,9 @@ export function readUsage(transcriptPath, options = {}) {
     }
     if (entry.type !== "assistant" || !entry.message?.usage) continue;
 
-    const at = entry.timestamp ? Date.parse(entry.timestamp) : null;
-    if (at !== null) {
-      if (sinceMs !== null && at < sinceMs) continue;
-      if (untilMs !== null && at > untilMs) continue;
-      if (firstAt === null || at < Date.parse(firstAt)) firstAt = entry.timestamp;
-      if (lastAt === null || at > Date.parse(lastAt)) lastAt = entry.timestamp;
-    }
-
-    // One request, one count — see the note above about 1699 vs 846.
+    // One request, one count — see the note above about 1699 vs 846. Done here
+    // rather than per window, so two windows over one file cannot each count
+    // the same request.
     const key = entry.requestId ?? entry.uuid;
     if (key) {
       if (seen.has(key)) continue;
@@ -80,23 +68,69 @@ export function readUsage(transcriptPath, options = {}) {
     }
 
     const usage = entry.message.usage;
-    const one = {
-      inputTokens: usage.input_tokens ?? 0,
-      outputTokens: usage.output_tokens ?? 0,
-      cacheReadTokens: usage.cache_read_input_tokens ?? 0,
-      cacheWriteTokens: usage.cache_creation_input_tokens ?? 0,
-      requests: 1,
-    };
+    events.push({
+      at: entry.timestamp ?? null,
+      atMs: entry.timestamp ? Date.parse(entry.timestamp) : null,
+      isSidechain: Boolean(entry.isSidechain),
+      usage: {
+        inputTokens: usage.input_tokens ?? 0,
+        outputTokens: usage.output_tokens ?? 0,
+        cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+        cacheWriteTokens: usage.cache_creation_input_tokens ?? 0,
+        requests: 1,
+      },
+    });
+  }
+  return events;
+}
 
-    if (entry.isSidechain) {
-      sidechain = addUsage(sidechain, one);
-      if (includeSidechains) main = addUsage(main, one);
+/**
+ * Fold already-parsed events into one window's totals.
+ *
+ * @param {Array} events from readEvents
+ * @param {{ since?: string|null, until?: string|null, includeSidechains?: boolean }} [options]
+ */
+export function foldEvents(events, options = {}) {
+  const { since = null, until = null, includeSidechains = true } = options;
+  const sinceMs = since ? Date.parse(since) : null;
+  const untilMs = until ? Date.parse(until) : null;
+
+  let main = emptyUsage();
+  let sidechain = emptyUsage();
+  let firstAt = null;
+  let lastAt = null;
+
+  for (const event of events) {
+    if (event.atMs !== null) {
+      if (sinceMs !== null && event.atMs < sinceMs) continue;
+      if (untilMs !== null && event.atMs > untilMs) continue;
+      if (firstAt === null || event.atMs < Date.parse(firstAt)) firstAt = event.at;
+      if (lastAt === null || event.atMs > Date.parse(lastAt)) lastAt = event.at;
+    }
+
+    if (event.isSidechain) {
+      sidechain = addUsage(sidechain, event.usage);
+      if (includeSidechains) main = addUsage(main, event.usage);
     } else {
-      main = addUsage(main, one);
+      main = addUsage(main, event.usage);
     }
   }
 
   return { usage: main, sidechainUsage: sidechain, firstAt, lastAt };
+}
+
+/**
+ * Sum usage over a transcript, optionally windowed by time.
+ *
+ * The simple entry point, and correct for a single window. Callers needing
+ * several windows over one transcript should use readEvents + foldEvents.
+ *
+ * @param {string} transcriptPath
+ * @param {{ since?: string|null, until?: string|null, includeSidechains?: boolean }} [options]
+ * @returns {{ usage: object, sidechainUsage: object, firstAt: string|null, lastAt: string|null }}
+ */
+export function readUsage(transcriptPath, options = {}) {
+  return foldEvents(readEvents(transcriptPath), options);
 }
 
 /** The session's own start, for the third clock. */
@@ -120,6 +154,8 @@ export function sessionStart(transcriptPath) {
 
 export const provider = {
   name: "claude-code",
+  readEvents,
+  foldEvents,
   readUsage,
   sessionStart,
 };

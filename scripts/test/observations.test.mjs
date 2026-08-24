@@ -14,6 +14,7 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 
 import path from "node:path";
 import test from "node:test";
@@ -159,4 +160,26 @@ test("an unknown command is refused", () => {
   const result = run(["frobnicate"]);
   assert.equal(result.status, 2);
   assert.match(result.output, /unknown command/);
+});
+
+test("promote refuses a target outside the harness", () => {
+  // It recorded promotedTo as "../../../Users/..." — meaningless to any other
+  // reader, and unresolvable on another machine.
+  const [first] = records().filter((r) => r.body.confidence === "confirmed");
+  const outside = path.join(os.tmpdir(), `gcobs-outside-${process.pid}.md`);
+  fs.writeFileSync(outside, "# not a skill pack\n", "utf8");
+
+  const result = run(["promote", first.body.id, "--into", outside]);
+  assert.equal(result.status, 1);
+  assert.match(result.output, /outside this harness/);
+  assert.equal(fs.readFileSync(outside, "utf8"), "# not a skill pack\n", "it appended anyway");
+  fs.rmSync(outside, { force: true });
+});
+
+test("an already-promoted observation is not promoted a second time", () => {
+  const promoted = records().filter((r) => r.body.promotedTo);
+  if (promoted.length === 0) return; // nothing promoted yet; the guard is asserted when there is
+  const result = run(["promote", promoted[0].body.id, "--into", "README.md"]);
+  assert.equal(result.status, 1);
+  assert.match(result.output, /already promoted/);
 });

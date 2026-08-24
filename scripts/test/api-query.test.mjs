@@ -151,3 +151,15 @@ test("asking nothing is a usage error", () => {
   const result = spawnSync(process.execPath, [CLI], { encoding: "utf8" });
   assert.equal(result.status, 2);
 });
+
+test("a fully-qualified name resolves, instead of answering about its first segment", () => {
+  // Splitting on the first dot turned this into type "com" and reported, with
+  // authority, that it does not exist. The one tool whose value is that its
+  // "no" can be trusted must not produce a confident wrong negative.
+  const { status, parsed } = run(["--exists", "com.demcha.compose.document.dsl.TimelineMarker.dot"]);
+
+  assert.equal(status, 0);
+  assert.equal(parsed.found, true);
+  assert.equal(parsed.type.name, "TimelineMarker");
+  assert.ok(parsed.overloads.some((s) => s.includes("dot(")));
+});

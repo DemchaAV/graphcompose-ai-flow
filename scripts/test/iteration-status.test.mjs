@@ -375,3 +375,22 @@ test("without a rootCause the bound still counts by id, as before", () => {
   assert.equal(status.sameMismatchAttempts, 2);
   assert.equal(status.rootCause, null, "a cause was invented where none was recorded");
 });
+
+test("blocking on a user's report says so, instead of claiming a repeated attempt", () => {
+  // The passes in between may have worked on other things; what survived is
+  // the report. Saying "the next attempt would be the same attempt" there is
+  // simply untrue, and it is the sentence a human reads when the loop stops.
+  const dir = projectWith([
+    { verdict: "REVISE", mismatch: "a", reported: { id: "timeline", quote: "wrong", addressed: false } },
+    { verdict: "REVISE", mismatch: "b", reported: { id: "timeline", quote: "wrong", addressed: false } },
+    { verdict: "REVISE", mismatch: "c", reported: { id: "timeline", quote: "wrong", addressed: false } },
+  ], "humanblock");
+
+  const status = statusOf(dir);
+  assert.equal(status.verdict, "BLOCKED");
+  assert.equal(status.focusSource, "human");
+  const reason = status.reasons.join(" ");
+  assert.match(reason, /what the user reported/);
+  assert.match(reason, /stop and ask them/);
+  assert.ok(!reason.includes("the same attempt"), "it still claims a repeated attempt");
+});
