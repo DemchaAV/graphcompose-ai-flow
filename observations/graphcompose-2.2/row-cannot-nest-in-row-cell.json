@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "row-cannot-nest-in-row-cell",
+  "graphComposeVersion": "2.2.0",
+  "api": [
+    "AbstractFlowBuilder.addRow",
+    "AbstractFlowBuilder.addTimeline",
+    "AbstractFlowBuilder.addLayerStack"
+  ],
+  "observedBehaviour": "A horizontal row cannot be nested inside another row's cell; the layout compiler refuses with a message naming LayerStack as the alternative. But a row inside a LayerStack layer builds and does NOT lay out horizontally either, so that route does not rescue it. addTimeline is affected because it builds a row internally - which puts it out of reach in the main column of any two-column page.",
+  "minimalReproduction": {
+    "probe": "row-nesting",
+    "command": "node scripts/probe.mjs row-nesting --version 2.2 --json",
+    "arrangement": "The same two-child row in three placements: plain flow, a LayerStack layer, and a row cell. See also the timeline-nesting probe."
+  },
+  "probeResult": {
+    "horizontalInPlainFlow": true,
+    "horizontalInLayerStack": false,
+    "builtInRowCell": false,
+    "error": "cannot contain a nested horizontal row"
+  },
+  "workaround": "Place horizontal pairs with anchors on a shape container. For a timeline rail, use an accent on the section holding the entries so its height derives from the entries rather than from a computed number.",
+  "confidence": "confirmed",
+  "sourceRun": {
+    "project": "navy-sidebar-cv",
+    "revision": "revision-001",
+    "date": "2026-08-24",
+    "note": "The first render stacked every inner row vertically."
+  },
+  "promotedTo": null
+}

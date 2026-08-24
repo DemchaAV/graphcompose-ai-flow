@@ -7,6 +7,47 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.0-beta.6 — probes and observations
+
+The first acceptance run wrote four probes by hand, 305 lines of Java, to
+establish three real behaviours of GraphCompose 2.2 — and left them inside
+one CV project, with the conclusions in that template's README. The next
+run would have paid for all of it again.
+
+- **`tools/diagnostics/graphcompose-2.2/`** holds those probes as a
+  compilable project, one per library line. `node scripts/probe.mjs <name>`
+  compiles once (Maven caches it) and prints a single JSON object:
+  measurements plus a `finding` **derived** from them. A probe that
+  hardcoded its own conclusion could not report that the library changed
+  under it, which is most of the reason to keep one.
+
+  Four probes: `anchor-alignment`, `row-nesting`, `shape-paint`,
+  `timeline-nesting`. Two of them expect the layout compiler to throw, catch
+  it, and report the message — GraphCompose usually names the supported
+  alternative in it, which is more than the acceptance run concluded on its
+  own.
+
+- **`observations/`** records what a probe established, as evidence held
+  deliberately apart from the skill packs. A pack is the allow-list an agent
+  authors against; a behaviour seen once in one document is not that. The
+  path is record → `verify` → `promote`, and `promote` re-runs the probe
+  before appending anything to a pack.
+
+  `node scripts/observations.mjs verify` re-runs every probe and compares
+  against the numbers recorded, so a library fix retires an observation
+  instead of leaving it to mislead. It is a slow step in `npm run verify`.
+
+- **Three observations seeded** from the run, all confirmed against 2.2.0 by
+  live probes rather than copied from prose: a shape container paints its
+  fill 21.84 pt above its box when it carries a 22 pt bottom margin; it
+  top-clamps a child taller than itself, 3.5 pt for a 13.8 pt child in a
+  6.8 pt band; a row cannot nest in a row cell, and a LayerStack layer does
+  not rescue it.
+
+- **`schemas/observation.schema.json`**, and the schema validator learned to
+  bind by directory — observations are named after what they describe, not
+  after their kind.
+
 ### v0.5.0-beta.5
 
 - **`scripts/render-artifact-md.mjs`** generates the Markdown half of

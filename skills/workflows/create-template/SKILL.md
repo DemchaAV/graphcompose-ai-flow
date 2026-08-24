@@ -94,6 +94,27 @@ node scripts/render.mjs <project-id> <revision-id> [--root <workspace>]
 
 **Review** with `review-template` → `visual-review.json`.
 
+## When the library surprises you
+
+Before writing a page of Java to find out how something behaves, check what
+is already known and what can already be asked:
+
+```bash
+node scripts/observations.mjs list
+node scripts/probe.mjs --list
+node scripts/probe.mjs anchor-alignment
+```
+
+Observations are behaviours previous runs paid to discover, each confirmed
+by a probe that re-runs on demand. Probes answer one question about the
+pinned line and print measurements plus a finding.
+
+If neither covers it, write a probe rather than a one-off in your project:
+`tools/diagnostics/graphcompose-<line>/`. Then record what it found with
+`observations`, so the next run does not buy the same answer twice. A probe
+that composes *your* template stays in your project — this is for questions
+about the library.
+
 ## Reading copies
 
 Three artifacts have a Markdown twin: `visual-analysis`,

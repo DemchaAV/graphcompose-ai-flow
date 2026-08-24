@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DemchaAV/graphcompose-ai-flow/schemas/observation.schema.json",
+  "title": "Observation",
+  "description": "Something learned about how a GraphCompose line actually behaves, discovered while building a template and confirmed by a probe. An observation is NOT a skill: it is evidence, held apart from the versioned skill packs until a probe re-confirms it and it is deliberately promoted. Written to stop the next run rediscovering what this one paid for.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "graphComposeVersion",
+    "observedBehaviour",
+    "minimalReproduction",
+    "confidence"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "Stable kebab-case id, also the filename. Reused across revisions and runs so the same behaviour is not recorded twice under two names."
+    },
+    "graphComposeVersion": {
+      "type": "string",
+      "description": "The exact build this was observed against. A behaviour is only claimed for the version that produced it."
+    },
+    "api": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "The API surface the behaviour concerns, e.g. ShapeContainerBuilder.margin. Used to find the observation from the call being written."
+    },
+    "observedBehaviour": {
+      "type": "string",
+      "description": "What actually happens, stated as fact and in the terms someone hitting it would search for. Not what should happen."
+    },
+    "minimalReproduction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["probe"],
+      "properties": {
+        "probe": {
+          "type": "string",
+          "description": "The probe under tools/diagnostics that settles this, e.g. shape-paint. An observation with no probe cannot be re-confirmed and must not be promoted."
+        },
+        "command": { "type": "string" },
+        "arrangement": {
+          "type": "string",
+          "description": "The smallest arrangement that shows it, in one sentence."
+        }
+      }
+    },
+    "probeResult": {
+      "type": "object",
+      "description": "The numbers the probe reported when this was recorded. `observations verify` re-runs the probe and compares against these, which is how a library fix retires an observation rather than leaving it to mislead."
+    },
+    "workaround": {
+      "type": "string",
+      "description": "What to do instead, derived from the measurement rather than tuned by eye. Empty when the behaviour is simply a fact to know."
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["suspected", "confirmed", "retired"],
+      "description": "suspected: seen once, no probe agreement yet. confirmed: a probe reproduces it on demand. retired: the library changed and the probe no longer reproduces it — kept so the next reader knows it was checked, not forgotten."
+    },
+    "sourceRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "project": { "type": "string" },
+        "revision": { "type": "string" },
+        "date": { "type": "string" },
+        "note": { "type": "string" }
+      },
+      "description": "Where it was first paid for. Not provenance for its own sake: a behaviour found once in one document is weaker evidence than one found in three."
+    },
+    "promotedTo": {
+      "type": ["string", "null"],
+      "description": "The skill-pack file this was folded into, once a probe confirmed it and someone decided it belongs in the pack. Null means it is still only evidence. Promotion is deliberate — an observation added to a skill automatically would be an unverified claim presented as the API contract."
+    }
+  }
+}

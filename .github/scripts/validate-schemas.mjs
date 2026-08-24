@@ -61,6 +61,12 @@ const SCHEMA_BINDINGS = [
     filename: 'flow.config.json',
     schemaFile: 'flow-config.schema.json',
   },
+  // Observations are named after what they describe, not after their kind, so
+  // this one binds by the directory that holds them.
+  {
+    dirPattern: /(^|[\\/])observations[\\/]graphcompose-\d+\.\d+$/,
+    schemaFile: 'observation.schema.json',
+  },
 ];
 
 const SKIP_DIRS = new Set([
@@ -99,7 +105,9 @@ async function walk(dir, hits) {
       if (SKIP_DIRS.has(entry.name) || SKIP_DIRS.has(rel.replace(/\\/g, '/'))) continue;
       await walk(abs, hits);
     } else if (entry.isFile()) {
-      const binding = SCHEMA_BINDINGS.find((b) => entry.name === b.filename);
+      const binding = SCHEMA_BINDINGS.find((b) => b.filename
+        ? entry.name === b.filename
+        : b.dirPattern.test(dir) && entry.name.endsWith('.json'));
       if (binding) hits.push({ path: abs, binding });
     }
   }

@@ -88,6 +88,8 @@ PowerShell, cmd and bash.
 | Open a revision | `node tools/revision-manager/bin/graphcompose-flow.mjs new-revision "<gesture>" --project <dir>` |
 | Render | `node scripts/render.mjs <project-id> <revision-id> [--root <workspace>]` |
 | Generate an artifact's reading copy | `node scripts/render-artifact-md.mjs --revision <revision-dir>` |
+| Ask how the library behaves | `node scripts/probe.mjs --list` · `node scripts/probe.mjs <name>` |
+| What previous runs learned | `node scripts/observations.mjs list` · `verify` |
 | Measure a diff | `node tools/visual-diff/bin/visual-diff.mjs <reference.png> <output.png> --json --update-revision <revision>` |
 | Ask whether the loop may continue | `node scripts/iterate-status.mjs <project-id>` — exit 0 ready, 2 revise, 3 blocked |
 | Approve and publish | `graphcompose-flow approve <id> --project <dir>` then `node scripts/publish-template.mjs --project <id>` |

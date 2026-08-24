@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "shape-container-top-clamps-tall-child",
+  "graphComposeVersion": "2.2.0",
+  "api": [
+    "ShapeContainerBuilder.position",
+    "LayerAlign.CENTER_LEFT",
+    "ClipPolicy.OVERFLOW_VISIBLE"
+  ],
+  "observedBehaviour": "A shape container centres a child that fits, but top-clamps one taller than itself rather than centring it. The two centres then differ by exactly half the overflow.",
+  "minimalReproduction": {
+    "probe": "anchor-alignment",
+    "command": "node scripts/probe.mjs anchor-alignment --version 2.2",
+    "arrangement": "A 13.8 pt paragraph positioned CENTER_LEFT in a 6.8 pt band at three vertical offsets."
+  },
+  "probeResult": {
+    "centreDriftAtZeroOffset": 3.5,
+    "topClamped": true
+  },
+  "workaround": "Offset each over-tall child upward by its own overflow, derived from the two box heights - never a number tuned by eye against today's text.",
+  "confidence": "confirmed",
+  "sourceRun": {
+    "project": "navy-sidebar-cv",
+    "revision": "revision-008",
+    "date": "2026-08-24",
+    "note": "Surfaced when shrinking a band to fix a timeline rail moved the job title inside it."
+  },
+  "promotedTo": null
+}

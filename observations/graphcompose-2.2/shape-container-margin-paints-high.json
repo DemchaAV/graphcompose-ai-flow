@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "shape-container-margin-paints-high",
+  "graphComposeVersion": "2.2.0",
+  "api": [
+    "ShapeContainerBuilder.margin",
+    "ShapeContainerBuilder.fillColor",
+    "ShapeContainerBuilder.stroke"
+  ],
+  "observedBehaviour": "A shape container paints its own fill or stroke marginBottom points ABOVE its layout box, while its children are placed correctly. The layout snapshot reports the box in the right place, so only a render settles it.",
+  "minimalReproduction": {
+    "probe": "shape-paint",
+    "command": "node scripts/probe.mjs shape-paint --version 2.2",
+    "arrangement": "Two identical circles, one with a 22 pt bottom margin and one without; compare each box top against the first raster row of its colour."
+  },
+  "probeResult": {
+    "paintDriftWithMargin": -21.84,
+    "paintDriftWithoutMargin": -0.16,
+    "marginDisplacesPaint": true
+  },
+  "workaround": "Keep margins off shape containers. Put the gap on the enclosing section instead, where it does not move any paint.",
+  "confidence": "confirmed",
+  "sourceRun": {
+    "project": "navy-sidebar-cv",
+    "revision": "revision-005",
+    "date": "2026-08-24",
+    "note": "Cost three revisions before a render-and-measure probe separated layout from painting."
+  },
+  "promotedTo": null
+}

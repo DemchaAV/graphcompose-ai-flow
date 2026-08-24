@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Diagnostic probes for the GraphCompose 2.2 line.
+
+  One project per library line, because a probe is real code against one API and
+  the answers it reports are only true for the version it ran against. Bumping
+  graphcompose.version here re-runs every probe against a new build, which is
+  exactly how an observation gets re-confirmed or retired.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.demcha.graphcompose-ai-flow</groupId>
+  <artifactId>graphcompose-diagnostics-2-2</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <properties>
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <graphcompose.version>2.2.0</graphcompose.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.github.demchaav</groupId>
+      <artifactId>graph-compose</artifactId>
+      <version>${graphcompose.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.github.demchaav</groupId>
+      <artifactId>graph-compose-fonts</artifactId>
+      <version>1.1.0</version>
+    </dependency>
+  </dependencies>
+</project>

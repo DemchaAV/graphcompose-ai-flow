@@ -92,6 +92,16 @@ const STEPS = [
     cwd: "tools/asset-resolver",
   },
   {
+    // Slow because it compiles the diagnostics project and runs every probe
+    // against a real GraphCompose build. That is the point: an observation
+    // that is never re-checked becomes folklore.
+    name: "observations",
+    kind: "slow",
+    why: "every recorded GraphCompose behaviour still reproduces",
+    cmd: process.execPath,
+    args: ["scripts/observations.mjs", "verify"],
+  },
+  {
     name: "skill fixtures",
     kind: "slow",
     why: "the documented API calls resolve against the real library",
