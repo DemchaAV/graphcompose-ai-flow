@@ -40,8 +40,7 @@ mismatch turns out to be about that topic.
 anything:
 
 ```bash
-node tools/visual-diff/bin/visual-diff.mjs <reference-or-parent.png> <revision>/output.png \
-  --json --update-revision <revision>
+node tools/visual-diff/bin/visual-diff.mjs <reference-or-parent.png> <revision>/output.png --json --update-revision <revision>
 ```
 
 `--update-revision` writes `diff.png` and `stats.json` into the revision

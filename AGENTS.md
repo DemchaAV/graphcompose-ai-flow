@@ -4,6 +4,33 @@
 > doing anything else in this repository. Every other file in the
 > tree is linked from here in the order you should reach for it.
 
+## Start with the skills, not with this file
+
+The eleven-prompt chain described below has been folded into four
+workflow skills. Use them; this file is being cut down to a dispatcher
+once the acceptance runs are green (see `docs/roadmap.md` § Harness
+migration).
+
+| I want to | Read |
+|---|---|
+| Turn a reference into a template | [`skills/workflows/create-template/SKILL.md`](skills/workflows/create-template/SKILL.md) |
+| Change an existing template | [`skills/workflows/revise-template/SKILL.md`](skills/workflows/revise-template/SKILL.md) |
+| Judge the current render | [`skills/workflows/review-template/SKILL.md`](skills/workflows/review-template/SKILL.md) |
+| Approve and publish | [`skills/workflows/approve-template/SKILL.md`](skills/workflows/approve-template/SKILL.md) |
+
+Four things are declared once and must not be restated anywhere:
+
+| Contract | Lives in |
+|---|---|
+| Which stages a scope runs, the gate it ends on, the loop bounds, the failure categories | [`config/pipeline.json`](config/pipeline.json) — print it with `node scripts/run-pipeline.mjs <project-id>` |
+| What GraphCompose can do, per version | [`skills/versions/`](skills/) — start at the pack's `00-loading-map.md` |
+| The shape of every on-disk artifact | [`schemas/`](schemas/) |
+| Where the work goes (the user's project, not this repo) | [`scripts/lib/workspace.mjs`](scripts/lib/workspace.mjs), explained in [`docs/architecture.md`](docs/architecture.md) |
+
+Using Codex? The skills install with
+[`node adapters/codex/install.mjs`](adapters/codex/README.md). Using
+Claude Code? The plugin is [`.claude-plugin/`](docs/plugin-installation.md).
+
 ## What this project is
 
 GraphCompose AI Template Flow turns a visual document reference (a

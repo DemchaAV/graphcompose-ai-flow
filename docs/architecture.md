@@ -352,8 +352,18 @@ graphcompose-ai-flow/
 ```
 
 The workflow, skills, schemas and tools are shared. The adapters are
-thin: packaging differences between hosts must never fork the
-workflow.
+thin: packaging differences between hosts must never fork the workflow.
+
+Concretely, the two hosts want different shapes. Claude Code takes a
+manifest that can point at a nested skills directory, so
+`.claude-plugin/plugin.json` declares `skills/workflows/` and nothing
+moves. Codex wants `~/.codex/skills/<name>/SKILL.md` — flat, no manifest
+— so [`adapters/codex/install.mjs`](../adapters/codex/install.mjs)
+generates one stub per skill: the frontmatter copied verbatim, because
+the description is the trigger surface, and a pointer to the canonical
+file instead of a copy of it. Copying the bodies would have put four
+duplicates of one contract in a second place, which is the failure this
+migration exists to remove.
 
 ## Deliberately out of scope
 

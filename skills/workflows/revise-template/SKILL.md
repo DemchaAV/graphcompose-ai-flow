@@ -27,8 +27,7 @@ one clarifying question, asked before any revision is opened.
 change is a new revision.
 
 ```bash
-node tools/revision-manager/bin/graphcompose-flow.mjs new-revision "<the user's words>" \
-  --project <project-dir>
+node tools/revision-manager/bin/graphcompose-flow.mjs new-revision "<the user's words>" --project <project-dir>
 ```
 
 Then write `orchestration-decision.json`
