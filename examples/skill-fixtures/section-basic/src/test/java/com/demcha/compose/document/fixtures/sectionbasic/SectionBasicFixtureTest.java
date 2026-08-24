@@ -7,7 +7,6 @@ import com.demcha.compose.GraphCompose;
 import com.demcha.compose.document.api.DocumentSession;
 import com.demcha.compose.document.dsl.SectionBuilder;
 import com.demcha.compose.document.style.DocumentInsets;
-import com.demcha.compose.document.theme.BusinessTheme;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -20,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
  *
  * <p>The fixture builds a one-page document with one named section
  * "Callout" carrying a panel background sourced from a real
- * {@link BusinessTheme} palette token, 8 pt of internal padding, and a
+ * local palette constant, 8 pt of internal padding, and a
  * single body paragraph. All builder calls resolve to the real
  * GraphCompose 1.6 canonical surface.</p>
  */
@@ -28,13 +27,13 @@ final class SectionBasicFixtureTest {
 
     @Test
     void produces_expected_layout_snapshot() {
-        BusinessTheme theme = BusinessTheme.modern();
+        
 
         try (DocumentSession document = GraphCompose.document(Path.of("output.pdf")).create()) {
             assertDoesNotThrow(() -> document.pageFlow(page -> page
                             .name("SectionBasicFixture")
                             .spacing(8)
-                            .addSection("Callout", section -> renderCallout(section, theme))),
+                            .addSection("Callout", section -> renderCallout(section))),
                     "SectionBuilder with background, padding, and a child text must compose");
         } catch (Exception e) {
             throw new AssertionError("DocumentSession close failed", e);
@@ -46,15 +45,15 @@ final class SectionBasicFixtureTest {
         //   - preview-image visual diff against expected-output/output.png
     }
 
-    private static void renderCallout(SectionBuilder section, BusinessTheme theme) {
+    private static void renderCallout(SectionBuilder section) {
         // softPanel(...) bundles fill + corner radius + uniform padding from
         // AbstractFlowBuilder; equivalent to the original test's
         // background + padding + cornerRadius sequence but matches the
         // canonical preset name used by InvoiceTemplateV2 / ProposalTemplateV2.
-        section.softPanel(theme.palette().surfaceMuted(), 6.0, 8.0)
+        section.softPanel(FixtureTheme.SURFACE_MUTED, 6.0, 8.0)
                 .addParagraph(p -> p
                         .text("Payment is due within 30 days of the invoice date.")
-                        .textStyle(theme.text().body())
+                        .textStyle(FixtureTheme.BODY)
                         .margin(DocumentInsets.zero()));
     }
 }

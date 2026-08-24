@@ -5,23 +5,22 @@ package com.demcha.compose.document.fixtures.sectionbasic;
 import com.demcha.compose.document.api.DocumentSession;
 import com.demcha.compose.document.dsl.SectionBuilder;
 import com.demcha.compose.document.style.DocumentInsets;
-import com.demcha.compose.document.theme.BusinessTheme;
 
 public final class SectionBasicFixtureDocument {
 
     public void compose(DocumentSession document) {
-        BusinessTheme theme = BusinessTheme.modern();
+        
         document.pageFlow(page -> page
                 .name("SectionBasicFixture")
                 .spacing(8)
-                .addSection("Callout", section -> renderCallout(section, theme)));
+                .addSection("Callout", section -> renderCallout(section)));
     }
 
-    private static void renderCallout(SectionBuilder section, BusinessTheme theme) {
-        section.softPanel(theme.palette().surfaceMuted(), 6.0, 8.0)
+    private static void renderCallout(SectionBuilder section) {
+        section.softPanel(FixtureTheme.SURFACE_MUTED, 6.0, 8.0)
                 .addParagraph(p -> p
                         .text("Payment is due within 30 days of the invoice date.")
-                        .textStyle(theme.text().body())
+                        .textStyle(FixtureTheme.BODY)
                         .margin(DocumentInsets.zero()));
     }
 }

@@ -8,28 +8,27 @@ import com.demcha.compose.document.style.DocumentInsets;
 import com.demcha.compose.document.style.DocumentStroke;
 import com.demcha.compose.document.table.DocumentTableColumn;
 import com.demcha.compose.document.table.DocumentTableStyle;
-import com.demcha.compose.document.theme.BusinessTheme;
 
 public final class TableBasicFixtureDocument {
 
     public void compose(DocumentSession document) {
-        BusinessTheme theme = BusinessTheme.modern();
+        
         document.pageFlow(page -> page
                 .name("TableBasicFixture")
                 .spacing(8)
-                .addTable(table -> renderLineItems(table, theme)));
+                .addTable(table -> renderLineItems(table)));
     }
 
-    private static void renderLineItems(TableBuilder table, BusinessTheme theme) {
+    private static void renderLineItems(TableBuilder table) {
         DocumentTableStyle bordered = DocumentTableStyle.builder()
-                .stroke(DocumentStroke.of(theme.palette().rule(), 0.6))
+                .stroke(DocumentStroke.of(FixtureTheme.RULE, 0.6))
                 .padding(DocumentInsets.of(7.0))
                 .build();
         DocumentTableStyle headerStyle = DocumentTableStyle.builder()
-                .fillColor(theme.palette().primary())
-                .stroke(DocumentStroke.of(theme.palette().rule(), 0.6))
+                .fillColor(FixtureTheme.PRIMARY)
+                .stroke(DocumentStroke.of(FixtureTheme.RULE, 0.6))
                 .padding(DocumentInsets.of(8.0))
-                .textStyle(theme.text().label())
+                .textStyle(FixtureTheme.LABEL)
                 .build();
 
         table.name("LineItems")
@@ -40,7 +39,7 @@ public final class TableBasicFixtureDocument {
                 .defaultCellStyle(bordered)
                 .headerRow("Description", "Qty", "Amount")
                 .headerStyle(headerStyle)
-                .zebra(theme.palette().surfaceMuted(), theme.palette().surface())
+                .zebra(FixtureTheme.SURFACE_MUTED, FixtureTheme.SURFACE)
                 .row("Design discovery", "4", "$ 1,200.00")
                 .row("Implementation", "8", "$ 2,400.00");
     }

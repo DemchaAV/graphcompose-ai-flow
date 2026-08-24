@@ -9,7 +9,6 @@ import com.demcha.compose.document.dsl.LayerStackBuilder;
 import com.demcha.compose.document.dsl.SectionBuilder;
 import com.demcha.compose.document.node.LayerAlign;
 import com.demcha.compose.document.node.SectionNode;
-import com.demcha.compose.document.theme.BusinessTheme;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -34,13 +33,13 @@ final class LayerStackBadgeFixtureTest {
 
     @Test
     void produces_expected_layout_snapshot() {
-        BusinessTheme theme = BusinessTheme.modern();
+        
 
         try (DocumentSession document = GraphCompose.document(Path.of("output.pdf")).create()) {
             assertDoesNotThrow(() -> document.pageFlow(page -> page
                             .name("LayerStackBadgeFixture")
                             .spacing(8)
-                            .addSection("CardWithBadge", section -> renderCardWithBadge(section, theme))),
+                            .addSection("CardWithBadge", section -> renderCardWithBadge(section))),
                     "LayerStack with card content below and badge above must compose");
         } catch (Exception e) {
             throw new AssertionError("DocumentSession close failed", e);
@@ -52,29 +51,29 @@ final class LayerStackBadgeFixtureTest {
         //   - preview-image visual diff against expected-output/output.png
     }
 
-    private static void renderCardWithBadge(SectionBuilder section, BusinessTheme theme) {
-        section.addLayerStack(stack -> renderStack(stack, theme));
+    private static void renderCardWithBadge(SectionBuilder section) {
+        section.addLayerStack(stack -> renderStack(stack));
     }
 
-    private static void renderStack(LayerStackBuilder stack, BusinessTheme theme) {
+    private static void renderStack(LayerStackBuilder stack) {
         stack.name("CardWithBadgeStack");
 
         // Layer 0 (bottom): the card body, sized via a SectionNode built off
         // the public SectionBuilder so the stack has a measurable bounding box.
         SectionNode cardBody = new SectionBuilder()
                 .name("CardBody")
-                .softPanel(theme.palette().surfaceMuted(), 6.0, 12.0)
+                .softPanel(FixtureTheme.SURFACE_MUTED, 6.0, 12.0)
                 .spacing(2)
-                .addParagraph(p -> p.text("Invoice 2026-0001").textStyle(theme.text().h3()))
-                .addParagraph(p -> p.text("Issued 2026-05-18").textStyle(theme.text().caption()))
+                .addParagraph(p -> p.text("Invoice 2026-0001").textStyle(FixtureTheme.H3))
+                .addParagraph(p -> p.text("Issued 2026-05-18").textStyle(FixtureTheme.CAPTION))
                 .build();
 
         // Layer 1 (top): the "NEW" pill badge, anchored top-right via the
         // real LayerAlign enum from com.demcha.compose.document.node.
         SectionNode newBadge = new SectionBuilder()
                 .name("NewBadge")
-                .softPanel(theme.palette().accent(), 8.0, 4.0)
-                .addParagraph(p -> p.text("NEW").textStyle(theme.text().label()))
+                .softPanel(FixtureTheme.ACCENT, 8.0, 4.0)
+                .addParagraph(p -> p.text("NEW").textStyle(FixtureTheme.LABEL))
                 .build();
 
         stack.layer(cardBody, LayerAlign.TOP_LEFT);

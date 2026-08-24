@@ -60,18 +60,25 @@ The active pack lists 17 skills in
   ([`versions/graphcompose-2.2/00-loading-map.md`](versions/graphcompose-2.2/00-loading-map.md))
   — which files a given task should open, so a task loads four to six of
   them rather than all seventeen.
-- the 15 conceptual skills — `status: needs-validation`, and for this
-  pack that status is doing real work. The five fixture projects under
-  [`examples/skill-fixtures/`](../examples/skill-fixtures/) still pin
-  **1.9.0**: four of them fail against 2.2.0 because they use
-  `com.demcha.compose.document.theme.BusinessTheme`, which 2.x removed
-  from the library — it now lives in GraphCompose's own `examples`
-  module and is not published. Porting them means rewriting the four
-  fixtures against the 2.2 surface (`DocumentColor` /
-  `DocumentTextStyle` directly, or `BrandTheme` from the separate
-  templates artifact); until that lands, the 2.2 pack's compile-smoke
-  evidence is inherited from 1.9 rather than proven, and no skill is
-  promoted to `status: active`.
+- the 15 conceptual skills — `status: needs-validation`. The five
+  fixture projects under
+  [`examples/skill-fixtures/`](../examples/skill-fixtures/) compile,
+  test and render against GraphCompose 2.2.0, and every render is
+  `IDENTICAL` against its committed baseline — so the compile-smoke
+  evidence for this pack is proven, not inherited. What still keeps the
+  status is coverage rather than doubt: five fixtures exercise rows,
+  sections, tables, layer stacks and shape containers, which is a subset
+  of what the fifteen skills describe. A skill is promoted to `active`
+  when a fixture covers it.
+
+  Porting those fixtures across the major was not a formality. They used
+  `com.demcha.compose.document.theme.BusinessTheme`, which 2.0 moved
+  into GraphCompose's own `examples` module — unpublished, so no project
+  depending on `io.github.demchaav:graph-compose` can reach it. Each
+  fixture now carries a small `FixtureTheme` built from `DocumentColor`
+  and `DocumentTextStyle` alone, reproducing the values
+  `BusinessTheme.modern()` used; that the renders came back pixel-
+  identical is what confirms the reproduction.
 
 Skills found to conflict with the library will be marked
 `failed-validation` and fixed per the

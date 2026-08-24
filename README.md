@@ -126,9 +126,11 @@ integration, no MCP server, no standalone runtime.
   the CI gates are in place; `npm run verify` runs every gate locally.
 - The **acceptance runs are outstanding**: whether the skills fire
   unprompted in a clean project, in each host, has not yet been recorded.
-- The GraphCompose **2.2 pack ships**, but the five compile-smoke
-  fixtures still pin 1.9.0, so every conceptual skill remains
-  `needs-validation`. See [`skills/README.md`](skills/README.md).
+- The GraphCompose **2.2 pack ships** and its five fixtures compile,
+  test and render against 2.2.0 with every render identical to its
+  baseline. The conceptual skills stay `needs-validation` on coverage —
+  five fixtures are a subset of what fifteen skills describe. See
+  [`skills/README.md`](skills/README.md).
 - Details and scope limits: [`docs/limitations.md`](docs/limitations.md),
   progress: [`docs/roadmap.md`](docs/roadmap.md).
 

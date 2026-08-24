@@ -10,7 +10,6 @@ import com.demcha.compose.document.style.DocumentInsets;
 import com.demcha.compose.document.style.DocumentStroke;
 import com.demcha.compose.document.table.DocumentTableColumn;
 import com.demcha.compose.document.table.DocumentTableStyle;
-import com.demcha.compose.document.theme.BusinessTheme;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -31,13 +30,13 @@ final class TableBasicFixtureTest {
 
     @Test
     void produces_expected_layout_snapshot() {
-        BusinessTheme theme = BusinessTheme.modern();
+        
 
         try (DocumentSession document = GraphCompose.document(Path.of("output.pdf")).create()) {
             assertDoesNotThrow(() -> document.pageFlow(page -> page
                             .name("TableBasicFixture")
                             .spacing(8)
-                            .addTable(table -> renderLineItems(table, theme))),
+                            .addTable(table -> renderLineItems(table))),
                     "TableBuilder with header, zebra, and three columns must compose");
         } catch (Exception e) {
             throw new AssertionError("DocumentSession close failed", e);
@@ -49,16 +48,16 @@ final class TableBasicFixtureTest {
         //   - preview-image visual diff against expected-output/output.png
     }
 
-    private static void renderLineItems(TableBuilder table, BusinessTheme theme) {
+    private static void renderLineItems(TableBuilder table) {
         DocumentTableStyle bordered = DocumentTableStyle.builder()
-                .stroke(DocumentStroke.of(theme.palette().rule(), 0.6))
+                .stroke(DocumentStroke.of(FixtureTheme.RULE, 0.6))
                 .padding(DocumentInsets.of(7.0))
                 .build();
         DocumentTableStyle headerStyle = DocumentTableStyle.builder()
-                .fillColor(theme.palette().primary())
-                .stroke(DocumentStroke.of(theme.palette().rule(), 0.6))
+                .fillColor(FixtureTheme.PRIMARY)
+                .stroke(DocumentStroke.of(FixtureTheme.RULE, 0.6))
                 .padding(DocumentInsets.of(8.0))
-                .textStyle(theme.text().label())
+                .textStyle(FixtureTheme.LABEL)
                 .build();
 
         table.name("LineItems")
@@ -72,7 +71,7 @@ final class TableBasicFixtureTest {
                 // Real TableBuilder.zebra(odd, even) takes two DocumentColor
                 // fills — the original test's theme.zebraAlternate() is the
                 // surfaceMuted token in the real palette.
-                .zebra(theme.palette().surfaceMuted(), theme.palette().surface())
+                .zebra(FixtureTheme.SURFACE_MUTED, FixtureTheme.SURFACE)
                 .row("Design discovery", "4", "$ 1,200.00")
                 .row("Implementation", "8", "$ 2,400.00");
     }
