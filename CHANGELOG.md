@@ -7,6 +7,14 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.0-beta.2
+
+- **`scripts/init-workspace.mjs`** — see the entry under Public API
+  below. The version is bumped rather than folded into `beta.1` because
+  `claude plugin update` compares version strings, not commits: a fix
+  shipped under an unchanged version never reaches an installed user,
+  and the CLI reports them "already at the latest version".
+
 ### v0.5.0-beta.1 — the harness migration
 
 The project stops being a workflow kit that a coding agent has to
