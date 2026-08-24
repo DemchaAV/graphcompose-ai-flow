@@ -190,16 +190,6 @@ if (command === "promote") {
     );
     process.exit(1);
   }
-  const verify = spawnSync(
-    process.execPath,
-    [path.join(repoRoot, "scripts", "observations.mjs"), "verify", "--id", id],
-    { encoding: "utf8", stdio: "inherit" },
-  );
-  if (verify.status !== 0) {
-    process.stderr.write(`[observations] verify failed; "${id}" was not promoted\n`);
-    process.exit(1);
-  }
-
   // Appending twice duplicates the section, and nothing noticed: promote
   // checked confidence but not whether this had already been promoted.
   if (found.body.promotedTo) {
@@ -224,6 +214,20 @@ if (command === "promote") {
       `[observations] ${target} is outside this harness. Promote into a skill pack ` +
         "under skills/, so the record points somewhere every reader has.\n",
     );
+    process.exit(1);
+  }
+
+  // Verify last, because it compiles and runs a probe. Everything above is
+  // decidable from disk — unknown id, not confirmed, already promoted, target
+  // missing or outside the harness — and a typo in --into should not cost a
+  // Maven build to discover.
+  const verify = spawnSync(
+    process.execPath,
+    [path.join(repoRoot, "scripts", "observations.mjs"), "verify", "--id", id],
+    { encoding: "utf8", stdio: "inherit" },
+  );
+  if (verify.status !== 0) {
+    process.stderr.write(`[observations] verify failed; "${id}" was not promoted\n`);
     process.exit(1);
   }
 
