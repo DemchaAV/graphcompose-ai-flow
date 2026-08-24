@@ -266,7 +266,7 @@ both of them called `repoRoot`:
 
 | Root | Holds | Resolved from |
 |---|---|---|
-| **install root** | `prompts/`, `skills/`, `config/`, `schemas/`, `tools/` — the harness itself | the script's own location, always |
+| **install root** | `skills/`, `config/`, `schemas/`, `tools/`, `scripts/` — the harness itself | the script's own location, always |
 | **workspace root** | projects, revisions, references, published bundles — the user's work | the resolution order below |
 
 Inside this repo they are the same directory, which is why the

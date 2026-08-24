@@ -5,7 +5,7 @@
 Refactor `GeneratedCvTemplate` so layout dimensions are computed
 from a small set of base constants (page geometry + column weights)
 instead of hand-tuned pixel values. Also encode the principle into
-`prompts/template-coder-agent.md` so future agents reach for the
+`skills/workflows/` so future agents reach for the
 formula first.
 
 ## Decision

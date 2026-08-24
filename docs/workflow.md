@@ -84,14 +84,14 @@ node scripts/run-pipeline.mjs <project-id>
 ```
 
 The scope values and how the orchestrator picks between them are in
-[`prompts/orchestrator-agent.md`](../prompts/orchestrator-agent.md)
+[`skills/workflows/`](../skills/workflows/README.md)
 § "Revision scope".
 
 ## Steps
 
 ### 1. Detect Task Type
 
-Owner: Template Orchestrator Agent ([agents.md](agents.md#template-orchestrator-agent)).
+Owner: Template Orchestrator Agent ([`skills/workflows/`](../skills/workflows/README.md)).
 Input: user request, project metadata, current approved and draft
 revisions. Output: orchestration-decision.md and a routing choice
 between new generation, revision, approval, undo, revert to approved,
@@ -99,7 +99,7 @@ or selective rollback.
 
 ### 2. Resolve GraphCompose Version
 
-Owner: Version + Skill Resolver Agent ([agents.md](agents.md#version--skill-resolver-agent)).
+Owner: Version + Skill Resolver Agent ([`skills/workflows/`](../skills/workflows/README.md)).
 Input: pom.xml, build.gradle, project config, skill-manifest.json,
 user request. Output: version-resolution.md naming the target
 GraphCompose version and the selected skill pack path.
@@ -112,7 +112,7 @@ compatible with the resolved version are loaded.
 
 ### 4. Validate Skills
 
-Owner: Skill Validator Agent ([agents.md](agents.md#skill-validator-agent)).
+Owner: Skill Validator Agent ([`skills/workflows/`](../skills/workflows/README.md)).
 Input: selected skill pack, GraphCompose version, verified examples,
 fixture projects, build output, render output. Output:
 skill-validation-report.md and, when drift is detected,
@@ -121,7 +121,7 @@ wins. See [skill-validation.md](skill-validation.md).
 
 ### 5. Analyze Reference
 
-Owner: Visual Analyzer Agent ([agents.md](agents.md#visual-analyzer-agent)).
+Owner: Visual Analyzer Agent ([`skills/workflows/`](../skills/workflows/README.md)).
 Input: reference.png, optional reference.pdf, optional user notes.
 Output: visual-analysis.md describing page format, regions, hierarchy,
 typography, icons, colors, spacing, and uncertain parts. Icon
@@ -131,7 +131,7 @@ never writes code.
 
 ### 6. Create Architecture Plan
 
-Owner: Architecture Mapper Agent ([agents.md](agents.md#architecture-mapper-agent)).
+Owner: Architecture Mapper Agent ([`skills/workflows/`](../skills/workflows/README.md)).
 Input: visual-analysis.md, selected skills, GraphCompose version,
 reference image. Output: architecture-plan.md mapping each visual
 region to GraphCompose DSL primitives, naming render methods, and
@@ -143,7 +143,7 @@ final Java.
 
 ### 7. Resolve Design Assets
 
-Owner: Asset Resolver Agent ([agents.md](agents.md#asset-resolver-agent)).
+Owner: Asset Resolver Agent ([`skills/workflows/`](../skills/workflows/README.md)).
 Input: asset-request.json, architecture-plan.md, selected skill pack,
 revision folder. Output: assets-manifest.json plus binary assets under
 `<revision>/assets/icons/` and `<revision>/assets/fonts/`. Icons are
@@ -156,7 +156,7 @@ for the CLI surface and schemas.
 
 ### 8. Generate Template Code
 
-Owner: Template Coder Agent ([agents.md](agents.md#template-coder-agent)).
+Owner: Template Coder Agent ([`skills/workflows/`](../skills/workflows/README.md)).
 Input: architecture-plan.md, assets-manifest.json, selected skill
 pack, GraphCompose version, base revision when applicable. Output:
 generated-template.java, generated-test.java, patch.diff,
@@ -166,7 +166,7 @@ through the manifest rather than hard-coding them.
 
 ### 9. Compile
 
-Owner: Test + Render Agent ([agents.md](agents.md#test--render-agent)).
+Owner: Test + Render Agent ([`skills/workflows/`](../skills/workflows/README.md)).
 Input: generated-template.java, generated-test.java, project config.
 Output: build.log and a pass/fail signal. Failure is preserved as a
 FAILED revision; nothing is overwritten.
@@ -185,7 +185,7 @@ revisions.
 
 ### 12. Compare Preview Against Reference
 
-Owner: Visual Review Agent ([agents.md](agents.md#visual-review-agent)).
+Owner: Visual Review Agent ([`skills/workflows/`](../skills/workflows/README.md)).
 Input: reference.png, output.png, previous-output.png when available,
 layout-snapshot.json, visual-analysis.md, architecture-plan.md.
 Output: visual-review.md with a reference parity score and
@@ -207,7 +207,7 @@ prior revisions.
 
 ### 15. Approve / Reject / Rollback
 
-Owner: Revision Manager Agent ([agents.md](agents.md#revision-manager-agent)).
+Owner: Revision Manager Agent ([`skills/workflows/`](../skills/workflows/README.md)).
 Approval flips a DRAFT to APPROVED and records the new
 `currentApprovedRevisionId` in `template-project.json`. Rejection
 marks the draft REJECTED. Rollback is covered in detail in
@@ -216,7 +216,7 @@ approved revision directly — every change creates a new revision.
 
 ### 16. Publish Template
 
-Owner: Template Publisher Agent ([agents.md](agents.md#template-publisher-agent)).
+Owner: Template Publisher Agent ([`skills/workflows/`](../skills/workflows/README.md)).
 Runs only when step 15 transitioned the revision to APPROVED.
 Reads `template-project.json` and the approved revision folder,
 rewrites `Generated<X>Template` as `<DisplayName>Template` with

@@ -23,7 +23,7 @@ yet been written. The Revision Manager Agent will create
 ## Pipeline plan
 
 The seven specialized agents run in the order documented in
-[`../../../../docs/agents.md`](../../../../docs/agents.md):
+[`../../../../docs/agents.md`](../../../../skills/workflows/README.md):
 
 1. Version + Skill Resolver Agent &mdash; reads
    `template-project.json` and `skills/skill-manifest.json` to pick

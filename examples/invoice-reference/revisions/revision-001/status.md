@@ -2,7 +2,7 @@
 
 One-page status summary written by the Revision Manager Agent. The
 agent's responsibilities are documented in
-[`../../../../docs/agents.md`](../../../../docs/agents.md#revision-manager-agent)
+[`../../../../docs/agents.md`](../../../../skills/workflows/README.md)
 and the safety rule is verbatim from the project plan: never
 overwrite the approved revision directly; every change creates a
 new revision.

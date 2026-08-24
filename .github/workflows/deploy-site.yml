@@ -5,7 +5,8 @@ on:
     branches: [main]
     paths:
       - 'site/**'
-      - 'prompts/**'
+      - 'config/**'
+      - 'skills/**'
       - 'templates/**'
       - 'examples/cv-reference/reference/**'
       - 'assets/readme/**'

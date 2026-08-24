@@ -1,57 +1,58 @@
 ---
-import data from '../data/generated/agents.json';
+import data from '../data/generated/pipeline.json';
 const repoUrl = 'https://github.com/DemchaAV/graphcompose-ai-flow';
-const agents = data.agents as Array<{
-  slug: string;
-  file: string;
-  title: string;
-  role: string;
-  inputs: string[];
-  outputs: string[];
+const stages = data.stages as Array<{
+  id: string;
+  label: string;
+  kind: string;
+  description: string;
+  tool: string | null;
+}>;
+const workflows = data.workflows as Array<{
+  id: string;
+  skill: string;
+  summary: string;
+  scopes: string[];
 }>;
 ---
 <section id="pipeline" class="pipeline">
   <div class="container">
     <p class="eyebrow">02 · how it works</p>
-    <h2>Eleven agents. One strict chain.</h2>
+    <h2>Four skills. One bounded loop.</h2>
     <p class="lede">
-      Every request flows through the same ordered pipeline. Each agent has a fixed
-      input, a fixed output, and a list of forbidden behaviors. No agent improvises
-      the work of another. <em>This is the moat against prompt-and-hope.</em>
+      You say what you want; a workflow skill owns the request end to end. Behind it
+      the same ordered stages run — some are the model's judgement, most are a CLI,
+      and the last two are gates that decide with an exit code, not an opinion.
+      <em>This is the moat against prompt-and-hope.</em>
     </p>
 
+    <ul class="workflows">
+      {workflows.map((workflow) => (
+        <li class="workflow">
+          <a href={`${repoUrl}/blob/main/${workflow.skill}`}><code>{workflow.id}</code></a>
+          <span>{workflow.summary}</span>
+        </li>
+      ))}
+    </ul>
+
     <ol class="chain">
-      {agents.map((agent, idx) => (
+      {stages.map((stage, idx) => (
         <li class="step">
           <div class="num">
             <span class="num-badge">{String(idx + 1).padStart(2, '0')}</span>
           </div>
           <div class="card">
             <header>
-              <h3>{agent.title}</h3>
-              <a class="src-link" href={`${repoUrl}/blob/main/${agent.file}`} aria-label={`Open source for ${agent.title}`}>
-                <code>{agent.file}</code>
-              </a>
+              <h3>{stage.label}</h3>
+              <span class={`kind kind-${stage.kind}`}>{stage.kind.toUpperCase()}</span>
             </header>
-            <p class="role">{agent.role}</p>
-            {(agent.inputs.length > 0 || agent.outputs.length > 0) && (
+            <p class="role">{stage.description}</p>
+            {stage.tool && (
               <div class="io">
-                {agent.inputs.length > 0 && (
-                  <div class="io-col">
-                    <span class="io-label">in</span>
-                    <ul>
-                      {agent.inputs.slice(0, 4).map((io) => <li>{io}</li>)}
-                    </ul>
-                  </div>
-                )}
-                {agent.outputs.length > 0 && (
-                  <div class="io-col">
-                    <span class="io-label">out</span>
-                    <ul>
-                      {agent.outputs.slice(0, 4).map((io) => <li>{io}</li>)}
-                    </ul>
-                  </div>
-                )}
+                <div class="io-col">
+                  <span class="io-label">runs</span>
+                  <ul><li>{stage.tool}</li></ul>
+                </div>
               </div>
             )}
           </div>
@@ -60,11 +61,10 @@ const agents = data.agents as Array<{
     </ol>
 
     <p class="footnote">
-      Full chain reference and forbidden behaviors live in
-      <a href={`${repoUrl}/blob/main/docs/agents.md`}><code>docs/agents.md</code></a>
-      and <a href={`${repoUrl}/blob/main/AGENTS.md`}><code>AGENTS.md</code></a>.
-      This list is auto-generated from <code>prompts/*-agent.md</code> at build time.
-    </p>
+      Which stages a scope runs, the gate it ends on and the loop bounds are declared once in
+      <a href={`${repoUrl}/blob/main/config/pipeline.json`}><code>config/pipeline.json</code></a>,
+      which this list is generated from at build time. The skills that run them live in
+      <a href={`${repoUrl}/blob/main/skills/workflows`}><code>skills/workflows/</code></a>.</p>
   </div>
 </section>
 
@@ -213,4 +213,31 @@ const agents = data.agents as Array<{
   .footnote code {
     color: var(--fg-muted);
   }
+
+  .workflows {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 2.5rem;
+    display: grid;
+    gap: 0.5rem;
+  }
+  .workflows li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+    align-items: baseline;
+  }
+  .workflows code { font-size: 0.9rem; }
+  .workflows span { opacity: 0.75; font-size: 0.95rem; }
+  .kind {
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    border: 1px solid currentColor;
+    opacity: 0.7;
+  }
+  .kind-llm { color: #7aa2f7; }
+  .kind-tool { color: #9ece6a; }
+  .kind-gate { color: #e0af68; }
 </style>

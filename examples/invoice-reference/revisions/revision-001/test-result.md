@@ -2,7 +2,7 @@
 
 Output of the Test + Render Agent for `revision-001`. The minimum
 and better checks below come from the project plan (§5.7) and
-[`../../../../docs/agents.md`](../../../../docs/agents.md#test--render-agent).
+[`../../../../docs/agents.md`](../../../../skills/workflows/README.md).
 
 ## Minimum checks
 

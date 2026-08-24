@@ -143,6 +143,7 @@ Before committing: `npm run verify`.
 - [`docs/limitations.md`](docs/limitations.md) · [`docs/roadmap.md`](docs/roadmap.md) — honest scope, and what is coming
 - [`examples/cv-reference/`](examples/cv-reference/) — a worked chain; reading revisions 001 → 009 shows what iteration actually looks like
 
-> **Historical:** [`prompts/`](prompts/) holds the eleven-agent chain this
-> harness replaced. It is kept until the Claude Code and Codex acceptance
-> runs are recorded, then removed. Follow the skills, not the prompts.
+> **Historical:** the eleven-agent prompt chain this harness replaced,
+> and the document describing it, have both been removed. They are in git
+> history before the removal commit; `CHANGELOG.md` records what replaced
+> them.

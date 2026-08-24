@@ -10,8 +10,8 @@ visual-parity contract.
 
 **Read `AGENTS.md` (repo root) first, end-to-end.** It is the canonical
 onboarding: entry-point dispatch, the 11-agent chain, project anatomy, and the
-cross-cutting principles. The cross-agent contract is `prompts/master-prompt.md`;
-per-stage prompts are `prompts/<agent>-agent.md`. These rules summarize
+cross-cutting principles. The workflow lives in `skills/workflows/`;
+routing and gates in `config/pipeline.json`. These rules summarize
 `AGENTS.md` — if they ever differ, `AGENTS.md` wins.
 
 ## Non-negotiables

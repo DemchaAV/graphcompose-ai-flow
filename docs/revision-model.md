@@ -30,7 +30,7 @@ Example:
 
 `template-project.json` is the only place that knows which revision
 is currently approved and which is the active draft. Only the
-Revision Manager Agent ([agents.md](agents.md#revision-manager-agent))
+`tools/revision-manager` (see [`skills/workflows/`](../skills/workflows/README.md))
 writes to this file.
 
 ## Revision metadata
@@ -174,5 +174,5 @@ missing later artifacts.
 - `test-result.md` — Test + Render Agent test summary.
 - `status.md` — final disposition written by the Revision Manager.
 
-See [agents.md](agents.md) for which agent owns each artifact, and
+See [`skills/workflows/`](../skills/workflows/README.md) for which stage owns each artifact, and
 [workflow.md](workflow.md) for the order in which they appear.

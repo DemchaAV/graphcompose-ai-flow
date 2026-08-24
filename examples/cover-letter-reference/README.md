@@ -28,7 +28,7 @@ size render through the identical widget path so the CV and letter
 read as one matched set. The single letter-specific renderer is
 `coverletter.v2.components.LetterBody` (greeting + body paragraphs +
 closing). See
-[`prompts/template-coder-agent.md`](../../prompts/template-coder-agent.md)
+[`skills/workflows/create-template/SKILL.md`](../../skills/workflows/create-template/SKILL.md)
 § "CV ↔ cover-letter pairing (V2 layered only)" for the full
 contract.
 

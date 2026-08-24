@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/DemchaAV/graphcompose-ai-flow/schemas/visual-analysis.schema.json",
   "title": "Visual analysis",
-  "description": "The machine-readable half of the reference analysis, at examples/<project>/revisions/<id>/visual-analysis.json. It carries the parts later stages have to address by name — the named regions, the relational geometry, the anchor relationships, the shape-ownership cases and the open questions. visual-analysis.md keeps the prose observations. Per prompts/visual-analyzer-agent.md the analysis describes the page in RATIOS and DEPENDENCIES, not pixels, and it must not pick GraphCompose primitives — that is the Architecture Mapper's job.",
+  "description": "The machine-readable half of the reference analysis, at examples/<project>/revisions/<id>/visual-analysis.json. It carries the parts later stages have to address by name — the named regions, the relational geometry, the anchor relationships, the shape-ownership cases and the open questions. visual-analysis.md keeps the prose observations. Per skills/workflows/create-template/SKILL.md the analysis describes the page in RATIOS and DEPENDENCIES, not pixels, and it must not pick GraphCompose primitives — that is the Architecture Mapper's job.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "page", "regions"],
@@ -81,7 +81,7 @@
     },
     "shapeOwnership": {
       "type": "array",
-      "description": "Mandatory for the five cases prompts/visual-analyzer-agent.md names: initials or icons inside circles, text inside pills or badges, content inside rounded cards, images clipped by rounded or circular shapes, and badges anchored inside or on a shape boundary.",
+      "description": "Mandatory for the five cases skills/workflows/create-template/SKILL.md names: initials or icons inside circles, text inside pills or badges, content inside rounded cards, images clipped by rounded or circular shapes, and badges anchored inside or on a shape boundary.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -141,7 +141,7 @@
     },
     "unclearParts": {
       "type": "array",
-      "description": "Where the reference could not be read with confidence. prompts/visual-analyzer-agent.md forbids silently guessing, so an assumption recorded here is the contract for what was assumed.",
+      "description": "Where the reference could not be read with confidence. skills/workflows/create-template/SKILL.md forbids silently guessing, so an assumption recorded here is the contract for what was assumed.",
       "items": {
         "type": "object",
         "additionalProperties": false,

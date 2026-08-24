@@ -13,7 +13,7 @@
  *
  * On halt verdict (cached `verdict: halt`), the gate exits the
  * render process with status 4 — the symmetric halt contract from
- * prompts/skill-validator-agent.md § "Downstream halt contract".
+ * skills/workflows/references/scope-routing.md § "Downstream halt contract".
  */
 
 import { spawnSync } from "node:child_process";

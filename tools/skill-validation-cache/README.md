@@ -8,7 +8,7 @@ verdict back instantly without re-running fixtures.
 
 ## When this saves work
 
-The current `prompts/skill-validator-agent.md` contract requires the
+The current `skills/workflows/references/scope-routing.md` contract requires the
 validator to run on every revision. In practice the inputs change
 rarely:
 

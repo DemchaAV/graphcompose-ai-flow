@@ -91,6 +91,6 @@ componentization is not just style. It is part of the rollback
 architecture, and the Template Coder Agent enforces it.
 
 For the Revision Manager's responsibilities and core safety rule see
-[agents.md#revision-manager-agent](agents.md#revision-manager-agent),
+`tools/revision-manager`,
 and for the revision data model that backs all three flows see
 [revision-model.md](revision-model.md).

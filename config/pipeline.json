@@ -7,8 +7,8 @@
     "scripts/test/pipeline-config.test.mjs fails the build when a copy drifts.",
     "",
     "stages[].kind is the TARGET classification from docs/architecture.md (llm | tool | gate).",
-    "stages[].prompt is how the stage is implemented TODAY. A stage with kind 'tool' that still",
-    "carries only a prompt is one the migration has not mechanized yet -- see roadmap.md.",
+    "stages[].kind says who performs it: llm is the workflow skill itself, tool is a CLI, gate is a",
+    "decision with an exit code. stages[].tool names the CLI when one exists.",
     "",
     "Ported 1:1 from the SUBCHAINS constant that used to live in scripts/run-pipeline.mjs and",
     "from the scope descriptions in schemas/revision.schema.json. Semantics were not changed."
@@ -16,56 +16,47 @@
   "stages": {
     "orchestrator": {
       "kind": "llm",
-      "prompt": "prompts/orchestrator-agent.md",
       "description": "scope the change; open/route the revision",
       "label": "route"
     },
     "versionSkill": {
       "kind": "tool",
-      "prompt": "prompts/version-skill-resolver-agent.md",
       "description": "resolve GraphCompose version + skill pack",
       "label": "resolve-version"
     },
     "skillValidator": {
       "kind": "tool",
-      "prompt": "prompts/skill-validator-agent.md",
       "description": "validate the skill pack against the target API",
       "label": "validate-skills"
     },
     "visualAnalyzer": {
       "kind": "llm",
-      "prompt": "prompts/visual-analyzer-agent.md",
       "description": "ratios, anchors, regions from the reference",
       "label": "visual-analysis"
     },
     "architectureMapper": {
       "kind": "llm",
-      "prompt": "prompts/architecture-mapper-agent.md",
       "description": "map regions to primitives + theme tokens",
       "label": "architecture"
     },
     "assetResolver": {
       "kind": "tool",
-      "prompt": "prompts/asset-resolver-agent.md",
       "description": "resolve Iconify icons + Google Fonts",
       "label": "asset-resolve"
     },
     "templateCoder": {
       "kind": "llm",
-      "prompt": "prompts/template-coder-agent.md",
       "description": "write generated-template.java + data spec",
       "label": "template-authoring"
     },
     "testRender": {
       "kind": "tool",
-      "prompt": "prompts/test-render-agent.md",
       "tool": "scripts/render.mjs",
       "description": "compile + render (clean + debug)  <- mechanical",
       "label": "compile-render"
     },
     "visualReview": {
       "kind": "gate",
-      "prompt": "prompts/visual-review-agent.md",
       "description": "parity classification vs reference/parent",
       "label": "visual-evaluation"
     },
@@ -98,7 +89,7 @@
       "summary": "Skill validation is enforced on EVERY scope, including the scopes whose chain has no skillValidator stage.",
       "enforcedBy": "scripts/lib/skill-validation-gate.mjs",
       "calledFrom": "scripts/lib/render-runtime.mjs",
-      "onHalt": "the render process exits with status 4 (the halt contract in prompts/skill-validator-agent.md)"
+      "onHalt": "the render process exits with status 4 (the halt contract the skill validation gate enforces)"
     }
   },
   "scopes": {

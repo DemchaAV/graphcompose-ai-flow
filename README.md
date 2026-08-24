@@ -124,6 +124,7 @@ integration, no MCP server, no standalone runtime.
 
 - The four workflow skills, the tools, the schemas, the packaging and
   the CI gates are in place; `npm run verify` runs every gate locally.
+  The eleven-agent prompt chain they replaced has been removed.
 - The **acceptance runs are outstanding**: whether the skills fire
   unprompted in a clean project, in each host, has not yet been recorded.
 - The GraphCompose **2.2 pack ships** and its five fixtures compile,

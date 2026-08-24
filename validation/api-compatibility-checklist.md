@@ -84,7 +84,7 @@ is the authoritative existence check for these builders: every
 allow-list — if the exact member is listed it exists for 1.9.0, and if
 it is absent the call is invented and must be replaced. The Skill
 Validator's pre-compile API-existence gate (see
-[../prompts/skill-validator-agent.md](../prompts/skill-validator-agent.md))
+[`skills/workflows/`](../skills/workflows/README.md))
 applies this diff before any compile, so these guesses no longer ride
 through to the compiler unchecked.
 

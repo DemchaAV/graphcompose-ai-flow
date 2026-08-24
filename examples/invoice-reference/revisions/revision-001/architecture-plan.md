@@ -3,7 +3,7 @@
 Output of the Architecture Mapper Agent for `revision-001`. The
 sections below follow the verbatim plan structure required by
 `§5.5` of the project plan and re-stated in
-[`../../../../docs/agents.md`](../../../../docs/agents.md#architecture-mapper-agent).
+[`../../../../docs/agents.md`](../../../../skills/workflows/README.md).
 
 ## Target GraphCompose Version
 

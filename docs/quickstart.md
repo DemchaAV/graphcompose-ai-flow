@@ -240,9 +240,9 @@ and the approve command. The chain comes from
 [`config/pipeline.json`](../config/pipeline.json), which is the only
 place it is declared.
 
-The `prompts/` directory still holds the eleven-agent chain this
-replaced. It is kept until the acceptance runs are recorded and then
-removed; follow the skills.
+The eleven-agent prompt chain this replaced has been removed; the
+skills are the contract. The old files are in git history if you ever
+need to see what they said.
 
 The generated Java template should live in:
 

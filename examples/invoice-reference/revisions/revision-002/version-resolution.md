@@ -2,7 +2,7 @@
 
 Output of the Version + Skill Resolver Agent for `revision-002`.
 This document is required for every revision per
-[`../../../../docs/agents.md`](../../../../docs/agents.md#version--skill-resolver-agent)
+[`../../../../docs/agents.md`](../../../../skills/workflows/README.md)
 and the project plan (§5.2), even when nothing is re-resolved.
 
 ## Detected target GraphCompose version

@@ -42,7 +42,7 @@ with a clear message if not.
 
 Companion CLI for region-aware diffs (used by the Visual Review
 Agent on `data-only` and `asset-only` revisions per
-[`prompts/visual-review-agent.md`](../../prompts/visual-review-agent.md)
+[`skills/workflows/review-template/SKILL.md`](../../skills/workflows/review-template/SKILL.md)
 § "Region-aware variant"). Paints rectangular regions with a solid
 colour (`--mode mask-out`, default) or paints everything outside the
 regions (`--mode keep-only`). Pure pngjs — no ImageMagick / Sharp

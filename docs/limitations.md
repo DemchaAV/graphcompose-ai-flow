@@ -87,5 +87,5 @@ for the boundary between this repository and the library.
 
 This repository also does not provide a hosted service, a model
 adapter, or any inference infrastructure. The agents described in
-[agents.md](agents.md) are role definitions, not binaries — they
+[`skills/workflows/`](../skills/workflows/README.md) are contracts, not binaries — they
 describe what an AI assistant must do, not where it runs.

@@ -2,17 +2,17 @@
 /**
  * scripts/lib/pipeline-config.mjs — the single reader for config/pipeline.json.
  *
- * The scope -> stage routing used to be restated in three places
- * (scripts/run-pipeline.mjs, prompts/orchestrator-agent.md, and the `scope`
- * description in schemas/revision.schema.json), which is how the docs came to
+ * The scope -> stage routing used to be restated in three places — this
+ * script's own SUBCHAINS constant, the orchestrator prompt, and the `scope`
+ * description in schemas/revision.schema.json — which is how the docs came to
  * disagree with the code. Everything that needs the routing now loads it from
  * here, and scripts/test/pipeline-config.test.mjs fails the build when a copy
  * drifts.
  *
- * This module validates STRUCTURE only. It deliberately does not check that the
- * referenced prompt files exist on disk: run-pipeline.mjs reports a missing
- * prompt inline with a "!" marker, and turning that into a load-time crash would
- * change its behaviour. File existence is the contract test's job.
+ * This module validates STRUCTURE only: that the stages, gates, scopes,
+ * workflows, limits and failure categories are shaped as the readers expect.
+ * Whether a `tool` a stage names exists on disk is the contract test's job,
+ * because a missing file should fail the build rather than every command.
  */
 
 import fs from "node:fs";
@@ -127,16 +127,19 @@ function validateStages(stages) {
         `${at}.kind must be one of ${STAGE_KINDS.join(" | ")}, got ${JSON.stringify(stage.kind)}`,
       );
     }
-    // The label is what callers display: it names what the stage DOES, so the
-    // chain stops being a list of filenames and survives prompts/ being deleted.
+    // The label is what callers display: it names what the stage DOES, which is
+    // why the chain outlived the prompt files that used to implement it.
     requireNonEmptyString(stage.label, `${at}.label`);
     requireNonEmptyString(stage.description, `${at}.description`);
-    // prompt is optional on purpose — it records today's implementation for the
-    // stages not yet mechanized, and disappears with prompts/.
-    if (stage.prompt !== undefined) requireNonEmptyString(stage.prompt, `${at}.prompt`);
+    // `tool` names a CLI when one performs the stage. Stages without one are
+    // performed by the workflow skill that owns the scope — there is no longer
+    // a per-stage file to point at, and that is the point.
     if (stage.tool !== undefined) requireNonEmptyString(stage.tool, `${at}.tool`);
-    if (stage.prompt === undefined && stage.tool === undefined) {
-      throw new PipelineConfigError(`${at} names neither a prompt nor a tool, so nothing runs it`);
+    if (stage.prompt !== undefined) {
+      throw new PipelineConfigError(
+        `${at}.prompt is no longer part of the contract — the eleven-prompt chain was ` +
+          "replaced by the workflow skills; describe the stage with label/kind instead",
+      );
     }
   }
 }

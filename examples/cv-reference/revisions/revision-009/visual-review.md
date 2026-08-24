@@ -12,7 +12,7 @@ revision-009` — same harness `revision-008` used.
 
 ## Region-aware pixel-AE gate
 
-Per `prompts/visual-review-agent.md` § "Region-aware variant", with
+Per `skills/workflows/` § "Region-aware variant", with
 the two affected regions named in `changed-components.md`:
 
 ### Page 1

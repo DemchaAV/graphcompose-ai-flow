@@ -94,7 +94,6 @@ The docs site is split into 16 self-contained pages:
 - [quickstart.md](quickstart.md) — practical setup, first render, and new-project workflow
 - [workflow.md](workflow.md) — full workflow with inputs, outputs, and per-step agent owners
 - [visual-accuracy-contract.md](visual-accuracy-contract.md) — strict parity rules and mismatch classification
-- [agents.md](agents.md) — the superseded agent chain, kept as a record; the workflow lives in [`skills/workflows/`](../skills/workflows/README.md)
 - [revision-model.md](revision-model.md) — project metadata, revision metadata, statuses, artifact inventory
 - [rollback.md](rollback.md) — undo, revert to approved, selective rollback
 - [versioned-skills.md](versioned-skills.md) — skills as versioned contracts, manifest, statuses, no-invented-API rule

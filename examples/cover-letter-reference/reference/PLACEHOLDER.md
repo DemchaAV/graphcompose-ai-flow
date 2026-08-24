@@ -32,7 +32,7 @@ preset will:
 - Be a thin orchestrator: ~30-80 lines, no open-coded paragraph
   loops, no inline theme tokens.
 
-See [`prompts/template-coder-agent.md`](../../../prompts/template-coder-agent.md)
+See [`skills/workflows/`](../../../skills/workflows/README.md)
 § "CV ↔ cover-letter pairing (V2 layered only)" for the full
 contract the Template Coder will follow.
 

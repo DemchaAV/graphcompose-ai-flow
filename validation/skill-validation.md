@@ -19,7 +19,7 @@ A skill is valid only if:
 - it documents known limitations
 
 The Skill Validator Agent owns this check. See
-[../docs/agents.md](../docs/agents.md) for the agent's inputs,
+[../skills/workflows/README.md](../skills/workflows/README.md) for the agent's inputs,
 outputs, and the core rule that the library — not the skill — is
 the source of truth.
 

@@ -40,7 +40,7 @@ DARK_ON_DARK = #FFFFFF                     // future white text on dark bars (un
 
 The constants live in the template body and follow the relational-
 geometry rule from
-[`prompts/template-coder-agent.md`](../../../../prompts/template-coder-agent.md):
+[`skills/workflows/create-template/SKILL.md`](../../../../skills/workflows/create-template/SKILL.md):
 
 ```
 FULL_PAGE_WIDTH     = 595        // A4 portrait

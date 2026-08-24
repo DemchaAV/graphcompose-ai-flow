@@ -125,7 +125,7 @@ recommendations:
 
 The recommendation is advisory. Only the Revision Manager Agent, on
 user instruction, changes a revision's status — see
-[agents.md#revision-manager-agent](agents.md#revision-manager-agent).
+[`skills/workflows/`](../skills/workflows/README.md).
 
 ## Layer-by-layer continuation
 

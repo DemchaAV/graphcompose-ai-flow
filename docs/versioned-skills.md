@@ -113,7 +113,7 @@ Example:
 
 The Version + Skill Resolver Agent reads `skill-manifest.json` to
 pick the matching skill pack. See
-[agents.md#version--skill-resolver-agent](agents.md#version--skill-resolver-agent).
+[`skills/workflows/`](../skills/workflows/README.md).
 
 ## Skill statuses
 
@@ -184,7 +184,7 @@ skill pack itself.
 
 - [skill-validation.md](skill-validation.md) — the validation flow,
   drift handling, and skill fix report template
-- [agents.md#skill-validator-agent](agents.md#skill-validator-agent) —
+- [`skills/workflows/`](../skills/workflows/README.md) —
   responsibilities of the validator agent
-- [agents.md#template-coder-agent](agents.md#template-coder-agent) —
+- [`skills/workflows/`](../skills/workflows/README.md) —
   the coder agent's rules around API usage

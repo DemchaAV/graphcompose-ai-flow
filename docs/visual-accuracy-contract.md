@@ -77,7 +77,7 @@ A revision can be approved only when:
 - revision metadata is complete
 
 Approval is performed by the Revision Manager Agent. See
-[agents.md](agents.md#revision-manager-agent) for the safety rules
+[`skills/workflows/`](../skills/workflows/README.md) for the safety rules
 around approval, and [revision-model.md](revision-model.md) for the
 exact metadata that must be present.
 

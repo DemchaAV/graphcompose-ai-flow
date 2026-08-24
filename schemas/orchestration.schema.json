@@ -24,7 +24,7 @@
         "DIFF_REVIEW",
         "REVISION_SUMMARY"
       ],
-      "description": "Task type detected from the user gesture, per prompts/orchestrator-agent.md § Task type detection (New generation, Revision, Undo last change, Revert to approved, Selective rollback, Approval, Diff / review, Revision summary)."
+      "description": "Task type detected from the user gesture, per skills/workflows/revise-template/SKILL.md § Task type detection (New generation, Revision, Undo last change, Revert to approved, Selective rollback, Approval, Diff / review, Revision summary)."
     },
     "scope": {
       "type": "string",

@@ -20,7 +20,7 @@
     "recommendation": {
       "type": "string",
       "enum": ["APPROVE", "REVISE", "REJECT"],
-      "description": "The human-facing recommendation the Visual Review Agent has always emitted (prompts/visual-review-agent.md). Kept alongside `verdict` because the two answer different questions: this one advises the user, `verdict` drives the loop. Never write \"APPROVED\" — that is a revision status, not a recommendation."
+      "description": "The human-facing recommendation the Visual Review Agent has always emitted (skills/workflows/review-template/SKILL.md). Kept alongside `verdict` because the two answer different questions: this one advises the user, `verdict` drives the loop. Never write \"APPROVED\" — that is a revision status, not a recommendation."
     },
     "score": {
       "type": "number",
@@ -55,7 +55,7 @@
         "metric": {
           "type": "string",
           "minLength": 1,
-          "description": "The comparison metric quoted VERBATIM, e.g. \"magick compare -metric AE => 0\". prompts/visual-review-agent.md forbids paraphrasing it."
+          "description": "The comparison metric quoted VERBATIM, e.g. \"magick compare -metric AE => 0\". skills/workflows/review-template/SKILL.md forbids paraphrasing it."
         },
         "pages": {
           "type": "array",
@@ -95,7 +95,7 @@
     },
     "mismatches": {
       "type": "array",
-      "description": "Every difference found, ranked most severe first. Empty only when the render matches. prompts/visual-review-agent.md: every mismatch must be documented, and classifications outside the closed set must not be invented.",
+      "description": "Every difference found, ranked most severe first. Empty only when the render matches. skills/workflows/review-template/SKILL.md: every mismatch must be documented, and classifications outside the closed set must not be invented.",
       "items": {
         "type": "object",
         "additionalProperties": false,

@@ -3,8 +3,8 @@
 **Read `AGENTS.md` (repo root) first, end-to-end, before doing anything in this
 repository.** It is the canonical onboarding file: entry-point dispatch, the
 11-agent chain, project anatomy, and the cross-cutting principles. This file is
-a thin pointer so Claude Code loads the same contract. The cross-agent contract
-is `prompts/master-prompt.md`; per-stage prompts are `prompts/<agent>-agent.md`.
+a thin pointer so Claude Code loads the same contract. The workflow lives in
+`skills/workflows/`; routing, gates and loop bounds in `config/pipeline.json`.
 These rules summarize `AGENTS.md` — if they ever differ, `AGENTS.md` wins.
 
 ## Non-negotiables

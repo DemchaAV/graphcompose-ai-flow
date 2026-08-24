@@ -40,7 +40,7 @@ as new layered stacks. The Template Coder should:
 - Use the same DSL primitives (rows, sections, tables, layer stacks,
   shape containers, themes) the rest of the flow speaks.
 
-See [`prompts/architecture-mapper-agent.md`](../../../prompts/architecture-mapper-agent.md)
+See [`skills/workflows/create-template/SKILL.md`](../../../skills/workflows/create-template/SKILL.md)
 § "Template surface selection" for how to record the proposal
 surface in `architecture-plan.md`.
 

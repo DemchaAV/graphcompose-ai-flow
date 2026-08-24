@@ -98,15 +98,31 @@ test("no live document still claims the old agent-chain figures", () => {
   }
 });
 
-test("documents that point at prompts/ acknowledge that it is superseded", () => {
-  // prompts/ survives until the acceptance runs are green. Anything sending a
-  // reader there must say so, or it reads as current guidance. docs/agents.md
-  // is the twin of the master prompt and was found still describing the chain
-  // as the way the work is done.
-  for (const file of ["prompts/master-prompt.md", "docs/agents.md"]) {
-    const source = read(file);
-    assert.match(source, /[Ss]uperseded by/, `${file} lost its superseded banner`);
-    assert.match(source, /skills\/workflows/, `${file}'s banner does not name the replacement`);
+test("the eleven-prompt chain is gone, and nothing live still sends a reader to it", () => {
+  assert.ok(!fs.existsSync(path.join(repoRoot, "prompts")), "prompts/ is back");
+
+  // docs/agents.md described the same chain in doc form and linked into it
+  // twenty times over; a page of dead links kept "for the record" is the
+  // documentation-that-lies failure this migration exists to remove.
+  assert.ok(
+    !fs.existsSync(path.join(repoRoot, "docs", "agents.md")),
+    "docs/agents.md is back, describing an architecture the project no longer has",
+  );
+
+  // Live guidance must not link into the removed directory.
+  for (const file of [
+    "README.md",
+    "AGENTS.md",
+    "docs/quickstart.md",
+    "docs/workflow.md",
+    "docs/architecture.md",
+    "config/pipeline.json",
+    "skills/workflows/README.md",
+  ]) {
+    assert.ok(
+      !/prompts\/[a-z]/.test(read(file)),
+      `${file} still points at a file under prompts/, which no longer exists`,
+    );
   }
 });
 

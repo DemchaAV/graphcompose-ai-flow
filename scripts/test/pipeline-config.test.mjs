@@ -79,26 +79,24 @@ test("every stage referenced by a scope exists, and every stage is reachable", (
   }
 });
 
-test("every prompt and tool a stage names exists on disk", () => {
+test("every tool a stage names exists, and no stage points at a prompt file", () => {
   for (const [stageId, stage] of Object.entries(config.stages)) {
     assert.ok(STAGE_KINDS.includes(stage.kind), `stages.${stageId}.kind is not a known kind`);
 
-    // A stage must be runnable by something. `prompt` is optional because it
-    // records today's implementation for the stages not yet mechanized, and
-    // goes away with prompts/; `tool` is optional for the same reason in
-    // reverse. Naming neither would leave a step nothing executes.
+    // Stages without a tool are performed by the workflow skill that owns the
+    // scope. There is deliberately no per-stage file to point at any more: the
+    // prompt chain that used to supply one has been removed.
+    assert.equal(stage.prompt, undefined, `stages.${stageId} still names a prompt file`);
+    if (!stage.tool) continue;
     assert.ok(
-      stage.prompt || stage.tool,
-      `stages.${stageId} names neither a prompt nor a tool`,
+      fs.existsSync(path.join(repoRoot, stage.tool)),
+      `stages.${stageId}.tool does not exist: ${stage.tool}`,
     );
-    for (const key of ["prompt", "tool"]) {
-      if (!stage[key]) continue;
-      assert.ok(
-        fs.existsSync(path.join(repoRoot, stage[key])),
-        `stages.${stageId}.${key} does not exist: ${stage[key]}`,
-      );
-    }
   }
+  assert.ok(
+    !fs.existsSync(path.join(repoRoot, "prompts")),
+    "prompts/ is back; the workflow skills are the contract now",
+  );
 });
 
 test("every stage is labelled by what it does, not by the file that implements it", () => {
@@ -384,7 +382,8 @@ test("the loader rejects structurally broken configs", () => {
   const cases = [
     ["wrong schemaVersion", (c) => { c.schemaVersion = 2; }],
     ["unknown stage kind", (c) => { c.stages.orchestrator.kind = "wizard"; }],
-    ["stage without a prompt", (c) => { delete c.stages.orchestrator.prompt; }],
+    ["stage that reintroduces a prompt", (c) => { c.stages.orchestrator.prompt = "prompts/x.md"; }],
+    ["stage without a label", (c) => { delete c.stages.orchestrator.label; }],
     ["scope referencing an unknown stage", (c) => { c.scopes["data-only"].stages.push("ghost"); }],
     ["scope referencing an unknown gate", (c) => { c.scopes["data-only"].gate = "vibes"; }],
     ["scope with no stages", (c) => { c.scopes["data-only"].stages = []; }],

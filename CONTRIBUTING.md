@@ -116,7 +116,7 @@ change per commit, imperative subjects.
 Before requesting review:
 
 - [ ] Changes respect the ownership boundaries in
-      [docs/agents.md](docs/agents.md) and the skill drift rule in
+      [docs/agents.md](skills/workflows/README.md) and the skill drift rule in
       [docs/skill-validation.md](docs/skill-validation.md).
 - [ ] No invented GraphCompose API appears in any new or modified text.
       Cross-check every concrete method name against the real library

@@ -20,8 +20,9 @@ can decide is decided by a script.
 - **Four workflow skills** replace the eleven-prompt chain —
   `skills/workflows/{create,revise,review,approve}-template/SKILL.md`,
   one per user gesture, over four shared references (workspace, scope
-  routing, iteration loop, authoring rules). `prompts/` is retained,
-  banner-marked as superseded, until the acceptance runs are recorded.
+  routing, iteration loop, authoring rules). `prompts/` and the
+  `docs/agents.md` that described it have been removed; the stages are
+  now named by what they do in `config/pipeline.json`.
 - **`config/pipeline.json`** is the single source of scope → stages, the
   gate each scope ends on, the loop bounds and the failure categories.
   `scripts/run-pipeline.mjs` holds no chain of its own; the orchestrator
@@ -96,7 +97,7 @@ can decide is decided by a script.
 
 - The Claude Code and Codex **acceptance runs are outstanding** —
   whether a skill fires unprompted in a clean project is not yet
-  recorded. `prompts/` stays until they are.
+  recorded.
 - The five skill fixtures still pin 1.9.0; four fail against 2.2.0
   because `BusinessTheme` left the published library in 2.x. Until they
   are ported, the 2.2 pack's compile-smoke evidence is inherited rather
