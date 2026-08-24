@@ -44,8 +44,8 @@ the layer split and what is deliberately excluded are in
 
 | Phase | Goal | Status |
 |---|---|---|
-| 0 — Architecture of record | Capture the target architecture; clean the repo root | in progress |
-| 1 — Single routing source | `config/pipeline.yaml` replaces the scope→stages duplication | not started |
+| 0 — Architecture of record | Capture the target architecture; clean the repo root | done |
+| 1 — Single routing source | `config/pipeline.json` replaces the scope→stages duplication | done |
 | 2 — Structured contracts | JSON schemas for orchestration, visual analysis, architecture, review | not started |
 | 3 — Workspace decoupling | Tools accept an external root; version resolved from the user's build file | not started |
 | 4 — Workflow skills | Eleven agent prompts become four skills | not started |

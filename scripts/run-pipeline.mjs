@@ -11,9 +11,9 @@
  * to open, in order, plus the mechanical render command. With --render it runs
  * the deterministic render step (scripts/render.mjs).
  *
- * Routing source of truth: prompts/orchestrator-agent.md (§ Revision scope) and
- * schemas/revision.schema.json. Scopes:
- *   new | visual-change | refactor-only | data-only | asset-only | theme-only
+ * Routing source of truth: config/pipeline.json, read through
+ * scripts/lib/pipeline-config.mjs. This script holds no chain of its own — when
+ * a scope gains or loses a stage, the config is the only file to edit.
  * "new" is inferred for a first revision (revision-001 / parentRevisionId null)
  * and runs the full chain.
  */
@@ -23,36 +23,22 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  loadPipelineConfig,
+  resolveScope,
+  scopeNames,
+  stagesForScope,
+} from "./lib/pipeline-config.mjs";
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-// agent key -> [prompt file (repo-relative), one-line description]
-const AGENTS = {
-  orchestrator: ["prompts/orchestrator-agent.md", "scope the change; open/route the revision"],
-  versionSkill: ["prompts/version-skill-resolver-agent.md", "resolve GraphCompose version + skill pack"],
-  skillValidator: ["prompts/skill-validator-agent.md", "validate the skill pack against the target API"],
-  visualAnalyzer: ["prompts/visual-analyzer-agent.md", "ratios, anchors, regions from the reference"],
-  architectureMapper: ["prompts/architecture-mapper-agent.md", "map regions to primitives + theme tokens"],
-  assetResolver: ["prompts/asset-resolver-agent.md", "resolve Iconify icons + Google Fonts"],
-  templateCoder: ["prompts/template-coder-agent.md", "write generated-template.java + data spec"],
-  testRender: ["prompts/test-render-agent.md", "compile + render (clean + debug)  <- mechanical"],
-  visualReview: ["prompts/visual-review-agent.md", "parity classification vs reference/parent"],
-};
-
-// scope -> ordered agent keys AFTER the orchestrator (which always runs first).
-const SUBCHAINS = {
-  "new": ["versionSkill", "skillValidator", "visualAnalyzer", "architectureMapper", "assetResolver", "templateCoder", "testRender", "visualReview"],
-  "visual-change": ["visualAnalyzer", "architectureMapper", "assetResolver", "templateCoder", "testRender", "visualReview"],
-  "refactor-only": ["templateCoder", "testRender", "visualReview"],
-  "data-only": ["testRender", "visualReview"],
-  "asset-only": ["assetResolver", "testRender", "visualReview"],
-  "theme-only": ["templateCoder", "testRender", "visualReview"],
-};
+const config = loadPipelineConfig({ repoRoot });
 
 function usage(code = 0) {
   process.stdout.write(
     "usage: node scripts/run-pipeline.mjs <project-id> [--revision <id>] [--scope <scope>] [--render]\n\n" +
       "  --revision <id>   default: project currentDraftRevisionId, else revision-001\n" +
-      "  --scope <scope>   new | visual-change | refactor-only | data-only | asset-only | theme-only\n" +
+      `  --scope <scope>   ${scopeNames(config).join(" | ")}\n` +
       "                    default: revision.json scope, else inferred\n" +
       "  --render          run the mechanical render step (scripts/render.mjs)\n",
   );
@@ -103,15 +89,12 @@ if (!revision && !args.render) {
 }
 
 // Resolve scope: explicit flag > revision.json scope > inference.
-const isFirst =
-  revisionId === "revision-001" || (revision && revision.parentRevisionId == null);
-const scope =
-  args.scope || (revision && revision.scope) || (isFirst ? "new" : "visual-change");
+const scope = resolveScope({ explicitScope: args.scope, revision, revisionId });
 
-const chain = SUBCHAINS[scope];
-if (!chain) {
+const stages = stagesForScope(config, scope);
+if (!stages) {
   console.error(
-    `[run-pipeline] unknown scope "${scope}". Known: ${["new", ...Object.keys(SUBCHAINS).filter((s) => s !== "new")].join(", ")}`,
+    `[run-pipeline] unknown scope "${scope}". Known: ${scopeNames(config).join(", ")}`,
   );
   process.exit(2);
 }
@@ -124,16 +107,14 @@ console.log(
   `\n${bold("Pipeline")}  project=${args.project}  revision=${revisionId}  scope=${bold(scope)}\n`,
 );
 
-const steps = ["orchestrator", ...chain];
 let missing = 0;
-steps.forEach((key, i) => {
-  const [file, desc] = AGENTS[key];
-  const exists = fs.existsSync(path.join(repoRoot, file));
+stages.forEach((stage, i) => {
+  const exists = fs.existsSync(path.join(repoRoot, stage.prompt));
   if (!exists) missing += 1;
   const n = String(i + 1).padStart(2, " ");
   const mark = exists ? " " : "!";
-  console.log(`  ${mark}${n}. ${file}`);
-  console.log(`        ${dim(desc)}`);
+  console.log(`  ${mark}${n}. ${stage.prompt}`);
+  console.log(`        ${dim(stage.description)}`);
 });
 
 console.log(`\n  ${bold("mechanical render")} (the Test+Render step):`);

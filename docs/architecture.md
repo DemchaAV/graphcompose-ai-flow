@@ -164,7 +164,8 @@ script decides:
 
 ### Bounds and failure categories
 
-An agent must not iterate forever *(planned)*:
+An agent must not iterate forever. The bounds are declared in
+`config/pipeline.json`; enforcing them is still *(planned)*:
 
 ```text
 maxIterations: 8
@@ -182,13 +183,16 @@ category rather than a vague apology: `BUILD_FAILED`,
 
 Two rules keep the harness from drifting apart.
 
-**One routing source.** Which stages a scope runs is declared once,
-in `config/pipeline.yaml` *(planned)*, and read by the pipeline
-script, the schemas and the workflow skills. The same routing was
-previously written in three places — `scripts/run-pipeline.mjs`, the
+**One routing source.** Which stages a scope runs, and which gate it
+ends on, is declared once in [`config/pipeline.json`](../config/pipeline.json)
+and read through `scripts/lib/pipeline-config.mjs`. The same routing
+used to be written in three places — `scripts/run-pipeline.mjs`, the
 orchestrator prompt and `schemas/revision.schema.json` — and the docs
-had already drifted apart on how many agents the chain even has. A
-contract test fails the build when the copies disagree.
+had already drifted apart on how many agents the chain even has. The
+prompt and the schema now point at the config instead of restating
+it, and `scripts/test/pipeline-config.test.mjs` fails the build when
+a copy comes back. The config also carries the iteration bounds and
+failure categories below, so the loop reads its own limits.
 
 **JSON is the machine source of truth; Markdown is the human view.**
 The loop has to read decisions back, and prose is not readable by a
@@ -234,7 +238,7 @@ graphcompose-ai-flow/
 ├── README.md                  install → drop reference → ask
 │
 ├── config/
-│   └── pipeline.yaml          scope → stages, limits, failure categories
+│   └── pipeline.json          scope → stages, limits, failure categories
 │
 ├── skills/
 │   ├── workflows/             create / revise / review / approve

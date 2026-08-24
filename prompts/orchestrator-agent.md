@@ -47,6 +47,15 @@ The scope determines BOTH which downstream agents run AND which
 gate Visual Review applies. The five values are ordered from
 shortest (fewest agents) to longest (full pipeline):
 
+**Source of truth.** Which stages a scope runs, and which gate it
+ends on, is declared once in
+[`config/pipeline.json`](../config/pipeline.json) and read by
+`scripts/run-pipeline.mjs`. The table below is the human rendering of
+that file — it is here for the "means" and "how to pick" columns,
+which the config does not carry. If the two ever disagree, the config
+wins and `scripts/test/pipeline-config.test.mjs` fails the build.
+Print the live chain with `node scripts/run-pipeline.mjs <project-id>`.
+
 | Scope value | Means | Agents that run | Visual Review gate |
 |---|---|---|---|
 | `scope: data-only` | A field inside `<doc-kind>-data.json` changed (email, phone, section heading, list item). Java unchanged, assets unchanged, theme unchanged. Render must look identical to the parent **except** in regions whose render methods read the changed fields. | Test + Render → Visual Review | Region-aware pixel-AE: `magick compare -metric AE` on the affected regions per `changed-components.md`; regions not in the changed-components list MUST be byte-equal to the parent (`AE == 0`). |
@@ -82,9 +91,13 @@ against the project's diff surface:
    (new row striping). When the gesture is ambiguous, ask before
    opening the revision; do NOT default.
 
-Skill Validator still runs first on every scope; halt verdict
-blocks every downstream agent regardless of scope (per
-`prompts/skill-validator-agent.md` § "Downstream halt contract").
+Skill validation applies on every scope, even though only the `new`
+chain carries a Skill Validator stage: `scripts/lib/render-runtime.mjs`
+runs the gate in `scripts/lib/skill-validation-gate.mjs` on every
+render, and a `halt` verdict exits the render with status 4 — the
+same halt contract, enforced by the tool rather than by a prompt
+(per `prompts/skill-validator-agent.md` § "Downstream halt contract").
+`config/pipeline.json` records this as `preflight.skillValidation`.
 
 ## Autonomous visual iteration loop
 
