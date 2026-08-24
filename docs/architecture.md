@@ -182,7 +182,11 @@ script decides:
 ### Bounds and failure categories
 
 An agent must not iterate forever. The bounds are declared in
-`config/pipeline.json`; enforcing them is still *(planned)*:
+`config/pipeline.json` and enforced by
+[`scripts/iterate-status.mjs`](../scripts/iterate-status.mjs), which
+counts the current loop from the revisions on disk and exits 0 for
+ready, 2 for revise, 3 for blocked — so the decision to take another
+pass is arithmetic rather than self-assessment:
 
 ```text
 maxIterations: 8

@@ -52,6 +52,11 @@
       "uniqueItems": true,
       "description": "Optional list of named private render methods whose output this revision modified — feeds the selective rollback model."
     },
+    "reviewVerdict": {
+      "type": "string",
+      "enum": ["READY_FOR_APPROVAL", "REVISE", "BLOCKED"],
+      "description": "Outcome of the last review pass over this revision, copied from visual-review.json. Deliberately separate from `status`: the revision stays DRAFT until a human approves it, so READY_FOR_APPROVAL records that the loop has stopped and is waiting, not that anything was approved."
+    },
     "iteration": {
       "type": "integer",
       "minimum": 1,

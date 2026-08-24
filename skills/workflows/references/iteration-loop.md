@@ -40,9 +40,30 @@ The order to work in, when several mismatches are equally loud:
 Fixing colour before geometry wastes a pass: the geometry fix moves the
 thing you just recoloured.
 
+## Ask, do not estimate
+
+After every render-and-review, ask the tool whether the loop may
+continue. It counts the current loop from the revisions on disk, so the
+answer does not depend on remembering how many passes there have been:
+
+```bash
+node scripts/iterate-status.mjs <project-id> [--root <workspace>] [--json]
+```
+
+| Exit | Verdict | Do |
+|---|---|---|
+| 0 | `READY_FOR_APPROVAL` | stop; report to the user and wait |
+| 2 | `REVISE` | fix the one named mismatch, render, review, ask again |
+| 3 | `BLOCKED` | stop; report the `failureCategory` and what was tried |
+
+An agent judging for itself whether it is going round in circles is
+exercising precisely the judgement a circling agent has already lost.
+Run the command.
+
 ## Bounds
 
-From `limits` in [`config/pipeline.json`](../../../config/pipeline.json):
+From `limits` in [`config/pipeline.json`](../../../config/pipeline.json),
+enforced by the command above:
 
 | Limit | Default | Meaning |
 |---|---|---|
@@ -84,6 +105,12 @@ alternative that was tried.
 
 - `visual-review.json` per pass, against
   [`schemas/visual-review.schema.json`](../../../schemas/visual-review.schema.json).
+  A render with no review beside it is not an iteration — it is an
+  unfinished one, and `iterate-status` says so rather than assuming the
+  pass went fine.
+- `reviewVerdict` on the revision, mirroring that verdict. The status
+  stays `DRAFT`: `READY_FOR_APPROVAL` records that the loop stopped and
+  is waiting for a human, not that anything was approved.
 - `iteration` on the revision, 1-based, when the pass belongs to an
   autonomous loop rather than a human-opened revision.
 - `changedComponents` listing the render methods actually touched —

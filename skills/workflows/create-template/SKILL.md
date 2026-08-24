@@ -94,12 +94,28 @@ node scripts/render.mjs <project-id> <revision-id> [--root <workspace>]
 ## Then loop
 
 This is the part that is easy to stop too early. A successful render is
-**not** the finish line: after every render there is a verdict, and on
-`REVISE` you fix the single largest mismatch and render again — see
-[the iteration loop](../references/iteration-loop.md) for the priority
-order and the bounds.
+**not** the finish line. After every render: write the review, then ask
+whether the loop may continue.
 
-Keep going until `READY_FOR_APPROVAL` or `BLOCKED`. Then report:
+```bash
+node scripts/iterate-status.mjs <project-id> [--root <workspace>]
+```
+
+| Exit | Then |
+|---|---|
+| 0 — `READY_FOR_APPROVAL` | stop and report |
+| 2 — `REVISE` | fix the **one** mismatch it names, render, review, ask again |
+| 3 — `BLOCKED` | stop and report the `failureCategory` |
+
+Fix one thing per pass and reuse the mismatch id when a problem
+survives — that repetition is how the tool sees a loop going nowhere.
+Do not raise a limit to keep going, and do not decide for yourself that
+another pass is warranted; the whole point of asking is that a circling
+agent is the last thing qualified to judge whether it is circling. The
+priority order for choosing what to fix is in
+[the iteration loop](../references/iteration-loop.md).
+
+When it says stop, report:
 
 - what the document is and where it lives
 - the parity verdict and any remaining mismatches, honestly

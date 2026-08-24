@@ -81,10 +81,18 @@ node scripts/render.mjs <project-id> <revision-id> [--root <workspace>]
 - `theme-only` / `visual-change` → layer-by-layer review against the
   reference (use `review-template`).
 
-**6. Iterate or stop.** On `REVISE`, fix the single largest mismatch and
-render again, per [the iteration loop](../references/iteration-loop.md).
-Stop at `READY_FOR_APPROVAL` or `BLOCKED` — and when stopping, say
-which.
+**6. Iterate or stop — and ask, do not estimate.** After the review,
+run:
+
+```bash
+node scripts/iterate-status.mjs <project-id> [--root <workspace>]
+```
+
+Exit 0 means ready (stop and report), 2 means fix the **one** mismatch
+it names and go round again, 3 means blocked (stop and report the
+`failureCategory`). Reuse a mismatch id when the problem survives a fix:
+that repetition is what the tool counts. See
+[the iteration loop](../references/iteration-loop.md).
 
 **7. Record what moved.** `changedComponents` on the revision lists the
 render methods actually touched. This is what makes selective rollback
