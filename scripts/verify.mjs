@@ -26,7 +26,9 @@ const STEPS = [
     kind: "fast",
     why: "config, schemas, skills and docs agree",
     cmd: process.execPath,
-    args: ["--test", "scripts/test/**/*.test.mjs"],
+    // Through the runner, not `--test <glob>`: the glob form needs Node 22 and
+    // CI pins 20. See scripts/run-tests.mjs.
+    args: ["scripts/run-tests.mjs", "scripts/test"],
   },
   {
     name: "repository contract",
@@ -48,7 +50,7 @@ const STEPS = [
     kind: "fast",
     why: "the schemas accept what they should and reject what they should not",
     cmd: process.execPath,
-    args: ["--test", "test/**/*.test.mjs"],
+    args: ["../../scripts/run-tests.mjs", "test"],
     cwd: ".github/scripts",
     requires: ".github/scripts/node_modules",
   },

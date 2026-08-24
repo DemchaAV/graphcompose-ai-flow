@@ -9,7 +9,7 @@
     "setup:check": "node scripts/setup.mjs --check",
     "preview": "node scripts/preview-live.mjs",
     "preview:debug": "node scripts/preview-live.mjs --debug",
-    "test": "node --test \"scripts/test/**/*.test.mjs\"",
+    "test": "node scripts/run-tests.mjs scripts/test",
     "validate:schemas": "node .github/scripts/validate-schemas.mjs",
     "verify": "node scripts/verify.mjs",
     "verify:quick": "node scripts/verify.mjs --quick"

@@ -196,6 +196,42 @@ test("CI runs the harness gates, and the local aggregator runs the same ones", (
   assert.match(verify, /harness contracts/, "verify.mjs lost the harness contract step");
 });
 
+test("nothing runs node --test with a glob, which needs a newer Node than CI pins", () => {
+  // This shipped a red CI: `node --test "dir/**/*.test.mjs"` works on the Node
+  // installed locally (25) and not on the Node CI pins (20), where glob support
+  // does not exist. scripts/run-tests.mjs enumerates the files instead.
+  const engines = readJson("package.json").engines.node;
+  assert.match(engines, /20/, "the supported Node floor moved; revisit the runner");
+
+  for (const file of [
+    "package.json",
+    ".github/scripts/package.json",
+    "scripts/verify.mjs",
+    ".github/workflows/ci.yml",
+  ]) {
+    const source = read(file);
+    assert.ok(
+      !/--test[^\n"']*\*/.test(source),
+      `${file} passes a glob to node --test, which Node ${engines} cannot expand`,
+    );
+  }
+
+  assert.match(read("package.json"), /run-tests\.mjs/, "the root test script bypasses the runner");
+  assert.match(
+    read(".github/scripts/package.json"),
+    /run-tests\.mjs/,
+    "the schema test script bypasses the runner",
+  );
+});
+
+test("the test runner refuses to pass when it finds nothing", () => {
+  // Silently succeeding on an empty directory would let a rename delete the
+  // whole suite without anything turning red.
+  const runner = read("scripts/run-tests.mjs");
+  assert.match(runner, /no \$\{SUFFIX\} files under|files\.length === 0/);
+  assert.match(runner, /process\.exit\(2\)/);
+});
+
 test("verify declares which steps need more than Node, so a green --quick is not oversold", () => {
   const verify = read("scripts/verify.mjs");
   assert.match(verify, /kind:\s*"slow"/, "no step is marked slow, so --quick would skip nothing");

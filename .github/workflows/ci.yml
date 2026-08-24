@@ -139,8 +139,6 @@ jobs:
           node-version: '20'
       - name: contract, workspace, loop, plugin and adapter tests
         run: npm test
-      - name: routing fixtures are well formed
-        run: node --test "scripts/test/contracts.test.mjs"
 
   repository-contract:
     name: repository contract
