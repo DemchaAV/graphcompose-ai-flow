@@ -7,6 +7,58 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.6 — a link with no pixels
+
+Two things the loop could not see, both reported from real use.
+
+**The newest render now lands beside `template-project.json`.** The live
+mirror existed but wrote only to `<install>/live/`, which in a plugin or
+versioned-runtime install is a cache directory nobody opens — so in every
+user workspace it was invisible. Each project now keeps its own
+`current.pdf` / `current-debug.pdf` / `current.txt`, rewritten on every
+render under a name that never changes, so a viewer that reloads on
+change and does not lock the file (SumatraPDF) can be opened once at
+revision 1 and follow the work to the end. The shared `live/` folder
+stays for harness development and for an explicit `GRAPHCOMPOSE_LIVE_DIR`;
+the rasters stay there alone, since every tool that wants pixels reads
+the revision's own `output.png`. The mirror moved to
+`scripts/lib/live-mirror.mjs`, and `init-workspace` now seeds a
+`.gitignore` covering the derived copies and the runners' `target/` —
+and nothing else, because the revisions are the audit trail.
+
+**Links are now read back out of the rendered PDF.** A link annotation
+has no pixels, so a document whose every link is dead diffs identically
+to one where they all work — the visual loop is structurally unable to
+see it. Reading the acceptance runs back proved it had been happening
+throughout: `serif-headline-cv` rendered zero link annotations through
+revisions 001-010 with four hrefs already sitting in `cv-data.json`, and
+went live only in 011 after the user asked; `navy-sidebar-cv` was
+approved and published with zero links and no hrefs recorded at all.
+
+- **`scripts/lib/pdf-links.mjs`** reads `/Subtype /Link` targets out of a
+  PDF — raw body and Flate object streams, literal and hex strings, no
+  dependency. It is a reader, not a parser: it reports which targets the
+  document contains, not which text carries them.
+- **`scripts/check-links.mjs`** compares those targets to the data spec
+  and separates the two failures. A declared `href` missing from the
+  render is a **failure** — the contract was explicit. A link-shaped
+  value with no href near it is a **warning** — whether a given string
+  should be clickable is a judgement, and candidates stay narrow (URLs
+  and emails; not phone numbers, addresses or company names) so the
+  warnings stay worth reading.
+- **It runs where it costs nothing.** `render-and-diff` checks every
+  pass, and a dead link turns `READY_FOR_APPROVAL` into `REVISE` with
+  focus `dead-links`; an already-revising pass keeps the focus its
+  reviewer chose. `approve-and-publish` checks before any state changes
+  and refuses with the targets named — the one defect the person
+  approving cannot have seen, because they were judging the render.
+- **The rules moved upstream too**: the create workflow asks for an
+  `href` beside every address while the reference is still being read,
+  and `authoring-rules.md` states that an href in the data is a link in
+  the render, through the pack's link API.
+
+New: [`docs/link-integrity.md`](docs/link-integrity.md). 278 tests pass.
+
 ### v0.5.5 — a one-page screenshot is not a one-page document
 
 Both acceptance runs were single-page CVs, so the flowing-document path —

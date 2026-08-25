@@ -16,6 +16,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import zlib from "node:zlib";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -237,6 +238,49 @@ test("a BLOCKED verdict stops the fast path before anything changes", () => {
   // Crucially: the refusal happened before the state machine moved.
   assert.equal(revisionOf(s).status, "DRAFT", "the revision was approved despite BLOCKED");
   assert.ok(!fs.existsSync(s.bundle), "a bundle was published despite BLOCKED");
+});
+
+/** Give a scenario a data spec with one href, and a render that may or may not carry it. */
+function withLinks(s, { declared, rendered }) {
+  write(path.join(s.revision, "cv-data.json"), { contact: [{ value: "x", href: declared }] });
+  const annots = rendered
+    .map((t) => `<</Subtype /Link /A <</Type /Action /S /URI /URI (${t}) >> >>`)
+    .join("\n");
+  fs.writeFileSync(
+    path.join(s.revision, "output.pdf"),
+    Buffer.concat([
+      Buffer.from("%PDF-1.7\n1 0 obj\n<</Filter /FlateDecode>>\nstream\n", "latin1"),
+      zlib.deflateSync(Buffer.from(annots, "latin1")),
+      Buffer.from("\nendstream\nendobj\n%%EOF\n", "latin1"),
+    ]),
+  );
+}
+
+test("a link declared in the data but dead in the render stops the approval", () => {
+  // What shipped in navy-sidebar-cv: approved on a render that looked right,
+  // published with the contacts dead. The person approving could not have seen
+  // it — a link annotation has no pixels.
+  const s = scenario({ label: "deadlink" });
+  withLinks(s, { declared: "https://github.com/alexmorgan", rendered: [] });
+
+  const { status, parsed } = runCli(s.root, ["--json"]);
+  assert.equal(status, 1);
+  const links = parsed.steps.find((x) => x.name === "links");
+  assert.match(links.error, /github\.com\/alexmorgan/);
+  assert.equal(revisionOf(s).status, "DRAFT", "the revision was approved over a dead link");
+  assert.ok(!fs.existsSync(s.bundle), "a bundle shipped with a dead link");
+});
+
+test("live links let the approval through", () => {
+  const s = scenario({ label: "livelink" });
+  withLinks(s, {
+    declared: "https://github.com/alexmorgan",
+    rendered: ["https://github.com/alexmorgan"],
+  });
+
+  const { status, parsed } = runCli(s.root, ["--json"]);
+  assert.equal(status, 0, JSON.stringify(parsed?.steps));
+  assert.equal(revisionOf(s).status, "APPROVED");
 });
 
 test("a REVISE verdict does not block — the human approving IS the decision — but is recorded", () => {

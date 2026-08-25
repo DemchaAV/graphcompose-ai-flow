@@ -49,6 +49,13 @@ What it enforces, so you do not have to:
 - A `REVISE` verdict does not block — the human approving *is* the
   decision — but it is recorded as `verdictAtApproval`, and you should
   mention it in one sentence when reporting.
+- A link declared in the data that never reached the rendered PDF stops
+  the approval, also before anything changes, and names the targets.
+  This is the one thing the user cannot have judged: they were looking
+  at the render, where a dead link and a live one are the same pixels.
+  Wire it and re-render rather than routing around the refusal — the
+  previously published `navy-sidebar-cv` bundle ships every contact
+  dead because nothing between the render and the bundle asked.
 - Verification runs on the published bundle (static tier by default;
   `--verify render` also compiles and renders it standalone). A verify
   failure exits 1 *after* reporting the completed approve and publish —

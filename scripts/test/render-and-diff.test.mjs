@@ -16,6 +16,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import zlib from "node:zlib";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -185,6 +186,75 @@ test("--skip-render with no render is a named failure, not a diff against nothin
   const { status, parsed } = runCli(s.root, ["--json"]);
   assert.equal(status, 1);
   assert.match(parsed.steps[0].error, /no output\.png/);
+});
+
+/** Give a scenario a data spec with one href, and a render that may or may not carry it. */
+function withLinks(s, { declared, rendered }) {
+  writeJson(path.join(s.revision, "cv-data.json"), { contact: [{ value: "x", href: declared }] });
+  const annots = rendered
+    .map((t) => `<</Subtype /Link /A <</Type /Action /S /URI /URI (${t}) >> >>`)
+    .join("\n");
+  fs.writeFileSync(
+    path.join(s.revision, "output.pdf"),
+    Buffer.concat([
+      Buffer.from("%PDF-1.7\n1 0 obj\n<</Filter /FlateDecode>>\nstream\n", "latin1"),
+      zlib.deflateSync(Buffer.from(annots, "latin1")),
+      Buffer.from("\nendstream\nendobj\n%%EOF\n", "latin1"),
+    ]),
+  );
+  // The project's docKind decides which data file is read.
+  const projectFile = path.join(s.project, "template-project.json");
+  const project = JSON.parse(fs.readFileSync(projectFile, "utf8"));
+  writeJson(projectFile, { ...project, docKind: "cv" });
+}
+
+test("a dead link downgrades READY_FOR_APPROVAL to REVISE", () => {
+  // The pixel diff is zero and the reviewer said ready — and the href in the
+  // data never reached the PDF. A link annotation has no pixels, so this is the
+  // one defect the loop above is structurally unable to see.
+  const s = scenario({ verdict: "READY_FOR_APPROVAL", label: "deadlink" });
+  withLinks(s, { declared: "https://github.com/alexmorgan", rendered: [] });
+
+  const { status, parsed } = runCli(s.root, ["--json"]);
+  assert.equal(status, 2, "a template with a dead link is not ready for approval");
+  assert.equal(parsed.loop.verdict, "REVISE");
+  assert.equal(parsed.loop.focus, "dead-links");
+  assert.equal(parsed.loop.focusSource, "link-integrity");
+  assert.match(parsed.loop.next, /github\.com\/alexmorgan/);
+  assert.equal(parsed.links.missing.length, 1);
+});
+
+test("live links leave a READY verdict alone", () => {
+  const s = scenario({ verdict: "READY_FOR_APPROVAL", label: "livelink" });
+  withLinks(s, {
+    declared: "https://github.com/alexmorgan",
+    rendered: ["https://github.com/alexmorgan"],
+  });
+
+  const { status, parsed } = runCli(s.root, ["--json"]);
+  assert.equal(status, 0);
+  assert.equal(parsed.loop.verdict, "READY_FOR_APPROVAL");
+  assert.equal(parsed.links.missing.length, 0);
+});
+
+test("a dead link never overrides the focus of an already-revising pass", () => {
+  // The reviewer picked the largest visual mismatch; the link is recorded and
+  // waits its turn rather than jumping the queue.
+  const s = scenario({ verdict: "REVISE", label: "bothwrong" });
+  withLinks(s, { declared: "https://github.com/alexmorgan", rendered: [] });
+
+  const { status, parsed } = runCli(s.root, ["--json"]);
+  assert.equal(status, 2);
+  assert.equal(parsed.loop.focus, "header-height");
+  assert.equal(parsed.links.missing.length, 1, "still reported, just not promoted");
+});
+
+test("a revision with no data spec passes the link step without checking", () => {
+  const s = scenario({ verdict: "READY_FOR_APPROVAL", label: "nolinks" });
+  const { status, parsed } = runCli(s.root, ["--json"]);
+  assert.equal(status, 0);
+  assert.equal(parsed.links.checked, false);
+  assert.ok(parsed.steps.find((x) => x.name === "links").ok);
 });
 
 test("usage errors are usage errors", () => {

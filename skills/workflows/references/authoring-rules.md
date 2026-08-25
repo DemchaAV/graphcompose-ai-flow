@@ -70,6 +70,27 @@ The test: if changing someone's email requires editing Java, the
 contract is broken, and what should have been a `data-only` revision
 with a region-aware gate becomes a code change.
 
+## An href in the data is a link in the render
+
+A field carrying a target — `href`, `url`, `link` — is not decoration.
+It must reach the PDF as a real annotation, through the link API of
+whatever primitive draws it: `addLink(text, uri)` on a flow builder,
+`inlineLink(...)` for one run inside a paragraph, `.linkTo(...)` /
+`.link(...)` on an image, shape or barcode. A paragraph-level link makes
+the whole paragraph clickable; an inline link makes one run clickable.
+Pick by what should be clickable, not by which is shorter to write.
+
+Drawing the value as text and ignoring the href is the failure this rule
+exists for, and it is invisible everywhere it matters: the glyphs are
+identical, the colour is identical, and the pixel diff against the
+reference is exactly zero, because an annotation has no pixels. It is
+found by a person clicking it — which in the serif acceptance run
+happened after ten revisions had already shipped it.
+
+`render-and-diff` reads the rendered PDF back and compares its link
+targets to the hrefs in the data on every pass, so this is checked, not
+trusted.
+
 ## Asset flow
 
 Icons come from Iconify through `tools/asset-resolver`; fonts are either

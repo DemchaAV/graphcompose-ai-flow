@@ -24,6 +24,11 @@
  * best README content — three library behaviours it discovered — is exactly
  * the kind of prose a regeneration must not eat.
  *
+ * One check is added rather than chained: before anything is approved, the
+ * links declared in the data are read back out of the rendered PDF. It sits
+ * here because it is the one defect the person approving cannot have seen —
+ * they are judging pixels, and a dead link has none.
+ *
  * Exit codes: 0 all steps passed, 1 a step failed (the output names it),
  * 2 usage. Steps run in order and stop at the first failure, except verify:
  * by then the approve and the publish have already happened, so a verify
@@ -212,6 +217,45 @@ step("read the verdict", (entry) => {
     throw new Error(
       "the review verdict is BLOCKED. State the failure category to the user and let them " +
         "decide; if they still want it approved, run the revision manager's approve directly.",
+    );
+  }
+});
+
+step("links", (entry) => {
+  // The one defect the person approving cannot have seen. They are judging the
+  // render, and a dead link looks exactly like a live one there — same glyphs,
+  // same colour, zero pixel difference. So "the user approved it" is not
+  // informed consent about this, and the last gate before a bundle ships is the
+  // right place to say so. navy-sidebar-cv was published with every contact
+  // dead, and nothing between the render and the bundle asked.
+  const checked = run(path.join(repoRoot, "scripts", "check-links.mjs"), [
+    "--project", args.project,
+    "--revision", revisionId,
+    ...(args.root ? ["--root", args.root] : []),
+    "--json",
+  ]);
+  let links;
+  try {
+    links = JSON.parse(checked.stdout);
+  } catch {
+    entry.detail = "not checked";
+    return;
+  }
+  result.links = { missing: links.missing ?? [], undeclared: links.undeclared ?? [] };
+  if (!links.checked) {
+    entry.detail = `not checked — ${links.skipped}`;
+    return;
+  }
+  entry.detail = `${links.rendered.linkAnnotations} live, ${links.declaredCount} declared` +
+    (links.undeclared.length ? `, ${links.undeclared.length} link-shaped without an href` : "");
+  if (links.missing.length) {
+    // Same hard line as BLOCKED, and the same escape: the human can still
+    // insist through the revision manager, but not by accident from here.
+    throw new Error(
+      `${links.missing.length} declared link(s) never reached the render: ` +
+        links.missing.map((m) => `${m.at} = ${m.target}`).join(", ") +
+        ". Wire them through the link API and re-render, or approve via the revision manager " +
+        "directly if shipping them dead is deliberate.",
     );
   }
 });

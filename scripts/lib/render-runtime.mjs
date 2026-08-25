@@ -42,138 +42,8 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+import { createLiveMirror } from "./live-mirror.mjs";
 import { ensureSkillValidationVerdict } from "./skill-validation-gate.mjs";
-
-// --- live preview mirror -----------------------------------------------------
-// A single, stable set of files that always reflects the MOST RECENT render,
-// regardless of which project/revision produced it. Open live/current.pdf once
-// in a viewer that auto-reloads on change and does not lock the file (e.g.
-// SumatraPDF) and watch every render update live — no hunting for the latest
-// revision folder.
-//
-//   live/current.pdf        clean render (the one to open)
-//   live/current-debug.pdf  debug render with guide lines
-//   live/current.png        page-1 raster of the clean render
-//   live/current-debug.png  page-1 raster of the debug render
-//   live/current.txt        which project / revision / time this reflects
-//
-// Location: <repoRoot>/live by default; override with GRAPHCOMPOSE_LIVE_DIR
-// (e.g. a path outside OneDrive to avoid sync churn). Disable with
-// RENDER_NO_LIVE=1. Mirroring is best-effort: a failure here only warns, it
-// never fails the render.
-
-const LIVE_README = `# Live preview
-
-This folder always reflects the MOST RECENT render, regardless of which
-project or revision produced it. It is regenerated on every render and is
-gitignored — do not edit by hand.
-
-Files:
-  current.pdf        clean render (open this one)
-  current-debug.pdf  debug render with guide lines
-  current.png        page-1 raster of the clean render
-  current-debug.png  page-1 raster of the debug render
-  current.txt        which project / revision / time this reflects
-
-## Watch renders update live (SumatraPDF)
-
-SumatraPDF reloads a PDF automatically when the file changes on disk and does
-not lock it. Open current.pdf once and leave it open; every render refreshes
-the view in place.
-
-  node scripts/preview-live.mjs           # opens live/current.pdf
-  node scripts/preview-live.mjs --debug   # opens live/current-debug.pdf
-
-Or open current.pdf in this folder manually in SumatraPDF.
-
-## Options
-
-  GRAPHCOMPOSE_LIVE_DIR   move this folder elsewhere (e.g. off OneDrive):
-                            $env:GRAPHCOMPOSE_LIVE_DIR = "C:\\Temp\\gc-live"
-  RENDER_NO_LIVE=1        disable this live mirror entirely
-`;
-
-function resolveLiveDir(repoRoot) {
-  const override = process.env.GRAPHCOMPOSE_LIVE_DIR;
-  if (override && override.trim()) return path.resolve(override.trim());
-  return path.join(repoRoot, "live");
-}
-
-function mirrorFileToLive(liveDir, srcPath, destName) {
-  if (!srcPath || !fs.existsSync(srcPath)) return false;
-  const dest = path.join(liveDir, destName);
-  const tmp = path.join(liveDir, `.${destName}.tmp`);
-  // Copy to a temp file, then rename over the target. rename is atomic on the
-  // same volume, so a watching viewer never sees a half-written PDF (the same
-  // trick the LaTeX + SumatraPDF live-preview workflow relies on). Fall back to
-  // a direct copy if the rename is refused (e.g. a cross-volume live dir).
-  try {
-    fs.copyFileSync(srcPath, tmp);
-    fs.renameSync(tmp, dest);
-    return true;
-  } catch {
-    try {
-      fs.rmSync(tmp, { force: true });
-    } catch {
-      /* ignore */
-    }
-    try {
-      fs.copyFileSync(srcPath, dest);
-      return true;
-    } catch (err) {
-      console.warn(`> live mirror: could not update ${destName} (${err.message})`);
-      return false;
-    }
-  }
-}
-
-function writeLiveManifest(liveDir, info) {
-  const lines = [
-    `project:   ${info.projectId}`,
-    `revision:  ${info.revisionId}`,
-    `rendered:  ${new Date().toISOString()}`,
-    `source:    ${info.revisionDir}`,
-    ``,
-    `current.pdf       <- output.pdf`,
-  ];
-  if (info.hasDebug) lines.push(`current-debug.pdf <- output-debug.pdf`);
-  lines.push("");
-  try {
-    fs.writeFileSync(path.join(liveDir, "current.txt"), lines.join("\n"), "utf8");
-  } catch (err) {
-    console.warn(`> live mirror: could not write current.txt (${err.message})`);
-  }
-}
-
-const NOOP_LIVE_MIRROR = { update() {}, manifest() {}, announce() {} };
-
-function createLiveMirror(repoRoot) {
-  if (process.env.RENDER_NO_LIVE === "1") return NOOP_LIVE_MIRROR;
-  let dir;
-  try {
-    dir = resolveLiveDir(repoRoot);
-    fs.mkdirSync(dir, { recursive: true });
-    const readme = path.join(dir, "README.md");
-    if (!fs.existsSync(readme)) fs.writeFileSync(readme, LIVE_README, "utf8");
-  } catch (err) {
-    console.warn(`> live mirror disabled (${err.message})`);
-    return NOOP_LIVE_MIRROR;
-  }
-  let updated = 0;
-  return {
-    update(srcPath, destName) {
-      if (mirrorFileToLive(dir, srcPath, destName)) updated += 1;
-    },
-    manifest(info) {
-      writeLiveManifest(dir, info);
-    },
-    announce() {
-      if (updated > 0) {
-        console.log(`> live preview updated -> ${path.join(dir, "current.pdf")}`);
-      }
-    },
-  };
-}
 
 /**
  * Render one revision.
@@ -258,7 +128,7 @@ export function runRender({ repoRoot, projectId, revisionId, projectDir: explici
   const outputPdf = path.join(revisionDir, "output.pdf");
   const debugPdf = path.join(revisionDir, "output-debug.pdf");
   const dataFile = dataDriven ? path.join(revisionDir, dataFileName) : null;
-  const live = createLiveMirror(repoRoot);
+  const live = createLiveMirror(repoRoot, projectDir);
 
   // 1. Skill validation gate
   ensureSkillValidationVerdict({
@@ -449,7 +319,7 @@ export function runRender({ repoRoot, projectId, revisionId, projectDir: explici
 
   // Mirror the clean render into the live-preview folder (live/current.*).
   live.update(outputPdf, "current.pdf");
-  live.update(path.join(revisionDir, "output.png"), "current.png");
+  live.update(path.join(revisionDir, "output.png"), "current.png", "shared");
   live.manifest({ projectId, revisionId, revisionDir, hasDebug: false });
 
   if (!debugPass) {
@@ -512,7 +382,7 @@ export function runRender({ repoRoot, projectId, revisionId, projectDir: explici
 
   // Mirror the debug render too, then point the user at the live file.
   live.update(debugPdf, "current-debug.pdf");
-  live.update(path.join(revisionDir, "output-debug.png"), "current-debug.png");
+  live.update(path.join(revisionDir, "output-debug.png"), "current-debug.png", "shared");
   live.manifest({ projectId, revisionId, revisionDir, hasDebug: true });
   live.announce();
 }

@@ -48,6 +48,13 @@ docs/private/
 # per-machine; never committed. Location is overridable via GRAPHCOMPOSE_LIVE_DIR.
 /live/
 
+# The same mirror, per project, beside template-project.json. Named one file at
+# a time rather than by extension: revision artifacts under examples/ are
+# committed on purpose and a blanket *.pdf rule would take them with it.
+examples/*/current.pdf
+examples/*/current-debug.pdf
+examples/*/current.txt
+
 # Shell interpolation accidents — files named after unexpanded variables or
 # stray shell punctuation. They come from PowerShell heredocs / pipelines that
 # write to ${command}, ${file}, etc. when the variable was empty. Never

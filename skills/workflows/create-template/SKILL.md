@@ -135,6 +135,23 @@ assumption you are making. Do not silently guess — a recorded assumption
 is a question the user can answer later; a silent one becomes a bug with
 no author.
 
+**Give every address an `href` in the data.** An email, a profile URL, a
+site, a repository — in `<doc-kind>-data.json` each one is a pair: the
+text as the reference shows it, and the target it resolves to.
+
+```json
+{ "value": "linkedin.com/in/alexmorgan", "href": "https://www.linkedin.com/in/alexmorgan" }
+```
+
+The reference cannot tell you this: a screenshot of a clickable link and
+a screenshot of dead text are the same pixels. Both acceptance runs got
+it wrong in the two available ways — one recorded no hrefs at all and
+shipped a published bundle of dead contact text; the other recorded four
+and rendered ten revisions that ignored them. The render is checked
+against this field on every loop pass, so an href you write here is a
+promise the loop will hold you to, and one you omit is a link nobody
+will ever notice is missing.
+
 **Map it to GraphCompose** → `architecture-plan.json`
 ([schema](../../../schemas/architecture-plan.schema.json)). JSON only,
 same as above.
@@ -163,10 +180,16 @@ node scripts/render-and-diff.mjs --project <project-id> --revision <revision-id>
 
 One call renders, scales the reference to the render's size (persisting
 `reference-scaled.png` for later passes and crops), diffs with the
-evidence written into the revision, and answers with the loop verdict as
-its exit code: 0 ready, 2 revise, 3 blocked, 1 a step failed. Do not run
+evidence written into the revision, checks that every `href` in the data
+is a live target in the PDF, and answers with the loop verdict as its
+exit code: 0 ready, 2 revise, 3 blocked, 1 a step failed. Do not run
 render, diff and iterate-status as separate turns — that is three trips
 for one deterministic chain.
+
+A dead link turns a ready verdict into `REVISE` with focus
+`dead-links`, and it is the one finding you cannot argue with by looking
+at the images: an annotation has no pixels, so a document whose every
+link is dead diffs identically to one where they all work.
 
 **Review** with `review-template` → `visual-review.json`.
 
@@ -199,6 +222,15 @@ that composes *your* template stays in your project — this is for questions
 about the library.
 
 ## Reporting back
+
+**Name the live file once, on the first handoff.** Every render also
+lands at `<workspace>/projects/<project-id>/current.pdf`, beside
+`template-project.json`, under that name for the life of the project. A
+viewer that reloads on change and does not lock the file — SumatraPDF —
+opened there once will show every later revision in place, so the user
+watches the work progress instead of hunting for the newest revision
+folder. Say it on the first handoff and not again; repeating a path they
+already have open is noise.
 
 Every handoff to the user — ready for approval, blocked, or answering a
 correction — ends with the metrics block when it is available:

@@ -96,6 +96,7 @@ PowerShell, cmd and bash.
 | Crop both images to one region | `node tools/visual-diff/bin/crop-region.mjs --revision <dir> --region <id>` |
 | Measure a diff | `node tools/visual-diff/bin/visual-diff.mjs <reference.png> <output.png> --json --update-revision <revision>` |
 | Ask whether the loop may continue | `node scripts/iterate-status.mjs <project-id>` — exit 0 ready, 2 revise, 3 blocked |
+| Are the links in the data live in the render? | `node scripts/check-links.mjs --project <id> --revision <id>` — exit 0 clean, 1 a declared href is missing (also runs inside the two composites) |
 | Approve and publish | `node scripts/approve-and-publish.mjs --project <id>` — one command: approve, publish, README, verify |
 | Verify a published bundle | `node scripts/verify-published-template.mjs --template-id <id> --render` |
 | Report what a run cost | `node scripts/telemetry/run-metrics.mjs report --project <id>` |

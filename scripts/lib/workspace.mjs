@@ -219,6 +219,31 @@ export function initWorkspace(hostDir, seed = {}) {
 
   fs.mkdirSync(path.join(root, "projects"), { recursive: true });
   fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+
+  // The workspace usually lands inside a git-tracked Java project. Only the
+  // strictly derived files are ignored: the live-preview copies, which are
+  // duplicates of a revision's output by construction, and Maven output. The
+  // revisions themselves are the audit trail and are left for the user to
+  // decide about — ignoring them here would quietly discard the record.
+  const gitignorePath = path.join(root, ".gitignore");
+  if (!fs.existsSync(gitignorePath)) {
+    fs.writeFileSync(
+      gitignorePath,
+      [
+        "# Live-preview copies of the newest render — a stable filename for a viewer",
+        "# to hold open, rewritten on every render. Derived; never a record.",
+        "projects/*/current.pdf",
+        "projects/*/current-debug.pdf",
+        "projects/*/current.txt",
+        "",
+        "# Build output of the per-project render runners.",
+        "projects/*/render-runner/target/",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+  }
+
   return { root, manifestPath, manifest, created: true };
 }
 

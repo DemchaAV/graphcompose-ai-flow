@@ -6,11 +6,15 @@
  *        [--against reference|parent] [--skip-render] [--json]
  *
  * Every pass of the iteration loop runs the same deterministic chain: render,
- * scale the reference to the render's size, diff, write the evidence into the
- * revision, ask whether the loop may continue. The serif acceptance run paid
- * for that as three to four separate model turns per pass — and solved the
- * scaling step itself, with ImageMagick shell arithmetic that left junk files
- * in the user's project root.
+ * scale the reference to the render's size, diff, check that the links in the
+ * data are live in the PDF, write the evidence into the revision, ask whether
+ * the loop may continue. The serif acceptance run paid for that as three to
+ * four separate model turns per pass — and solved the scaling step itself, with
+ * ImageMagick shell arithmetic that left junk files in the user's project root.
+ *
+ * The link check is here rather than at approval time because it is the one
+ * property the diff cannot see: an annotation has no pixels, so a document
+ * whose every link is dead diffs identically to one where they all work.
  *
  * This is that chain as one call. The agent's part of a pass — look at the
  * images, judge, decide the one cause to fix — is untouched; what is removed
@@ -126,6 +130,12 @@ function finish(code) {
         `\n  diff: ${result.diff.mismatchPx} px (${result.diff.percent.toFixed(3)}%) — ${result.diff.classification}`,
       );
     }
+    for (const m of result.links?.missing ?? []) {
+      console.log(`  MISSING LINK  ${m.at} = ${m.target}  (declared in the data, absent from the render)`);
+    }
+    for (const c of result.links?.undeclared ?? []) {
+      console.log(`  warn          ${c.at} = ${c.value}  (link-shaped, no href recorded)`);
+    }
     if (result.loop) {
       console.log(`  loop: ${result.loop.verdict}` + (result.loop.next ? ` — ${result.loop.next}` : ""));
     }
@@ -217,6 +227,42 @@ step("diff", (entry) => {
   entry.detail = `${stats.mismatchPx} px vs ${args.against} — ${stats.classification}`;
 });
 
+step("links", (entry) => {
+  // The one defect the diff above is structurally blind to: a link annotation
+  // has no pixels, so a dead link scores exactly zero mismatch. Cheap enough to
+  // run every pass, and it never fails the pass on its own — what it finds is
+  // folded into the verdict below.
+  const checked = run(path.join(repoRoot, "scripts", "check-links.mjs"), [
+    "--project",
+    args.project,
+    "--revision",
+    args.revision,
+    "--root",
+    workspace.root,
+    "--json",
+  ]);
+  let links;
+  try {
+    links = JSON.parse(checked.stdout);
+  } catch {
+    entry.detail = "not checked";
+    return;
+  }
+  result.links = {
+    checked: links.checked,
+    skipped: links.skipped,
+    rendered: links.rendered.linkAnnotations,
+    declared: links.declaredCount ?? 0,
+    missing: links.missing,
+    undeclared: links.undeclared,
+  };
+  entry.detail = links.checked
+    ? `${links.rendered.linkAnnotations} in the render, ${links.declaredCount} declared` +
+      (links.missing.length ? ` — ${links.missing.length} MISSING` : "") +
+      (links.undeclared.length ? `, ${links.undeclared.length} link-shaped without an href` : "")
+    : `not checked — ${links.skipped}`;
+});
+
 step("loop verdict", (entry) => {
   const status = run(path.join(repoRoot, "scripts", "iterate-status.mjs"), [
     args.project,
@@ -252,6 +298,21 @@ step("loop verdict", (entry) => {
   };
   entry.detail = loop.verdict;
 });
+
+// A declared href that never reached the PDF outranks a clean visual verdict.
+// The render matched the reference because the difference is invisible — that
+// is the argument for the downgrade, not against it. Only READY is downgraded:
+// an already-REVISE pass keeps the focus the reviewer chose, and BLOCKED stays
+// blocked.
+if (result.links?.missing?.length && result.loop?.verdict === "READY_FOR_APPROVAL") {
+  const targets = result.links.missing.map((m) => m.target).join(", ");
+  result.loop.verdict = "REVISE";
+  result.loop.focus = "dead-links";
+  result.loop.focusSource = "link-integrity";
+  result.loop.next =
+    `wire ${result.links.missing.length} declared link(s) into the render: ${targets}` +
+    ` — the data has the href, the PDF has no such target`;
+}
 
 const EXIT = { READY_FOR_APPROVAL: 0, REVISE: 2, BLOCKED: 3 };
 finish(EXIT[result.loop?.verdict] ?? 1);

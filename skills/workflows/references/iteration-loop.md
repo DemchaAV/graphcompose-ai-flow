@@ -104,6 +104,15 @@ An agent judging for itself whether it is going round in circles is
 exercising precisely the judgement a circling agent has already lost.
 Run the command.
 
+`render-and-diff` runs it for you and adds one finding of its own: a
+link declared in the data that never reached the rendered PDF turns a
+`READY_FOR_APPROVAL` into `REVISE` with focus `dead-links`. It is the
+one defect the images cannot show — an annotation has no pixels — so it
+is read from the file instead of looked at. See
+[link integrity](../../../docs/link-integrity.md). Only READY is
+downgraded: an already-revising pass keeps the focus its reviewer chose,
+and `BLOCKED` stays blocked.
+
 ## Bounds
 
 From `limits` in [`config/pipeline.json`](../../../config/pipeline.json),
