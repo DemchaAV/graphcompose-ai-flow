@@ -54,6 +54,16 @@ const argv = process.argv.slice(2);
 if (argv.length === 0) usage(2);
 const command = argv[0];
 
+/**
+ * Parsed events per transcript, read at most once per invocation.
+ *
+ * A report covers three windows and an archive one per cycle. Parsing per
+ * window meant a 37 MB transcript was read three times for a report and N
+ * times for an archive — linear in cycles, which is the one place this could
+ * have become genuinely slow.
+ */
+const eventCache = new Map();
+
 const args = { project: null, workflow: null, session: null, root: null, json: false, status: null };
 for (let i = 1; i < argv.length; i += 1) {
   const a = argv[i];
@@ -140,6 +150,7 @@ function buildReport() {
   const cycles = state.cycles ?? [];
   const current = cycles[cycles.length - 1] ?? null;
   const projectId = args.project ?? state.runProject ?? null;
+  const runStartedAt = state.runStartedAt ?? cycles[0]?.startedAt ?? null;
 
   let counters = null;
   let revision = null;
@@ -171,8 +182,17 @@ function buildReport() {
           usage: usageBetween(current.startedAt, current.finishedAt),
         }
       : null,
-    run: state.runStartedAt
-      ? { startedAt: state.runStartedAt, usage: usageBetween(state.runStartedAt, null) }
+    // `start` marks where a workflow began, but nothing forces it to be called
+    // and the first real run showed exactly that: four sessions on disk, not
+    // one with runStartedAt. Falling back to the first cycle means the run
+    // clock still says something true — the work began when the user first
+    // spoke — instead of the whole block vanishing.
+    run: runStartedAt
+      ? {
+          startedAt: runStartedAt,
+          inferred: !state.runStartedAt,
+          usage: usageBetween(runStartedAt, null),
+        }
       : null,
     session: {
       startedAt: state.sessionStartedAt ?? provider.sessionStart(state.transcriptPath),
@@ -186,16 +206,6 @@ function buildReport() {
     note: "Usage is as far as the transcript has been written; the current response is not counted yet.",
   };
 }
-
-/**
- * Parsed events per transcript, read at most once per invocation.
- *
- * A report covers three windows and an archive one per cycle. Parsing per
- * window meant a 37 MB transcript was read three times for a report and N
- * times for an archive — linear in cycles, which is the one place this could
- * have become genuinely slow.
- */
-const eventCache = new Map();
 
 function eventsOf(transcriptPath) {
   if (!transcriptPath) return [];

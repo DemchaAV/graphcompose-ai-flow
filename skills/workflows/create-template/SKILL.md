@@ -48,7 +48,13 @@ Then create the project and the first revision:
 ```bash
 node scripts/init-workspace.mjs --project-dir <java-project> --project <project-name>
 node tools/revision-manager/bin/graphcompose-flow.mjs new-revision "<the user's words>" --project <project-dir>
+node scripts/telemetry/run-metrics.mjs start --project <project-name> --workflow create-template
 ```
+
+The last one marks where the run began, so the metrics can separate "this
+whole template" from "this one correction". Skip it and the run clock
+falls back to the first thing the user said, which is close but not the
+same thing.
 
 Put the reference in `reference/reference.png` (plus
 `reference-page-N.png` for extra pages). Print the chain you are about

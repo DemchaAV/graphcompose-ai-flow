@@ -250,3 +250,94 @@ test("a session id cannot escape the state directory", () => {
   }
   assert.ok(!fs.existsSync(path.join(home, "escaped.json")));
 });
+
+// ------------------------------------------------------------ the CLI itself
+
+/**
+ * A sandboxed session with a transcript, driven through the real CLI.
+ *
+ * The unit tests above cover core.mjs and the provider, and a crash still
+ * shipped: moving the event cache during a refactor put a `const` below its
+ * first use, so every `report` with a transcript died on a temporal dead zone.
+ * Nothing caught it because nothing ran the CLI.
+ */
+function session(label, cycles = []) {
+  const home = tempDir(`cli-${label}`);
+  const transcript = transcript_(label, cycles);
+  const stateDir = path.join(home, ".graphcompose-flow", "telemetry");
+  fs.mkdirSync(stateDir, { recursive: true });
+  const sessionId = `cli-${label}`;
+  fs.writeFileSync(
+    path.join(stateDir, `${sessionId}.json`),
+    JSON.stringify({
+      sessionId,
+      transcriptPath: transcript,
+      sessionStartedAt: "2026-08-24T10:00:00Z",
+      cycles: cycles.map((c) => ({ prompt: c.prompt, startedAt: c.at, finishedAt: c.until ?? null })),
+    }),
+  );
+  return { home, sessionId, env: { ...process.env, USERPROFILE: home, HOME: home } };
+}
+
+function transcript_(label, cycles) {
+  const lines = cycles.map((c, i) =>
+    assistant(`req-${label}-${i}`, c.at, { output: c.output ?? 100, cacheRead: c.cacheRead ?? 1000 }),
+  );
+  return transcript(lines, `cli-t-${label}`);
+}
+
+function cli(args, env) {
+  const result = spawnSync(
+    process.execPath,
+    [path.join(repoRoot, "scripts", "telemetry", "run-metrics.mjs"), ...args],
+    { encoding: "utf8", env },
+  );
+  return { status: result.status, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
+}
+
+test("report runs, and prints the figures rather than a stack trace", () => {
+  const s = session("report", [
+    { prompt: "make it", at: "2026-08-24T10:01:00Z", until: "2026-08-24T10:05:00Z", output: 500 },
+  ]);
+  const result = cli(["report", "--session", s.sessionId], s.env);
+
+  assert.equal(result.status, 0, result.output);
+  assert.match(result.output, /Run metrics/);
+  assert.match(result.output, /Tokens this cycle/);
+  assert.ok(!result.output.includes("ReferenceError"), result.output);
+  assert.ok(!result.output.includes("at "), `a stack trace leaked:\n${result.output}`);
+});
+
+test("the run clock appears even when start was never called", () => {
+  // The first real run had four sessions on disk and not one runStartedAt: the
+  // skills said to report but never said to start, so the block vanished.
+  const s = session("inferred", [
+    { prompt: "first", at: "2026-08-24T10:01:00Z", until: "2026-08-24T10:20:00Z" },
+    { prompt: "a correction", at: "2026-08-24T10:30:00Z" },
+  ]);
+  const result = cli(["report", "--session", s.sessionId], s.env);
+
+  assert.equal(result.status, 0, result.output);
+  assert.match(result.output, /Harness run:/);
+});
+
+test("cycles reports each cycle separately, which is what makes a correction's cost visible", () => {
+  const s = session("cycles", [
+    { prompt: "build the thing", at: "2026-08-24T10:00:00Z", until: "2026-08-24T11:00:00Z", output: 900 },
+    { prompt: "the timeline is wrong", at: "2026-08-24T11:10:00Z", until: "2026-08-24T11:20:00Z", output: 100 },
+  ]);
+  const result = cli(["cycles", "--session", s.sessionId, "--json"], s.env);
+
+  assert.equal(result.status, 0, result.output);
+  const parsed = JSON.parse(result.output);
+  assert.equal(parsed.length, 2);
+  assert.equal(parsed[1].prompt, "the timeline is wrong");
+  assert.ok(parsed[0].usage.outputTokens > parsed[1].usage.outputTokens, "the cycles were not separated");
+});
+
+test("an unknown session says so and exits 0, because telemetry never fails the work", () => {
+  const s = session("unknown");
+  const result = cli(["report", "--session", "no-such-session"], s.env);
+  assert.equal(result.status, 0);
+  assert.match(result.output, /no state for session/);
+});

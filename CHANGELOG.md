@@ -7,6 +7,43 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.0-beta.13 — the metrics were recorded and never shown
+
+A real run happened and reported nothing. The data was all there — four
+sessions on disk, one with every cycle of the run in it — and three
+separate things kept it from reaching the screen.
+
+- **`report` crashed on any session with a transcript.** The probe-cache
+  refactor moved `const eventCache` below the top-level code that uses
+  it, so every report died in the temporal dead zone. It shipped because
+  the telemetry tests covered `core.mjs` and the provider and never ran
+  the CLI. Four CLI-level tests now do, and they were checked against the
+  reintroduced bug.
+
+  This also means the "736 ms to 129 ms" in `beta.11` measured a crashing
+  process. The real figure for a report on a 37 MB transcript is about
+  700 ms, and the caching it describes is still correct.
+
+- **`run-metrics start` was never called.** The README documented it, the
+  skills did not mention it, and no session on disk had `runStartedAt`.
+  `create-template` now calls it, and a report with no explicit start
+  falls back to the first cycle rather than dropping the run clock
+  entirely.
+
+- **Nothing forced a report to be printed.** The skills said to, at the
+  end of a long document, and it did not happen. `iterate-status` — which
+  the loop calls after every render by contract — now prints a one-line
+  cost of its own. Silent when telemetry is unavailable, never fatal.
+
+The run that prompted this, recovered afterwards from its own recording:
+
+```text
+create from reference     68 min · 280.4k output · 61.0M cache read · 211 requests
+"divider is vertical"      7 min ·  25.2k output · 16.0M cache read ·  32 requests
+"too close to the line"   10 min ·  36.4k output · 21.8M cache read ·  39 requests
+approve                    2 min ·   8.1k output ·  6.5M cache read ·  11 requests
+```
+
 ### v0.5.0-beta.12 — probes stop rebuilding what has not changed
 
 Measured before assuming: of a 6.0 s probe run, `mvn compile` was 3.0 s

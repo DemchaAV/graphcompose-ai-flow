@@ -17,9 +17,12 @@
  */
 
 import path from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 import { loadPipelineConfig } from "./lib/pipeline-config.mjs";
 import { computeIterationStatus, IterationStatusError } from "./lib/iteration-status.mjs";
+import { elapsed, formatDuration, formatTokens, processedTokens } from "./telemetry/core.mjs";
 import {
   describeWorkspaceLine,
   installRoot,
@@ -119,7 +122,46 @@ if (args.json) {
   } else {
     console.log("\n  next: report to the user and wait. Do not approve on their behalf.");
   }
+  printCost();
   console.log("");
 }
 
 process.exit(EXIT[status.verdict] ?? 1);
+
+/**
+ * One line of cost, attached to the command the loop cannot skip.
+ *
+ * The skills already say to report metrics at a handoff, and the first real run
+ * showed what that is worth on its own: four sessions recorded, not one report
+ * printed. `iterate-status` runs after every render by contract, so the numbers
+ * surface whether or not anyone remembers to ask for them.
+ *
+ * Silent when telemetry is unavailable, and never fatal — a measurement must
+ * not cost the loop its answer.
+ */
+function printCost() {
+  try {
+    const run = spawnSync(
+      process.execPath,
+      [
+        path.join(path.dirname(fileURLToPath(import.meta.url)), "telemetry", "run-metrics.mjs"),
+        "report",
+        "--json",
+      ],
+      { encoding: "utf8", timeout: 20_000 },
+    );
+    if (run.status !== 0 || !run.stdout?.trim().startsWith("{")) return;
+
+    const report = JSON.parse(run.stdout);
+    const cycle = report.cycle;
+    if (!cycle?.startedAt) return;
+
+    const processed = processedTokens(cycle.usage);
+    console.log(
+      `\n  this cycle: ${formatDuration(elapsed(cycle.startedAt, cycle.finishedAt))} · ` +
+        `${formatTokens(processed)} processed · ${formatTokens(cycle.usage.outputTokens)} output`,
+    );
+  } catch {
+    /* telemetry is never load-bearing */
+  }
+}

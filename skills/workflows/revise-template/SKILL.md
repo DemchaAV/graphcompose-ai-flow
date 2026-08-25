@@ -132,7 +132,9 @@ named.
 
 ## Reporting back
 
-End the handoff with the metrics block when it is available:
+`iterate-status` already prints a one-line cost after every pass, so the
+numbers are in front of you whether or not you ask. End the handoff with
+the full block:
 
 ```bash
 node scripts/telemetry/run-metrics.mjs report --project <project-id> --status <verdict>
