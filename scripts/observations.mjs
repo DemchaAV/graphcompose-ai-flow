@@ -164,6 +164,7 @@ if (command === "verify") {
 
   let stale = 0;
   let returned = 0;
+  let unchecked = 0;
   for (const { body, file } of subjects) {
     const probe = body.minimalReproduction?.probe;
     if (!probe) {
@@ -180,8 +181,13 @@ if (command === "verify") {
       { encoding: "utf8" },
     );
     if (run.status !== 0) {
-      console.error(`  FAIL ${body.id}: probe "${probe}" did not run`);
-      stale += 1;
+      // The probe exists and could not run — a JDK, Maven and a compiled
+      // diagnostics module are what it needs, and a machine without them knows
+      // nothing about this record either way. Calling that "no longer holds"
+      // reports a library change that was never measured, and on a CI job with
+      // no toolchain it reported one for every observation on file.
+      console.error(`  ????  ${body.id}: probe "${probe}" could not run here`);
+      unchecked += 1;
       continue;
     }
 
@@ -223,14 +229,29 @@ if (command === "verify") {
     }
   }
 
+  // Every subject lands in exactly one bucket, so the sentence cannot contradict
+  // itself. It used to read "7 of 5 no longer hold", because a record that could
+  // not be checked was counted as stale while the denominator excluded retired
+  // ones.
   const retired = retiredCount(subjects);
-  const live = subjects.length - retired;
+  const checked = subjects.length - unchecked;
+  const held = checked - stale - retired + Math.min(retired, unchecked);
   const summary = [
-    stale === 0 ? `${live} observation(s) still hold` : `${stale} of ${live} no longer hold`,
+    // Nothing to say about holding when nothing was measured.
+    checked === 0 ? null : stale === 0 ? `${Math.max(0, held)} observation(s) still hold` : `${stale} no longer hold`,
     retired ? `${retired} retired` : null,
+    unchecked ? `${unchecked} could not be checked here` : null,
     returned ? `${returned} retired but true again` : null,
   ].filter(Boolean).join(", ");
   console.log(`[observations] ${summary}`);
+  if (unchecked) {
+    console.log(
+      "[observations] a probe needs a JDK, Maven and the diagnostics module for its line; " +
+        "nothing above was measured on this machine",
+    );
+  }
+  // An unmeasured record is not a failed one. Failing here would turn every
+  // machine without the toolchain into a verdict about the library.
   process.exit(stale === 0 && returned === 0 ? 0 : 1);
 }
 

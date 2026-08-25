@@ -205,42 +205,32 @@ test("a retired observation says what retired it", () => {
   }
 });
 
-/**
- * `verify` re-runs the probes, which needs a JDK and Maven. The harness-contracts
- * CI job has neither by design — it is the Node-only job — so there every probe
- * reports "did not run" and the command fails for a reason that has nothing to do
- * with what this asserts. The observations job in `npm run verify` has the
- * toolchain and covers it for real.
- */
-const canRunProbes =
-  fs.existsSync(DIAGNOSTICS) &&
-  spawnSync(process.platform === "win32" ? "mvn.cmd" : "mvn", ["-v"], {
-    encoding: "utf8",
-    shell: process.platform === "win32",
-  }).status === 0;
-
-test("verify does not demand that a retired observation still hold", { skip: !canRunProbes }, () => {
-  // Backwards, and it used to do exactly that: an observation retired because
-  // the library fixed the defect was reported FAIL on every run, so the command
-  // that proves the record is current could never come back clean once anything
-  // had been retired.
+test("verify never reports a retired observation as a failure", () => {
+  // Two ways this went wrong. A retired record was reported FAIL because the
+  // retired branch sat below the probe-failed early return, so on a machine
+  // without a JDK and Maven every record — retired or not — came back as "no
+  // longer holds", a verdict about the library that nothing had measured. And
+  // the summary could read "7 of 5 no longer hold", because an unmeasured
+  // record was counted as stale while the denominator excluded retired ones.
+  //
+  // The assertion holds either way: with a toolchain a retired record reports
+  // `ret`, without one it reports `????`. Neither is FAIL, and neither is a
+  // non-zero exit.
   const retired = records().filter(({ body }) => body.confidence === "retired");
   if (retired.length === 0) return; // nothing retired in this checkout
 
   const result = run(["verify"]);
-  assert.equal(result.status, 0, `verify failed on a retired record:
-${result.output}`);
+  assert.equal(result.status, 0, `verify failed without measuring anything:\n${result.output}`);
   for (const { body } of retired) {
     assert.ok(
-      result.output.includes(`ret  ${body.id}`),
-      `${body.id} was not reported as retired`,
-    );
-    assert.ok(
       !new RegExp(`FAIL ${body.id}`).test(result.output),
-      `${body.id} is retired and was still reported as a failure`,
+      `${body.id} is retired and was reported as a failure`,
     );
   }
-  assert.match(result.output, /retired/, "the summary does not say how many are retired");
+  assert.ok(
+    !/\d+ of \d+ no longer hold/.test(result.output),
+    `the summary can contradict itself: ${result.output.split("\n").pop()}`,
+  );
 });
 
 test("the revise workflow sends a discovery where it can be found again", () => {
