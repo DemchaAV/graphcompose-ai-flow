@@ -48,6 +48,14 @@ alone: the reference is scaled to the render's size automatically (and
 persisted as `reference-scaled.png`), the diff and stats land in the
 revision folder, and the loop verdict comes back as the exit code.
 
+The pass also checks that each region is built the way its role says —
+a footer through `DocumentSession.footer` rather than a bled fill, a
+table through `addTable`, an icon through `addSvgIcon` — and, once the
+reference has more than one page, that the page model and the
+keepTogether / keepWithNext rules were decided rather than left to
+happen. Those findings name a region and a render method, so they are
+read against the template, not against the images.
+
 Run it even when you can see what is wrong. A revision whose render was
 never compared carries none of the harness's gates, and the loop treats
 it as unfinished rather than as a judgement call: `iterate-status`

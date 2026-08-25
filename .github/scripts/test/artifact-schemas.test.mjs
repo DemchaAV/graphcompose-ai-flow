@@ -52,7 +52,7 @@ const MINIMAL = {
   'visual-analysis': {
     schemaVersion: 1,
     page: { format: 'A4' },
-    regions: [{ id: 'header', label: 'Header' }],
+    regions: [{ id: 'header', label: 'Header', role: 'page-header' }],
   },
   'architecture-plan': {
     schemaVersion: 1,
@@ -146,13 +146,36 @@ test('architecture-plan holds the lane rules and the component-mapping shape', (
   );
 });
 
+test('a region must state what it is, because that is its build contract', () => {
+  // role was optional and a real run set it on none of fourteen regions —
+  // including the one it had named `page-footer`. The schema had described the
+  // contract all along ("must map to DocumentSession.header/.footer, never be
+  // drawn as body content") and nothing required it to be stated or checked it.
+  const v = validators['visual-analysis'];
+  const base = { schemaVersion: 1, page: { format: 'A4' } };
+  assert.ok(
+    !v({ ...base, regions: [{ id: 'footer', label: 'Footer band' }] }),
+    'accepted a region that states no role',
+  );
+  for (const role of ['page-header', 'page-footer', 'table', 'table-header', 'image', 'icon']) {
+    assert.ok(
+      v({ ...base, regions: [{ id: 'r', label: 'R', role }] }),
+      `rejected the role "${role}", which check-region-primitives constrains`,
+    );
+  }
+  assert.ok(
+    !v({ ...base, regions: [{ id: 'r', label: 'R', role: 'footer' }] }),
+    'accepted a role outside the enum',
+  );
+});
+
 test('visual-analysis requires named regions and well-formed sub-records', () => {
   const v = validators['visual-analysis'];
   const base = { schemaVersion: 1, page: { format: 'A4' } };
   assert.ok(!v({ ...base, regions: [] }), 'accepted an analysis with no regions');
-  assert.ok(!v({ ...base, regions: [{ id: 'Header', label: 'H' }] }), 'accepted a region id that is not kebab-case');
+  assert.ok(!v({ ...base, regions: [{ id: 'Header', label: 'H', role: 'content' }] }), 'accepted a region id that is not kebab-case');
   assert.ok(
-    !v({ ...base, regions: [{ id: 'h', label: 'H' }], shapeOwnership: [{ container: 'circle' }] }),
+    !v({ ...base, regions: [{ id: 'h', label: 'H', role: 'content' }], shapeOwnership: [{ container: 'circle' }] }),
     'accepted a shape-ownership entry missing ownedContent and relationship',
   );
   assert.ok(

@@ -5,6 +5,74 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.9.0 — 2026-08-25
+
+What a region *is* now decides how it may be built, and a multi-page
+document has to have its page model decided rather than acquire one.
+
+**A footer built with `bleedToEdge` is now a named finding.** From a real
+proposal run:
+
+```java
+page.addSection("Footer", footer -> footer.spacing(0)
+        .fillColor(INK)
+        .bleedToEdge(DocumentEdge.LEFT, DocumentEdge.RIGHT, DocumentEdge.BOTTOM))
+```
+
+Bleeding extends a fill past the margin to the paper edge, which is the
+opposite of the band a footer occupies, and a footer drawn as body
+content appears on page one and nowhere else. The API for it exists and
+is in the allow-list: `DocumentSession.footer(DocumentHeaderFooter)`.
+
+The odd part is that the harness already knew. `visual-analysis.schema.json`
+has described this contract all along, in the description of `role`:
+page-header and page-footer "must map to DocumentSession.header/.footer …
+never be drawn as body content". Two things kept it inert. `role` was
+optional, so nothing wrote it — that run named a region `page-footer`,
+labelled it "Footer band", and set `role` on none of its fourteen
+regions. And one consumer read `role` at all, for `table-header` only.
+
+`role` is required now, the enum names what documents are actually made
+of (`table`, `image`, `icon`, `panel`, `divider` alongside the four that
+were there), and `check-region-primitives` compares each region's role
+against the render method the plan maps it to. A footer must not bleed
+and must go through `footer(`; a header likewise; a table must be
+`addTable`, not rows of shapes; `table-header` needs `repeatHeader`; an
+image must be `addImage` and an icon `addSvgIcon`, because a rectangle or
+a coloured disc the size of the thing matches its box and nothing inside
+it. `content`, `background`, `panel` and `divider` carry no contract, and
+that is deliberate.
+
+Run against the same revision it came from, it finds the header too: the
+analysis note reads "Repeats on both pages unchanged" and the template
+builds it inside `page.addSection`, so page two loses it — while page
+one, which is what the diff compares, is perfect.
+
+**A multi-page document must decide its page model first.** A book's
+first page is not its second: different margins, no running header, often
+no page number. `DocumentSession.pageMargins(List.of(PageMarginRule.page(1,
+DocumentInsets.zero())))` states that per page, `addPageBreak` puts a
+break where the document means one, and `addSection` names a run of
+pages. The architecture plan gained a `pagination` block — `pageModel` of
+`uniform` / `first-page-different` / `sectioned`, plus what differs on
+page one — required once the reference has more than one page.
+
+**And where the flow may not break.** `keepTogether` keeps a block whole;
+`keepWithNext` stops a heading being orphaned above its content or a
+table header sitting alone at the foot of a page. Both are on
+`SectionBuilder` and `ModuleBuilder`. Neither is discoverable from a
+render: a template that only ever renders its one-page sample never
+exercises a break, so the diff is silent and stays silent until real
+content arrives. They go in the same block as `keepRules`, and a rule the
+plan decided and the template never built is reported — that is worse
+than an unwritten rule, because the plan says it is handled.
+
+All of it runs inside `render-and-diff`, which v0.8.0 made unskippable,
+and a finding downgrades a ready verdict the way a dead link does.
+
+Every signature named above was verified against the 2.2 allow-list
+before it was written into a contract.
+
 ## v0.8.0 — 2026-08-25
 
 Every gate this harness has was optional, and nothing said so.

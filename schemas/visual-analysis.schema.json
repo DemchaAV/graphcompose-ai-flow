@@ -59,7 +59,8 @@
         "additionalProperties": false,
         "required": [
           "id",
-          "label"
+          "label",
+          "role"
         ],
         "properties": {
           "id": {
@@ -134,9 +135,14 @@
               "page-header",
               "page-footer",
               "table-header",
+              "table",
+              "image",
+              "icon",
+              "panel",
+              "divider",
               "background"
             ],
-            "description": "What the region IS to the page, not what it contains. page-header / page-footer are chrome that repeats on every page and must map to DocumentSession.header/.footer (or the version equivalent), never be drawn as body content; table-header repeats at the top of every page its table reaches (TableBuilder.repeatHeader); background is page-level fill behind everything. Default when absent: content."
+            "description": "What the region IS to the page, not what it contains. Required: a region with no role states no contract for how it may be built, and check-region-primitives cannot check it. page-header / page-footer are chrome that repeats on every page and must map to DocumentSession.header/.footer (or the version equivalent), never be drawn as body content and never bleedToEdge, which extends a fill past the margin to the paper edge. table-header repeats at the top of every page its table reaches (TableBuilder.repeatHeader). table must be built with addTable, not as rows of shapes. image must use addImage and icon addSvgIcon — a filled rectangle or a coloured disc standing in for either matches the box and nothing inside it. background is page-level fill behind everything; panel, divider and content carry no build contract."
           }
         }
       }

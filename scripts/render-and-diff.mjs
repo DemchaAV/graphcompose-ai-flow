@@ -408,6 +408,43 @@ step("document integrity", (entry) => {
     : `not checked — ${integrity.skipped}`;
 });
 
+step("region roles", (entry) => {
+  // The third blind spot, and the earliest one. A header drawn as body content
+  // appears on page one and nowhere else; a footer drawn with bleedToEdge
+  // floods the page; a table drawn as rows of shapes cannot break across one. On
+  // page one of a sample document each of those looks exactly right, which is
+  // why the diff above cannot see any of them.
+  const checked = run(path.join(repoRoot, "scripts", "check-region-primitives.mjs"), [
+    "--project",
+    args.project,
+    "--revision",
+    args.revision,
+    "--root",
+    workspace.root,
+    "--json",
+  ]);
+  let roles;
+  try {
+    roles = JSON.parse(checked.stdout);
+  } catch {
+    // No analysis or no plan yet is the ordinary state early in a loop.
+    entry.detail = "not checked";
+    return;
+  }
+  result.roles = {
+    regions: roles.regions,
+    mapped: roles.mapped,
+    findings: roles.findings,
+  };
+  const contract = roles.findings.filter((f) => f.kind !== "role-missing");
+  const unroled = roles.findings.filter((f) => f.kind === "role-missing");
+  entry.detail =
+    `${roles.regions} region(s)` +
+    (contract.length ? ` — ${contract.length} built against their role` : "") +
+    (unroled.length ? `, ${unroled.length} state no role` : "") +
+    (!contract.length && !unroled.length ? " — each built the way its role says" : "");
+});
+
 step("loop verdict", (entry) => {
   const status = run(path.join(repoRoot, "scripts", "iterate-status.mjs"), [
     args.project,
@@ -499,6 +536,19 @@ if (result.loop?.verdict === "READY_FOR_APPROVAL") {
       `(${worst.classification}). Compare diff-page-${worst.page}.png against ` +
       `reference-scaled-page-${worst.page}.png`;
   }
+}
+
+// A region built against its role is a defect the comparison cannot reach. The
+// document that prompted this names a header "Repeats on both pages unchanged"
+// and builds it as body content, so page two loses it — and page one, which is
+// what the diff compares, is perfect.
+if (result.roles?.findings?.length && result.loop?.verdict === "READY_FOR_APPROVAL") {
+  const contract = result.roles.findings.filter((f) => f.kind !== "role-missing");
+  const first = contract[0] ?? result.roles.findings[0];
+  result.loop.verdict = "REVISE";
+  result.loop.focus = first.region;
+  result.loop.focusSource = "region-role";
+  result.loop.next = `${first.kind} in ${first.region}: ${first.detail}`;
 }
 
 if (result.links?.missing?.length && result.loop?.verdict === "READY_FOR_APPROVAL") {

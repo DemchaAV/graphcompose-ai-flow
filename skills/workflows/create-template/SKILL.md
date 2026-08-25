@@ -63,12 +63,53 @@ terms. Do not copy or convert the file yourself: that is the single step
 where two runs of the same request end up measuring against two
 different images.
 
+**Give every region a role, and let the role decide the primitive.**
+`role` is required in `visual-analysis.json` and it is not a label: it is
+the contract for how that region may be built. `page-header` and
+`page-footer` are chrome the engine repeats on every page and must go
+through `DocumentSession.header` / `.footer` — drawn as body content they
+appear on page one and nowhere else, and `bleedToEdge` extends a fill
+past the margin to the paper edge, which is the opposite of the band a
+footer occupies. `table` must be `addTable`, not rows of shapes, or it
+has no columns to align and no way to break across a page.
+`table-header` needs `repeatHeader`. `image` must be `addImage` and
+`icon` `addSvgIcon`: a rectangle or a coloured disc the size of the thing
+matches its box and nothing inside it.
+
+Each of those renders correctly on page one of a one-page sample, which
+is exactly where the pixel diff looks. `check-region-primitives` compares
+the roles against the render methods the plan maps them to, and
+`render-and-diff` runs it every pass.
+
 **A reference can be longer than one page.** A proposal, a report or a
 book arrives as a multi-page PDF, and every page is rasterised:
 `reference.png` is page 1 and `reference-page-N.png` is the rest. The
 import also sets `render.pages`, because rasterising the render is driven
 by that field and a document rebuilt at one page cannot be compared
 against a reference that has three.
+
+**Decide the page model before you build the layout.** A book's first
+page is not its second: different margins, no running header, often no
+page number. `DocumentSession.pageMargins(List.of(PageMarginRule.page(1,
+DocumentInsets.zero())))` states that per page; `flow.addPageBreak(pb ->
+pb.name("afterCover"))` puts a break where the document means one; and
+`flow.addSection("Chapter" + i, s -> s.anchor("ch" + i))` gives a run of
+pages a name to be referred to. Record the answer in the plan's
+`pagination` block — `pageModel` is `uniform`, `first-page-different` or
+`sectioned`, and `firstPageDiffers` says what page one does that the rest
+do not. A multi-page document built without deciding this gets its page
+model by accident.
+
+**And decide where the flow may not break.** `keepTogether` keeps a block
+whole across a page boundary; `keepWithNext` stops a heading being
+orphaned above its content, or a table header sitting alone at the foot
+of a page. Both are on `SectionBuilder` and `ModuleBuilder`. Neither is
+discoverable from the render: a template that only ever renders its
+one-page sample never exercises a break, so the diff is silent and stays
+silent until real content arrives. List them as `keepRules` in the same
+block, with the reason for each — `check-region-primitives` reports a
+rule the plan decided and the template never built, which is worse than
+an unwritten one because the plan says it is handled.
 
 Read every page before you plan. A continuation page is not a copy of the
 first with different text: it usually has no masthead, may repeat a

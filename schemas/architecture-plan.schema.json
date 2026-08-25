@@ -325,6 +325,100 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "pagination": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How the document is paginated. Required once the reference has more than one page, and checked by check-region-primitives: a multi-page document built without deciding this first gets its page model by accident. A book's first page is not its second — different margins, no running header, often no page number — and DocumentSession.pageMargins takes per-page rules (PageMarginRule.page(1, ...)) precisely so that can be stated rather than worked around.",
+      "required": [
+        "pageModel"
+      ],
+      "properties": {
+        "pageModel": {
+          "type": "string",
+          "enum": [
+            "uniform",
+            "first-page-different",
+            "sectioned"
+          ],
+          "description": "uniform: every page shares margins and chrome. first-page-different: page 1 has its own margins or chrome (a cover, a title page, a letterhead) — say what differs in firstPageDiffers. sectioned: distinct runs of pages, each with its own model, separated by explicit breaks."
+        },
+        "firstPageDiffers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "What page 1 does that the rest do not, e.g. \"zero margins for a full-bleed cover\", \"no running header\", \"no page number\". Required when pageModel is first-page-different."
+        },
+        "pageMarginRules": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "The PageMarginRule entries the template passes to DocumentSession.pageMargins, as written."
+        },
+        "breaks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "after",
+              "why"
+            ],
+            "properties": {
+              "after": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Region id the break follows."
+              },
+              "why": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "description": "Explicit page breaks (AbstractFlowBuilder.addPageBreak). A break the layout needs and nobody declared is a break that moves whenever the content does."
+        },
+        "keepRules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "region",
+              "rule",
+              "why"
+            ],
+            "properties": {
+              "region": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Region id from visual-analysis.json."
+              },
+              "rule": {
+                "type": "string",
+                "enum": [
+                  "keepTogether",
+                  "keepWithNext"
+                ],
+                "description": "keepTogether: this block must not be split across a page break. keepWithNext: it must not be the last thing on a page — a heading orphaned above its content, a table header alone at the foot."
+              },
+              "why": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "description": "Where the flow must not break, decided before the layout is built. A document that only ever renders its one-page sample never exercises a break, so these are not discoverable from the render — they are read off the reference and the content that will fill it."
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     }
   },
   "allOf": [
