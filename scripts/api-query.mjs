@@ -16,13 +16,12 @@
  * The answer to "does this method exist, and what is its signature" is ten
  * lines of JSON. This gives that.
  *
- * **No generated JSON artifact.** The obvious design is to emit an
- * `00-api-surface.json` beside the Markdown, but that creates a second copy of
- * a closed set that must stay in step with the first — the exact drift this
- * repository keeps removing elsewhere. Parsing 126 KB takes milliseconds, so
- * it is parsed on demand and the Markdown stays the only source. `--dump`
- * writes the JSON for anyone who wants it, deliberately to stdout rather than
- * into the pack.
+ * **The pack's `api-surface.json` is the source.** It is what
+ * `tools/api-surface/extract-api.mjs` writes from the pinned artifact's class
+ * files, and `00-api-surface.md` is generated from it — so the two cannot
+ * drift, and this reads the structured form rather than re-parsing prose. A
+ * pack that predates the extractor has only the Markdown, which is still
+ * parsed, so an older line keeps answering.
  *
  * Exit codes: 0 found, 3 nothing matched (so a caller can branch), 2 usage.
  */
@@ -36,6 +35,7 @@ import { resolveVersion } from "./lib/version-resolver.mjs";
 const repoRoot = installRoot();
 const PACKS_DIR = path.join(repoRoot, "skills", "versions");
 const SURFACE_FILE = "00-api-surface.md";
+const CANONICAL_FILE = "api-surface.json";
 
 function usage(code = 0) {
   process.stdout.write(
@@ -69,7 +69,7 @@ function parseArgs(argv) {
     else if (a === "--type" || a === "-t") out.type = argv[++i];
     else if (a === "--method" || a === "-m") out.method = argv[++i];
     else if (a === "--exists") out.exists = argv[++i];
-    else if (a === "--search" || a === "-s") out.search = argv[++i];
+    else if (a === "--search" || a === "-s" || a === "--query" || a === "-q") out.search = argv[++i];
     else if (a === "--constant") out.constant = argv[++i];
     else if (a === "--package") out.package = argv[++i];
     else {
@@ -88,13 +88,18 @@ function parseArgs(argv) {
 const args = parseArgs(process.argv.slice(2));
 
 const line = resolveLine();
-const surfacePath = path.join(PACKS_DIR, `graphcompose-${line}`, SURFACE_FILE);
+const packDir = path.join(PACKS_DIR, `graphcompose-${line}`);
+const canonicalPath = path.join(packDir, CANONICAL_FILE);
+const usingCanonical = fs.existsSync(canonicalPath);
+const surfacePath = usingCanonical ? canonicalPath : path.join(packDir, SURFACE_FILE);
 if (!fs.existsSync(surfacePath)) {
-  process.stderr.write(`[api-query] no allow-list for GraphCompose ${line}: ${surfacePath}\n`);
+  process.stderr.write(`[api-query] no allow-list for GraphCompose ${line}: ${packDir}\n`);
   process.exit(1);
 }
 
-const surface = parseSurface(fs.readFileSync(surfacePath, "utf8"), line);
+const surface = usingCanonical
+  ? loadCanonical(JSON.parse(fs.readFileSync(surfacePath, "utf8")), line)
+  : parseSurface(fs.readFileSync(surfacePath, "utf8"), line);
 
 // `process.exit()` after a large write truncates it: writes to a pipe are
 // asynchronous and exiting does not wait for them to drain. --dump is half a
@@ -145,6 +150,56 @@ function resolveLine() {
  * The document is regular by construction — it is generated. Package headings,
  * type headings, one method per list item, constants on a single line.
  */
+/**
+ * The pack's canonical surface, in the shape the queries below expect.
+ *
+ * Nothing is re-derived here: `signature` is rendered the same way the Markdown
+ * renders it, so an answer reads identically whichever file the pack happens to
+ * carry. `origin` rides along because "does `builder()` exist" and "is
+ * `builder()` something Lombok generated" are the same question asked twice,
+ * and the second one is what the header/footer failure turned on.
+ */
+function loadCanonical(canonical, versionLine) {
+  const types = [];
+  for (const pkg of canonical.packages) {
+    for (const type of pkg.types) {
+      const methods = [];
+      const constants = [];
+      for (const member of type.members) {
+        if (member.kind === "constant") {
+          constants.push(member.name);
+          continue;
+        }
+        const params = member.params.map((p) => (p.name ? `${p.type} ${p.name}` : p.type));
+        const head =
+          member.kind === "constructor"
+            ? `new ${member.name}`
+            : `${member.typeParameters ? `${member.typeParameters} ` : ""}` +
+              `${member.returns ? `${member.returns} ` : ""}${member.name}`;
+        methods.push({
+          signature: `${head}(${params.join(", ")})`,
+          name: member.name,
+          returns: member.returns ?? null,
+          parameters: params,
+          origin: member.origin,
+          static: member.static,
+        });
+      }
+      types.push({ name: type.name, kind: type.kind, package: pkg.name, methods, constants });
+    }
+  }
+
+  return {
+    graphComposeLine: versionLine,
+    verifiedAgainst: canonical.verifiedAgainst,
+    source: path.relative(repoRoot, surfacePath).split(path.sep).join("/"),
+    typeCount: types.length,
+    methodCount: types.reduce((n, t) => n + t.methods.length, 0),
+    constantCount: types.reduce((n, t) => n + t.constants.length, 0),
+    types,
+  };
+}
+
 function parseSurface(text, versionLine) {
   const types = [];
   let currentPackage = null;

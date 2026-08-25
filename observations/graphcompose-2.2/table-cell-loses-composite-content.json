@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "table-cell-loses-composite-content",
+  "graphComposeVersion": "2.2.0",
+  "api": [
+    "DocumentTableCell.node",
+    "TableBuilder.rowCells",
+    "TableBuilder.headerCells"
+  ],
+  "observedBehaviour": "DocumentTableCell.node(...) accepts any DocumentNode, but in 2.2.0 only three kinds actually draw their content in the cell: ParagraphNode, ListNode and a nested TableNode. RowNode, ShapeContainerNode and CanvasLayerNode reserve the cell's height and draw none of their child content at all. SectionNode and LayerStackNode are worse to diagnose than either: they draw part of it — measured at 0.4 of the ink the same child draws in plain page flow — so the cell looks populated and is quietly truncated. Nothing is thrown and no warning is printed; the table is structurally correct and the content is simply not there. It is also invisible to the layout tree, because cell content does not appear in layoutSnapshot() by name, so the only signal is rendered ink.",
+  "minimalReproduction": {
+    "probe": "table-cell-node",
+    "command": "node scripts/probe.mjs table-cell-node --version 2.2 --json",
+    "arrangement": "Each node kind built twice, with and without leaf text, rendered both in plain page flow and in a one-cell table, rasterised and counted. Subtracting the without-leaf render removes the node's own chrome, so what is compared is the leaf's own ink in the two placements."
+  },
+  "probeResult": {
+    "contentDrawnInFull": [
+      "ParagraphNode",
+      "ListNode",
+      "TableNode"
+    ],
+    "contentPartiallyDrawn": [
+      "SectionNode",
+      "LayerStackNode"
+    ],
+    "contentLost": [
+      "RowNode",
+      "ShapeContainerNode",
+      "CanvasLayerNode"
+    ],
+    "inconclusive": [],
+    "fullThreshold": 0.75
+  },
+  "workaround": "Keep cell content to the three kinds that survive: DocumentTableCell.text(...) for one logical value, DocumentTableCell.lines(...) for an explicit multiline value, and DocumentTableCell.node(ParagraphNode) when the value needs styling or inline runs. A nested TableNode is the supported route for structure inside a cell. Do not reach for a Section, Row, ShapeContainer, LayerStack or CanvasLayer to arrange a cell's insides — the arrangement will look right in the code and be missing on the page. Where a cell genuinely needs two-dimensional arrangement, use a nested table, or take the content out of the table and place it with the page's own layout primitives.",
+  "confidence": "confirmed",
+  "engineDefect": {
+    "isDefect": true,
+    "affectedVersions": "2.2.0",
+    "reportedTo": null,
+    "fixedIn": null
+  },
+  "sourceRun": {
+    "project": "olive-curve-invoice",
+    "revision": "revision-005",
+    "date": "2026-08-25",
+    "note": "Reported from a real acceptance run and reproduced here independently. The probe found more than was reported: the partial-draw cases (Section, LayerStack) were not in the original account, and they are the ones that mislead, because a half-drawn cell reads as a styling problem rather than a lost-content one."
+  },
+  "promotedTo": null
+}

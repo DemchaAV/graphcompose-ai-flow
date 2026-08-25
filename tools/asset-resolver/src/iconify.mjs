@@ -6,8 +6,9 @@
  *   GET /<prefix>/<name>.svg?color=<hex>&height=<h>           -> SVG bytes
  *
  * PDFBox (the GraphCompose backend) does not render SVG, so this client
- * downloads SVG from Iconify and rasterizes it to PNG using ImageMagick's
- * `magick` CLI. ImageMagick is a robust, widely-available SVG rasterizer
+ * downloads SVG from Iconify. The SVG is kept as-is wherever GraphCompose can
+ * draw it — see svg-compat.mjs — and rasterized to PNG with ImageMagick's
+ * `magick` CLI only as a fallback. ImageMagick is a robust SVG rasterizer
  * and avoids pulling in npm-side image libraries.
  *
  * The client is otherwise small and dependency-free; it uses the global
@@ -71,6 +72,40 @@ export async function pickIcon(request) {
  * @param {string} [options.color]  hex color, with or without leading #
  * @returns {Promise<Buffer>} PNG bytes
  */
+/**
+ * Download an icon's SVG, unrasterised.
+ *
+ * No `height` is requested. The raw markup is resolution-independent, which is
+ * the whole reason to keep it, and asking Iconify for a height bakes a pixel
+ * size into a vector file and splits the cache by a number that does not change
+ * the geometry.
+ *
+ * @param {string} prefix    icon set prefix (e.g. "mdi")
+ * @param {string} name      icon name within the set
+ * @param {object} options   { color } — hex, with or without a leading #
+ * @returns {Promise<Buffer>} SVG bytes
+ */
+export async function downloadIconSvg(prefix, name, options = {}) {
+  const rawColor = (options.color || "#181818").replace(/^#/, "");
+  const url = `${API_ROOT}/${encodeURIComponent(prefix)}/${encodeURIComponent(name)}.svg`
+    + `?color=%23${rawColor}`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`iconify GET ${url} failed: ${response.status} ${response.statusText}`);
+  }
+  const svg = Buffer.from(await response.arrayBuffer());
+  if (svg.length === 0) {
+    throw new Error(`iconify returned empty body for ${prefix}:${name}`);
+  }
+  return svg;
+}
+
+/** Rasterise SVG bytes already in hand — the fallback path. */
+export async function rasterizeSvg(svgBytes, size = 64) {
+  return rasterizeSvgWithImageMagick(svgBytes, size);
+}
+
 export async function downloadIconPng(prefix, name, options = {}) {
   const size = options.size ?? 64;
   const rawColor = (options.color || "#181818").replace(/^#/, "");

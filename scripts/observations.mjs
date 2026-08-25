@@ -4,6 +4,7 @@
  * and whether it is still true.
  *
  *   node scripts/observations.mjs list [--version 2.2] [--json]
+ *   node scripts/observations.mjs find <symbol> [--json]
  *   node scripts/observations.mjs show <id>
  *   node scripts/observations.mjs verify [--id <id>] [--version 2.2]
  *   node scripts/observations.mjs promote <id> --into <pack-file>
@@ -99,6 +100,45 @@ if (command === "list") {
     const state = body.promotedTo ? `promoted -> ${body.promotedTo}` : body.confidence;
     process.stdout.write(`  ${body.id}\n    ${body.graphComposeVersion} · ${state}\n`);
     process.stdout.write(`    ${body.observedBehaviour.split(". ")[0]}.\n\n`);
+  }
+  process.exit(0);
+}
+
+if (command === "find") {
+  // The lookup an agent actually has in hand: it is about to write
+  // `DocumentTableCell.node(...)` and wants to know whether that call has a
+  // history. Searching by id would need the answer to ask the question.
+  const term = (args.positional ?? "").trim();
+  if (!term) usage(2);
+  const needle = term.toLowerCase();
+  const hits = load(args.version).filter(({ body }) => {
+    const haystack = [
+      body.id,
+      body.observedBehaviour,
+      body.workaround ?? "",
+      ...(body.api ?? []),
+    ]
+      .join(" ")
+      .toLowerCase();
+    // A bare symbol matches its qualified form and the other way round, so
+    // "node", "DocumentTableCell.node" and "DocumentTableCell" all land.
+    return haystack.includes(needle) || needle.split(".").some((part) => part.length > 3 && haystack.includes(part.toLowerCase()));
+  });
+
+  if (args.json) {
+    process.stdout.write(`${JSON.stringify({ query: term, found: hits.length > 0, observations: hits.map((h) => h.body) }, null, 2)}\n`);
+    process.exit(hits.length ? 0 : 3);
+  }
+  if (!hits.length) {
+    process.stdout.write(`[observations] nothing on record about "${term}"\n`);
+    process.exit(3);
+  }
+  for (const { body } of hits) {
+    const defect = body.engineDefect?.isDefect ? "  ENGINE DEFECT" : "";
+    process.stdout.write(`  ${body.id}  (${body.graphComposeVersion} · ${body.confidence}${defect})\n`);
+    process.stdout.write(`    ${body.observedBehaviour.split(". ")[0]}.\n`);
+    if (body.workaround) process.stdout.write(`    do instead: ${body.workaround.split(". ")[0]}.\n`);
+    process.stdout.write(`    full: node scripts/observations.mjs show ${body.id}\n\n`);
   }
   process.exit(0);
 }
@@ -282,6 +322,15 @@ function equal(expected, actual) {
   }
   if (typeof expected === "string" && typeof actual === "string") {
     return actual.includes(expected) || expected.includes(actual);
+  }
+  if (Array.isArray(expected) && Array.isArray(actual)) {
+    // Without this an array fell through to `===`, which compares references
+    // and is false for two distinct arrays however identical their contents.
+    // Any observation recording a list — "these node kinds lose their content" —
+    // could therefore never verify, and would report a change on every run.
+    // Order matters: probe output is deterministic, so a reordering is a
+    // difference worth seeing.
+    return expected.length === actual.length && expected.every((item, i) => equal(item, actual[i]));
   }
   return expected === actual;
 }

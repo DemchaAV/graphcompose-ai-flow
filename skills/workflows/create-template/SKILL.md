@@ -195,31 +195,54 @@ link is dead diffs identically to one where they all work.
 
 ## When the library surprises you
 
-Before writing a page of Java to find out how something behaves, check what
-is already known and what can already be asked:
+**In this order, and stop at the first one that answers.** Writing a page
+of Java to find out how something behaves is the last step, not the first.
+
+**1. Has a previous run already paid for this?** Ask by the symbol you are
+about to call, not by an id you would have to know already:
+
+```bash
+node scripts/observations.mjs find DocumentTableCell.node
+```
+
+Exit 0 with what is known and what to do instead; exit 3 means nothing is
+on record. An entry marked **ENGINE DEFECT** is a fault in this version
+with a workaround attached — use the workaround, and do not carry it into
+a later line without re-running its probe there.
+
+**2. Does the API exist, and with what signature?**
 
 ```bash
 node scripts/api-query.mjs --exists TimelineBuilder.entry
-node scripts/observations.mjs list
+node scripts/api-query.mjs --query footer
+```
+
+The allow-list is generated from the pinned artifact's class files, so
+absent means it does not exist — a closed answer, not a search result.
+Members Lombok generates (`builder()`, `toBuilder()`, getters, nested
+`…Builder` types) are in it, so a value type with no visible constructor
+is still constructible; look for its builder rather than assuming the type
+is unreachable.
+
+**3. Is there already a probe for it?**
+
+```bash
 node scripts/probe.mjs --list
 node scripts/probe.mjs anchor-alignment
 ```
 
-`api-query` answers the allow-list without reading it. `--exists
-Type.method` is the one to reach for before writing a call you are not
-certain of: exit 0 with the overloads, exit 3 with the type reported and
-no overloads. That is a closed answer, not a search result — the pack is
-generated from source, so absent means it does not exist.
+**4. Only now, write one.** A probe goes in
+`tools/diagnostics/graphcompose-<line>/`, not as a one-off in your project:
+it answers one question about the library, prints measurements and a
+finding derived from them, and can be re-run by anyone. Record what it
+found with `observations`, so the next run does not buy the same answer
+twice, and so `observations verify` can retire it when the library is
+fixed. A probe that composes *your* template is not this — that stays in
+your project.
 
-Observations are behaviours previous runs paid to discover, each confirmed
-by a probe that re-runs on demand. Probes answer one question about the
-pinned line and print measurements plus a finding.
-
-If neither covers it, write a probe rather than a one-off in your project:
-`tools/diagnostics/graphcompose-<line>/`. Then record what it found with
-`observations`, so the next run does not buy the same answer twice. A probe
-that composes *your* template stays in your project — this is for questions
-about the library.
+Skipping steps 1–3 is the single most expensive habit available here: the
+answer is usually already on disk, and rediscovering it costs a build, a
+render and several turns.
 
 ## Reporting back
 

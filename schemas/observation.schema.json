@@ -14,7 +14,9 @@
     "confidence"
   ],
   "properties": {
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": {
+      "const": 1
+    },
     "id": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]*$",
@@ -26,7 +28,9 @@
     },
     "api": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "description": "The API surface the behaviour concerns, e.g. ShapeContainerBuilder.margin. Used to find the observation from the call being written."
     },
     "observedBehaviour": {
@@ -36,13 +40,17 @@
     "minimalReproduction": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["probe"],
+      "required": [
+        "probe"
+      ],
       "properties": {
         "probe": {
           "type": "string",
           "description": "The probe under tools/diagnostics that settles this, e.g. shape-paint. An observation with no probe cannot be re-confirmed and must not be promoted."
         },
-        "command": { "type": "string" },
+        "command": {
+          "type": "string"
+        },
         "arrangement": {
           "type": "string",
           "description": "The smallest arrangement that shows it, in one sentence."
@@ -59,23 +67,69 @@
     },
     "confidence": {
       "type": "string",
-      "enum": ["suspected", "confirmed", "retired"],
-      "description": "suspected: seen once, no probe agreement yet. confirmed: a probe reproduces it on demand. retired: the library changed and the probe no longer reproduces it — kept so the next reader knows it was checked, not forgotten."
+      "enum": [
+        "suspected",
+        "confirmed",
+        "retired"
+      ],
+      "description": "suspected: seen once, no probe agreement yet. confirmed: a probe reproduces it on demand. retired: the library changed and the probe no longer reproduces it \u2014 kept so the next reader knows it was checked, not forgotten."
     },
     "sourceRun": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "project": { "type": "string" },
-        "revision": { "type": "string" },
-        "date": { "type": "string" },
-        "note": { "type": "string" }
+        "project": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        }
       },
       "description": "Where it was first paid for. Not provenance for its own sake: a behaviour found once in one document is weaker evidence than one found in three."
     },
     "promotedTo": {
-      "type": ["string", "null"],
-      "description": "The skill-pack file this was folded into, once a probe confirmed it and someone decided it belongs in the pack. Null means it is still only evidence. Promotion is deliberate — an observation added to a skill automatically would be an unverified claim presented as the API contract."
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The skill-pack file this was folded into, once a probe confirmed it and someone decided it belongs in the pack. Null means it is still only evidence. Promotion is deliberate \u2014 an observation added to a skill automatically would be an unverified claim presented as the API contract."
+    },
+    "engineDefect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "isDefect"
+      ],
+      "description": "Set when the behaviour is a defect in GraphCompose rather than a design limit. The distinction decides what happens to the workaround: a limit is permanent guidance, a defect is scaffolding that must be removed when the engine is fixed. An observation carrying this must never be promoted into a pack for a later line without re-running its probe against that line.",
+      "properties": {
+        "isDefect": {
+          "type": "boolean"
+        },
+        "affectedVersions": {
+          "type": "string",
+          "description": "The versions known to carry it, e.g. \"2.2.0\" or \"2.0.0-2.2.0\"."
+        },
+        "reportedTo": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Issue or discussion where it was raised upstream, or null if not yet raised."
+        },
+        "fixedIn": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The GraphCompose version that fixes it, once known. While null, the workaround stands; once set, this observation should be retired for that line and the workaround removed rather than carried forward."
+        }
+      }
     }
   }
 }

@@ -10,11 +10,39 @@ The resolver is the only step that talks to the outside world. Every
 artifact it produces lives inside the revision folder, which keeps each
 revision self-contained and rollback-safe.
 
+## SVG first, PNG as a fallback
+
+GraphCompose draws vector icons directly: `SvgIcon.read(Path)` builds an icon
+and `addSvgIcon(icon, width)` places it. So the resolver keeps the SVG Iconify
+returns and only rasterises when this GraphCompose line genuinely cannot draw
+it — the check is in `src/svg-compat.mjs` and encodes the reader's documented
+subset, not a guess:
+
+| refused, so the icon is rasterised | tolerated, so the icon stays vector |
+|---|---|
+| no `<svg>` root, or a DOCTYPE | `text` / `image` / `use` dropped, if other geometry survives |
+| no viewBox and no plain width/height | an unresolved `clip-path`, which the reader ignores |
+| a path command outside `M L H V C S Q T A Z` | a focal radial gradient, which is approximated |
+| path data not starting with a moveto | `stop-opacity`, which is ignored |
+| `skewX` / `skewY` | |
+| relative units (`em`, `%`, viewport) in a length | |
+| `spreadMethod` other than `pad` | |
+| a paint referencing an id nothing defines | |
+| nothing drawable left at all | |
+
+The manifest records `format` and, when it is `png`, the `fallbackReason` in the
+words of the check — so a raster in a bundle is explainable a year later rather
+than looking like a decision nobody made.
+
+ImageMagick is still required for that fallback, and the visual tooling uses it
+independently; nothing here removes the dependency.
+
 ## Inputs and outputs
 
 ```text
 <revision>/asset-request.json     ← written by Architecture Mapper Agent
-<revision>/assets/icons/*.png     ← written by asset-resolver
+<revision>/assets/icons/*.svg     ← written by asset-resolver (vector, the normal case)
+<revision>/assets/icons/*.png     ← only where GraphCompose cannot draw the SVG
 <revision>/assets/fonts/*.ttf     ← written by asset-resolver (when downloads land)
 <revision>/assets-manifest.json   ← written by asset-resolver, read by Template Coder
 ```
@@ -55,7 +83,7 @@ writes and what Template Coder reads fails the build.
 }
 ```
 
-`size` controls the rasterized PNG height in pixels and `pointSize`
+`size` controls the rasterized PNG height in pixels **when the fallback fires**, and is null for an SVG; `pointSize`
 controls the document-space height in PDF points. The template reads
 `pointSize` from the manifest, so the flow — not the Java code —
 decides how big each icon renders.
@@ -70,7 +98,9 @@ decides how big each icon renders.
   "icons": {
     "phone": {
       "iconSet":   "mdi:phone",
-      "file":      "assets/icons/phone.png",
+      "file":      "assets/icons/phone.svg",
+      "format":    "svg",
+      "fallbackReason": null,
       "size":      64,
       "pointSize": 9,
       "color":     "#181818",
@@ -103,7 +133,7 @@ decides how big each icon renders.
    recorded in the manifest under `pickedBy: "preferred" | "search" |
    "explicit"`.
 
-PNGs are downloaded from `api.iconify.design/<prefix>/<name>.png` with
+SVGs are downloaded from `api.iconify.design/<prefix>/<name>.svg` with
 the requested `height` and `color`.
 
 ## Icon download cache (perf)
@@ -112,17 +142,18 @@ Every icon download goes through
 [`src/icon-cache.mjs`](src/icon-cache.mjs) — a content-addressed
 cache keyed on `sha256(prefix, name, size, color)`. The four-tuple
 is what determines the bytes Iconify returns, so same key = same
-PNG = the HTTP roundtrip is skipped on the second-and-after runs.
+icon = the HTTP roundtrip is skipped on the second-and-after runs.
 
 Cache layout:
 
 ```text
-tools/asset-resolver/.cache/icons/<sha256>.png
+tools/asset-resolver/.cache/icons/<sha256>.svg   (key: prefix, name, colour)
+tools/asset-resolver/.cache/icons/<sha256>.png   (key: prefix, name, colour, size)
 ```
 
 The cache is fully transparent to the CLI: the existing
 `asset-resolver` entry point still produces an identical
-`assets-manifest.json` and identical PNG bytes under
+`assets-manifest.json` and identical icon bytes under
 `<revision>/assets/icons/`. The only visible difference is in the
 log:
 
@@ -136,7 +167,7 @@ Cache lifetime: per-machine, regenerable. Gitignored under
 runner.
 
 Effect: on a typical revision chain (`cv-reference` has 8 revisions
-each requesting ~9 icons), the 1st revision downloads 9 PNGs and
+each requesting ~9 icons), the 1st revision downloads 9 icons and
 later revisions with unchanged `asset-request.json` icons get all 9
 from cache. A pure `data-only` revision pays zero seconds in HTTP.
 

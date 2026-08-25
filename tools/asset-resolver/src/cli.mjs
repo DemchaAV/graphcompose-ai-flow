@@ -21,8 +21,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { readAssetRequest } from "./plan-reader.mjs";
-import { pickIcon, formatIconRef } from "./iconify.mjs";
-import { cachedDownloadIconPng } from "./icon-cache.mjs";
+import { pickIcon, formatIconRef, rasterizeSvg } from "./iconify.mjs";
+import { cachedDownloadIconSvg } from "./icon-cache.mjs";
+import { checkSvgCompatibility } from "./svg-compat.mjs";
 import { resolveFontRole } from "./google-fonts.mjs";
 import { visualSelectIcon } from "./playwright-fallback.mjs";
 
@@ -84,26 +85,53 @@ async function resolveIcons(iconRequests, iconsDir, useVisual, log) {
       ? { ...iconRequest, iconSet: visualHint }
       : iconRequest;
     const choice = await pickIcon(lookupRequest);
-    const png = await cachedDownloadIconPng(choice.prefix, choice.name, {
-      size: iconRequest.size,
+
+    // SVG first. GraphCompose draws vector icons directly through
+    // SvgIcon.read(...), so rasterising by default threw away the scalable form
+    // for every icon in order to survive the rare one it cannot parse. The
+    // fallback is kept, and the reason it fired is recorded, because "why is
+    // this one a PNG" is otherwise unanswerable later.
+    const svg = await cachedDownloadIconSvg(choice.prefix, choice.name, {
       color: iconRequest.color,
     }, { log: (line) => log(line) });
-    const fileName = `${iconRequest.token}.png`;
+    const compatibility = checkSvgCompatibility(svg.toString("utf8"));
+
+    let format;
+    let bytes;
+    let fallbackReason = null;
+    if (compatibility.compatible) {
+      format = "svg";
+      bytes = svg;
+    } else {
+      format = "png";
+      fallbackReason = compatibility.reasons.join("; ");
+      bytes = await rasterizeSvg(svg, iconRequest.size ?? 64);
+    }
+
+    const fileName = `${iconRequest.token}.${format}`;
     const filePath = path.join(iconsDir, fileName);
-    await fs.writeFile(filePath, png);
+    await fs.writeFile(filePath, bytes);
 
     results[iconRequest.token] = {
       iconSet: formatIconRef(choice.prefix, choice.name),
       prefix: choice.prefix,
       name: choice.name,
       file: `assets/icons/${fileName}`,
-      size: iconRequest.size ?? 64,
+      format,
+      fallbackReason,
+      // Only meaningful for a raster: an SVG has no pixel size.
+      size: format === "png" ? (iconRequest.size ?? 64) : null,
       pointSize: iconRequest.pointSize ?? 10,
       color: iconRequest.color ?? "#181818",
       pickedBy: choice.source,
       visualHint: visualHint ?? null,
+      droppedSvgContent: compatibility.droppedKinds.length ? compatibility.droppedKinds : null,
     };
-    log(`icon "${iconRequest.token}": ${choice.prefix}:${choice.name} (${choice.source}) -> ${fileName}`);
+    log(
+      `icon "${iconRequest.token}": ${choice.prefix}:${choice.name} (${choice.source}) -> ${fileName}`
+      + (fallbackReason ? `  [rasterised: ${fallbackReason}]` : "")
+      + (compatibility.droppedKinds.length ? `  [svg content dropped: ${compatibility.droppedKinds.join(", ")}]` : ""),
+    );
   }
   return results;
 }

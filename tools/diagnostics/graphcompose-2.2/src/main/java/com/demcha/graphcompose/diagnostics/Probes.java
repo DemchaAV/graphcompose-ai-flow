@@ -19,11 +19,13 @@ import java.util.function.Supplier;
  */
 public final class Probes {
 
-    private static final Map<String, Supplier<Probe>> REGISTRY = new TreeMap<>(Map.of(
-            "anchor-alignment", AnchorAlignmentProbe::new,
-            "row-nesting", RowNestingProbe::new,
-            "shape-paint", ShapePaintProbe::new,
-            "timeline-nesting", TimelineNestingProbe::new));
+    private static final Map<String, Supplier<Probe>> REGISTRY = new TreeMap<>(Map.ofEntries(
+            Map.entry("anchor-alignment", AnchorAlignmentProbe::new),
+            Map.entry("row-nesting", RowNestingProbe::new),
+            Map.entry("shape-paint", ShapePaintProbe::new),
+            Map.entry("table-borders", TableBorderProbe::new),
+            Map.entry("table-cell-node", TableCellNodeProbe::new),
+            Map.entry("timeline-nesting", TimelineNestingProbe::new)));
 
     private Probes() {
     }

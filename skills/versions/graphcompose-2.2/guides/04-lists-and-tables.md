@@ -107,10 +107,82 @@ I have structured content.
 |
 +-- Does one cell need to span or hold richer content?
 |   -> YES: DocumentTableCell.text(...).colSpan(...) / .node(...).
+|           Pick the cell form from the CELL CONTENT table below - it is
+|           narrower than the signature suggests.
+|
++-- Do two adjacent rows read as one visual group in the reference?
+|   -> That is a border question, not a structure question. Keep the rows and
+|      unstroke the group's interior. See "Grouping rows" below.
 |
 +-- Is it just two blocks of prose side by side (not a grid)?
     -> That is layout. Use addRow with sections. See the layout choice tree.
 ```
+
+## Cell content: pick the narrowest form that fits
+
+`DocumentTableCell.node(...)` takes any `DocumentNode`, so the signature reads
+as though any arrangement works in a cell. It does not. Choose by what the cell
+holds:
+
+| The cell holds | Use | Not |
+|---|---|---|
+| one logical value | `DocumentTableCell.text("Support package")` | — |
+| several lines that are one value | `DocumentTableCell.lines("Support package", "12 months, 24/7")` | `text("a
+b")` — a newline inside `text(...)` is not the multiline route |
+| a value that needs styling or inline runs | `DocumentTableCell.node(paragraphNode)` | a Section wrapping a paragraph |
+| structure inside the cell | a nested `TableNode` | a Row, LayerStack, ShapeContainer or CanvasLayer |
+
+The last row is not a style preference. On GraphCompose 2.2.0, a `RowNode`,
+`ShapeContainerNode` or `CanvasLayerNode` in a cell reserves the cell's height
+and draws **none** of its child content, and a `SectionNode` or `LayerStackNode`
+draws only part of it — measured at 0.4 of the ink the same child draws in plain
+page flow. Nothing is thrown and nothing is logged; the table is structurally
+correct and the content is quietly missing or truncated. It is invisible to the
+layout tree too, because cell content does not appear in `layoutSnapshot()`.
+
+That is a defect in this version rather than a design limit, recorded with its
+measurements and its reproduction as the observation
+`table-cell-loses-composite-content`. Re-run it before assuming it still holds
+on a later line:
+
+```bash
+node scripts/observations.mjs show table-cell-loses-composite-content
+node scripts/probe.mjs table-cell-node --version 2.2 --json
+```
+
+## Grouping rows without losing the table
+
+When a reference shows two adjacent rows with no line between them, the
+temptation is to stop using a table — position the content with shapes, or paint
+a white rectangle over the rule. Both throw away the row semantics, and the
+rectangle does not survive pagination: it stays on page one while the rule moves.
+
+Borders in GraphCompose are per cell, from each cell's own
+`DocumentTableStyle.stroke(...)`. There is no table-level grid and no per-edge
+control, so a group is expressed by unstroking its interior:
+
+```java
+DocumentTableStyle ruled = DocumentTableStyle.builder()
+        .stroke(DocumentStroke.of(DocumentColor.GRAY, 0.5))
+        .padding(6.0)
+        .build();
+DocumentTableStyle grouped = DocumentTableStyle.builder()
+        .stroke(DocumentStroke.of(DocumentColor.GRAY, 0.0))   // no edges at all
+        .padding(6.0)
+        .build();
+```
+
+The consequence to plan for: a zero-width stroke removes **every** edge of the
+cells it is applied to, not the shared divider alone. In a measured three-row
+table, unstroking the first two cells removed the table's top edge along with
+the divider between them; the rule below the group survived only because the
+next cell still drew its own top edge. So leave a stroked cell on each side of
+the group to carry its boundary, and if the group sits at the table's own edge,
+restore that edge deliberately — a stroked header or total row, or a container
+drawn around the table.
+
+Recorded as `table-borders-are-per-cell`, with the rule positions it was
+measured from.
 
 ## Minimal list example
 The smallest useful list: a simple bullet group in page flow.

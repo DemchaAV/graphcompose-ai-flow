@@ -84,6 +84,8 @@ PowerShell, cmd and bash.
 |---|---|
 | **Start here in a new run** | `node scripts/preflight.mjs --project-dir <dir> [--project <id>]` |
 | Does this API exist? | `node scripts/api-query.mjs --exists <Type>.<method>` — exit 0 yes, 3 no |
+| What is there for a topic? | `node scripts/api-query.mjs --version 2.2 --query footer` |
+| Regenerate the allow-list from the pinned jar | `node tools/api-surface/extract-api.mjs --version <x.y.z>` (`--check` to compare) |
 | Resolve version and skill pack | `node scripts/resolve-version.mjs --project-dir <dir> --json` |
 | Create the workspace (first thing in a new project) | `node scripts/init-workspace.mjs --project-dir <dir> --project <id>` |
 | Print the chain for a project | `node scripts/run-pipeline.mjs <project-id>` |
@@ -92,6 +94,7 @@ PowerShell, cmd and bash.
 | Render only | `node scripts/render.mjs <project-id> <revision-id> [--root <workspace>]` |
 | Generate an artifact's reading copy | `node scripts/render-artifact-md.mjs --revision <revision-dir>` |
 | Ask how the library behaves | `node scripts/probe.mjs --list` · `node scripts/probe.mjs <name>` |
+| What previous runs learned about a call | `node scripts/observations.mjs find <symbol>` — exit 0 with the workaround, 3 if nothing is on record |
 | What previous runs learned | `node scripts/observations.mjs list` · `verify` |
 | Crop both images to one region | `node tools/visual-diff/bin/crop-region.mjs --revision <dir> --region <id>` |
 | Measure a diff | `node tools/visual-diff/bin/visual-diff.mjs <reference.png> <output.png> --json --update-revision <revision>` |

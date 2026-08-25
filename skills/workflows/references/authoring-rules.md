@@ -99,6 +99,29 @@ dropped into the revision as TTF. `assets-manifest.json` is the source
 of truth for what was actually resolved — not the request, not the
 prose.
 
+**Read `format` from the manifest; do not assume an extension.** Icons
+resolve to SVG wherever this GraphCompose line can draw them, and to PNG
+only where it cannot — the manifest says which, and why:
+
+```java
+// format: "svg"  — the normal case
+SvgIcon icon = SvgIcon.read(revisionDir.resolve("assets/icons/mail.svg"));
+section.addSvgIcon(icon, 12);
+
+// format: "png"  — fallbackReason says what the reader refused
+section.addImage(img -> img.file(revisionDir.resolve("assets/icons/mail.png")).width(12));
+```
+
+A template that hardcodes `.png` breaks the moment an icon resolves as
+vector, and one that hardcodes `.svg` breaks on the first icon outside
+the subset. Branch on `format`, defaulting to `png` when the field is
+absent — manifests written before SVG-first resolution have no `format`
+and are PNG.
+
+For an SVG, `size` is null: there is no pixel size. Lay it out with
+`pointSize` and the width you want on the page, and it stays sharp at
+any scale — which is the reason to keep the vector at all.
+
 ## Every visible region maps to one named render method
 
 `renderHeader`, `renderSidebar`, `renderFooter`. Not `part1`, not one

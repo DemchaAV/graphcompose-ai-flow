@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "table-borders-are-per-cell",
+  "graphComposeVersion": "2.2.0",
+  "api": [
+    "DocumentTableStyle.Builder.stroke",
+    "DocumentStroke.of",
+    "DocumentTableCell.withStyle",
+    "TableBuilder.defaultCellStyle"
+  ],
+  "observedBehaviour": "A table's rules are drawn per cell, from each cell's own DocumentTableStyle stroke - there is no table-level grid and no per-edge control. Setting a cell's stroke to zero width therefore removes ALL of that cell's edges, not one divider: in a three-row one-column table, zero-stroking the first two cells removed the table's top edge along with the divider between them, and cut the outer vertical ink from 162 to 58 px. The divider below the group survived only because the next cell still stroked its own top edge. This is a supported authoring mechanism, not a defect: two visually grouped rows are expressed by unstroking the group's interior and leaving a stroked cell on each side of it to carry the boundary. A group at the table's own edge loses that edge and has to get it back from somewhere else. Pagination redraws each page's cell edges from the same styles and does not reintroduce a suppressed divider.",
+  "minimalReproduction": {
+    "probe": "table-borders",
+    "command": "node scripts/probe.mjs table-borders --version 2.2 --json",
+    "arrangement": "A three-row one-column table of fixed width rendered twice, all cells stroked at 1 pt and then with the first two at 0 pt, rasterised and scanned row by row: a raster row whose ink spans most of the table's width is a rule. A 24-row variant checks what pagination does to the same styles."
+  },
+  "probeResult": {
+    "ruleCountWhenAllStroked": 4,
+    "ruleCountWhenTwoCellsUnstroked": 2,
+    "rulesRemoved": 2,
+    "outerBorderFullyIntact": false,
+    "pageCount": 3
+  },
+  "workaround": "To group adjacent rows, give the grouped cells a style whose stroke is DocumentStroke.of(colour, 0) and keep the surrounding cells stroked. Do not replace the table with positioned shapes to hide one line, and do not paint a white rectangle over it: both lose the row semantics, and neither survives pagination, where the covering rectangle stays on page one while the rule moves. If the group sits at the top or bottom of the table, restore that edge deliberately - by keeping a stroked header or total row, or by drawing the table's outer boundary with a container around it - rather than accepting its loss as a side effect.",
+  "confidence": "confirmed",
+  "engineDefect": {
+    "isDefect": false,
+    "affectedVersions": "2.2.0",
+    "reportedTo": null,
+    "fixedIn": null
+  },
+  "sourceRun": {
+    "project": "olive-curve-invoice",
+    "revision": "revision-005",
+    "date": "2026-08-25",
+    "note": "The invoice's item table already used DocumentStroke.of(WHITE, 0.0) per cell, which is what pointed at the mechanism. The probe then established the part the template does not show: that it takes the cell's other three edges with it."
+  },
+  "promotedTo": null
+}

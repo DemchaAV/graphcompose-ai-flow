@@ -5,7 +5,13 @@
   "description": "Contract between tools/asset-resolver (writer) and the Template Coder Agent (reader). Pins the icon and font records the generated template must consume; the manifest is the single source of truth for asset references.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "generatedAt", "revisionDir", "icons", "fonts"],
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "revisionDir",
+    "icons",
+    "fonts"
+  ],
   "properties": {
     "schemaVersion": {
       "type": "string",
@@ -24,20 +30,31 @@
     },
     "icons": {
       "type": "object",
-      "description": "Token → icon record. Keys are stable tokens the Template Coder references in Java.",
-      "additionalProperties": { "$ref": "#/$defs/icon" }
+      "description": "Token \u2192 icon record. Keys are stable tokens the Template Coder references in Java.",
+      "additionalProperties": {
+        "$ref": "#/$defs/icon"
+      }
     },
     "fonts": {
       "type": "object",
-      "description": "Role → font record. Keys are stable roles (heading, body, fallback, ...) the Template Coder references in Java.",
-      "additionalProperties": { "$ref": "#/$defs/font" }
+      "description": "Role \u2192 font record. Keys are stable roles (heading, body, fallback, ...) the Template Coder references in Java.",
+      "additionalProperties": {
+        "$ref": "#/$defs/font"
+      }
     }
   },
   "$defs": {
     "icon": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["iconSet", "prefix", "name", "file", "size", "color", "pickedBy"],
+      "required": [
+        "iconSet",
+        "prefix",
+        "name",
+        "file",
+        "color",
+        "pickedBy"
+      ],
       "properties": {
         "iconSet": {
           "type": "string",
@@ -56,44 +73,86 @@
         },
         "file": {
           "type": "string",
-          "pattern": "^assets/icons/.+\\.png$",
-          "description": "Revision-relative path to the rasterised PNG."
+          "pattern": "^assets/icons/.+\\.(svg|png)$",
+          "description": "Revision-relative path to the resolved icon file. SVG is the normal case; PNG means the SVG could not be drawn by this GraphCompose line and fallbackReason says why."
         },
         "size": {
-          "type": "integer",
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 1,
-          "description": "Rasterised pixel size of the PNG."
+          "description": "Rasterised pixel size, for a PNG. Null for an SVG, which has no pixel size \u2014 a number here would be a fiction the template might then honour."
         },
         "pointSize": {
           "type": "number",
           "exclusiveMinimum": 0,
-          "description": "Rendering point size the Template Coder should request when laying the icon out. Floats are allowed (e.g. 3.8 for thin rating dots). Optional — when absent, the template falls back to the architecture plan's stated size."
+          "description": "Rendering point size the Template Coder should request when laying the icon out. Floats are allowed (e.g. 3.8 for thin rating dots). Optional \u2014 when absent, the template falls back to the architecture plan's stated size."
         },
         "color": {
           "type": "string",
           "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
-          "description": "Hex colour (#RRGGBB or #RRGGBBAA) applied during rasterisation."
+          "description": "Hex colour (#RRGGBB or #RRGGBBAA) requested from Iconify. For an SVG it is baked into the markup's paint attributes; for a PNG, into the pixels."
         },
         "pickedBy": {
           "type": "string",
-          "enum": ["explicit", "preferred", "search"],
+          "enum": [
+            "explicit",
+            "preferred",
+            "search"
+          ],
           "description": "Why this icon was chosen: explicit user/asset-request pin, preferred-set match (iconify preferredSets list), or broad search fallback. Matches the source values in tools/asset-resolver/src/iconify.mjs."
         },
         "visualHint": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "Free-form note when pickedBy=visual-hint or for human review."
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "svg",
+            "png"
+          ],
+          "description": "What was actually written. The generated template must branch on this: SvgIcon.read(...) + addSvgIcon(...) for svg, an image node for png. It is recorded rather than inferred from the extension so a reader never has to parse a path to know. Absent in manifests written before SVG-first resolution existed; read it as \"png\", which is what those runs produced."
+        },
+        "fallbackReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Why the vector was rasterised, in the words of the compatibility check (unsupported path command, no viewBox, no drawable geometry, ...). Null when format is svg. Present so a PNG in a bundle is explainable months later rather than looking like a choice nobody made."
+        },
+        "droppedSvgContent": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "SVG element kinds the GraphCompose reader drops rather than draws (text, image, use, foreignObject) that were present in the source. The icon still renders from its remaining geometry \u2014 this is a note that it renders with less than the original had, not an error."
         }
       }
     },
     "font": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["role", "family", "fontName", "source", "status", "registration"],
+      "required": [
+        "role",
+        "family",
+        "fontName",
+        "source",
+        "status",
+        "registration"
+      ],
       "properties": {
         "role": {
           "type": "string",
           "minLength": 1,
-          "description": "Stable role token (heading, body, fallback, code, ...) — matches the architecture plan's font role."
+          "description": "Stable role token (heading, body, fallback, code, ...) \u2014 matches the architecture plan's font role."
         },
         "family": {
           "type": "string",
@@ -103,31 +162,52 @@
         "fontName": {
           "type": "string",
           "pattern": "^[A-Z][A-Z0-9_]*$",
-          "description": "GraphCompose FontName enum constant — uppercase identifier."
+          "description": "GraphCompose FontName enum constant \u2014 uppercase identifier."
         },
         "weights": {
           "type": "array",
-          "items": { "type": "integer", "minimum": 100, "maximum": 900 },
+          "items": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 900
+          },
           "uniqueItems": true,
           "description": "Numeric weights to register (400, 700, ...)."
         },
         "source": {
           "type": "string",
-          "enum": ["graphcompose-bundled", "standard14", "google-fonts", "file-resource"],
+          "enum": [
+            "graphcompose-bundled",
+            "standard14",
+            "google-fonts",
+            "file-resource"
+          ],
           "description": "Where the font file comes from."
         },
         "status": {
           "type": "string",
-          "enum": ["ok", "manual_drop_required", "missing", "fallback"],
+          "enum": [
+            "ok",
+            "manual_drop_required",
+            "missing",
+            "fallback"
+          ],
           "description": "Resolution status. manual_drop_required means asset-resolver could not place the file; template-coder must surface it as a Known Limitation."
         },
         "registration": {
           "type": "string",
-          "enum": ["default-fonts", "standard14", "file-resource"],
+          "enum": [
+            "default-fonts",
+            "standard14",
+            "file-resource"
+          ],
           "description": "How the Template Coder registers the font in code."
         },
         "notes": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "Free-form note for human review."
         }
       }
