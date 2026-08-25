@@ -36,10 +36,10 @@ The point of v2 is to price what the optimizations bought. For the
 comparison to mean anything, everything but the harness version must be
 held still.
 
-**The version under test is 0.9.0.** What it has that v1's run did not,
+**The version under test is 0.9.1.** What it has that v1's run did not,
 in the order the run will meet them:
 
-| | v1 (0.5.0-beta.9 era) | 0.9.0 |
+| | v1 (0.5.0-beta.9 era) | 0.9.1 |
 |---|---|---|
 | opening | a dozen fact-finding shell calls | `preflight` |
 | API questions | grep a 126 KB Markdown | `api-query` against a JSON surface read from the pinned jar — 357 types, and the Lombok members v1 could not see at all |
@@ -65,7 +65,7 @@ wall clock would be the surprising result, not the expected one.
 4. **A fresh session**, so nothing is inherited.
 5. **No steering** until the loop stops and asks — corrections only
    after that, phrased as observations, exactly as in v1.
-6. Record the harness version (`package.json` — 0.9.0 at the time of
+6. Record the harness version (`package.json` — 0.9.1 at the time of
    writing), and afterwards run:
 
    ```bash
@@ -84,13 +84,13 @@ Fill this in from `run-metrics cycles`, so the comparison is arithmetic
 rather than impression:
 
 ```text
-                 v1 create      0.9.0 create     delta
+                 v1 create      0.9.1 create     delta
 wall clock       68 min         ?                ?
 requests         211            ?                ?
 output tokens    280.4k         ?                ?
 cache read       61.0M          ?                ?
 
-                 v1 correction  0.9.0 correction delta
+                 v1 correction  0.9.1 correction delta
 wall clock       7-10 min       ?                ?
 requests         32-39          ?                ?
 ```

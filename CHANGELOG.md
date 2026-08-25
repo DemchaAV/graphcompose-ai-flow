@@ -5,6 +5,34 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.9.1 — 2026-08-25
+
+**A light icon rasterised to nothing.** `-background none` is a setting
+the SVG delegate reads while rasterising, not an operation applied to the
+result, and it sat *after* the input where it did nothing at all. The SVG
+was therefore rendered onto white, and a trailing `-transparent white`
+knocked that background out again — which works for a dark glyph and
+destroys a light one. An icon requested with `color=#FFFFFF`, for a white
+glyph inside a coloured badge, came back as a 542-byte PNG with not one
+opaque pixel in it, because every pixel of it was white.
+
+Ordering the flag correctly removes the white background *and* the need
+to strip it, so `-transparent white` is gone rather than moved. Measured
+on a white square: 542 bytes and 0 opaque pixels before, 809 bytes and
+4872 after. A smoke test now rasterises a white glyph and a dark one and
+asserts that the same number of pixels survives both — proven by putting
+the argument order back, which trips it with the reason in the message.
+
+Two things keep this small. It is the fallback path: icons have resolved
+as SVG since `0.6.0`, and it is taken only for an SVG outside the
+reader's subset. And none of the 151 PNG icons across the published
+bundles and examples is empty, because none of them asked for a light
+colour. But a fallback that silently produces a valid file containing
+nothing is worse than one that fails, and nothing above it would notice.
+
+Found by another session running a pre-`0.6.0` checkout, where every icon
+was rasterised unconditionally.
+
 ## v0.9.0 — 2026-08-25
 
 What a region *is* now decides how it may be built, and a multi-page
