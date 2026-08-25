@@ -39,6 +39,7 @@ function usage(code = 0) {
       "  list [--version <line>] [--json]   what is on record\n" +
       "  show <id>                          one observation in full\n" +
       "  verify [--id <id>]                 re-run the probes and compare\n" +
+      "                                     exit: 0 held | 1 changed | 4 not measurable here\n" +
       "  promote <id> --into <file>         fold a confirmed observation into a skill pack\n",
   );
   process.exit(code);
@@ -250,9 +251,16 @@ if (command === "verify") {
         "nothing above was measured on this machine",
     );
   }
-  // An unmeasured record is not a failed one. Failing here would turn every
-  // machine without the toolchain into a verdict about the library.
-  process.exit(stale === 0 && returned === 0 ? 0 : 1);
+  // Three states, three codes, because a caller reads the code and not the
+  // prose. Returning 0 for "nothing could be measured" would mean the same
+  // thing as "measured, and it holds" — which is the vacuous pass this whole
+  // command exists to prevent elsewhere.
+  //
+  //   0  everything that could be checked held, or is retired and still false
+  //   1  something measured no longer holds, or a retired behaviour returned
+  //   4  nothing could be measured here; this machine has no verdict to give
+  if (stale > 0 || returned > 0) process.exit(1);
+  process.exit(checked === 0 ? 4 : 0);
 }
 
 /** How many of these are on record as no longer true. */

@@ -5,6 +5,40 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.11.2 — 2026-08-25
+
+The v0.11.0 and v0.11.1 tags each point at a commit whose CI is red, so both
+are superseded rather than moved. Same defect twice, and it was mine.
+
+**An unmeasured observation is not a failed one.** The test added in 0.11.0
+runs `observations verify`, which re-runs the probes. On the Node-only CI job
+they cannot run — and every record, retired included, came back "no longer
+holds": a verdict about the library that nothing had measured. The first
+attempt guarded on Maven being installed, which the runner has, so the guard
+passed and the test failed again.
+
+A probe that exists and cannot run is its own bucket now, and every subject
+lands in exactly one, so the summary can no longer read "7 of 5 no longer
+hold" — which is what it printed.
+
+**And `verify` has three exit codes, because the first fix did not deserve its
+green tick.** Returning 0 both when everything was measured and held, and when
+nothing could be measured at all, makes those two the same answer to a script
+— the vacuous pass this command exists to prevent everywhere else. The prose
+distinguished them; the code a caller reads did not. Now: 0 held, 1 changed,
+4 not measurable here.
+
+Also: the multi-page import test asserted on the file the import wrote without
+first asserting the import succeeded, so any failure surfaced as ENOENT on the
+read. One intermittent failure in a full-suite run could not be explained
+afterwards for exactly that reason. It names its own cause now.
+
+Still open, and not hidden: that intermittent failure. It appeared twice in
+full-suite runs, never in five isolated runs of the same file, and every
+fixture it could have chosen was verified byte-identical, so the fixture is
+not the cause. Most likely contention spawning JVMs when the whole suite runs
+— the suite also warns about eleven exit listeners. Unresolved.
+
 ## v0.11.1 — 2026-08-25
 
 **The plugin showed a red error on every load.** `.claude-plugin/plugin.json`

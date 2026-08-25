@@ -232,7 +232,13 @@ test("page one of a multi-page pdf is the page that lands in reference.png", { s
   const source = pdfWithPages(2);
   if (!source) return;
 
-  runCli(ws.root, ["--project", "demo", "--file", source]);
+  const imported0 = runCli(ws.root, ["--project", "demo", "--file", source]);
+  // Assert the import worked before reading what it wrote. Without this, an
+  // import that failed for any reason — a JVM that would not start under load,
+  // a missing jar — surfaced as ENOENT on the read, which names the symptom and
+  // hides the cause. One intermittent failure of this test in a full-suite run
+  // could not be explained afterwards for exactly that reason.
+  assert.equal(imported0.status, 0, `the import failed: ${imported0.output}`);
 
   // The revision that produced the PDF also rasterised its own page 1. If the
   // import took the right page, the two are the same image.

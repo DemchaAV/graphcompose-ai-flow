@@ -220,7 +220,10 @@ test("verify never reports a retired observation as a failure", () => {
   if (retired.length === 0) return; // nothing retired in this checkout
 
   const result = run(["verify"]);
-  assert.equal(result.status, 0, `verify failed without measuring anything:\n${result.output}`);
+  // 0 measured and held, 4 could not measure — two different things, and the
+  // caller reads the code rather than the prose. What must never happen is 1,
+  // which claims the library changed under a record.
+  assert.notEqual(result.status, 1, `a retired record was reported as a change:\n${result.output}`);
   for (const { body } of retired) {
     assert.ok(
       !new RegExp(`FAIL ${body.id}`).test(result.output),
@@ -249,5 +252,22 @@ test("the revise workflow sends a discovery where it can be found again", () => 
     revise,
     /README/,
     "it does not say where a measurement must NOT go",
+  );
+});
+
+test("verify tells a caller apart: measured and held, changed, or not measurable", () => {
+  // The first fix made 0 mean both "checked, holds" and "could not check" —
+  // the vacuous pass this command exists to prevent elsewhere. A script reads
+  // the code, not the prose, so the three states need three codes.
+  const source = fs.readFileSync(path.join(repoRoot, "scripts", "observations.mjs"), "utf8");
+  assert.match(
+    source,
+    /0 held \| 1 changed \| 4 not measurable here/,
+    "the exit codes are not documented where a caller looks",
+  );
+  assert.match(
+    source,
+    /checked === 0 \? 4 : 0/,
+    "nothing distinguishes a run that measured nothing from one that measured and passed",
   );
 });
