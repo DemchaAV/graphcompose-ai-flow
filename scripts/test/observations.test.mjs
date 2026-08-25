@@ -205,7 +205,21 @@ test("a retired observation says what retired it", () => {
   }
 });
 
-test("verify does not demand that a retired observation still hold", () => {
+/**
+ * `verify` re-runs the probes, which needs a JDK and Maven. The harness-contracts
+ * CI job has neither by design — it is the Node-only job — so there every probe
+ * reports "did not run" and the command fails for a reason that has nothing to do
+ * with what this asserts. The observations job in `npm run verify` has the
+ * toolchain and covers it for real.
+ */
+const canRunProbes =
+  fs.existsSync(DIAGNOSTICS) &&
+  spawnSync(process.platform === "win32" ? "mvn.cmd" : "mvn", ["-v"], {
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  }).status === 0;
+
+test("verify does not demand that a retired observation still hold", { skip: !canRunProbes }, () => {
   // Backwards, and it used to do exactly that: an observation retired because
   // the library fixed the defect was reported FAIL on every run, so the command
   // that proves the record is current could never come back clean once anything
