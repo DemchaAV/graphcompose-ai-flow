@@ -284,11 +284,33 @@ test("the entry documents link only to files that exist", () => {
 });
 
 test("the README does not oversell what has not been verified", () => {
-  // The acceptance runs and the fixture port are outstanding; a README that
-  // omits them is the kind of claim this project's own gates exist to prevent.
+  // Claude Code acceptance has been run; Codex has not. A README that shows
+  // two finished templates and omits the half still unproven is the kind of
+  // claim this project's own gates exist to prevent — so the assertion tracks
+  // what is actually outstanding rather than a fixed sentence.
   const readme = read("README.md");
-  assert.match(readme, /acceptance runs are outstanding/i, "the README hides the outstanding acceptance runs");
+  assert.match(
+    readme,
+    /Codex acceptance is still\s+outstanding/i,
+    "the README hides the outstanding Codex acceptance",
+  );
   assert.match(readme, /needs-validation/, "the README hides the fixture/validation gap");
+});
+
+test("the README's example images exist, so the front page cannot show holes", () => {
+  // The examples are the first thing anyone judges, and a broken image reads
+  // as a broken project.
+  const readme = read("README.md");
+  const images = [...readme.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)].map((m) => m[1]);
+  assert.ok(images.length > 0, "the README shows no images at all");
+
+  for (const src of images) {
+    if (/^https?:/.test(src)) continue;
+    assert.ok(
+      fs.existsSync(path.join(repoRoot, src)),
+      `README shows an image that does not exist: ${src}`,
+    );
+  }
 });
 
 test("the roadmap does not report a phase as done while its acceptance is outstanding", () => {

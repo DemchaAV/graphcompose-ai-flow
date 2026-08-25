@@ -69,19 +69,68 @@ the loop gate.
 
 ## What it produces
 
-A two-page CV, reconstructed from the reference on the left. The third
-column is the same render with the layout guides on, which is what the
-review pass reads:
+Two runs against the current harness. The middle column is what **one
+request** produced — the reference, the sentence "create this", and no
+further input. The right column is after the corrections.
 
-| Reference | Rendered | With layout guides |
+That split is the thing worth judging. A first render is never right; the
+question is how close one request gets, and what it costs to close the
+rest.
+
+### Two-column CV with a photo, navy sidebar and a timeline rail
+
+| Reference | One request | After 2 corrections |
 |---|---|---|
-| ![reference page 1](examples/cv-reference/reference/reference-page-1.png) | ![rendered page 1](templates/mint-editorial-cv/preview/output-page-1.png) | ![debug page 1](templates/mint-editorial-cv/preview/output-debug-page-1.png) |
-| ![reference page 2](examples/cv-reference/reference/reference-page-2.png) | ![rendered page 2](templates/mint-editorial-cv/preview/output-page-2.png) | ![debug page 2](templates/mint-editorial-cv/preview/output-debug-page-2.png) |
+| ![reference](assets/readme/v0.5/navy-reference.jpg) | ![after one request](assets/readme/v0.5/navy-one-request.png) | ![final](assets/readme/v0.5/navy-final.png) |
 
-Source: [`examples/cv-reference/`](examples/cv-reference/) — reading its
-revisions 001 → 009 in order shows what the loop actually does. Result:
-[`templates/mint-editorial-cv/`](templates/mint-editorial-cv/), a bundle
-you can copy into your own project.
+Five revisions on its own, then it stopped and asked. The corrections
+were about the timeline: the rail overran its markers, and a job title
+drifted off centre. Three more revisions closed both. **8 revisions,
+77 minutes end to end.**
+
+The interesting part is what the loop did unprompted. Twice it could not
+tell a layout fault from a painting fault, so it wrote a probe — a
+throwaway document that renders one arrangement and measures the pixels —
+and settled it. That is how it found that a shape container paints its
+bottom margin *above* its box, and that an over-tall child is clamped to
+the top rather than centred. Both are now
+[recorded observations](observations/README.md) with probes that
+re-confirm them, so the next run does not pay for them again.
+
+### Single-column CV with a serif headline, skill bars and icon rows
+
+| Reference | One request | After 3 corrections |
+|---|---|---|
+| ![reference](assets/readme/v0.5/serif-reference.jpg) | ![after one request](assets/readme/v0.5/serif-one-request.png) | ![final](assets/readme/v0.5/serif-final.png) |
+
+Eight revisions on its own — the reference is denser: a display serif
+against a sans body, proportional skill bars, five icon-badged
+certification cards, three achievement rows. Then three corrections, each
+a plain sentence about what looked wrong, none of them explaining how to
+fix it:
+
+> вот только sertification и achivment разделитель вертикальный
+
+The measured cost of that run, from the harness's own telemetry:
+
+```text
+create from the reference   68 min · 280.4k output · 61.0M cache read · 211 requests
+first correction             7 min ·  25.2k output · 16.0M cache read ·  32 requests
+second correction           10 min ·  36.4k output · 21.8M cache read ·  39 requests
+approve and publish          2 min ·   8.1k output ·  6.5M cache read ·  11 requests
+```
+
+A correction costs roughly a tenth of the original run. That ratio is the
+one to watch, and it is why the harness measures itself rather than
+guessing — see [telemetry](scripts/telemetry/README.md).
+
+### What this does not claim
+
+Neither run was pixel-perfect from one request, and the pixel-similarity
+figure stayed unimpressive throughout both: the references are rasterised
+in typefaces no bundled family reproduces, so glyph edges dominate the
+comparison. What the runs show is that one request gets close enough to
+correct in sentences, and that correcting it is cheap. Judge the images.
 
 ## How it works
 
@@ -125,8 +174,13 @@ integration, no MCP server, no standalone runtime.
 - The four workflow skills, the tools, the schemas, the packaging and
   the CI gates are in place; `npm run verify` runs every gate locally.
   The eleven-agent prompt chain they replaced has been removed.
-- The **acceptance runs are outstanding**: whether the skills fire
-  unprompted in a clean project, in each host, has not yet been recorded.
+- **Claude Code acceptance has been run**, twice, on the two templates
+  above: the skill fired from a plain sentence, the version came from the
+  project's `pom.xml`, the workspace landed in the Java project, and both
+  runs reached an approved published bundle. **Codex acceptance is still
+  outstanding** — the install is proven self-contained with the clone
+  deleted, but whether the skill fires unprompted there has not been
+  recorded.
 - The GraphCompose **2.2 pack ships** and its five fixtures compile,
   test and render against 2.2.0 with every render identical to its
   baseline. The conceptual skills stay `needs-validation` on coverage —

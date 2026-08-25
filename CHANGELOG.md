@@ -7,6 +7,43 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.0-beta.14 — the front page shows what the harness actually does
+
+The README's example was `mint-editorial-cv`, produced by the
+eleven-agent chain this harness replaced. It showed reference, render and
+debug overlay side by side — which demonstrates the renderer, not the
+loop, and answers none of the questions someone deciding whether to
+install this actually has.
+
+Replaced with the two runs the current harness produced, each shown as
+**reference · one request · after corrections**. That split is the claim
+worth judging: a first render is never right, so what matters is how
+close one request gets and what closing the rest costs.
+
+- **navy-sidebar-cv** — two-column CV, photo, navy sidebar, timeline
+  rail. Five revisions unattended, then it stopped and asked; two
+  corrections about the timeline closed it. 8 revisions, 77 minutes.
+- **serif-headline-cv** — display serif over a sans body, proportional
+  skill bars, icon-badged certification cards. Eight revisions
+  unattended, then three corrections, each a plain sentence about what
+  looked wrong and none explaining how to fix it.
+
+With the measured cost, from the harness's own telemetry: 68 minutes for
+the first request against 7 and 10 for the corrections — roughly a tenth
+each. That ratio is the number to watch, and it exists because
+`beta.13` made the metrics visible.
+
+Also honest about what the images do not show: neither run was
+pixel-perfect from one request, and the pixel-similarity figure stayed
+unimpressive in both because the references are rasterised in typefaces
+no bundled family reproduces.
+
+`Claude Code acceptance` is now recorded as run — twice, on these two
+templates. Codex acceptance stays outstanding, and the contract test that
+guards against overselling was updated to track that rather than a fixed
+sentence. A second test now checks every README image exists, because a
+broken image on the front page reads as a broken project.
+
 ### v0.5.0-beta.13 — the metrics were recorded and never shown
 
 A real run happened and reported nothing. The data was all there — four
