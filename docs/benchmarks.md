@@ -34,7 +34,26 @@ separate session and is not in the four cycle rows.
 
 The point of v2 is to price what the optimizations bought. For the
 comparison to mean anything, everything but the harness version must be
-held still:
+held still.
+
+**The version under test is 0.6.1.** What it has that v1's run did not,
+in the order the run will meet them:
+
+| | v1 (0.5.0-beta.9 era) | 0.6.1 |
+|---|---|---|
+| opening | a dozen fact-finding shell calls | `preflight` |
+| API questions | grep a 126 KB Markdown | `api-query` against a JSON surface read from the pinned jar — 357 types, and the Lombok members v1 could not see at all |
+| library surprises | improvise a probe | `observations find <symbol>` — seven behaviours on record, four of them from CV work |
+| a loop pass | 3–4 model turns | one `render-and-diff` |
+| the workspace | authored by hand | `init-workspace` + `import-reference` + `scaffold-runner` |
+| approval | 11 requests | one `approve-and-publish` |
+
+Two of those are the ones to watch. `api-query` and `observations find`
+should show up as **fewer requests**, because they replace search with a
+question. The composites should show up as **fewer requests per
+correction**, which is the ratio v1 measured at about a tenth of create.
+Neither should move the model's own thinking much, so a large drop in
+wall clock would be the surprising result, not the expected one.
 
 1. **Same reference** — `serif-headline-cv`'s `reference.png`, unchanged.
 2. **Same opening sentence**, verbatim, with the image attached:
@@ -44,7 +63,8 @@ held still:
 4. **A fresh session**, so nothing is inherited.
 5. **No steering** until the loop stops and asks — corrections only
    after that, phrased as observations, exactly as in v1.
-6. Record the harness version (`package.json`), and afterwards run:
+6. Record the harness version (`package.json` — 0.6.1 at the time of
+   writing), and afterwards run:
 
    ```bash
    node scripts/telemetry/run-metrics.mjs cycles
@@ -57,6 +77,28 @@ held still:
 Compare per cycle, not per total: create-vs-create and correction-vs-
 correction. The totals mix in how much steering the human chose to do,
 which is not the harness's variable.
+
+Fill this in from `run-metrics cycles`, so the comparison is arithmetic
+rather than impression:
+
+```text
+                 v1 create      0.6.1 create     delta
+wall clock       68 min         ?                ?
+requests         211            ?                ?
+output tokens    280.4k         ?                ?
+cache read       61.0M          ?                ?
+
+                 v1 correction  0.6.1 correction delta
+wall clock       7-10 min       ?                ?
+requests         32-39          ?                ?
+```
+
+One caveat that is honest rather than defensive: four of the seven
+recorded observations came out of CV runs, so a CV benchmark gets a real
+head start that a first-of-its-kind document would not. That is a
+property of the harness and belongs in the measurement — but it is why a
+single v2 number should not be read as "the harness is N% faster at
+everything".
 
 ## What to expect, honestly
 

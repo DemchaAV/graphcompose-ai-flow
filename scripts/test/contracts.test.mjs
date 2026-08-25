@@ -284,15 +284,33 @@ test("the entry documents link only to files that exist", () => {
 });
 
 test("the README does not oversell what has not been verified", () => {
-  // Claude Code acceptance has been run; Codex has not. A README that shows
-  // two finished templates and omits the half still unproven is the kind of
-  // claim this project's own gates exist to prevent — so the assertion tracks
-  // what is actually outstanding rather than a fixed sentence.
+  // A README that shows finished templates and omits the half still unproven is
+  // the kind of claim this project's own gates exist to prevent. What is
+  // outstanding changes, so this tracks the substance rather than a sentence:
+  // Codex firing the skill from a plain sentence has now been observed, and
+  // what has NOT been recorded there is a run carried through to an approved
+  // published bundle. The previous version of this assertion pinned the exact
+  // words "Codex acceptance is still outstanding" while its own comment claimed
+  // to track the fact — so when the fact changed, the test defended the stale
+  // sentence.
   const readme = read("README.md");
+  // The bullet about Codex, from its start to the next bullet. Split on lines
+  // rather than matched with one multiline regex: the section is prose someone
+  // will reword, and a brittle pattern here is the same mistake again.
+  const lines = readme.split(/\r?\n/);
+  const start = lines.findIndex((line) => /^- \*\*Codex/i.test(line));
+  const end = lines.findIndex((line, i) => i > start && /^- \*\*/.test(line));
+  const codexSection = start === -1 ? "" : lines.slice(start, end === -1 ? undefined : end).join("\n");
+  assert.ok(codexSection, "the README says nothing about Codex at all");
   assert.match(
-    readme,
-    /Codex acceptance is still\s+outstanding/i,
-    "the README hides the outstanding Codex acceptance",
+    codexSection,
+    /\bnot\b[\s\S]{0,80}\brecorded\b/i,
+    "the README no longer says what about Codex is still unrecorded",
+  );
+  assert.match(
+    codexSection,
+    /approved published bundle/i,
+    "the README does not name the thing still missing on Codex: a run carried to a published bundle",
   );
   assert.match(readme, /needs-validation/, "the README hides the fixture/validation gap");
 });

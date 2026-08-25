@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "pagination-chrome-holds",
+  "graphComposeVersion": "2.2.0",
+  "api": [
+    "DocumentSession.footer",
+    "DocumentHeaderFooter.builder",
+    "DocumentHeaderFooterZone.FOOTER",
+    "TableBuilder.repeatHeader",
+    "DocumentPageNumbering"
+  ],
+  "observedBehaviour": "The chrome contract the pack describes holds on 2.2.0, measured rather than assumed: a footer built with centerText \"Page {page} of {pages}\" resolves both tokens per page, the current number increments and the total is the real page count; a table declaring repeatHeader() brings its header back on every continuation page; and no row is lost across a break. Three rows stay on one page reading \"Page 1 of 1\" - the single-page case has to keep saying \"of 1\" rather than omitting the line - and forty rows produce six pages numbered through.",
+  "minimalReproduction": {
+    "probe": "page-enumeration",
+    "command": "node scripts/probe.mjs page-enumeration --version 2.2 --json",
+    "arrangement": "One table with a repeated header and a page-numbering footer, rendered twice: with a row count that fits and with one that cannot. Both renders are read back through PDFBox's text stripper, because subset fonts make the raw content stream unsearchable, and every page's claim is checked against its real position and the real total."
+  },
+  "probeResult": {
+    "singlePageStaysSinglePage": true,
+    "overflowPaginates": true,
+    "enumerationCorrect": true,
+    "headerRepeats": true,
+    "footerRepeats": true,
+    "rowsSurvivePagination": true
+  },
+  "workaround": "",
+  "confidence": "confirmed",
+  "engineDefect": {
+    "isDefect": false,
+    "affectedVersions": "2.2.0",
+    "reportedTo": null,
+    "fixedIn": null
+  },
+  "sourceRun": {
+    "project": "overflow-invoice",
+    "revision": "revision-001",
+    "date": "2026-08-25",
+    "note": "Recorded to give the fixture an owner. The probe existed and nothing ran it: it was registered, asserted structurally by a unit test, and never executed by verify or CI - so a GraphCompose change that broke page numbering would have gone unnoticed until a document shipped wrong. An observation is what makes a fixture run on demand, and this one is deliberately a positive: `observations verify` catches a contract breaking as readily as it retires one that was fixed."
+  },
+  "promotedTo": null
+}

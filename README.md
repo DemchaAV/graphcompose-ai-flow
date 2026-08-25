@@ -175,13 +175,21 @@ integration, no MCP server, no standalone runtime.
 - The four workflow skills, the tools, the schemas, the packaging and
   the CI gates are in place; `npm run verify` runs every gate locally.
   The eleven-agent prompt chain they replaced has been removed.
-- **Claude Code acceptance has been run**, twice, on the two templates
-  above: the skill fired from a plain sentence, the version came from the
-  project's `pom.xml`, the workspace landed in the Java project, and both
-  runs reached an approved published bundle. **Codex acceptance is still
-  outstanding** — the install is proven self-contained with the clone
-  deleted, but whether the skill fires unprompted there has not been
-  recorded.
+- **Claude Code acceptance has been run** three times. Twice on the
+  templates above — the skill fired from a plain sentence, the version
+  came from the project's `pom.xml`, the workspace landed in the Java
+  project, and both reached an approved published bundle. A third, an
+  invoice, walked the flowing-document path end to end: five line items
+  render one page reading "Page 1 of 1", thirty render three pages
+  numbered through with the table header repeated and no row lost. It
+  stopped at ready-for-approval and was not approved.
+- **Codex fires the skill from a plain sentence too** — observed, with
+  Codex announcing the workflow by name before doing anything. So skill
+  discovery and natural-language activation are no longer open questions
+  on either host, and the install is proven self-contained with the clone
+  deleted. What is **not** recorded there is a full run carried through to
+  an approved published bundle; until it is, host parity rests on the
+  contract test rather than on a second measured run.
 - The GraphCompose **2.2 pack ships** and its five fixtures compile,
   test and render against 2.2.0 with every render identical to its
   baseline. The conceptual skills stay `needs-validation` on coverage —
