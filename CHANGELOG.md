@@ -5,6 +5,40 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.6.5 — 2026-08-25
+
+The report that detected a problem and recommended something else, and
+two runs shown as they actually happened.
+
+**`preflight` now recommends the fix it already found.** A freshly
+installed plugin carries no `dist/` and no preview-renderer jar — they
+ship as source. The report detected that correctly and had detected it
+all along, then recommended creating a workspace and rendering: a
+sequence that succeeds at the first step and exits 69 at the second,
+which is precisely the twenty-minutes-in discovery the report exists to
+prevent. Nothing pointed at `npm run setup`, because `nextCommands` never
+read the tool report at all and `setupCommand` was a constant that
+appeared whether or not it was needed.
+
+The two halves of "not ready" are now separate, because they are not
+interchangeable: `unbuilt` is what setup builds, `absent` is what setup
+cannot install. Recommending `npm run setup` for a missing JDK would be
+wrong advice delivered confidently. `ready` and `needsSetup` say which
+case applies, and building comes first in `nextCommands` when it applies.
+
+**The README shows the loop running.** Two recorded runs on 2.2.0 — a
+Northpoint invoice at 12 revisions and 113 minutes, and a sidebar CV at
+10 revisions and 120 minutes from a screenshot. The invoice's first two
+revisions did not compile and are still on disk as FAILED, which is the
+part worth showing: the record does not begin once things start working.
+Neither frame is regenerated imagery; every step is the render that
+revision actually produced.
+
+**The image check covers every document, not just the README.** It
+resolved paths against the repository root, which is right for the README
+and wrong for anything in a subdirectory; it now resolves against the
+document that prints the link. Proven by breaking a path.
+
 ## v0.6.4 — 2026-08-25
 
 Two documents that named the wrong version, and the tag that carries the

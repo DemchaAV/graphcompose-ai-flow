@@ -70,8 +70,17 @@ for (let i = 0; i < process.argv.length - 2; i += 1) {
 const workspace = resolveWorkspace({ explicitRoot: args.root ?? null, cwd: args.projectDir });
 const version = resolveVersion({ projectDir: args.projectDir, install: repoRoot });
 
+/** The three that ship as source and have to be built before anything runs. */
+const BUILT_TOOLS = Object.freeze(["revisionManager", "visualDiff", "previewRenderer"]);
+
+/** The three that have to already be on the machine; no setup step installs them. */
+const EXTERNAL_TOOLS = Object.freeze(["imagemagick", "java", "maven"]);
+
 const project = describeProject();
 const routing = describeRouting(project);
+// Read once: the report publishes it and `nextCommands` branches on it, and a
+// second probe would let the two disagree about the same machine.
+const tools = describeTools();
 
 const report = {
   workspace: {
@@ -95,8 +104,8 @@ const report = {
   ...routing,
   skills: describeSkills(version.line, project?.docKind ?? null),
   knowledge: describeKnowledge(version.line),
-  tools: describeTools(),
-  nextCommands: nextCommands(project, routing),
+  tools,
+  nextCommands: nextCommands(project, routing, tools),
 };
 
 if (args.text) {
@@ -324,13 +333,28 @@ function describeKnowledge(line) {
  */
 function describeTools() {
   const built = (relative) => fs.existsSync(path.join(repoRoot, relative));
-  return {
+  const tools = {
     revisionManager: built("tools/revision-manager/dist"),
     visualDiff: built("tools/visual-diff/dist"),
     previewRenderer: built("tools/preview-renderer/target/preview-renderer.jar"),
     imagemagick: onPath("magick", ["-version"]),
     java: onPath("java", ["-version"]),
     maven: onPath(process.platform === "win32" ? "mvn.cmd" : "mvn", ["-v"]),
+  };
+
+  // The two halves are not interchangeable, and the difference is the whole
+  // point of splitting them: `npm run setup` builds what shipped as source and
+  // cannot install a JDK. Recommending it for a missing `java` would be wrong
+  // advice delivered confidently.
+  const unbuilt = BUILT_TOOLS.filter((name) => !tools[name]);
+  const absent = EXTERNAL_TOOLS.filter((name) => !tools[name]);
+
+  return {
+    ...tools,
+    ready: unbuilt.length === 0 && absent.length === 0,
+    needsSetup: unbuilt.length > 0,
+    unbuilt,
+    absent,
     setupCommand: "npm run setup",
   };
 }
@@ -350,8 +374,22 @@ function onPath(command, probeArgs) {
 
 // ----------------------------------------------------------------- next up ---
 
-function nextCommands(projectInfo, routing) {
+function nextCommands(projectInfo, routing, tools) {
   const commands = [];
+
+  // Before anything else. A fresh install carries no `dist/` and no jar, so the
+  // sequence that used to be recommended — create a workspace, then render —
+  // succeeds at the first step and exits 69 at the second, which is exactly the
+  // twenty-minutes-in discovery this report exists to prevent. Nothing pointed
+  // at the fix: `setupCommand` was a constant that appeared whether or not it
+  // was needed, and this list never read the tools at all.
+  if (tools?.needsSetup) {
+    commands.push({
+      why: `${tools.unbuilt.join(", ")} ship as source and are not built here; without them the first render exits 69`,
+      run: tools.setupCommand,
+    });
+  }
+
   if (workspace.mode === "install") {
     commands.push({
       why: "no workspace here yet; without one the work lands in the harness install",
@@ -393,7 +431,13 @@ function printText(r) {
   if (r.knowledge.observations.length > 0) {
     lines.push(`Known behaviours: ${r.knowledge.observations.map((o) => o.id).join(", ")}`);
   }
-  const missing = Object.entries(r.tools).filter(([k, v]) => v === false && k !== "setupCommand");
-  if (missing.length > 0) lines.push(`Not ready: ${missing.map(([k]) => k).join(", ")}`);
+  // The explicit lists, not every false-valued key: `ready` and `needsSetup`
+  // are booleans as well, and a bare filter reported them as missing tools.
+  if (r.tools.unbuilt.length > 0) {
+    lines.push(`Not built: ${r.tools.unbuilt.join(", ")} — run ${r.tools.setupCommand}`);
+  }
+  if (r.tools.absent.length > 0) {
+    lines.push(`Not on PATH: ${r.tools.absent.join(", ")} — no setup step installs these`);
+  }
   process.stdout.write(`${lines.join("\n")}\n`);
 }

@@ -19,6 +19,10 @@ import { fileURLToPath } from "node:url";
 import { loadPipelineConfig } from "../lib/pipeline-config.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+
+/** Directories no documentation or source check should descend into. */
+const IMAGE = /!\[[^\]]*\]\(([^)]+)\)/g;
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "target", "coverage", "private"]);
 const config = loadPipelineConfig({ repoRoot });
 const read = (rel) => fs.readFileSync(path.join(repoRoot, rel), "utf8");
 const readJson = (rel) => JSON.parse(read(rel));
@@ -315,20 +319,40 @@ test("the README does not oversell what has not been verified", () => {
   assert.match(readme, /needs-validation/, "the README hides the fixture/validation gap");
 });
 
-test("the README's example images exist, so the front page cannot show holes", () => {
+test("every image the documentation shows is an image that is there", () => {
   // The examples are the first thing anyone judges, and a broken image reads
-  // as a broken project.
-  const readme = read("README.md");
-  const images = [...readme.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)].map((m) => m[1]);
-  assert.ok(images.length > 0, "the README shows no images at all");
+  // as a broken project. This used to cover only the README; the paths are
+  // relative and the same mistake is available in every other page, so it
+  // covers all of them and resolves each path against the document that
+  // prints it rather than against the repository root.
+  const docs = [];
+  const collect = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (SKIP_DIRS.has(entry.name)) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) collect(full);
+      else if (entry.name.endsWith(".md")) docs.push(full);
+    }
+  };
+  collect(repoRoot);
 
-  for (const src of images) {
-    if (/^https?:/.test(src)) continue;
-    assert.ok(
-      fs.existsSync(path.join(repoRoot, src)),
-      `README shows an image that does not exist: ${src}`,
-    );
+  const missing = [];
+  let shown = 0;
+  for (const doc of docs) {
+    for (const [, target] of fs.readFileSync(doc, "utf8").matchAll(IMAGE)) {
+      // `![alt](path "title")` — the title is not part of the path.
+      const link = target.split(/\s+/)[0];
+      if (/^(https?:|data:|#)/.test(link)) continue;
+      shown += 1;
+      const resolved = link.startsWith("/")
+        ? path.join(repoRoot, link.slice(1))
+        : path.join(path.dirname(doc), link);
+      if (!fs.existsSync(resolved)) missing.push(`${path.relative(repoRoot, doc)} -> ${link}`);
+    }
   }
+
+  assert.ok(shown > 0, "no document shows a local image at all");
+  assert.deepEqual(missing, [], `documentation points at images that are not there:\n  ${missing.join("\n  ")}`);
 });
 
 test("the roadmap does not report a phase as done while its acceptance is outstanding", () => {
@@ -411,7 +435,6 @@ test("every repository link the site makes still resolves", () => {
 
   assert.deepEqual(dead, [], `the site links to paths that no longer exist:\n  ${dead.join("\n  ")}`);
 });
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "target", "coverage", "private"]);
 
 test("no source file carries a control character where an escape was meant", () => {
   // Two assertions in this repository silently tested nothing because a

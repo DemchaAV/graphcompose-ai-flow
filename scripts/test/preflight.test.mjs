@@ -189,6 +189,58 @@ test("tool readiness is reported now rather than at the first render", () => {
     assert.equal(typeof parsed.tools[key], "boolean", `${key} was not checked`);
   }
   assert.equal(parsed.tools.setupCommand, "npm run setup");
+  assert.ok(Array.isArray(parsed.tools.unbuilt), "what is unbuilt is not stated as a list");
+  assert.ok(Array.isArray(parsed.tools.absent), "what is absent is not stated as a list");
+});
+
+test("an unbuilt install is told to build before it is told to do anything else", () => {
+  // A fresh plugin install carries no dist/ and no jar: they ship as source.
+  // The old advice was to create a workspace and render, which succeeds at the
+  // first step and exits 69 at the second — the twenty-minutes-in discovery
+  // this report exists to prevent. Nothing pointed at the fix, because
+  // nextCommands never read the tool report at all.
+  const install = tempDir("unbuilt");
+  for (const dir of ["scripts", "config", "skills"]) {
+    fs.cpSync(path.join(repoRoot, dir), path.join(install, dir), { recursive: true });
+  }
+  // tools/ is deliberately not copied: nothing is built in this install.
+  assert.ok(!fs.existsSync(path.join(install, "tools")), "the fixture built something");
+
+  const { host } = scenario({}, "unbuilt-host");
+  const result = spawnSync(
+    process.execPath,
+    [path.join(install, "scripts", "preflight.mjs"), "--project-dir", host, "--project", "demo"],
+    { encoding: "utf8" },
+  );
+  const parsed = JSON.parse(result.stdout);
+
+  assert.equal(parsed.tools.needsSetup, true);
+  assert.equal(parsed.tools.ready, false);
+  assert.deepEqual(
+    parsed.tools.unbuilt.sort(),
+    ["previewRenderer", "revisionManager", "visualDiff"],
+    "the three that ship as source were not all named",
+  );
+  assert.equal(
+    parsed.nextCommands[0]?.run,
+    "npm run setup",
+    `the first thing to run was ${parsed.nextCommands[0]?.run ?? "nothing"}`,
+  );
+  assert.match(parsed.nextCommands[0].why, /69/, "the why does not say what happens without it");
+});
+
+test("a built install is not told to build, and says so as a single flag", () => {
+  // The other direction: `setupCommand` used to be a constant that appeared
+  // whether or not it was needed, so its presence meant nothing either way.
+  const { host } = scenario({}, "built");
+  const { parsed } = run(["--project-dir", host, "--project", "demo"]);
+
+  if (parsed.tools.unbuilt.length > 0) return; // this checkout has not run setup
+  assert.equal(parsed.tools.needsSetup, false);
+  assert.ok(
+    !parsed.nextCommands.some((c) => c.run === "npm run setup"),
+    "a built install was still told to build",
+  );
 });
 
 test("a project with no workspace is told to create one first", () => {

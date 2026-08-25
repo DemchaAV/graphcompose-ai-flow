@@ -77,6 +77,37 @@ That split is the thing worth judging. A first render is never right; the
 question is how close one request gets, and what it costs to close the
 rest.
 
+### The whole loop, as it actually ran
+
+Two runs on 2.2.0, recorded revision by revision. The left panel is the
+reference; the right is what the harness rendered; the rail underneath is
+every revision it took to get there. Nothing in either frame is
+regenerated imagery — each step is the render that revision actually
+produced.
+
+![Northpoint invoice: one reference, twelve recorded revisions](assets/readme/v0.6/invoice-revision-flow.gif)
+
+**Invoice — 12 revisions, 113 minutes.** The first two did not compile,
+which is the point of recording them: `revision-001` and `revision-002`
+are FAILED and still on disk, with what broke and what was tried. The
+last two were plain sentences with no instructions attached — *"пропали
+разделители почему то"* (the dividers disappeared), then a note that the
+SVG logo aligned left where the PNG did not. Approved at `revision-012`.
+
+![Professional sidebar CV: one reference, ten recorded revisions](assets/readme/v0.6/sidebar-cv-revision-flow.gif)
+
+**CV — 10 revisions, 120 minutes**, from a screenshot and the sentence
+"Create this screenshot as a GraphCompose template." The corrections in
+the second half are the ones worth reading: initials that must derive
+from the name rather than be hardcoded, a LinkedIn href that has to apply
+to the icon as well as the text, a timeline rail that should not run
+above its first marker. Approved at `revision-010`.
+
+Both were published as standalone bundles — template, typed spec, data
+JSON, assets, previews — which is what the harness exists to produce. The
+document is Java you can read and change; the content is a JSON file next
+to it.
+
 ### Two-column CV with a photo, navy sidebar and a timeline rail
 
 | Reference | One request | After 2 corrections |
