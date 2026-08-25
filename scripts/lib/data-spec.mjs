@@ -11,6 +11,23 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
+ * A variant of the revision's data file, e.g. `invoice-data.overflow.json`.
+ *
+ * The overflow fixture is a second dataset for the same template: the
+ * revision's own data mirrors the reference so the visual gate compares like
+ * with like, and this one is long enough to cross a page break. One dataset
+ * cannot do both jobs — a reference is a sample that fits.
+ *
+ * @returns {string|null} the path, or null when the project has no such variant
+ */
+export function dataFileFor(projectDir, revisionDir, variant) {
+  const base = findDataFile(projectDir, revisionDir);
+  if (!base) return null;
+  const candidate = base.replace(/\.json$/, `${variant}.json`);
+  return fs.existsSync(candidate) ? candidate : null;
+}
+
+/**
  * The revision's data spec, or null when the project ships its content inline.
  *
  * `render.dataFileName: null` is meaningful and not the same as absent: it says
@@ -49,7 +66,11 @@ export function findDataFile(projectDir, revisionDir) {
  * @returns {Array<{at: string, value: string}>}
  */
 export function contentStrings(root, { minLength = 6 } = {}) {
-  const NOT_CONTENT = /^(href|url|uri|link|linkTo|target|file|image|icon|font|color|colour|id|type|format)$/i;
+  // Suffix-matched for the same reason check-links matches them that way: a
+  // target is called `emailHref` as often as `href`, and reporting one as
+  // missing content is a defect raised against a document that is fine.
+  const NOT_CONTENT = /(^|[a-z0-9])(href|url|uri|link)$/i;
+  const NOT_CONTENT_EXACT = /^(linkTo|target|file|image|icon|font|color|colour|id|type|format)$/i;
   const LOOKS_LIKE_PATH = /^(assets|data)\//;
   const LOOKS_LIKE_COLOUR = /^#[0-9a-f]{3,8}$/i;
 
@@ -60,7 +81,7 @@ export function contentStrings(root, { minLength = 6 } = {}) {
       return;
     }
     if (typeof node === "string") {
-      if (key && NOT_CONTENT.test(key)) return;
+      if (key && (NOT_CONTENT.test(key) || NOT_CONTENT_EXACT.test(key))) return;
       if (LOOKS_LIKE_PATH.test(node) || LOOKS_LIKE_COLOUR.test(node)) return;
       if (node.trim().length < minLength) return;
       if (!/[A-Za-z]/.test(node)) return;

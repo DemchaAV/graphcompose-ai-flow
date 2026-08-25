@@ -73,7 +73,17 @@ function parseArgs(argv) {
 
 // --- what counts as a link ---------------------------------------------------
 
-const TARGET_KEY = /^(href|url|uri|link|linkTo|target)$/i;
+/**
+ * A key that names a link target.
+ *
+ * Matched by suffix, not by equality: real data spells these `emailHref`,
+ * `websiteUrl`, `profileLink` as often as it spells them `href`. An exact match
+ * missed all three, so a declared target read as an undeclared one and the check
+ * warned about a link that was already wired.
+ */
+const TARGET_KEY = /(^|[a-z0-9])(href|url|uri|link)$/i;
+const TARGET_KEY_EXACT = /^(linkTo|target)$/i;
+const isTargetKey = (key) => TARGET_KEY.test(key) || TARGET_KEY_EXACT.test(key);
 const HAS_SCHEME = /^(https?|mailto|tel):/i;
 // Deliberately narrow. A URL or an email is unambiguous; a phone number, a
 // street address and a bare company name are not, and warning about those
@@ -110,7 +120,7 @@ function scanData(root) {
     }
 
     if (typeof node === "string") {
-      if (ctx.key && TARGET_KEY.test(ctx.key) && isDeclaredTarget(node)) {
+      if (ctx.key && isTargetKey(ctx.key) && isDeclaredTarget(node)) {
         declared.push({ at: trail, target: node });
       } else if (!ctx.siblingDeclares && isLinkShaped(node)) {
         candidates.push({ at: trail, value: node });
@@ -122,7 +132,7 @@ function scanData(root) {
 
     const keys = Object.keys(node);
     const siblingDeclares = keys.some(
-      (k) => TARGET_KEY.test(k) && typeof node[k] === "string" && isDeclaredTarget(node[k]),
+      (k) => isTargetKey(k) && typeof node[k] === "string" && isDeclaredTarget(node[k]),
     );
     for (const key of keys) {
       walk(node[key], trail ? `${trail}.${key}` : key, { key, siblingDeclares });

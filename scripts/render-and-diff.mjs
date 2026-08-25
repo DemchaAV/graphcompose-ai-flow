@@ -98,6 +98,13 @@ const revisionDir = path.join(projectDir, "revisions", args.revision);
 
 const result = { project: args.project, revision: args.revision, steps: [], diff: null, loop: null };
 
+/** The revision's overflow dataset, by name, or null. */
+function overflowFixture() {
+  if (!fs.existsSync(revisionDir)) return null;
+  const found = fs.readdirSync(revisionDir).filter((f) => /-data\.overflow\.json$/.test(f));
+  return found.length ? found[0] : null;
+}
+
 function step(name, fn) {
   const entry = { name, ok: false };
   result.steps.push(entry);
@@ -169,6 +176,33 @@ if (!args.skipRender) {
       throw new Error(`render failed:\n${tail}`);
     }
     entry.detail = "output.pdf + output.png (clean + debug)";
+  });
+
+  step("overflow fixture", (entry) => {
+    // A second dataset through the same template, when the revision carries
+    // one. It is the only place a flowing document's page break, repeated
+    // header and page numbering are ever rendered: the revision's own data
+    // mirrors the reference, and a reference is a sample that fits.
+    const fixture = overflowFixture();
+    if (!fixture) {
+      entry.detail = "none in this revision";
+      return;
+    }
+    const rendered = run(path.join(repoRoot, "scripts", "render.mjs"), [
+      args.project,
+      args.revision,
+      "--root",
+      workspace.root,
+      "--data-file",
+      fixture,
+      "--suffix",
+      "-overflow",
+    ]);
+    if (rendered.status !== 0) {
+      const tail = rendered.output.trim().split("\n").slice(-12).join("\n");
+      throw new Error(`the overflow fixture did not render:\n${tail}`);
+    }
+    entry.detail = `${fixture} -> output-overflow.pdf`;
   });
 } else {
   step("render (skipped)", (entry) => {

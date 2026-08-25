@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "path-coordinates-are-normalized",
+  "graphComposeVersion": "2.2.0",
+  "api": [
+    "PathBuilder.moveTo",
+    "PathBuilder.lineTo",
+    "PathBuilder.curveTo",
+    "PathBuilder.size",
+    "AbstractFlowBuilder.addPath"
+  ],
+  "observedBehaviour": "PathBuilder's coordinates are normalized to the shape's own box, from 0 to 1, with the origin at the BOTTOM-LEFT and y increasing upward - the opposite of the page's reading direction and of every other measurement in this workflow. Nothing in the signatures says so: moveTo(double x, double y) reads as points, and the allow-list carries no units. Passing point values does not fail and does not fill the box either; it draws a DIFFERENT shape, silently. Measured: one triangle described normalized covers 0.25 of its box, which is its true area, and the same triangle described in points covers 0.13. That is why the mistake surfaces as a curved band rendering flat rather than as an error anyone can search for. Control points may overshoot 0..1 on purpose; that is what lets a curve bulge past its box.",
+  "minimalReproduction": {
+    "probe": "path-coordinates",
+    "command": "node scripts/probe.mjs path-coordinates --version 2.2 --json",
+    "arrangement": "The same triangle described twice - once in normalized coordinates and once in points - each rendered alone and rasterised, with a third render placing a 0..0.25 square in a corner to locate the origin. The two descriptions covering different areas is the finding; the normalized one matching the triangle's true area says which of the two the builder reads."
+  },
+  "probeResult": {
+    "normalizedShareOfBox": 0.25,
+    "pointValuedShareOfBox": 0.13,
+    "normalizedMatchesTheIntendedFigure": true,
+    "bothDescriptionsAgree": false,
+    "originIsBottomLeft": true
+  },
+  "workaround": "Divide by the shape's own size before calling: a band PAGE_W wide and BAND_H tall whose right edge stops BAND_H_RIGHT below the page top is lineTo(1, (BAND_H - BAND_H_RIGHT) / BAND_H), not lineTo(PAGE_W, BAND_H_RIGHT). Keep the geometry in points in named constants and normalize at the call, so the arithmetic stays readable and the derivation survives a size change.",
+  "confidence": "confirmed",
+  "engineDefect": {
+    "isDefect": false,
+    "affectedVersions": "2.2.0",
+    "reportedTo": null,
+    "fixedIn": null
+  },
+  "sourceRun": {
+    "project": "overflow-invoice",
+    "revision": "revision-001",
+    "date": "2026-08-25",
+    "note": "The invoice's curved header band rendered as a flat rectangle on the first pass. The answer was in GraphCompose's own VectorPathExample Javadoc and in neither the allow-list nor the skill pack, which is the gap this observation closes until the pack carries it."
+  },
+  "promotedTo": null
+}

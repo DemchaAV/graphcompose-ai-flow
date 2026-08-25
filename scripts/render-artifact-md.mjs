@@ -149,12 +149,24 @@ function kindOf(file) {
 
 function render(kind, artifact, sourcePath) {
   const source = path.basename(sourcePath);
-  const body =
-    kind === "visual-analysis"
-      ? renderVisualAnalysis(artifact)
-      : kind === "architecture-plan"
-        ? renderArchitecturePlan(artifact)
-        : renderVisualReview(artifact);
+  let body;
+  try {
+    body =
+      kind === "visual-analysis"
+        ? renderVisualAnalysis(artifact)
+        : kind === "architecture-plan"
+          ? renderArchitecturePlan(artifact)
+          : renderVisualReview(artifact);
+  } catch (cause) {
+    // This renderer assumes the shape the schema describes. When it does not
+    // get it, a raw TypeError three frames down says nothing about the cause —
+    // an acceptance run met exactly that, with `colors` written as an object
+    // where the schema says array, and spent the next minute in the wrong file.
+    throw new Error(
+      `${source} does not have the shape its schema describes (${cause.message}).\n` +
+        `  Check it first: node .github/scripts/validate-schemas.mjs <revision-dir>`,
+    );
+  }
 
   const lines = [
     ...body,
@@ -198,6 +210,27 @@ function renderVisualAnalysis(a) {
     if (flow.drivenBy) parts.push(`Grows with data: \`${flow.drivenBy}\`.`);
     if (flow.overflowExpectation) parts.push(flow.overflowExpectation);
     out.push("", parts.join(" "));
+
+    // The enumeration decision belongs in the reading copy for the same reason
+    // the flow decision does: a reviewer who cannot see a decision cannot
+    // disagree with it, and "should a missing page be detectable" is exactly
+    // the kind of call that goes unexamined when it is only in the JSON.
+    const numbering = flow.pageEnumeration;
+    if (numbering) {
+      const line = numbering.required
+        ? [
+            `**Page enumeration: required.**`,
+            numbering.format ? `\`${numbering.format}\`` : null,
+            numbering.location ? `in the ${numbering.location}` : null,
+            numbering.repeat ? `(${numbering.repeat})` : null,
+            numbering.reason ? `— ${numbering.reason}` : null,
+          ]
+        : [
+            `**Page enumeration: not required.**`,
+            numbering.reason ? `— ${numbering.reason}` : null,
+          ];
+      out.push("", line.filter(Boolean).join(" "));
+    }
   }
 
   out.push(...section("Regions", table(

@@ -31,7 +31,7 @@ import {
 
 const repoRoot = installRoot();
 
-const { projectId, revisionId, root } = parseArgs(process.argv.slice(2));
+const { projectId, revisionId, root, dataFile, suffix } = parseArgs(process.argv.slice(2));
 if (!projectId) {
   console.error(
     "usage: node scripts/render.mjs <project-id> [revision-id] [--root <workspace>]\n" +
@@ -52,12 +52,14 @@ try {
   process.exit(2);
 }
 
-runRender({ repoRoot, projectId, revisionId, projectDir });
+runRender({ repoRoot, projectId, revisionId, projectDir, dataFileOverride: dataFile, outputSuffix: suffix });
 
 function parseArgs(args) {
   let projectId = null;
   let revisionId = null;
   let root = null;
+  let dataFile = null;
+  let suffix = "";
   const positional = [];
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
@@ -76,10 +78,20 @@ function parseArgs(args) {
       i += 1;
       continue;
     }
+    if (arg === "--data-file") {
+      dataFile = args[i + 1];
+      i += 1;
+      continue;
+    }
+    if (arg === "--suffix") {
+      suffix = args[i + 1];
+      i += 1;
+      continue;
+    }
     if (!arg.startsWith("--")) positional.push(arg);
   }
   projectId = projectId ?? positional[0] ?? null;
   revisionId = revisionId ?? positional[1] ?? null;
   if (!revisionId) revisionId = "revision-001";
-  return { projectId, revisionId, root };
+  return { projectId, revisionId, root, dataFile, suffix };
 }

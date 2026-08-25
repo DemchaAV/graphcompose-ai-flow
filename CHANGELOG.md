@@ -7,6 +7,64 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.6.1 — a flowing document, end to end
+
+A third acceptance run, this time an invoice: the reference is a sage
+one-page sample with five line items, and the document behind it is not
+one page. Everything the 0.6.0 gates described was expressible; almost
+none of it had been walked by a real render. Twelve findings, recorded in
+full in `docs/private/acceptance-invoice.md`.
+
+**The conflict the run existed to find.** A flowing document cannot
+satisfy both gates with one dataset: the visual diff needs data that
+mirrors the reference — a sample that fits — and the integrity gate needs
+data that crosses a page break. So a revision may now carry two:
+`<doc-kind>-data.json` beside `<doc-kind>-data.overflow.json`.
+`render.mjs` gained `--data-file` and `--suffix`, `render-and-diff`
+renders the fixture automatically into `output-overflow.pdf`, and the
+integrity gate reads both — checking enumeration across every page of the
+overflow render and that the table header repeats there. The render
+runtime exports `graphcompose.data.file` so a provider can honour the
+override instead of hardcoding a name.
+
+Measured on the real template: five items give one page reading
+"Page 1 of 1"; thirty give three pages, "Page N of 3" correct on every
+one, the header repeated on all three, no row lost, and the summary,
+payment info, terms and signature following the table onto page three.
+
+**A project could not render at all.** `init-workspace --project` left no
+`render` block and no render runner, and the only bundled seed is written
+against 1.7 and correctly refused on 2.x — so on the current line there
+was no path to a first render that did not go through an agent inventing
+a hundred lines of Maven. `scripts/scaffold-runner.mjs` writes it,
+parameterised by the pinned version, including the fonts artifact that
+moved out of core at 1.8.0.
+
+**Contracts were unenforced where the artifacts live.**
+`validate-schemas.mjs` was hardcoded to this repository and took no path,
+so a revision in a user's workspace was never checked. It takes paths
+now — and immediately found the run's own analysis off-schema in seven
+places. `render-artifact-md` no longer dies with a raw TypeError on a
+malformed artifact; it names the file and points at the validator, and it
+renders the `pageEnumeration` decision so a reviewer can see it.
+
+**Two defects only a continuation page can show**, both real: without a
+per-page top margin a continuation page starts hard against the paper's
+edge, and without a reserved bottom margin its last row runs into the
+footer. `PageMarginRule` is the primitive; the skill now says so.
+
+**A new observation.** `PathBuilder` coordinates are normalized 0..1 with
+the origin bottom-left and y up. Nothing in the allow-list says so and
+point values do not fail — they draw a different shape, silently, which
+is how a curved header band came out flat. The probe refuted the first
+hypothesis while confirming the behaviour, and the record says what was
+measured rather than what was assumed.
+
+Also: `check-links` and the content check matched target keys exactly, so
+a field called `emailHref` was invisible — a wired link reported as
+unwired, and the href reported twice more. Suffix matching now.
+353 tests pass.
+
 ### v0.6.0 — the allow-list is the artifact, not the source
 
 Hardening pass over everything two real acceptance runs turned up. The

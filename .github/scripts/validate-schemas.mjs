@@ -120,14 +120,30 @@ function formatErrors(errors) {
     .join('\n');
 }
 
+/**
+ * What to validate.
+ *
+ * The default is this repository, which is what CI checks. But the artifacts
+ * these schemas describe are written into the USER's workspace, and until this
+ * took an argument nothing validated them there — the contract existed and was
+ * enforced everywhere except where the work happens. A revision could carry a
+ * `colors` object where the schema says array, and the first sign of it was an
+ * unrelated tool crashing three steps later.
+ */
+function targetsFromArgv(argv) {
+  const paths = argv.filter((a) => !a.startsWith("--"));
+  return paths.length ? paths.map((p) => path.resolve(p)) : [ROOT];
+}
+
 async function main() {
   const validators = new Map();
   for (const binding of SCHEMA_BINDINGS) {
     validators.set(binding.schemaFile, await loadSchema(binding.schemaFile));
   }
 
+  const targets = targetsFromArgv(process.argv.slice(2));
   const hits = [];
-  await walk(ROOT, hits);
+  for (const target of targets) await walk(target, hits);
 
   const violations = [];
   const stats = new Map();

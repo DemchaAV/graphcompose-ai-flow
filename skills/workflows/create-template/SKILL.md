@@ -153,12 +153,34 @@ session.footer(DocumentHeaderFooter.builder()
         .build());
 ```
 
-**For a flowing document, the example data must reach page 2.** A
-pagination path that the render never exercises is untested code shipped
-as a template: give `<doc-kind>-data.json` enough rows that the render
-actually paginates, and check the repeated headers and the footer on the
-continuation page. Set `page.pageCount` in the analysis to what the
-*data* produces, not what the screenshot shows.
+**For a flowing document, ship two datasets.** One cannot do both jobs,
+and trying is how the two gates end up fighting:
+
+- `<doc-kind>-data.json` **mirrors the reference**. The visual diff
+  compares this render against the reference, so it has to hold what the
+  reference holds — five line items, not thirty. A dataset that overflows
+  makes page 1 a wall of rows and the diff meaningless.
+- `<doc-kind>-data.overflow.json` **crosses a page break**. Same
+  template, enough rows that the engine has to paginate. This is the only
+  place a flowing document's page break, repeated header and page
+  numbering are ever rendered.
+
+`render-and-diff` renders the second automatically when it is there, into
+`output-overflow.pdf`, and the integrity gate reads both. Without it,
+`pagination-never-exercised` fires — a pagination path the render never
+walks is untested code shipped as a template.
+
+Two defects only the overflow render can show, both found this way:
+a continuation page has no masthead, so without a per-page margin
+(`session.pageMargins(...)` with `PageMarginRule.from(2, …)`) its first
+row starts hard against the paper's edge; and without a bottom margin
+reserving the footer's height, the last row of a continuation page runs
+into the page number. Page 1 shows neither, because its content ends well
+above the fold.
+
+Set `page.pageCount` in the analysis to what the reference-shaped data
+produces — the overflow fixture's page count is not a property of the
+document.
 
 `render-and-diff` enforces both of these from the rendered file:
 `pagination-never-exercised` when a flowing document fits on one page,

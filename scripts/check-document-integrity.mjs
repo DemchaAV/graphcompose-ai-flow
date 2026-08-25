@@ -32,7 +32,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
-import { contentStrings, findDataFile, normalizeText, valueAppears } from "./lib/data-spec.mjs";
+import { contentStrings, dataFileFor, findDataFile, normalizeText, valueAppears } from "./lib/data-spec.mjs";
 import {
   describeWorkspaceLine,
   installRoot,
@@ -136,13 +136,42 @@ if (!fs.existsSync(pdfPath)) {
       );
     }
 
-    // 2. A flowing document whose example data never overflows has an untested
-    //    pagination path shipped as a template.
-    if (flow?.kind === "flowing" && text.pageCount < 2) {
+    // 2. A flowing document has to have exercised its pagination somewhere.
+    //
+    //    Not necessarily in this render: the revision's own data mirrors the
+    //    reference so the visual gate compares like with like, and a reference
+    //    is a sample that fits. The overflow fixture is where the page break
+    //    lives - the same template, a second dataset, rendered beside it. What
+    //    is unacceptable is neither.
+    const overflowPdf = path.join(revisionDir, "output-overflow.pdf");
+    const overflowFixture = dataFileFor(projectDir, revisionDir, ".overflow");
+    let overflow = null;
+    if (fs.existsSync(overflowPdf)) {
+      const read = readPdfText(overflowPdf);
+      if (read.error) {
+        result.notes.push(`the overflow render could not be read: ${read.error}`);
+      } else {
+        overflow = read;
+        result.overflow = { pageCount: read.pageCount, from: path.basename(overflowPdf) };
+      }
+    }
+
+    if (flow?.kind === "flowing" && text.pageCount < 2 && !overflow) {
       defect(
         "pagination-never-exercised",
-        "the document is flowing, and the example data fits on one page — the page break, " +
-          "the repeated header and the footer were never rendered even once",
+        overflowFixture
+          ? `the document is flowing and this render fits on one page; ${path.basename(overflowFixture)} exists ` +
+            `but has not been rendered — run: node scripts/render.mjs <project> <revision> ` +
+            `--data-file ${path.basename(overflowFixture)} --suffix -overflow`
+          : "the document is flowing, and nothing here ever crossed a page break — the page break, " +
+            "the repeated header and the footer have never been rendered even once. Add an overflow " +
+            "fixture beside the data file and render it with --suffix -overflow",
+      );
+    }
+    if (overflow && overflow.pageCount < 2) {
+      defect(
+        "overflow-fixture-does-not-overflow",
+        `the overflow render is ${overflow.pageCount} page(s); it exists to cross a page break and does not`,
       );
     }
 
@@ -151,29 +180,62 @@ if (!fs.existsSync(pdfPath)) {
     const enumeration = flow?.pageEnumeration;
     if (enumeration?.required) {
       const readings = [];
-      pages.forEach((pageText, index) => {
+      const checkEnumeration = (pageText, index, total, label) => {
         const match = PAGE_OF.exec(pageText);
         if (!match) {
-          readings.push({ page: index + 1, reads: null, correct: false });
-          defect("page-enumeration-missing", `page ${index + 1} carries no "Page N of M"`);
+          readings.push({ render: label, page: index + 1, reads: null, correct: false });
+          defect("page-enumeration-missing", `${label} page ${index + 1} carries no "Page N of M"`);
           return;
         }
         const current = Number(match[1]);
-        const total = Number(match[2]);
-        const correct = current === index + 1 && total === text.pageCount;
-        readings.push({ page: index + 1, reads: match[0], correct });
+        const declared = Number(match[2]);
+        const correct = current === index + 1 && declared === total;
+        readings.push({ render: label, page: index + 1, reads: match[0], correct });
         if (current !== index + 1) {
-          defect("page-number-wrong", `page ${index + 1} reads "${match[0]}"`);
-        } else if (total !== text.pageCount) {
+          defect("page-number-wrong", `${label} page ${index + 1} reads "${match[0]}"`);
+        } else if (declared !== total) {
           defect(
             "page-total-wrong",
-            `page ${index + 1} reads "${match[0]}" in a ${text.pageCount}-page document`,
+            `${label} page ${index + 1} reads "${match[0]}" in a ${total}-page document`,
           );
         }
-      });
+      };
+
+      pages.forEach((pageText, index) => checkEnumeration(pageText, index, text.pageCount, "render"));
+      if (overflow) {
+        // The enumeration only earns its keep past page one, so this is the
+        // reading that matters: "Page 2 of 3" is the claim a single-page render
+        // can never make.
+        overflow.pages.forEach((pageText, index) =>
+          checkEnumeration(pageText, index, overflow.pageCount, "overflow"));
+      }
       result.enumeration = readings;
     } else if (flow?.kind === "flowing") {
       result.notes.push("page enumeration is not required by the analysis, so it was not checked");
+    }
+
+    // 3b. A repeated table header, checked where it can be: on the pages after
+    //     the first. A continuation page with five unlabelled columns of numbers
+    //     is a document defect and a zero-pixel one.
+    if (overflow && overflow.pageCount > 1) {
+      for (const region of analysis?.regions ?? []) {
+        if (region.role !== "table-header") continue;
+        const tokens = String(region.label ?? "")
+          .toLowerCase()
+          .split(/[^a-z0-9]+/i)
+          .filter((t) => t.length >= 4);
+        if (!tokens.length) continue;
+        overflow.pages.forEach((pageText, index) => {
+          const normalized = normalizeText(pageText);
+          const found = tokens.filter((t) => normalized.includes(t)).length;
+          if (found / tokens.length < 0.7) {
+            defect(
+              "table-header-not-repeated",
+              `overflow page ${index + 1} does not carry "${region.label}" (region ${region.id})`,
+            );
+          }
+        });
+      }
     }
 
     // 4. Repeated chrome. Judged structurally: whatever page 1 ends with, with

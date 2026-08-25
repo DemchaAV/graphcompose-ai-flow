@@ -127,6 +127,26 @@ test("a declared href absent from the render fails and names it", () => {
   assert.match(json.missing[0].at, /contact\[1\]\.href/);
 });
 
+test("a target named emailHref counts as declared, not as an unwired link", () => {
+  // Real data spells these emailHref, websiteUrl, profileLink at least as often
+  // as href. Matching the key exactly meant a link that was already wired came
+  // back as "link-shaped, no href recorded", and the href itself was reported a
+  // second time as another unwired link.
+  const s = scenario({
+    label: "suffixkey",
+    data: {
+      recipient: { email: "billing@example.com", emailHref: "mailto:billing@example.com" },
+      site: { label: "example.com/pay", websiteUrl: "https://example.com/pay" },
+    },
+    targets: ["mailto:billing@example.com", "https://example.com/pay"],
+  });
+  const { status, json } = runCli(s.root);
+  assert.equal(status, 0);
+  assert.equal(json.declaredCount, 2, "the suffixed keys were not read as targets");
+  assert.deepEqual(json.missing, []);
+  assert.deepEqual(json.undeclared, [], "a wired link was warned about anyway");
+});
+
 test("a link-shaped value with no href anywhere is a warning, not a failure", () => {
   // navy-sidebar-cv, as approved and published.
   const s = scenario({

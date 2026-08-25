@@ -54,7 +54,14 @@ import { ensureSkillValidationVerdict } from "./skill-validation-gate.mjs";
  * explicitly. Left out, it falls back to <install>/examples/<projectId> so the
  * per-example shims keep working unchanged.
  */
-export function runRender({ repoRoot, projectId, revisionId, projectDir: explicitProjectDir }) {
+export function runRender({
+  repoRoot,
+  projectId,
+  revisionId,
+  projectDir: explicitProjectDir,
+  dataFileOverride = null,
+  outputSuffix = "",
+}) {
   const projectDir = explicitProjectDir ?? path.join(repoRoot, "examples", projectId);
   const templateProjectPath = path.join(projectDir, "template-project.json");
   if (!fs.existsSync(templateProjectPath)) {
@@ -85,9 +92,10 @@ export function runRender({ repoRoot, projectId, revisionId, projectDir: explici
   //                       runs unconditionally (invoice-style);
   //                string → explicit name with conditional behaviour.
   const dataFileName =
-    renderConfig.dataFileName === undefined
-      ? `${docKind}-data.json`
-      : renderConfig.dataFileName;
+    dataFileOverride
+      ?? (renderConfig.dataFileName === undefined
+        ? `${docKind}-data.json`
+        : renderConfig.dataFileName);
   const dataDriven = dataFileName !== null;
   const specProviderClass =
     renderConfig.specProviderClass || templateProject.specProviderClass || null;
@@ -125,8 +133,12 @@ export function runRender({ repoRoot, projectId, revisionId, projectDir: explici
     "target",
     `${revisionId}-render-classpath.txt`,
   );
-  const outputPdf = path.join(revisionDir, "output.pdf");
-  const debugPdf = path.join(revisionDir, "output-debug.pdf");
+  // A suffix lets one revision hold more than one render of the same template:
+  // the reference-shaped one the diff compares, and an overflow fixture that
+  // proves the pagination path. Empty by default, so the ordinary render keeps
+  // the names every other tool already reads.
+  const outputPdf = path.join(revisionDir, `output${outputSuffix}.pdf`);
+  const debugPdf = path.join(revisionDir, `output${outputSuffix}-debug.pdf`);
   const dataFile = dataDriven ? path.join(revisionDir, dataFileName) : null;
   const live = createLiveMirror(repoRoot, projectDir);
 
@@ -271,6 +283,7 @@ export function runRender({ repoRoot, projectId, revisionId, projectDir: explici
   runJava(
     [
       `-Dgraphcompose.revision.dir=${revisionDir}`,
+      ...(dataFile ? [`-Dgraphcompose.data.file=${dataFile}`] : []),
       "-jar",
       previewRendererJar,
       "render",
@@ -282,9 +295,9 @@ export function runRender({ repoRoot, projectId, revisionId, projectDir: explici
       "--classpath-file",
       renderClasspathFile,
       "--output",
-      "output.pdf",
+      `output${outputSuffix}.pdf`,
       "--preview",
-      "output.png",
+      `output${outputSuffix}.png`,
       "--dpi",
       "150",
       "--page",
@@ -333,6 +346,7 @@ export function runRender({ repoRoot, projectId, revisionId, projectDir: explici
   runJava(
     [
       `-Dgraphcompose.revision.dir=${revisionDir}`,
+      ...(dataFile ? [`-Dgraphcompose.data.file=${dataFile}`] : []),
       "-jar",
       previewRendererJar,
       "render",

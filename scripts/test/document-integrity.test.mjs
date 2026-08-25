@@ -80,6 +80,19 @@ test("targets, asset paths and colours are not content to look for", () => {
   assert.deepEqual(values.sort(), ["name", "summary"]);
 });
 
+test("a suffixed target key is not content to look for either", () => {
+  // The same fix, seen from the other side: a href is an input to the render,
+  // not text it draws, so demanding it appear reports a defect against a
+  // document that is fine.
+  const values = contentStrings({
+    email: "billing@example.com",
+    emailHref: "mailto:billing@example.com",
+    websiteUrl: "https://example.com/pay",
+    description: "Consulting retainer",
+  }).map((v) => v.at);
+  assert.deepEqual(values.sort(), ["description", "email"]);
+});
+
 test("nested arrays keep a readable path, so a finding says which row", () => {
   const values = contentStrings({ items: [{ description: "Consulting retainer" }] });
   assert.equal(values[0].at, "items[0].description");
