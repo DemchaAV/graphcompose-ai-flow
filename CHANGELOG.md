@@ -29,7 +29,9 @@ exactly what a 2.2.0 run concluded.
 - `skills/versions/<line>/api-surface.json` is now the canonical form and
   `00-api-surface.md` is generated from it; `api-query` reads the JSON and
   gained `--query` as the everyday entry point. 268 types became 357 with
-  **nothing lost**, and 1336 previously invisible members are listed.
+  **nothing lost**, and 1312 previously invisible members are listed —
+  Lombok's builders and getters, and the record accessors and canonical
+  constructors the compiler writes, none of which appear in source text.
 - A second defect fell out of the same change: the source parser folded
   nested types into their enclosing type, so the allow-list claimed
   `GraphCompose.margin(...)` was a static call. Nested types are now their

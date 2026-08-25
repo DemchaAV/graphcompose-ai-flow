@@ -48,14 +48,23 @@ function splitParams(text) {
  * differently for the same type.
  */
 export function normalizeParamType(type) {
-  return simplifyType(
-    type
-      .replace(/@\w+(\([^)]*\))?/g, "")
-      .replace(/\bfinal\b/g, "")
-      .replace(/\.\.\./g, "[]")
-      .replace(/\s+/g, " ")
-      .trim(),
-  ).replace(/\s+/g, "");
+  return (
+    simplifyType(
+      type
+        .replace(/@\w+(\([^)]*\))?/g, "")
+        .replace(/\bfinal\b/g, "")
+        .replace(/\.\.\./g, "[]")
+        .replace(/\s+/g, " ")
+        .trim(),
+    )
+      // A nested type is `CardWidget.Style` in bytecode and plain `Style` in the
+      // source that declares it, so the two never matched and eighteen widget
+      // methods came out unnamed and labelled generated. Comparing on the last
+      // segment settles it; two overloads differing only by which type encloses
+      // a same-named parameter would collide, and none does.
+      .replace(/\b[A-Z]\w*\./g, "")
+      .replace(/\s+/g, "")
+  );
 }
 
 const keyOf = (typeName, member, paramTypes) =>

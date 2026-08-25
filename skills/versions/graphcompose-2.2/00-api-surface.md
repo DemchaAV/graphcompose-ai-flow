@@ -23,7 +23,7 @@ note: "Generated from the pinned artifact's class files. Authoritative closed se
 
 **GraphCompose version:** 2.2.0
 
-Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 1336
+Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 1312
 
 ## com.demcha.compose
 
@@ -230,7 +230,7 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 133
 - `new Builder()`
 - `ChartData.Builder categories(String... labels)`
 - `ChartData.Builder category(String label)`
-- `ChartData.Builder series(ChartData.Series)`
+- `ChartData.Builder series(ChartData.Series s)`
 - `ChartData.Builder series(String name, double... values)`
 - `ChartData build()`
 
@@ -375,7 +375,7 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 133
 - `ChartStyle.Builder lineWidth(double width)`
 - `ChartStyle.Builder barCornerRadius(DocumentCornerRadius r)`
 - `ChartStyle.Builder barWidthRatio(double ratio)`
-- `ChartStyle.Builder grid(ChartStyle.GridStyle)`
+- `ChartStyle.Builder grid(ChartStyle.GridStyle grid)`
 - `ChartStyle.Builder pointMarker(PointMarker marker)`
 - `ChartStyle.Builder valueLabelOffset(double offset)`
 - `ChartStyle.Builder axisTextStyle(DocumentTextStyle s)`
@@ -1409,7 +1409,7 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 133
 
 ### LayerStackNode (record)
 - `new LayerStackNode(String, List<LayerStackNode.Layer>, DocumentInsets, DocumentInsets, boolean)`
-- `new LayerStackNode(String, List<LayerStackNode.Layer>, DocumentInsets, DocumentInsets)`
+- `new LayerStackNode(String name, List<LayerStackNode.Layer> layers, DocumentInsets padding, DocumentInsets margin)`
 - `List<DocumentNode> children()`
 - `String name()`
 - `List<LayerStackNode.Layer> layers()`
@@ -1711,7 +1711,7 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 133
 - `DocumentDebugOptions guidesAndNodeLabels()`
 - `DocumentDebugOptions withGuides(boolean enabled)`
 - `DocumentDebugOptions withNodeLabels(boolean enabled)`
-- `DocumentDebugOptions withLabelText(DocumentDebugOptions.LabelText)`
+- `DocumentDebugOptions withLabelText(DocumentDebugOptions.LabelText text)`
 - `boolean enabled()`
 - `boolean showGuides()`
 - `boolean showNodeLabels()`
@@ -2256,7 +2256,7 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 133
 - `void twoRowRightAligned(SectionBuilder host, PartyIdentity identity, BrandTheme theme, DocumentTextStyle bodyStyleOverride, DocumentTextStyle linkStyleOverride, DocumentTextStyle separatorStyleOverride)`
 - `void rightAlignedStacked(SectionBuilder host, PartyIdentity identity, BrandTheme theme)`
 - `void rightAlignedStacked(SectionBuilder host, PartyIdentity identity, BrandTheme theme, DocumentTextStyle bodyStyleOverride, DocumentTextStyle linkStyleOverride)`
-- `void render(SectionBuilder, PartyIdentity, BrandTheme, TextAlign, ContactLine.Order)`
+- `void render(SectionBuilder host, PartyIdentity identity, BrandTheme theme, TextAlign alignment, ContactLine.Order order)`
 
 ### ContactLine.Order (enum)
 - constants: `PHONE_FIRST`, `ADDRESS_FIRST`
@@ -2279,7 +2279,7 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 133
 - `String url()`
 
 ### Masthead (class)
-- `void centered(SectionBuilder, PartyIdentity, BrandTheme, Masthead.Style)`
+- `void centered(SectionBuilder host, PartyIdentity identity, BrandTheme theme, Masthead.Style style)`
 
 ### Masthead.Style (record)
 - `new Style(DocumentTextStyle, DocumentTextStyle, DocumentTextStyle, DocumentTextStyle, DocumentTextStyle, String, DocumentInsets)`
@@ -2485,8 +2485,8 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 133
 - `DocumentNode rect(DocumentColor color, double width, double height)`
 
 ### CardWidget (class)
-- `void render(SectionBuilder, String, CardWidget.Style, Consumer<SectionBuilder>)`
-- `void render(PageFlowBuilder, String, CardWidget.Style, Consumer<SectionBuilder>)`
+- `void render(SectionBuilder parent, String name, CardWidget.Style style, Consumer<SectionBuilder> content)`
+- `void render(PageFlowBuilder flow, String name, CardWidget.Style style, Consumer<SectionBuilder> content)`
 
 ### CardWidget.Style (record)
 - `new Style(double, DocumentInsets, DocumentColor, DocumentStroke, DocumentCornerRadius)`
@@ -2523,8 +2523,8 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 133
 - constants: `SMALL`, `MEDIUM`, `LARGE`
 
 ### TableWidget (class)
-- `void fixed(SectionBuilder, List<List<String>>, double, TableWidget.Style)`
-- `void grid(SectionBuilder, List<String>, double, TableWidget.Style)`
+- `void fixed(SectionBuilder host, List<List<String>> rows, double width, TableWidget.Style style)`
+- `void grid(SectionBuilder host, List<String> cells, double width, TableWidget.Style style)`
 
 ### TableWidget.Style (record)
 - `new Style(String, int, DocumentInsets, DocumentStroke, DocumentColor, DocumentColor, DocumentTextStyle, Double, double)`
@@ -2553,8 +2553,8 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 133
 - `TableWidget.Style build()`
 
 ### TimelineAxisWidget (class)
-- `void render(SectionBuilder, TimelineAxisWidget.Style)`
-- `void render(SectionBuilder, TimelineAxisWidget.Style, double)`
+- `void render(SectionBuilder host, TimelineAxisWidget.Style style)`
+- `void render(SectionBuilder host, TimelineAxisWidget.Style style, double totalHeight)`
 
 ### TimelineAxisWidget.Marker (enum)
 - constants: `CIRCLE`, `SQUARE`, `NONE`
@@ -2574,7 +2574,7 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 133
 - `DocumentInsets padding()`
 
 ### TimelineAxisWidget.Style.Builder (class)
-- `TimelineAxisWidget.Style.Builder marker(TimelineAxisWidget.Marker)`
+- `TimelineAxisWidget.Style.Builder marker(TimelineAxisWidget.Marker value)`
 - `TimelineAxisWidget.Style.Builder markerSize(double value)`
 - `TimelineAxisWidget.Style.Builder markerFillColor(DocumentColor value)`
 - `TimelineAxisWidget.Style.Builder markerStroke(DocumentStroke value)`
@@ -2653,8 +2653,8 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 133
 ### MintEditorialLetter (class)
 - `DocumentTemplate<CoverLetterDocument> create()`
 - `DocumentTemplate<CoverLetterDocument> create(BrandTheme theme)`
-- `DocumentTemplate<CoverLetterDocument> create(MintEditorialLetter.Options)`
-- `DocumentTemplate<CoverLetterDocument> create(BrandTheme, MintEditorialLetter.Options)`
+- `DocumentTemplate<CoverLetterDocument> create(MintEditorialLetter.Options options)`
+- `DocumentTemplate<CoverLetterDocument> create(BrandTheme theme, MintEditorialLetter.Options options)`
 - constants: `ID`, `DISPLAY_NAME`, `RECOMMENDED_MARGIN`
 
 ### MintEditorialLetter.Options (record)
@@ -2778,7 +2778,7 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 133
 - `CvDocument.Builder sections(CvSection... values)`
 - `CvDocument.Builder sections(Slot slot, CvSection... values)`
 - `CvDocument.Builder sections(List<CvSection> values)`
-- `CvDocument.Builder placement(CvDocument.Placement)`
+- `CvDocument.Builder placement(CvDocument.Placement placement)`
 - `CvDocument build()`
 
 ### CvDocument.Placement (record)
@@ -2946,8 +2946,8 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 133
 ### MintEditorial (class)
 - `DocumentTemplate<CvDocument> create()`
 - `DocumentTemplate<CvDocument> create(BrandTheme theme)`
-- `DocumentTemplate<CvDocument> create(MintEditorial.Options)`
-- `DocumentTemplate<CvDocument> create(BrandTheme, MintEditorial.Options)`
+- `DocumentTemplate<CvDocument> create(MintEditorial.Options options)`
+- `DocumentTemplate<CvDocument> create(BrandTheme theme, MintEditorial.Options options)`
 - constants: `ID`, `DISPLAY_NAME`, `RECOMMENDED_MARGIN`
 
 ### MintEditorial.Options (record)
@@ -2974,7 +2974,7 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 133
 ### MonogramSidebar (class)
 - `DocumentTemplate<CvDocument> create()`
 - `DocumentTemplate<CvDocument> create(BrandTheme theme)`
-- `DocumentTemplate<CvDocument> create(BrandTheme, MonogramSidebar.Options)`
+- `DocumentTemplate<CvDocument> create(BrandTheme theme, MonogramSidebar.Options options)`
 - constants: `ID`, `DISPLAY_NAME`, `RECOMMENDED_MARGIN`
 
 ### MonogramSidebar.Options (record)
@@ -2996,7 +2996,7 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 133
 ### NordicClean (class)
 - `DocumentTemplate<CvDocument> create()`
 - `DocumentTemplate<CvDocument> create(BrandTheme theme)`
-- `DocumentTemplate<CvDocument> create(BrandTheme, NordicClean.Options)`
+- `DocumentTemplate<CvDocument> create(BrandTheme theme, NordicClean.Options options)`
 - constants: `ID`, `DISPLAY_NAME`, `RECOMMENDED_MARGIN`
 
 ### NordicClean.Options (record)
@@ -3009,7 +3009,7 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 133
 - `DocumentColor profileFillColor()`
 
 ### NordicClean.Options.Builder (class)
-- `NordicClean.Options.Builder railSide(NordicClean.RailSide)`
+- `NordicClean.Options.Builder railSide(NordicClean.RailSide value)`
 - `NordicClean.Options.Builder accentColor(DocumentColor value)`
 - `NordicClean.Options.Builder railFillColor(DocumentColor value)`
 - `NordicClean.Options.Builder profileFillColor(DocumentColor value)`
@@ -3026,7 +3026,7 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 133
 ### SidebarPortrait (class)
 - `DocumentTemplate<CvDocument> create()`
 - `DocumentTemplate<CvDocument> create(BrandTheme theme)`
-- `DocumentTemplate<CvDocument> create(BrandTheme, SidebarPortrait.Options)`
+- `DocumentTemplate<CvDocument> create(BrandTheme theme, SidebarPortrait.Options options)`
 - constants: `ID`, `DISPLAY_NAME`, `RECOMMENDED_MARGIN`
 
 ### SidebarPortrait.Options (record)
@@ -3061,8 +3061,8 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 133
 - `void render(SectionBuilder host, DocumentImageData icon, double iconSize, String text, DocumentTextStyle style, DocumentLinkOptions link, DocumentInsets margin)`
 
 ### ProfileBand (class)
-- `void render(PageFlowBuilder, String, String, String, ProfileBand.Style)`
-- `void render(SectionBuilder, String, String, ProfileBand.Style)`
+- `void render(PageFlowBuilder flow, String name, String title, String body, ProfileBand.Style style)`
+- `void render(SectionBuilder host, String title, String body, ProfileBand.Style style)`
 
 ### ProfileBand.Style (record)
 - `new Style(double, DocumentInsets, DocumentColor, DocumentCornerRadius, DocumentColor, double, DocumentColor, double, DocumentColor, double, DocumentTextStyle, TextAlign, boolean, DocumentTextStyle, TextAlign, double)`

@@ -16,7 +16,7 @@
     "types": 357,
     "methods": 2766,
     "constants": 339,
-    "generated": 1336
+    "generated": 1312
   },
   "packages": [
     {
@@ -2510,13 +2510,13 @@
               "kind": "method",
               "name": "series",
               "static": false,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "ChartData.Builder",
               "params": [
                 {
                   "type": "ChartData.Series",
-                  "name": null
+                  "name": "s"
                 }
               ]
             },
@@ -4284,13 +4284,13 @@
               "kind": "method",
               "name": "grid",
               "static": false,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "ChartStyle.Builder",
               "params": [
                 {
                   "type": "ChartStyle.GridStyle",
-                  "name": null
+                  "name": "grid"
                 }
               ]
             },
@@ -18892,25 +18892,25 @@
               "kind": "constructor",
               "name": "LayerStackNode",
               "static": false,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": null,
               "params": [
                 {
                   "type": "String",
-                  "name": null
+                  "name": "name"
                 },
                 {
                   "type": "List<LayerStackNode.Layer>",
-                  "name": null
+                  "name": "layers"
                 },
                 {
                   "type": "DocumentInsets",
-                  "name": null
+                  "name": "padding"
                 },
                 {
                   "type": "DocumentInsets",
-                  "name": null
+                  "name": "margin"
                 }
               ]
             },
@@ -24013,13 +24013,13 @@
               "kind": "method",
               "name": "withLabelText",
               "static": false,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "DocumentDebugOptions",
               "params": [
                 {
                   "type": "DocumentDebugOptions.LabelText",
-                  "name": null
+                  "name": "text"
                 }
               ]
             },
@@ -30200,29 +30200,29 @@
               "kind": "method",
               "name": "render",
               "static": true,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "void",
               "params": [
                 {
                   "type": "SectionBuilder",
-                  "name": null
+                  "name": "host"
                 },
                 {
                   "type": "PartyIdentity",
-                  "name": null
+                  "name": "identity"
                 },
                 {
                   "type": "BrandTheme",
-                  "name": null
+                  "name": "theme"
                 },
                 {
                   "type": "TextAlign",
-                  "name": null
+                  "name": "alignment"
                 },
                 {
                   "type": "ContactLine.Order",
-                  "name": null
+                  "name": "order"
                 }
               ]
             }
@@ -30572,25 +30572,25 @@
               "kind": "method",
               "name": "centered",
               "static": true,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "void",
               "params": [
                 {
                   "type": "SectionBuilder",
-                  "name": null
+                  "name": "host"
                 },
                 {
                   "type": "PartyIdentity",
-                  "name": null
+                  "name": "identity"
                 },
                 {
                   "type": "BrandTheme",
-                  "name": null
+                  "name": "theme"
                 },
                 {
                   "type": "Masthead.Style",
-                  "name": null
+                  "name": "style"
                 }
               ]
             }
@@ -32849,25 +32849,25 @@
               "kind": "method",
               "name": "render",
               "static": true,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "void",
               "params": [
                 {
                   "type": "SectionBuilder",
-                  "name": null
+                  "name": "parent"
                 },
                 {
                   "type": "String",
-                  "name": null
+                  "name": "name"
                 },
                 {
                   "type": "CardWidget.Style",
-                  "name": null
+                  "name": "style"
                 },
                 {
                   "type": "Consumer<SectionBuilder>",
-                  "name": null
+                  "name": "content"
                 }
               ]
             },
@@ -32875,25 +32875,25 @@
               "kind": "method",
               "name": "render",
               "static": true,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "void",
               "params": [
                 {
                   "type": "PageFlowBuilder",
-                  "name": null
+                  "name": "flow"
                 },
                 {
                   "type": "String",
-                  "name": null
+                  "name": "name"
                 },
                 {
                   "type": "CardWidget.Style",
-                  "name": null
+                  "name": "style"
                 },
                 {
                   "type": "Consumer<SectionBuilder>",
-                  "name": null
+                  "name": "content"
                 }
               ]
             }
@@ -33321,25 +33321,25 @@
               "kind": "method",
               "name": "fixed",
               "static": true,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "void",
               "params": [
                 {
                   "type": "SectionBuilder",
-                  "name": null
+                  "name": "host"
                 },
                 {
                   "type": "List<List<String>>",
-                  "name": null
+                  "name": "rows"
                 },
                 {
                   "type": "double",
-                  "name": null
+                  "name": "width"
                 },
                 {
                   "type": "TableWidget.Style",
-                  "name": null
+                  "name": "style"
                 }
               ]
             },
@@ -33347,25 +33347,25 @@
               "kind": "method",
               "name": "grid",
               "static": true,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "void",
               "params": [
                 {
                   "type": "SectionBuilder",
-                  "name": null
+                  "name": "host"
                 },
                 {
                   "type": "List<String>",
-                  "name": null
+                  "name": "cells"
                 },
                 {
                   "type": "double",
-                  "name": null
+                  "name": "width"
                 },
                 {
                   "type": "TableWidget.Style",
-                  "name": null
+                  "name": "style"
                 }
               ]
             }
@@ -33695,17 +33695,17 @@
               "kind": "method",
               "name": "render",
               "static": true,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "void",
               "params": [
                 {
                   "type": "SectionBuilder",
-                  "name": null
+                  "name": "host"
                 },
                 {
                   "type": "TimelineAxisWidget.Style",
-                  "name": null
+                  "name": "style"
                 }
               ]
             },
@@ -33713,21 +33713,21 @@
               "kind": "method",
               "name": "render",
               "static": true,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "void",
               "params": [
                 {
                   "type": "SectionBuilder",
-                  "name": null
+                  "name": "host"
                 },
                 {
                   "type": "TimelineAxisWidget.Style",
-                  "name": null
+                  "name": "style"
                 },
                 {
                   "type": "double",
-                  "name": null
+                  "name": "totalHeight"
                 }
               ]
             }
@@ -33934,13 +33934,13 @@
               "kind": "method",
               "name": "marker",
               "static": false,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "TimelineAxisWidget.Style.Builder",
               "params": [
                 {
                   "type": "TimelineAxisWidget.Marker",
-                  "name": null
+                  "name": "value"
                 }
               ]
             },
@@ -34796,13 +34796,13 @@
               "kind": "method",
               "name": "create",
               "static": true,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "DocumentTemplate<CoverLetterDocument>",
               "params": [
                 {
                   "type": "MintEditorialLetter.Options",
-                  "name": null
+                  "name": "options"
                 }
               ]
             },
@@ -34810,17 +34810,17 @@
               "kind": "method",
               "name": "create",
               "static": true,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "DocumentTemplate<CoverLetterDocument>",
               "params": [
                 {
                   "type": "BrandTheme",
-                  "name": null
+                  "name": "theme"
                 },
                 {
                   "type": "MintEditorialLetter.Options",
-                  "name": null
+                  "name": "options"
                 }
               ]
             }
@@ -36461,13 +36461,13 @@
               "kind": "method",
               "name": "placement",
               "static": false,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "CvDocument.Builder",
               "params": [
                 {
                   "type": "CvDocument.Placement",
-                  "name": null
+                  "name": "placement"
                 }
               ]
             },
@@ -38307,13 +38307,13 @@
               "kind": "method",
               "name": "create",
               "static": true,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "DocumentTemplate<CvDocument>",
               "params": [
                 {
                   "type": "MintEditorial.Options",
-                  "name": null
+                  "name": "options"
                 }
               ]
             },
@@ -38321,17 +38321,17 @@
               "kind": "method",
               "name": "create",
               "static": true,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "DocumentTemplate<CvDocument>",
               "params": [
                 {
                   "type": "BrandTheme",
-                  "name": null
+                  "name": "theme"
                 },
                 {
                   "type": "MintEditorial.Options",
-                  "name": null
+                  "name": "options"
                 }
               ]
             }
@@ -38616,17 +38616,17 @@
               "kind": "method",
               "name": "create",
               "static": true,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "DocumentTemplate<CvDocument>",
               "params": [
                 {
                   "type": "BrandTheme",
-                  "name": null
+                  "name": "theme"
                 },
                 {
                   "type": "MonogramSidebar.Options",
-                  "name": null
+                  "name": "options"
                 }
               ]
             }
@@ -38856,17 +38856,17 @@
               "kind": "method",
               "name": "create",
               "static": true,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "DocumentTemplate<CvDocument>",
               "params": [
                 {
                   "type": "BrandTheme",
-                  "name": null
+                  "name": "theme"
                 },
                 {
                   "type": "NordicClean.Options",
-                  "name": null
+                  "name": "options"
                 }
               ]
             }
@@ -38976,13 +38976,13 @@
               "kind": "method",
               "name": "railSide",
               "static": false,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "NordicClean.Options.Builder",
               "params": [
                 {
                   "type": "NordicClean.RailSide",
-                  "name": null
+                  "name": "value"
                 }
               ]
             },
@@ -39176,17 +39176,17 @@
               "kind": "method",
               "name": "create",
               "static": true,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "DocumentTemplate<CvDocument>",
               "params": [
                 {
                   "type": "BrandTheme",
-                  "name": null
+                  "name": "theme"
                 },
                 {
                   "type": "SidebarPortrait.Options",
-                  "name": null
+                  "name": "options"
                 }
               ]
             }
@@ -39699,29 +39699,29 @@
               "kind": "method",
               "name": "render",
               "static": true,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "void",
               "params": [
                 {
                   "type": "PageFlowBuilder",
-                  "name": null
+                  "name": "flow"
                 },
                 {
                   "type": "String",
-                  "name": null
+                  "name": "name"
                 },
                 {
                   "type": "String",
-                  "name": null
+                  "name": "title"
                 },
                 {
                   "type": "String",
-                  "name": null
+                  "name": "body"
                 },
                 {
                   "type": "ProfileBand.Style",
-                  "name": null
+                  "name": "style"
                 }
               ]
             },
@@ -39729,25 +39729,25 @@
               "kind": "method",
               "name": "render",
               "static": true,
-              "origin": "generated",
+              "origin": "source",
               "typeParameters": null,
               "returns": "void",
               "params": [
                 {
                   "type": "SectionBuilder",
-                  "name": null
+                  "name": "host"
                 },
                 {
                   "type": "String",
-                  "name": null
+                  "name": "title"
                 },
                 {
                   "type": "String",
-                  "name": null
+                  "name": "body"
                 },
                 {
                   "type": "ProfileBand.Style",
-                  "name": null
+                  "name": "style"
                 }
               ]
             }
