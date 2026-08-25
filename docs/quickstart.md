@@ -172,6 +172,15 @@ node scripts\preview-live.mjs           # opens live\current.pdf
 node scripts\preview-live.mjs --debug   # opens live\current-debug.pdf
 ```
 
+The shared `live/` copy shown here exists because this clone *is* the
+workspace. Working inside your own Java project there is no shared copy —
+each render writes `current.pdf` into the project folder instead, and
+`--project <id>` opens that one:
+
+```bash
+node scripts/preview-live.mjs --project <id>
+```
+
 `npm run preview` is the same thing. The helper finds SumatraPDF on `PATH`, at
 `%LOCALAPPDATA%\SumatraPDF`, or via `SUMATRAPDF_PATH`; with none found it falls
 back to the OS default PDF viewer (which may not live-reload).

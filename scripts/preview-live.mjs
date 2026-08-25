@@ -28,20 +28,30 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { projectDir as workspaceProjectDir, resolveWorkspace } from "./lib/workspace.mjs";
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-const wantDebug = process.argv.slice(2).some((a) => a === "--debug" || a === "-d");
-const liveDir = resolveLiveDir(repoRoot);
+const argv = process.argv.slice(2);
+const wantDebug = argv.some((a) => a === "--debug" || a === "-d");
+const projectId = readOption(argv, ["--project", "-p"]);
+const rootOverride = readOption(argv, ["--root"]);
 const targetName = wantDebug ? "current-debug.pdf" : "current.pdf";
-const target = path.join(liveDir, targetName);
+
+const target = projectId
+  ? path.join(workspaceProjectDir(resolveWorkspace({ explicitRoot: rootOverride }), projectId), targetName)
+  : path.join(resolveLiveDir(repoRoot), targetName);
 
 if (!fs.existsSync(target)) {
-  console.error(
-    `[preview-live] nothing to open yet: ${target}\n` +
-      `  Render something first, e.g.:\n` +
-      `    node scripts/render.mjs <project-id> <revision-id>\n` +
-      `  The render writes live/${targetName} and this command opens it.`,
-  );
+  // Which mirror is missing changes what to do about it, so the two say
+  // different things rather than one generic "render something first".
+  const advice = projectId
+    ? `  Nothing has been rendered for "${projectId}" yet:\n` +
+      `    node scripts/render.mjs ${projectId} <revision-id>\n`
+    : `  The shared live/ copy is written only when the install is the workspace.\n` +
+      `  In a plugin install, name the project instead:\n` +
+      `    node scripts/preview-live.mjs --project <id>\n`;
+  console.error(`[preview-live] nothing to open yet: ${target}\n${advice}`);
   process.exit(1);
 }
 
@@ -62,6 +72,14 @@ openWithDefault(target);
 console.log(`> opened ${target}`);
 
 // --- helpers ----------------------------------------------------------------
+
+/** `--flag value`, tolerant of the flag being absent. */
+function readOption(args, names) {
+  for (let i = 0; i < args.length; i += 1) {
+    if (names.includes(args[i]) && i + 1 < args.length) return args[i + 1];
+  }
+  return null;
+}
 
 function resolveLiveDir(root) {
   const override = process.env.GRAPHCOMPOSE_LIVE_DIR;

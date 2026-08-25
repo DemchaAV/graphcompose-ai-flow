@@ -5,6 +5,35 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.6.6 — 2026-08-25
+
+Keeping the document open while the harness works — documented where a
+person installs, and made to work in the arrangement they install into.
+
+**The install page now says to keep the render open.** Every render
+rewrites `current.pdf` in the project folder, so one window follows the
+whole run and a correction shows its effect without anyone asking for
+anything. It needs a viewer that reloads on change **and does not hold
+the file open** — the second half is the one that bites, because a viewer
+keeping a lock makes the next render fail, which reads as a harness bug
+and is not one. On Windows that is
+[SumatraPDF](https://www.sumatrapdfreader.org/), which is free, open
+source, reloads on change and lets go of the file; on macOS and Linux,
+Preview and Evince both reload in place.
+
+**`preview-live` gained `--project`, because without it the command could
+not open anything in a plugin install.** There are two mirrors and they
+are not the same file: the per-project `current.pdf`, written by every
+render, and a shared `live/` copy written only when the install *is* the
+workspace. The command looked exclusively in `live/` — so in the
+arrangement most people run, it reported "nothing to open yet" and told
+the reader to render something they had already rendered. It now resolves
+through the workspace, and the two ways of having nothing say different
+things, because the fix differs: name the project, or render for it.
+
+Documenting this is what surfaced it. The section written first named a
+command that would have failed for every reader it was written for.
+
 ## v0.6.5 — 2026-08-25
 
 The report that detected a problem and recommended something else, and

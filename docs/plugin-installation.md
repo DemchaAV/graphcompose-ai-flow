@@ -68,7 +68,7 @@ with `claude plugin tag`). `/plugin install` follows the marketplace's
 default branch; to hold an exact release, add the repository at its tag:
 
 ```text
-/plugin marketplace add DemchaAV/graphcompose-ai-flow@graphcompose-flow--v0.6.5
+/plugin marketplace add DemchaAV/graphcompose-ai-flow@graphcompose-flow--v0.6.6
 /plugin install graphcompose-flow@graphcompose
 ```
 
@@ -172,6 +172,9 @@ my-java-app/
 └── graphcompose-flow/
     ├── flow.config.json           marks the workspace
     ├── projects/<project-id>/     references, revisions, renders
+    │   ├── template-project.json  what this project is
+    │   ├── current.pdf            the latest render — keep this one open
+    │   └── current-debug.pdf      the same page with layout guides
     └── templates/<template-id>/   published bundles
 ```
 
@@ -182,6 +185,38 @@ from `src/main/java` works with no flags. Override with `--root` or
 Every command prints which workspace it resolved and how. If that line
 names somewhere unexpected, believe it — do not work around it with
 absolute paths.
+
+## Keep the document open while it works
+
+Every render rewrites `current.pdf` in the project folder, so one open
+window follows the whole run. You watch the layout arrive rather than
+hunting for the newest file under `revisions/`, and after a correction
+you see what changed without asking for anything.
+
+It has to be a viewer that reloads a file when it changes **and does not
+hold it open**. That second half is the one that bites: a viewer keeping
+a lock on the PDF makes the next render fail, which reads as a harness
+bug and is not one.
+
+On Windows use [SumatraPDF](https://www.sumatrapdfreader.org/) — free,
+open source, reloads on change, and lets go of the file. On macOS and
+Linux, Preview and Evince both reload in place.
+
+```bash
+node scripts/preview-live.mjs --project <id>           # the clean render
+node scripts/preview-live.mjs --project <id> --debug   # the one with guides
+```
+
+The helper finds SumatraPDF on `PATH`, at `%LOCALAPPDATA%\SumatraPDF`, or
+via `SUMATRAPDF_PATH`; with none of those it falls back to the OS default
+viewer, which may not live-reload.
+
+A second, shared `live/` copy exists as well, but only when the install
+*is* the workspace — that is the harness-development case, not this one.
+In a plugin install there is no shared copy, which is why the command
+takes `--project`: without it, it looks in a folder nothing writes to.
+`GRAPHCOMPOSE_LIVE_DIR` puts the shared copy somewhere on purpose (useful
+to keep it off OneDrive); `RENDER_NO_LIVE=1` turns the mirror off.
 
 ## First use
 

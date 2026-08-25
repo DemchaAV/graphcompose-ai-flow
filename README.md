@@ -51,6 +51,23 @@ You need Node 20+, Java 21+, Maven and ImageMagick, plus a Java project
 that pins GraphCompose — the version in *your* build file decides which
 skill pack the agent authors against.
 
+### Keep the document open while it works
+
+Every render rewrites `current.pdf` next to the project's
+`template-project.json`, so one open window follows the whole run — you
+watch the layout arrive instead of hunting for the newest file under
+`revisions/`. `current-debug.pdf` beside it is the same page with layout
+guides drawn on.
+
+That only works in a viewer which reloads a file when it changes **and
+does not hold it open**. A viewer that keeps a lock on the PDF makes the
+next render fail, which reads as a harness bug and is not one. On Windows
+the one to use is [SumatraPDF](https://www.sumatrapdfreader.org/) — free,
+open source, reloads on change, and lets go of the file. On macOS and
+Linux, Preview and Evince both reload in place.
+
+Open it once, at the start, and leave it there.
+
 ## Use
 
 Open your Java project in the agent, give it the reference, and say what
