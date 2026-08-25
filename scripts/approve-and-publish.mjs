@@ -39,6 +39,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
+import { measurementEvidence } from "./lib/iteration-status.mjs";
+
 import {
   describeWorkspaceLine,
   installRoot,
@@ -219,6 +221,37 @@ step("read the verdict", (entry) => {
         "decide; if they still want it approved, run the revision manager's approve directly.",
     );
   }
+});
+
+step("was it measured", (entry) => {
+  // The same argument the links step makes below, one level up. The person
+  // approving is judging the render, and parity with the reference is the one
+  // property judging the render cannot establish: they are looking at the thing
+  // itself, not at the difference between it and what it was rebuilt from.
+  //
+  // Every gate this harness has — the page diff, the footer band, the border
+  // topology, the links, the integrity check — runs inside `render-and-diff`,
+  // so a revision that never called it has passed none of them. A real proposal
+  // run reached a seven-mismatch review with no diff artifacts at all, and
+  // nothing between that and a published bundle asked.
+  const evidence = measurementEvidence(path.join(projectDir, "revisions", revisionId));
+  result.measurement = evidence;
+
+  if (!evidence.rendered) {
+    entry.detail = "no render to measure";
+    return;
+  }
+  if (evidence.measured) {
+    entry.detail = "compared against the reference";
+    return;
+  }
+  throw new Error(
+    `${revisionId} has a render that was never compared with anything — no visual-diff-stats.json, ` +
+      "no diff.png, no reference-scaled.png. Every gate lives in render-and-diff, so this revision " +
+      "has passed none of them.\n" +
+      `  Measure it: node scripts/render-and-diff.mjs --project ${args.project} --revision ${revisionId} --skip-render\n` +
+      "  If you mean to approve it unmeasured anyway, run the revision manager's approve directly.",
+  );
 });
 
 step("links", (entry) => {

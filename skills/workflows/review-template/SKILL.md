@@ -48,6 +48,14 @@ alone: the reference is scaled to the render's size automatically (and
 persisted as `reference-scaled.png`), the diff and stats land in the
 revision folder, and the loop verdict comes back as the exit code.
 
+Run it even when you can see what is wrong. A revision whose render was
+never compared carries none of the harness's gates, and the loop treats
+it as unfinished rather than as a judgement call: `iterate-status`
+answers `REVISE` with the focus `unmeasured-render`, and
+`approve-and-publish` refuses. A review written from the render alone can
+be entirely correct about what it saw and still be silent about the page
+it never compared.
+
 For a document longer than one page, every page is measured. Page 1 keeps
 the familiar names; page N is `diff-page-N.png` against
 `reference-scaled-page-N.png`, and the report's `pages` array and

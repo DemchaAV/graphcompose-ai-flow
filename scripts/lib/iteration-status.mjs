@@ -145,6 +145,33 @@ function trailingRun(chain, predicate) {
 }
 
 /**
+ * Was this revision's render ever compared against anything?
+ *
+ * The whole measurement layer — the page diff, the footer band, the border
+ * topology, the link and integrity gates — runs inside `render-and-diff`, and
+ * nothing required it to have run. An agent that shelled out to Maven itself,
+ * looked at the PDF and wrote a review by eye produced a revision the harness
+ * accepted: a real proposal run reached `visual-review.json` with seven
+ * mismatches and carried no `diff.png`, no `reference-scaled.png` and no
+ * `visual-diff-stats.json` at all. Every gate was optional in practice, because
+ * skipping one command skipped all of them.
+ *
+ * Judging the render is still judgement. Having measured it first is not.
+ *
+ * @returns {{ rendered: boolean, measured: boolean }}
+ */
+export function measurementEvidence(revisionDir) {
+  const has = (name) => fs.existsSync(path.join(revisionDir, name));
+  return {
+    rendered: has("output.pdf") || has("output.png"),
+    // Any one of them: the stats are what the diff writes, and the images are
+    // what a reviewer opens. A revision carrying none of the three was not
+    // compared with anything.
+    measured: has("visual-diff-stats.json") || has("diff.png") || has("reference-scaled.png"),
+  };
+}
+
+/**
  * Compute the loop status for one project.
  *
  * @param {{ projectDir: string, config: object, revisionId?: string|null }} options
@@ -186,11 +213,27 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
   let verdict = latest.review?.verdict ?? "REVISE";
   let failureCategory = latest.review?.failureCategory ?? null;
 
+
   if (!latest.review) {
     reasons.push(
       `${latest.id} has no visual-review.json — a render without a review is not an iteration, ` +
         "it is an unfinished one",
     );
+  }
+
+  // A render nobody compared cannot be ready. The review may be perfectly
+  // observant — the one that prompted this carried seven real mismatches — but
+  // "ready" is a claim about parity with the reference, and parity is the one
+  // thing looking at the render alone cannot establish. REVISE rather than
+  // BLOCKED: the agent fixes this itself, in one command.
+  const evidence = measurementEvidence(path.join(projectDir, "revisions", latest.id));
+  if (evidence.rendered && !evidence.measured) {
+    reasons.push(
+      `${latest.id} has a render and no comparison — no visual-diff-stats.json, no diff.png, ` +
+        "no reference-scaled.png. Every gate lives in render-and-diff, so skipping it skipped " +
+        "the page diff, the footer band, the border topology, the links and the integrity check",
+    );
+    if (verdict === "READY_FOR_APPROVAL") verdict = "REVISE";
   }
 
   if (truncatedAt) {
@@ -239,7 +282,14 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     loopStartedAfter: chain[0].revision.parentRevisionId ?? null,
     verdict,
     failureCategory,
-    largestMismatch,
+    // The fact, not the consequence. Reporting only "was the verdict
+    // downgraded" reads as "this was measured" on a revision whose review had
+    // already said REVISE, which is the opposite of what happened.
+    measurement: evidence,
+    // The next command differs: "fix this mismatch" and "you have not compared
+    // anything yet" are not the same instruction.
+    largestMismatch:
+      evidence.rendered && !evidence.measured ? "unmeasured-render" : largestMismatch,
     // Named so a caller can say "because you asked" rather than reporting a
     // user's own observation back to them as a measurement.
     focusSource: focus.source,

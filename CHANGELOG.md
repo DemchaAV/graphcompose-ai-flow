@@ -5,6 +5,39 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.8.0 — 2026-08-25
+
+Every gate this harness has was optional, and nothing said so.
+
+**A render nobody compared is no longer an iteration.** The page diff,
+the footer band, the border topology, the link check and the
+document-integrity check all live inside `render-and-diff`. Nothing
+required it to have run. An agent that rendered with Maven itself, looked
+at the PDF and wrote a review by eye produced a revision the harness
+accepted in full — and one did: a real proposal run reached
+`visual-review.json` with seven mismatches and carried no `diff.png`, no
+`reference-scaled.png` and no `visual-diff-stats.json` at all. Five gates
+skipped by not typing one command.
+
+`iterate-status` now refuses to call such a revision ready. The verdict
+becomes `REVISE`, the focus becomes `unmeasured-render`, and the report
+carries `measurement: { rendered, measured }` as a fact rather than as a
+consequence — a revision whose review already said REVISE is still
+unmeasured, and saying otherwise would be the opposite of what happened.
+`approve-and-publish` refuses outright, with the command that fixes it
+and a way through for someone who means it, exactly as it already does
+for a BLOCKED verdict.
+
+The argument is the one the link check already makes, one level up. The
+person approving is judging the render, and parity with the reference is
+the one property judging the render cannot establish: they are looking at
+the thing itself, not at the difference between it and what it was
+rebuilt from. A review written from the render alone can be entirely
+correct about everything it saw and still silent about the page it never
+compared.
+
+Judging the render is judgement. Having compared it first is not.
+
 ## v0.7.1 — 2026-08-25
 
 A review of v0.7.0, which shipped hours earlier. Four defects, all in the

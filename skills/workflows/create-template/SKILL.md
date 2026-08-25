@@ -260,6 +260,16 @@ exit code: 0 ready, 2 revise, 3 blocked, 1 a step failed. Do not run
 render, diff and iterate-status as separate turns — that is three trips
 for one deterministic chain.
 
+**This command is not optional, and the loop now enforces that.** Every
+gate the harness has lives inside it: the page diff, the footer band, the
+border topology, the link check, the document-integrity check. Rendering
+with Maven yourself and judging the PDF by eye skips all five at once —
+`iterate-status` refuses to call such a revision ready and names the
+focus `unmeasured-render`, and `approve-and-publish` refuses to publish
+it. Judging the render is judgement. Having compared it first is not:
+parity with the reference is the one property looking at the render alone
+cannot establish.
+
 Every page of the reference is compared, not only the first. Page 1 keeps
 the names it always had; page N writes `diff-page-N.png` and
 `reference-scaled-page-N.png`, and the report carries a `pages` array

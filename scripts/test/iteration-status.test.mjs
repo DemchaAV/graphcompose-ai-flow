@@ -19,7 +19,11 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { loadPipelineConfig } from "../lib/pipeline-config.mjs";
-import { computeIterationStatus, IterationStatusError } from "../lib/iteration-status.mjs";
+import {
+  computeIterationStatus,
+  IterationStatusError,
+  measurementEvidence,
+} from "../lib/iteration-status.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const config = loadPipelineConfig({ repoRoot });
@@ -393,4 +397,65 @@ test("blocking on a user's report says so, instead of claiming a repeated attemp
   assert.match(reason, /what the user reported/);
   assert.match(reason, /stop and ask them/);
   assert.ok(!reason.includes("the same attempt"), "it still claims a repeated attempt");
+});
+
+// --- a render nobody compared -------------------------------------------------
+
+/** Put a render, and optionally its comparison, into a revision folder. */
+function renderInto(dir, revisionId, { measured }) {
+  const revDir = path.join(dir, "revisions", revisionId);
+  fs.writeFileSync(path.join(revDir, "output.pdf"), "%PDF");
+  if (measured) fs.writeFileSync(path.join(revDir, "visual-diff-stats.json"), '{"mismatchPx":0}');
+}
+
+test("a render with no comparison cannot be ready, however good the review looks", () => {
+  // Every gate lives inside render-and-diff — the page diff, the footer band,
+  // the border topology, the links, the integrity check — so a revision that
+  // never called it has passed none of them. A real proposal run reached a
+  // seven-mismatch review carrying no diff artifacts at all, and the harness
+  // accepted it. Judging the render is judgement; having compared it is not.
+  const dir = projectWith([{ verdict: "READY_FOR_APPROVAL" }], "unmeasured");
+  renderInto(dir, "revision-001", { measured: false });
+
+  const status = computeIterationStatus({ projectDir: dir, config });
+  assert.equal(status.verdict, "REVISE");
+  assert.equal(status.largestMismatch, "unmeasured-render");
+  assert.deepEqual(status.measurement, { rendered: true, measured: false });
+  assert.ok(
+    status.reasons.some((r) => /render and no comparison/.test(r)),
+    `the reason was not stated: ${JSON.stringify(status.reasons)}`,
+  );
+});
+
+test("the same review passes once the comparison is there", () => {
+  const dir = projectWith([{ verdict: "READY_FOR_APPROVAL" }], "measured");
+  renderInto(dir, "revision-001", { measured: true });
+
+  const status = computeIterationStatus({ projectDir: dir, config });
+  assert.equal(status.verdict, "READY_FOR_APPROVAL");
+  assert.deepEqual(status.measurement, { rendered: true, measured: true });
+});
+
+test("a revision with nothing rendered is unrendered, not unmeasured", () => {
+  // Different state, different next step: there is nothing to compare yet.
+  const dir = projectWith([{ verdict: "REVISE", mismatch: "header" }], "unrendered");
+
+  const status = computeIterationStatus({ projectDir: dir, config });
+  assert.deepEqual(status.measurement, { rendered: false, measured: false });
+  assert.equal(status.largestMismatch, "header", "the real focus was replaced");
+});
+
+test("the evidence is any one of the three artifacts a comparison leaves", () => {
+  // The stats are what the diff writes and the images are what a reviewer
+  // opens; requiring all three would fail a pass that produced a diff image
+  // and nothing else.
+  const dir = tempDir("evidence");
+  fs.mkdirSync(dir, { recursive: true });
+  assert.deepEqual(measurementEvidence(dir), { rendered: false, measured: false });
+
+  fs.writeFileSync(path.join(dir, "output.png"), "PNG");
+  assert.deepEqual(measurementEvidence(dir), { rendered: true, measured: false });
+
+  fs.writeFileSync(path.join(dir, "reference-scaled.png"), "PNG");
+  assert.equal(measurementEvidence(dir).measured, true);
 });

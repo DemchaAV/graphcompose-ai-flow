@@ -242,6 +242,10 @@ test("a BLOCKED verdict stops the fast path before anything changes", () => {
 
 /** Give a scenario a data spec with one href, and a render that may or may not carry it. */
 function withLinks(s, { declared, rendered }) {
+  // A render that reached approval went through render-and-diff, so it carries
+  // the comparison. Without it the fixture describes a revision the harness now
+  // refuses — and would be testing the refusal instead of the links.
+  fs.writeFileSync(path.join(s.revision, "visual-diff-stats.json"), '{"mismatchPx":0}');
   write(path.join(s.revision, "cv-data.json"), { contact: [{ value: "x", href: declared }] });
   const annots = rendered
     .map((t) => `<</Subtype /Link /A <</Type /Action /S /URI /URI (${t}) >> >>`)
@@ -330,4 +334,36 @@ test("usage errors are usage errors", () => {
     encoding: "utf8",
   });
   assert.equal(badTier.status, 2);
+});
+
+test("a render nobody compared is refused before it can be published", () => {
+  // Every gate this harness has lives inside render-and-diff, so a revision
+  // that never called it has passed none of them. A real proposal run reached a
+  // seven-mismatch review carrying no diff artifacts at all, and nothing
+  // between that and a published bundle asked. The person approving is judging
+  // the render, and parity is the one property judging the render cannot
+  // establish.
+  const s = scenario({ verdict: "READY_FOR_APPROVAL" });
+  fs.writeFileSync(path.join(s.revision, "output.pdf"), "%PDF-1.7\n%%EOF\n");
+
+  const { status, parsed, output } = runCli(s.root, ["--json"]);
+  assert.notEqual(status, 0, "an unmeasured render was published");
+
+  const step = (parsed?.steps ?? []).find((e) => e.name === "was it measured");
+  assert.ok(step, `the measurement step did not run: ${output}`);
+  assert.equal(step.ok, false);
+  assert.match(step.error, /never compared with anything/);
+  assert.match(step.error, /render-and-diff/, "the command that fixes it is not named");
+  assert.match(step.error, /revision manager/, "no way through for someone who means it");
+});
+
+test("a measured render passes the gate and says so", () => {
+  const s = scenario({ verdict: "READY_FOR_APPROVAL" });
+  fs.writeFileSync(path.join(s.revision, "output.pdf"), "%PDF-1.7\n%%EOF\n");
+  fs.writeFileSync(path.join(s.revision, "visual-diff-stats.json"), '{"mismatchPx":0}');
+
+  const { parsed } = runCli(s.root, ["--json"]);
+  const step = (parsed?.steps ?? []).find((e) => e.name === "was it measured");
+  assert.equal(step?.ok, true);
+  assert.match(step.detail, /compared against the reference/);
 });
