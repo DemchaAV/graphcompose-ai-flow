@@ -7,6 +7,41 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.0-beta.12 — probes stop rebuilding what has not changed
+
+Measured before assuming: of a 6.0 s probe run, `mvn compile` was 3.0 s
+and `dependency:build-classpath` 3.6 s, against 0.7 s for the probe
+itself. Eighty-nine per cent of a probe was Maven repeating work it had
+already done, and `observations verify` paid it once per observation.
+
+- **`scripts/lib/probe-cache.mjs`** decides when either step can be
+  skipped. A compile happens when any source post-dates the newest class;
+  a classpath resolve happens when the pom's contents changed or any
+  cached entry has vanished. `--refresh` forces both.
+
+- **The key is the pom's contents, not its timestamp.** The timestamp
+  version looked right and did nothing: a commit or a branch switch
+  rewrites `pom.xml`, so the cache was thrown away after every ordinary
+  git operation while the dependencies had not moved. That is why the
+  first attempt only got 6.0 s down to 3.8 s.
+
+- **Every entry is checked to still exist.** A cleaned local repository
+  does not touch the pom, and without that check the failure is a
+  NoClassDefFoundError from the probe rather than an honest resolve.
+
+```text
+probe, cached            6.0 s -> 0.7 s
+observations verify     21.2 s -> 2.7 s
+```
+
+The predicates live in a module so they can be tested without a Java
+toolchain — fourteen tests covering an edited source, an added source, an
+unbuilt project, a touched-but-unchanged pom, a changed pom, a pruned
+dependency, a missing stamp and an empty classpath. Cache invalidation is
+exactly the logic that earns tests: a stale cache silently reporting on
+code that is no longer there would be worse than a slow probe, because a
+probe's only value is that its answer describes the build in front of you.
+
 ### v0.5.0-beta.11 — review of the day's work
 
 A review of everything shipped today, looking for broken loops, holes,

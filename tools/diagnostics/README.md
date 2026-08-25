@@ -46,8 +46,20 @@ project, and the ones that still compile are ported into it. Bumping
 `graphcompose.version` in a project's `pom.xml` re-runs every probe against
 a new build, which is how an observation gets re-confirmed or retired.
 
-Compilation is cached by Maven: the first call to a line is slow, the rest
-are not.
+The build is cached by `scripts/probe.mjs`, not left to Maven. Warm, `mvn
+compile` still costs about 3 s and resolving the classpath about 3.6 s,
+against 0.7 s for the probe itself — and `observations verify` runs one
+probe per observation, so it used to pay both every time.
+
+A cached run is about 0.7 s. Both steps are skipped only on evidence: no
+source newer than the newest class, and a classpath resolved from the
+pom's current **contents** whose every entry still exists. Contents
+rather than timestamps, because a commit or a branch switch rewrites
+`pom.xml` and a timestamp key threw the cache away after every ordinary
+git operation.
+
+`--refresh` forces a full rebuild. The cache lives under `target/`, which
+git already ignores.
 
 ## What does not belong here
 

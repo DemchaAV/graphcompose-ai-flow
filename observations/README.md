@@ -37,6 +37,10 @@ reported. `verify` re-runs the probe and compares:
 node scripts/observations.mjs verify
 ```
 
+It spawns one probe per observation, so it is bounded by how many are on
+record rather than by how long each takes: three take about 2.7 s once
+the diagnostics build is cached.
+
 That is what makes an observation retirable. When the library fixes a
 behaviour, the probe stops agreeing, verify fails, and the record is set to
 `retired` — kept rather than deleted, so the next reader knows it was

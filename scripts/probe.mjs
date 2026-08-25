@@ -17,8 +17,15 @@
  * asserted — a probe that hardcodes its own conclusion cannot report that the
  * library changed under it, which is the whole reason to keep it around.
  *
- * Compilation is cached by Maven, so the first call to a line is slow and the
- * rest are not.
+ * The build is cached here rather than left to Maven. Warm, `mvn compile` still
+ * costs about 3 s and resolving the classpath about 3.6 s, against 0.7 s for
+ * the probe itself — and `observations verify` pays both once per observation.
+ * Both are skipped when the evidence says they have nothing to do: no source
+ * newer than the newest class, and a classpath resolved from the pom's current
+ * contents whose every entry still exists. Contents, not timestamps — a commit
+ * or a branch switch rewrites pom.xml, so a timestamp key invalidated after
+ * every ordinary git operation while nothing had actually moved.
+ * `--refresh` forces both.
  *
  * Exit codes: 0 answered, 1 the probe failed to build or run, 2 usage.
  */
@@ -28,6 +35,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { installRoot } from "./lib/workspace.mjs";
+import { classpathIsUsable, needsCompile, stampClasspath } from "./lib/probe-cache.mjs";
 
 const repoRoot = installRoot();
 const DIAGNOSTICS = path.join(repoRoot, "tools", "diagnostics");
@@ -39,17 +47,19 @@ function usage(code = 0) {
       "       node scripts/probe.mjs --list [--version <line>]\n\n" +
       "  <probe-name>       a probe from --list, e.g. anchor-alignment\n" +
       "  --version <line>   GraphCompose line, e.g. 2.2 (default: the newest with probes)\n" +
-      "  --json             print the probe's JSON verbatim rather than a summary\n",
+      "  --json             print the probe's JSON verbatim rather than a summary\n" +
+      "  --refresh          rebuild and re-resolve, ignoring the cached build\n",
   );
   process.exit(code);
 }
 
 function parseArgs(argv) {
-  const out = { probe: null, version: null, json: false, list: false };
+  const out = { probe: null, version: null, json: false, list: false, refresh: false };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--help" || a === "-h") usage(0);
     else if (a === "--list") out.list = true;
+    else if (a === "--refresh") out.refresh = true;
     else if (a === "--json") out.json = true;
     else if (a === "--version" || a === "-v") out.version = argv[++i];
     else if (a.startsWith("--")) {
@@ -124,36 +134,48 @@ process.exit(result.status);
 function run(probeArgs) {
   const maven = process.platform === "win32" ? "mvn.cmd" : "mvn";
   const shell = process.platform === "win32";
-
-  // Compile first and separately, so a build failure is reported as one rather
-  // than surfacing as unparseable probe output.
-  const compile = spawnSync(maven, ["-q", "-B", "compile"], {
-    cwd: projectDir,
-    encoding: "utf8",
-    shell,
-  });
-  if (compile.status !== 0) {
-    process.stderr.write(
-      `[probe] the diagnostics project for ${version} does not compile against its pinned GraphCompose.\n` +
-        `${compile.stdout ?? ""}${compile.stderr ?? ""}`,
-    );
-    process.exit(1);
-  }
-
+  const classesDir = path.join(projectDir, "target", "classes");
   const classpathFile = path.join(projectDir, "target", "probe-classpath.txt");
-  const classpath = spawnSync(
-    maven,
-    ["-q", "-B", "dependency:build-classpath", `-Dmdep.outputFile=${classpathFile}`],
-    { cwd: projectDir, encoding: "utf8", shell },
-  );
-  if (classpath.status !== 0 || !fs.existsSync(classpathFile)) {
-    process.stderr.write("[probe] could not resolve the diagnostics classpath\n");
-    process.exit(1);
+  const pomFile = path.join(projectDir, "pom.xml");
+
+  // Two Maven invocations dominate a probe: on a warm machine, compile takes
+  // about 3 s and resolving the classpath about 3.6 s, against 0.7 s for the
+  // probe itself. Neither has anything to do most of the time, and
+  // `observations verify` pays both once per observation.
+  //
+  // A stale cache running old code would be worse than a slow probe, so both
+  // are invalidated on evidence rather than on a timestamp file.
+  if (args.refresh || needsCompile(path.join(projectDir, "src"), classesDir)) {
+    // Compile separately, so a build failure is reported as one rather than
+    // surfacing later as unparseable probe output.
+    const compile = spawnSync(maven, ["-q", "-B", "compile"], {
+      cwd: projectDir,
+      encoding: "utf8",
+      shell,
+    });
+    if (compile.status !== 0) {
+      process.stderr.write(
+        `[probe] the diagnostics project for ${version} does not compile against its pinned GraphCompose.\n` +
+          `${compile.stdout ?? ""}${compile.stderr ?? ""}`,
+      );
+      process.exit(1);
+    }
   }
 
-  const full = `${path.join(projectDir, "target", "classes")}${path.delimiter}${fs
-    .readFileSync(classpathFile, "utf8")
-    .trim()}`;
+  if (args.refresh || !classpathIsUsable(classpathFile, pomFile)) {
+    const classpath = spawnSync(
+      maven,
+      ["-q", "-B", "dependency:build-classpath", `-Dmdep.outputFile=${classpathFile}`],
+      { cwd: projectDir, encoding: "utf8", shell },
+    );
+    if (classpath.status !== 0 || !fs.existsSync(classpathFile)) {
+      process.stderr.write("[probe] could not resolve the diagnostics classpath\n");
+      process.exit(1);
+    }
+    stampClasspath(classpathFile, pomFile);
+  }
+
+  const full = `${classesDir}${path.delimiter}${fs.readFileSync(classpathFile, "utf8").trim()}`;
 
   // The jar carries no Implementation-Version, so the pinned version is passed
   // in. A probe's answer is only true of the build that produced it, so the
