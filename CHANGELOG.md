@@ -5,7 +5,26 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
-## Unreleased
+## v0.5.0 — 2026-08-25
+
+The first tagged release. The harness became installable at the start of
+this line and **proven** by the end of it: two complete acceptance runs
+in Claude Code — a two-column navy CV and a single-column serif CV, both
+from one sentence and a screenshot, both approved and published — plus a
+mechanically verified self-contained Codex install, exercised with the
+source clone deleted. Codex live discovery is the one thing still
+outstanding, and the README says so.
+
+Install this exact version:
+
+- **Claude Code** — the release is tagged `graphcompose-flow--v0.5.0`
+  (the plugin system's own tag format, created with `claude plugin tag`).
+- **Codex** — `git clone --branch v0.5.0 …` then
+  `npm run setup && node adapters/codex/install.mjs`; the runtime lands
+  in `~/.codex/graphcompose-flow/0.5.0/` and the clone can be deleted.
+
+Everything below shipped as `0.5.0-beta.1` through `-beta.15` and is
+part of this release.
 
 ### v0.5.0-beta.15 — the landing page shows the same two runs
 

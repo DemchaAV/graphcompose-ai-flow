@@ -47,6 +47,22 @@ Working on the harness itself? `--link` keeps the old behaviour — the
 skills track your working tree, and break if it moves. That trade is
 right for a contributor and wrong for everyone else.
 
+## Installing a specific version
+
+Releases are tagged `v<version>`. The runtime directory is versioned, so
+installs of different versions sit side by side and the stubs point at
+the one that installed them last:
+
+```bash
+git clone --branch v0.5.0 https://github.com/DemchaAV/graphcompose-ai-flow
+cd graphcompose-ai-flow
+npm run setup
+node adapters/codex/install.mjs
+```
+
+The clone can be deleted afterwards; `--prune` removes older runtime
+versions when you want only the current one.
+
 ## What is copied, and what is not
 
 Only what the skills actually reach for at run time: `config/`,

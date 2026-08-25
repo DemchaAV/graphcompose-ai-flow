@@ -60,6 +60,22 @@ Check that it loaded:
 You should see four skills — `create-template`, `revise-template`,
 `review-template`, `approve-template` — and four commands.
 
+### Installing a specific version
+
+Releases are tagged twice: `v<version>` (plain git) and
+`graphcompose-flow--v<version>` (the plugin system's own format, created
+with `claude plugin tag`). `/plugin install` follows the marketplace's
+default branch; to hold an exact release, add the repository at its tag:
+
+```text
+/plugin marketplace add DemchaAV/graphcompose-ai-flow@graphcompose-flow--v0.5.0
+/plugin install graphcompose-flow@graphcompose
+```
+
+A marketplace added at a tag stays there: `claude plugin update` will
+report it already current rather than moving you to a newer commit, which
+is the point — the version you validated is the version you keep.
+
 ### Trying it before publishing
 
 From a local clone, either point Claude Code at the directory:
