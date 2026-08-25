@@ -20,71 +20,51 @@ rollback, not approval. Use `graphcompose-flow undo` or
 
 ## Steps
 
-**1. Find the project and the draft.**
+**1. Confirm what is being approved.** The user's "approve" refers to the
+render they just looked at. If the current draft is a different revision
+than the one last shown, say so instead of approving silently. That
+confirmation is the only judgement in this skill.
+
+**2. Run the composite.**
 
 ```bash
-node tools/revision-manager/bin/graphcompose-flow.mjs status --project <project-dir>
+node scripts/approve-and-publish.mjs --project <project-id> [--root <workspace>]
 ```
 
-The project directory comes from the resolved workspace — see
-[workspace resolution](../references/workspace.md) if you do not have it
-yet. Confirm the revision you are about to approve is the one the user
-just looked at; when the last render was a different revision, say so
-rather than approving silently.
+One command does the whole flow — approve (DRAFT → APPROVED, previous
+APPROVED superseded), publish, generate the bundle README's stable half
+from `template.json`, verify the bundle, and report the cycle's telemetry
+— and answers with one result. Do not run the individual commands
+one at a time; five separate turns for a deterministic chain is what
+this command exists to remove, and it was measured costing 11 model
+requests before it existed.
 
-**2. Check the verdict, and be honest if it disagrees.**
+What it enforces, so you do not have to:
 
-Read the draft's `visual-review.json`. If `verdict` is
-`READY_FOR_APPROVAL`, proceed. If it is `REVISE` or `BLOCKED`, the user
-is approving something the review flagged — that is their call to make,
-but state the open mismatches in one sentence first and let them
-confirm. Never quietly approve over a `BLOCKED` verdict.
+- Only a DRAFT can be approved; anything else is refused with the reason.
+- A `BLOCKED` verdict stops the fast path **before** anything changes.
+  Tell the user the failure category; if they still insist, the revision
+  manager's own `approve` remains available — deliberately less
+  frictionless.
+- A `REVISE` verdict does not block — the human approving *is* the
+  decision — but it is recorded as `verdictAtApproval`, and you should
+  mention it in one sentence when reporting.
+- Verification runs on the published bundle (static tier by default;
+  `--verify render` also compiles and renders it standalone). A verify
+  failure exits 1 *after* reporting the completed approve and publish —
+  the state is real, and hiding it would be worse.
 
-**3. Approve.**
+**3. Fill the README's hand-written half, when it is worth it.**
 
-```bash
-node tools/revision-manager/bin/graphcompose-flow.mjs approve <revision-id> --project <project-dir>
-```
+The command generates everything derivable — preview, bundle contents,
+dependencies, usage — and leaves two sections below a marker: *Design
+notes* and *Known limitations*. If the run discovered anything a
+maintainer needs (a library behaviour worked around, an accepted
+difference from the reference), write it there. Everything above the
+marker is regenerated on every publish; everything below it survives.
 
-This flips DRAFT → APPROVED, marks the previous APPROVED as SUPERSEDED
-with `supersededBy`, and updates `currentApprovedRevisionId` in
-`template-project.json`. Do not edit `revision.json` by hand to achieve
-the same thing; the bookkeeping is the point.
-
-**4. Publish the bundle.**
-
-```bash
-node scripts/publish-template.mjs --project <project-id> [--root <workspace>]
-```
-
-The publisher is entirely mechanical: it always rewrites the bundle from
-the APPROVED revision, copies every asset, renames every source, and
-scans the result. There is no flag to preserve editorial polish, because
-a bundle that differs from its approved revision is the bug. Javadoc
-worth keeping belongs in the revision's `generated-template.java`, where
-the next render exercises it. Pass `--dry-run` first if you want to show
-the user the plan before writing.
-
-Publishing a revision that is not APPROVED fails. `--allow-unapproved`
-exists for development and says so in the output.
-
-**5. Verify the bundle stands on its own.**
-
-```bash
-node scripts/verify-published-template.mjs --template-id <id> [--root <workspace>] --render
-```
-
-This takes `templates/<id>/` and nothing else, compiles it against the
-dependencies its own `template.json` declares, and renders its example
-data. Without `--render` it does the static checks only, which still
-catch the common failure: example data naming an asset the bundle does
-not contain. Do not report a published template before this passes —
-"the files were copied" is not the same claim as "it works".
-
-**6. Report.**
-
-Name the revision that was approved, the revision it superseded, the
-bundle path, and the files written. A published bundle the user cannot
+**4. Report.** Name the approved revision, what it superseded, the
+bundle path, and the verify result. A published bundle the user cannot
 find is not delivered.
 
 ## What must not happen

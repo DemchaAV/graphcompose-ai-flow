@@ -5,6 +5,36 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## Unreleased
+
+### v0.5.1 — approve is one command
+
+The first optimization from the measured baseline. Telemetry priced the
+old approve flow at 11 model requests, two minutes and 6.5M cache-read
+tokens — for a chain the approve skill itself calls "almost no
+judgement". The transcript showed why: status, approve, publish, verify
+and metrics each ran as its own turn carrying ~590k of context, with the
+bundle README hand-written in between.
+
+- **`scripts/approve-and-publish.mjs`** chains the same CLIs — the
+  revision manager still owns the state machine, the publisher the copy,
+  the verifier the proof — and answers with one JSON. The agent's job is
+  confirm, run, relay: two turns instead of eleven.
+- **The guards survived the shortcut.** Only a DRAFT approves; BLOCKED
+  stops the fast path *before* anything changes (the revision manager's
+  own approve stays available, deliberately less frictionless); REVISE
+  does not block — the human approving is the decision — but is recorded
+  as `verdictAtApproval`. A verify failure exits 1 while reporting the
+  completed approve and publish, because by then the state is real.
+- **The bundle README's stable half is generated** from `template.json`:
+  preview, contents, dependencies, usage with the real class names.
+  Hand-written sections live below a marker and survive republishing —
+  the serif run's best README content was three discovered library
+  behaviours, exactly what a regeneration must not eat. A README without
+  the marker is left alone entirely.
+- The approve skill now runs the composite and forbids the step-by-step
+  path it used to prescribe.
+
 ## v0.5.0 — 2026-08-25
 
 The first tagged release. The harness became installable at the start of
