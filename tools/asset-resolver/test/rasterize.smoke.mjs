@@ -15,31 +15,34 @@
  * A fallback that silently produces nothing is worse than one that fails, and
  * nothing above this would notice: the PNG is a valid file of the right size.
  *
- * No network here. The SVGs are written by hand; only ImageMagick is real, and
- * the test skips itself where it is not installed rather than faking it.
+ * The measurements come from ImageMagick rather than a PNG decoder. This
+ * package has no dependencies and its CI job installs none, so reaching into a
+ * sibling module's node_modules for pngjs worked locally and failed on the
+ * runner. The tool under test can report its own pixel statistics exactly.
+ *
+ * No network here: the SVGs are written by hand. Where ImageMagick is not
+ * installed the test skips itself rather than faking it.
  */
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { createRequire } from "node:module";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-import { rasterizeSvg } from "../src/iconify.mjs";
-
-const here = path.dirname(fileURLToPath(import.meta.url));
-const { PNG } = createRequire(path.join(here, "..", "..", "visual-diff", "package.json"))("pngjs");
 
 const MAGICK = process.env.MAGICK_BINARY || "magick";
-const haveMagick =
-  spawnSync(process.platform === "win32" ? "cmd.exe" : MAGICK,
-    process.platform === "win32" ? ["/d", "/s", "/c", MAGICK, "-version"] : ["-version"],
-    { encoding: "utf8" }).status === 0;
+const onWindows = process.platform === "win32";
 
-if (!haveMagick) {
+/** Run `magick` with stdin, returning { status, stdout } — stdout as a Buffer. */
+function magick(args, input) {
+  return onWindows
+    ? spawnSync("cmd.exe", ["/d", "/s", "/c", MAGICK, ...args], { input })
+    : spawnSync(MAGICK, args, { input });
+}
+
+if (magick(["-version"]).status !== 0) {
   console.log("smoke: ImageMagick not installed — rasterize smoke SKIPPED");
   process.exit(0);
 }
+
+const { rasterizeSvg } = await import("../src/iconify.mjs");
 
 const square = (fill) =>
   Buffer.from(
@@ -48,51 +51,52 @@ const square = (fill) =>
     "utf8",
   );
 
-/** Opaque pixels, and how many of them are white. */
-function inspect(buffer) {
-  const png = PNG.sync.read(buffer);
-  let opaque = 0;
-  let white = 0;
-  for (let i = 0; i < png.data.length; i += 4) {
-    if (png.data[i + 3] === 0) continue;
-    opaque += 1;
-    if (png.data[i] > 240 && png.data[i + 1] > 240 && png.data[i + 2] > 240) white += 1;
-  }
-  return { width: png.width, height: png.height, opaque, white };
+/** One `fx` expression evaluated over a PNG, as a number. */
+function measure(png, expression) {
+  const run = magick(["png:-", "-format", `%[fx:${expression}]`, "info:-"], png);
+  assert.equal(run.status, 0, `measuring ${expression} failed: ${run.stderr}`);
+  const value = Number(run.stdout.toString("utf8").trim());
+  assert.ok(Number.isFinite(value), `${expression} did not measure to a number`);
+  return value;
 }
 
-const white = inspect(await rasterizeSvg(square("#FFFFFF"), 96));
+const white = await rasterizeSvg(square("#FFFFFF"), 96);
+const dark = await rasterizeSvg(square("#181818"), 96);
+
+// mean.a is the average alpha over the whole canvas: 0 means every pixel is
+// transparent, which is exactly what a white glyph used to produce.
+const whiteCoverage = measure(white, "mean.a");
+const darkCoverage = measure(dark, "mean.a");
+
 assert.ok(
-  white.opaque > 0,
+  whiteCoverage > 0,
   "a white glyph rasterised to nothing — -transparent white is back, or -background none moved after the input",
 );
+console.log(`smoke: white glyph survives = ok (alpha mean ${whiteCoverage.toFixed(3)})`);
+
+assert.ok(darkCoverage > 0, "a dark glyph rasterised to nothing");
+console.log(`smoke: dark glyph survives = ok (alpha mean ${darkCoverage.toFixed(3)})`);
+
+// The two are the same shape, so the same share of the canvas should survive.
+// A difference means one colour is being treated as background.
 assert.ok(
-  white.white > 0,
-  `the glyph survived but is not white any more (${white.opaque} opaque, ${white.white} white)`,
-);
-console.log(`smoke: white glyph survives = ok (${white.opaque} opaque px, ${white.white} white)`);
-
-const dark = inspect(await rasterizeSvg(square("#181818"), 96));
-assert.ok(dark.opaque > 0, "a dark glyph rasterised to nothing");
-console.log(`smoke: dark glyph survives = ok (${dark.opaque} opaque px)`);
-
-// The two are the same shape, so the same number of pixels should survive.
-// A difference here means one of them is being treated as background.
-assert.equal(
-  white.opaque,
-  dark.opaque,
-  `colour changed how much of the glyph survived: white ${white.opaque}, dark ${dark.opaque}`,
+  Math.abs(whiteCoverage - darkCoverage) < 0.001,
+  `colour changed how much survived: white ${whiteCoverage}, dark ${darkCoverage}`,
 );
 console.log("smoke: colour does not change what survives = ok");
 
-// The background must be transparent, not white — that is what -background
-// none is there for, and the reason it must precede the input.
-const framed = inspect(await rasterizeSvg(square("#181818"), 96));
+// And the white one is still white rather than surviving as some other colour.
+const whitePeak = measure(white, "maxima.r");
+assert.ok(whitePeak > 0.9, `the glyph survived but is not white (peak red ${whitePeak})`);
+console.log(`smoke: the white glyph is still white = ok (peak red ${whitePeak.toFixed(3)})`);
+
+// The background must be transparent, not white — that is what -background none
+// is for, and the reason it has to precede the input.
 assert.ok(
-  framed.opaque < framed.width * framed.height,
+  darkCoverage < 1,
   "every pixel is opaque — the SVG was rasterised onto a background",
 );
 console.log("smoke: background stays transparent = ok");
 
-assert.equal(white.width, 96, "the requested size was not honoured");
+assert.equal(measure(white, "w"), 96, "the requested size was not honoured");
 console.log("smoke: PASS");
