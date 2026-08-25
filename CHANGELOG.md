@@ -7,6 +7,36 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.0-beta.15 — the landing page shows the same two runs
+
+The site still advertised the eleven-agent chain and the
+`mint-editorial-cv` bundle it produced: reference, render and debug
+overlay, over two pages. Same problem the README had — it demonstrates
+the renderer, not the loop.
+
+- **`LiveExample` is now two runs**, each as reference · one request ·
+  after corrections, with the counts, the corrections in the user's own
+  words, and the measured cycle costs for the run that has them. The
+  middle column is outlined, because it is the claim being made.
+- **`site/src/data/runs.json`** holds the facts, hand-written: the runs
+  happened in a user's own Java project — which is where the harness is
+  meant to work — so there is no artifact in this repository to derive
+  them from. A contract test asserts the figures also appear in the
+  README, since two places holding the same numbers is how they drift. It
+  was checked against a deliberately altered count.
+- **`sync-assets.mjs` serves the README's own images**, so the front page
+  and the landing page cannot show different work.
+
+Two dead things went with it. `Pillars` linked to
+`prompts/visual-review-agent.md`, deleted three releases ago — a broken
+link on the public page — and described "the Visual Review agent" and
+"the Template Publisher" as if the chain still existed. The hero's alt
+text still said "11-agent".
+
+A second new test walks every `tree/main` and `blob/main` link the site
+makes and fails on any that no longer resolves. That is how the dead
+prompt link survived: nothing was checking.
+
 ### v0.5.0-beta.14 — the front page shows what the harness actually does
 
 The README's example was `mint-editorial-cv`, produced by the

@@ -13,19 +13,17 @@ const repoRoot = resolve(siteRoot, '..');
 const outDir = join(siteRoot, 'public', 'previews');
 
 const assets = [
-  // CV reference (input)
-  ['examples/cv-reference/reference/reference-page-1.png', 'cv/reference-page-1.png'],
-  ['examples/cv-reference/reference/reference-page-2.png', 'cv/reference-page-2.png'],
-  // mint-editorial-cv published bundle (output)
-  ['templates/mint-editorial-cv/preview/output-page-1.png', 'cv/output-page-1.png'],
-  ['templates/mint-editorial-cv/preview/output-page-2.png', 'cv/output-page-2.png'],
-  ['templates/mint-editorial-cv/preview/output-debug-page-1.png', 'cv/output-debug-page-1.png'],
-  ['templates/mint-editorial-cv/preview/output-debug-page-2.png', 'cv/output-debug-page-2.png'],
-  // Hero artwork — switched from .jpg to .png in the 11-agent flow
-  // diagram refresh; the .jpg was removed in the same commit. Keep the
-  // destination filename aligned with the source extension so any
-  // <img src="/previews/hero/graphcompose-ai-flow.png"> references in
-  // site/src/* resolve.
+  // The two runs the current harness produced, as the landing page shows them:
+  // reference, what one request produced, and the result after corrections.
+  // These are the same files README.md uses, so the page and the front of the
+  // repository cannot show different work.
+  ['assets/readme/v0.5/navy-reference.jpg', 'runs/navy-reference.jpg'],
+  ['assets/readme/v0.5/navy-one-request.png', 'runs/navy-one-request.png'],
+  ['assets/readme/v0.5/navy-final.png', 'runs/navy-final.png'],
+  ['assets/readme/v0.5/serif-reference.jpg', 'runs/serif-reference.jpg'],
+  ['assets/readme/v0.5/serif-one-request.png', 'runs/serif-one-request.png'],
+  ['assets/readme/v0.5/serif-final.png', 'runs/serif-final.png'],
+  // Hero artwork.
   ['assets/readme/graphcompose-ai-flow.png', 'hero/graphcompose-ai-flow.png'],
 ];
 

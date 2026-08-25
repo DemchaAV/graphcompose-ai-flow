@@ -23,13 +23,13 @@ const pillars = [
   {
     title: 'Typed Java specs + data JSON',
     body: 'Templates accept content through a typed Java spec loaded via --spec-provider. Editing content is one JSON file change. No Java edits to swap the data.',
-    href: `${repoUrl}/tree/main/templates/mint-editorial-cv/data`,
-    linkLabel: 'templates/.../data/',
+    href: `${repoUrl}/blob/main/skills/workflows/references/authoring-rules.md`,
+    linkLabel: 'authoring-rules.md',
   },
   {
     title: 'Human approval gate',
-    body: 'The Visual Review agent writes a structured review. Only on APPROVE does the Template Publisher emit a polished bundle. The AI never marks its own work as ready to ship.',
-    href: `${repoUrl}/blob/main/prompts/visual-review-agent.md`,
+    body: 'The review skill writes a structured verdict, and the loop stops there. Publishing happens only when a person approves, and the publisher refuses any revision that is not APPROVED. The agent never marks its own work ready to ship.',
+    href: `${repoUrl}/blob/main/skills/workflows/review-template/SKILL.md`,
     linkLabel: 'prompts/visual-review-agent.md',
   },
   {

@@ -1,0 +1,43 @@
+{
+  "$comment": "The two runs the current harness produced, as the landing page shows them. Hand-written rather than generated: these ran in a user's own Java project, which is where the harness is meant to work, so there is no artifact in this repository to derive them from. scripts/test/contracts.test.mjs asserts the figures here also appear in README.md, because two places holding the same numbers is how they drift.",
+  "runs": [
+    {
+      "id": "navy-sidebar-cv",
+      "title": "Two-column CV",
+      "subtitle": "photo, navy sidebar, timeline rail",
+      "images": {
+        "reference": "runs/navy-reference.jpg",
+        "oneRequest": "runs/navy-one-request.png",
+        "final": "runs/navy-final.png"
+      },
+      "autonomousRevisions": 5,
+      "corrections": 2,
+      "totalRevisions": 8,
+      "minutes": 77,
+      "correctionSummary": "Both about the timeline: the rail overran its markers, and a job title drifted off centre.",
+      "note": "Twice the loop could not tell a layout fault from a painting fault, so it wrote a probe — a throwaway document that renders one arrangement and measures the pixels — and settled it. Both findings are recorded observations now, with probes that re-confirm them."
+    },
+    {
+      "id": "serif-headline-cv",
+      "title": "Single-column CV",
+      "subtitle": "display serif, proportional skill bars, icon rows",
+      "images": {
+        "reference": "runs/serif-reference.jpg",
+        "oneRequest": "runs/serif-one-request.png",
+        "final": "runs/serif-final.png"
+      },
+      "autonomousRevisions": 8,
+      "corrections": 3,
+      "totalRevisions": 11,
+      "correctionSummary": "Three plain sentences about what looked wrong, none explaining how to fix it.",
+      "quote": "вот только sertification и achivment разделитель вертикальный",
+      "cycles": [
+        { "label": "create from the reference", "minutes": 68, "output": "280.4k", "cacheRead": "61.0M", "requests": 211 },
+        { "label": "first correction", "minutes": 7, "output": "25.2k", "cacheRead": "16.0M", "requests": 32 },
+        { "label": "second correction", "minutes": 10, "output": "36.4k", "cacheRead": "21.8M", "requests": 39 },
+        { "label": "approve and publish", "minutes": 2, "output": "8.1k", "cacheRead": "6.5M", "requests": 11 }
+      ]
+    }
+  ],
+  "caveat": "Neither run was pixel-perfect from one request, and the pixel-similarity figure stayed unimpressive in both: the references are rasterised in typefaces no bundled family reproduces, so glyph edges dominate the comparison. The images are the evidence; the score is not."
+}

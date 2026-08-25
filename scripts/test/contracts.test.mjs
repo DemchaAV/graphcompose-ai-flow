@@ -327,3 +327,69 @@ test("the roadmap does not report a phase as done while its acceptance is outsta
     );
   }
 });
+
+test("the site and the README report the same runs", () => {
+  // Two places holding the same numbers is how they drift. The site's run data
+  // is hand-written because the runs happened in a user's own Java project —
+  // which is where the harness is meant to work, so there is no artifact here
+  // to derive them from — and this is what keeps the two honest.
+  const runs = JSON.parse(read("site/src/data/runs.json")).runs;
+  const readme = read("README.md");
+
+  assert.ok(runs.length >= 2, "the site shows fewer runs than the README describes");
+
+  // The README spells small counts out — "Five revisions on its own" reads
+  // better than "5 revisions" — so this accepts either rather than dictating
+  // the prose.
+  const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+  const numeral = (n) => (WORDS[n] ? `(?:${n}|${WORDS[n]})` : String(n));
+
+  for (const run of runs) {
+    assert.match(
+      readme,
+      new RegExp(`${numeral(run.autonomousRevisions)}\\s+revisions?`, "i"),
+      `${run.id}: the README does not mention ${run.autonomousRevisions} unattended revisions`,
+    );
+    assert.match(
+      readme,
+      new RegExp(`After ${run.corrections} correction`, "i"),
+      `${run.id}: the README does not show the ${run.corrections}-correction column`,
+    );
+    for (const image of Object.values(run.images)) {
+      // The site serves these from public/previews; the files themselves are
+      // the ones the README uses, synced by site/scripts/sync-assets.mjs.
+      const source = path.join(repoRoot, "assets", "readme", "v0.5", path.basename(image));
+      assert.ok(fs.existsSync(source), `${run.id}: missing shared image ${path.basename(image)}`);
+    }
+  }
+
+  const cycles = runs.flatMap((r) => r.cycles ?? []);
+  for (const cycle of cycles) {
+    assert.match(
+      readme,
+      new RegExp(`${cycle.minutes} min`),
+      `the README does not carry the "${cycle.label}" timing`,
+    );
+  }
+});
+
+test("every repository link the site makes still resolves", () => {
+  // The landing page linked to prompts/visual-review-agent.md for three
+  // releases after that file was deleted. Nothing was checking, and a dead
+  // link on the public page is worse than a dead link in a doc: it is the
+  // first thing a visitor clicks.
+  const componentsDir = path.join(repoRoot, "site", "src", "components");
+  if (!fs.existsSync(componentsDir)) return;
+
+  const dead = [];
+  for (const file of fs.readdirSync(componentsDir).filter((f) => f.endsWith(".astro"))) {
+    const text = fs.readFileSync(path.join(componentsDir, file), "utf8");
+    for (const [, target] of text.matchAll(/(?:tree|blob)\/main\/([^`'"\s)]+)/g)) {
+      // Skip interpolated hrefs — their value is only known at build time.
+      if (target.includes("${")) continue;
+      if (!fs.existsSync(path.join(repoRoot, target))) dead.push(`${file} → ${target}`);
+    }
+  }
+
+  assert.deepEqual(dead, [], `the site links to paths that no longer exist:\n  ${dead.join("\n  ")}`);
+});
