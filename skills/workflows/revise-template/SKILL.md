@@ -111,6 +111,35 @@ work later ("keep the new awards but restore the old header").
   revision per intent keeps the diff attributable and the rollback
   useful.
 
+## A correction does not need the conversation that built the template
+
+Everything a revision pass needs is on disk: the revisions, the reviews,
+the template source, the reference, the renders. That is the point of the
+file-based model — so **a correction works just as well in a fresh
+session**, and much more cheaply. Measured on a real run: a one-sentence
+correction made in the same session as the create carried ~550k tokens of
+inherited context on every model call; the state it actually needed reads
+in at a fraction of that.
+
+Starting fresh: `node scripts/preflight.mjs --project-dir <dir> --project
+<id>` re-establishes everything — workspace, version, scope, loop state —
+in one call. Do not re-read the create conversation's artifacts wholesale;
+load the revision being corrected and what its scope requires.
+
+**Work from crops, not pages.** For a localized correction, cut both
+images down to the region in question:
+
+```bash
+node tools/visual-diff/bin/crop-region.mjs --revision <revision-dir> --region <id> [--bounds x,y,w,h]
+```
+
+One fractional rect is projected onto the reference and the render at
+their own resolutions, so the two crops correspond. Bounds come from the
+region's `bounds` in `visual-analysis.json` when the analysis recorded
+them; otherwise pass `--bounds` once and consider adding them to the
+analysis. The default 2% padding keeps the surrounding context in frame —
+"too close to the divider" needs the divider visible.
+
 ## When the change is "that looks wrong"
 
 Sometimes the user reports a symptom rather than requesting an edit —

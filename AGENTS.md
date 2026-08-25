@@ -92,6 +92,7 @@ PowerShell, cmd and bash.
 | Generate an artifact's reading copy | `node scripts/render-artifact-md.mjs --revision <revision-dir>` |
 | Ask how the library behaves | `node scripts/probe.mjs --list` · `node scripts/probe.mjs <name>` |
 | What previous runs learned | `node scripts/observations.mjs list` · `verify` |
+| Crop both images to one region | `node tools/visual-diff/bin/crop-region.mjs --revision <dir> --region <id>` |
 | Measure a diff | `node tools/visual-diff/bin/visual-diff.mjs <reference.png> <output.png> --json --update-revision <revision>` |
 | Ask whether the loop may continue | `node scripts/iterate-status.mjs <project-id>` — exit 0 ready, 2 revise, 3 blocked |
 | Approve and publish | `node scripts/approve-and-publish.mjs --project <id>` — one command: approve, publish, README, verify |

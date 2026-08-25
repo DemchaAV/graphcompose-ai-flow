@@ -7,6 +7,33 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.2 — corrections read crops, not pages
+
+Second optimization from the baseline. The measured case: "too close to
+the divider" — one sentence about one region — cost 39 model requests,
+each carrying two full pages of pixels plus ~550k tokens of inherited
+create-session context.
+
+- **`crop-region`** (a second `tools/visual-diff` bin, pure pngjs) cuts
+  the reference and the render down to one region. Bounds are page
+  fractions, deliberately unlike mask-regions' pixel rects: a mask pairs
+  two same-size renders, a crop pairs images of different resolutions,
+  and one fractional rect projects onto each pixel grid without
+  resampling either. Proven on the real serif run: the certifications
+  band came out as corresponding 49 KB and 147 KB crops from a 1240- and
+  a 1024-wide image.
+- **Regions may now carry `bounds: {x,y,w,h}`** in `visual-analysis.json`
+  (optional, page fractions). The analyse stage records them — four
+  numbers per region — and that is what makes a region croppable. A
+  region without bounds is refused with instructions, not guessed at.
+- **The default 2% padding keeps context in frame**, because "too close
+  to the divider" needs the divider visible; an exact-edge crop hides
+  precisely the relationship being judged.
+- **`revise-template` now states the fresh-session protocol.** Everything
+  a correction needs is on disk — that is what the file-based model is
+  for — so a correction works in a fresh session at a fraction of the
+  inherited-context cost, re-entering through one `preflight` call.
+
 ### v0.5.1 — approve is one command
 
 The first optimization from the measured baseline. Telemetry priced the

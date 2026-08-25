@@ -93,6 +93,39 @@
           "notes": {
             "type": "string",
             "minLength": 1
+          },
+          "bounds": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "x",
+              "y",
+              "w",
+              "h"
+            ],
+            "description": "The region as FRACTIONS of the page, top-left origin. Optional but cheap — four numbers — and it is what makes the region croppable: crop-region projects one fractional rect onto the reference and the render, whatever their resolutions, so a correction pass reads two small crops instead of two full pages. A region without bounds cannot be cropped, and the tool refuses rather than guessing.",
+            "properties": {
+              "x": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "y": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "w": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1
+              },
+              "h": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1
+              }
+            }
           }
         }
       }

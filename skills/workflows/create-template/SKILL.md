@@ -70,7 +70,11 @@ copies** below.
 
 Describe the page in **ratios and dependencies, not pixels**. Name every
 region with a stable kebab-case id — every later artifact addresses
-regions by those ids. Record, for each element whose position depends on
+regions by those ids — and give each one `bounds: {x, y, w, h}` as page
+fractions. Four numbers per region, and they are what make a region
+croppable later: a correction pass can then read two small crops instead
+of two full pages. A region without bounds cannot be cropped, and the
+tool refuses rather than guessing. Record, for each element whose position depends on
 another, the *relationship* ("badge sits at the top-right of the
 avatar"), not an offset. Shape ownership is mandatory for the five cases
 that otherwise get drawn as free-floating text: initials or icons inside
