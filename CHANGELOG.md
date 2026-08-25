@@ -5,6 +5,24 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.11.1 — 2026-08-25
+
+**The plugin showed a red error on every load.** `.claude-plugin/plugin.json`
+declared `./hooks/hooks.json`, which Claude Code loads on its own — so the
+loader refused the explicit reference as a duplicate, and the refusal is for
+the whole file. The five hooks worked; the plugin page carried an error
+anyway, and a user read it before any test did. `manifest.hooks` is for
+*additional* hook files, and there are none. Pinned so it cannot come back.
+
+Also: the retired-observation test added in 0.11.0 ran `observations verify`,
+which needs a JDK and Maven. The harness-contracts CI job is the Node-only one
+by design, so every probe reported "did not run" and the tag went red on a
+toolchain rather than on a behaviour. It skips where probes cannot run now.
+
+Worth recording, unfixed: no CI job runs `observations verify` at all, so a
+library release that changes a behaviour under a recorded observation — which
+is exactly what 2.2.1 did — is noticed by a person or not at all.
+
 ## v0.11.0 — 2026-08-25
 
 GraphCompose 2.2.1, and three things a real proposal run showed.

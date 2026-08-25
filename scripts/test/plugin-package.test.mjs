@@ -41,6 +41,34 @@ test("plugin.json parses and carries the fields a plugin needs", () => {
   assert.ok(plugin.author?.name, "plugin.author.name is missing");
 });
 
+test("the manifest does not re-declare the hooks file the loader already loads", () => {
+  // `hooks/hooks.json` is loaded automatically. Naming it again in
+  // `manifest.hooks` makes the loader refuse it as a duplicate — and the refusal
+  // is for the whole file, so the plugin shows a red error on every load while
+  // the hooks themselves work. It shipped in 0.11.0 and a user read the error
+  // before any test did.
+  //
+  // `manifest.hooks` is for ADDITIONAL hook files. There are none.
+  const plugin = readJson(".claude-plugin/plugin.json");
+  const standard = "hooks/hooks.json";
+  assert.ok(
+    fs.existsSync(path.join(repoRoot, standard)),
+    "the standard hooks file is gone — this contract needs rewriting, not deleting",
+  );
+
+  const declared = plugin.hooks;
+  if (declared === undefined) return; // nothing declared, which is correct
+
+  const named = (Array.isArray(declared) ? declared : [declared]).map((entry) =>
+    String(entry).replace(/^\.\//, "").replace(/\\/g, "/"),
+  );
+  assert.ok(
+    !named.includes(standard),
+    `manifest.hooks names ${standard}, which the loader loads on its own — ` +
+      "it is for additional hook files only",
+  );
+});
+
 test("the declared skills directory is where the skills actually are", () => {
   const plugin = readJson(".claude-plugin/plugin.json");
   const declared = Array.isArray(plugin.skills) ? plugin.skills : [plugin.skills];
