@@ -5,6 +5,55 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.7.0 — 2026-08-25
+
+A reference can be a proposal, a report or a book. Until now the harness
+rasterised every page of one and then measured the first.
+
+**Every page is compared.** The evidence had been on disk for months:
+`examples/cv-reference` carries `reference-page-2.png`, its revisions
+carry `output-page-2.png`, and no revision has ever held a diff between
+the two. Page 1 keeps the names it always had — `reference.png`,
+`output.png`, `reference-scaled.png`, `diff.png`, which everything
+downstream reads. Page N writes `diff-page-N.png` and
+`reference-scaled-page-N.png`, and the report gains a `pages` array,
+`worstPage`, `missingFromRender` and `extraInRender`.
+
+Two verdicts come out of it, and neither can be argued with by looking at
+page 1. `missing-pages`: the reference has a page the render never
+produced, so it was never compared at all — the report names
+`render.pages` as the field to change. `page-N`: page 1 matches and a
+continuation page does not, with the two images to open. On a proposal,
+page 1 is the cover and is the page most likely to be right.
+
+**Importing a one-page PDF used to fail outright.** The renderer's
+`--page` is a zero-based index and the import passed the human number
+through, so a one-page PDF asked for index 1 and was refused: *"page
+index 1 out of range; pdf has 1 page(s)"*. That is the most ordinary
+reference there is.
+
+**Importing a two-page PDF put page two into `reference.png`.** The worse
+half of the same off-by-one, because nothing failed: page one was never
+imported and every later measurement was taken against the wrong page.
+Proven by comparing the imported reference against the revision's own
+page-1 raster — 0 px after the fix, 94,932 px against page 2.
+
+**And the page count was guessed from the raw bytes**, scanning for
+`/Type /Pages … /Count N`. That dictionary lives in a compressed object
+stream in every PDF GraphCompose itself writes, so the scan found nothing
+and the function returned its "safe floor" of one — measured across all
+nine `cv-reference` revisions: the scan found 0, the renderer reports 2.
+It now asks the renderer, which was already required on that path.
+
+Both halves had to move together: the diff could compare N pages, and the
+import would only ever produce one. `import-reference` now also sets
+`render.pages`, because rasterising the render is driven by that field
+and there would otherwise be nothing on the render side to compare to.
+
+The create and review skills say that a reference can be longer than one
+page, that continuation pages are structurally different from the first,
+and which of the two verdicts means which fix.
+
 ## v0.6.6 — 2026-08-25
 
 Keeping the document open while the harness works — documented where a

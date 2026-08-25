@@ -80,6 +80,25 @@ function runCli(root, extra) {
   return { status: spawned.status, parsed, output: `${spawned.stdout ?? ""}${spawned.stderr ?? ""}` };
 }
 
+
+/** Any PDF in this checkout with more than one page, or null. */
+function multiPagePdf() {
+  const root = path.join(repoRoot, "examples");
+  if (!fs.existsSync(root)) return null;
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const revisions = path.join(root, entry.name, "revisions");
+    if (!fs.existsSync(revisions)) continue;
+    for (const rev of fs.readdirSync(revisions)) {
+      // A revision that rasterised a second page had one to rasterise.
+      if (!fs.existsSync(path.join(revisions, rev, "output-page-2.png"))) continue;
+      const pdf = path.join(revisions, rev, "output.pdf");
+      if (fs.existsSync(pdf)) return pdf;
+    }
+  }
+  return null;
+}
+
 const projectOf = (ws) =>
   JSON.parse(fs.readFileSync(path.join(ws.project, "template-project.json"), "utf8"));
 
@@ -106,6 +125,14 @@ test("the manifest records both the input and what everything reads", () => {
   assert.equal(project.referenceSource, "reference/source.png");
   assert.equal(project.referencePages, 1);
   assert.ok(project.updatedAt, "the import did not stamp the project");
+});
+
+test("a single-page import does not invent a render block it does not need", () => {
+  const ws = workspace("onepagerender");
+  runCli(ws.root, ["--project", "demo", "--file", writePng(path.join(ws.host, "one.png"))]);
+  const project = projectOf(ws);
+  assert.equal(project.referencePages, 1);
+  assert.equal(project.render, undefined, "a one-page project grew a render.pages it has no use for");
 });
 
 test("re-importing replaces the reference rather than adding a second one", () => {
@@ -183,6 +210,88 @@ test("usage errors are usage errors", () => {
 
 const jar = path.join(repoRoot, "tools", "preview-renderer", "target", "preview-renderer.jar");
 const havePdfPath = fs.existsSync(jar) && spawnSync("java", ["-version"], { encoding: "utf8" }).status === 0;
+
+test("a one-page pdf imports, rather than being refused as out of range", { skip: !havePdfPath }, () => {
+  // The renderer's --page is a zero-based index; this passed the human number
+  // straight through. A one-page PDF therefore asked for index 1 and was
+  // refused outright — the single most ordinary case there is.
+  const ws = workspace("onepagepdf");
+  const single = pdfWithPages(1);
+  if (!single) return; // no one-page PDF in this checkout
+
+  const { status, parsed, output } = runCli(ws.root, ["--project", "demo", "--file", single]);
+  assert.equal(status, 0, output);
+  assert.equal(parsed.pages, 1);
+  assert.deepEqual(parsed.files, ["reference.png"]);
+});
+
+test("page one of a multi-page pdf is the page that lands in reference.png", { skip: !havePdfPath }, () => {
+  // The worse half of the same off-by-one: nothing failed, page TWO became the
+  // reference, and every later measurement was taken against the wrong page.
+  const ws = workspace("firstpage");
+  const source = pdfWithPages(2);
+  if (!source) return;
+
+  runCli(ws.root, ["--project", "demo", "--file", source]);
+
+  // The revision that produced the PDF also rasterised its own page 1. If the
+  // import took the right page, the two are the same image.
+  const revisionDir = path.dirname(source);
+  const imported = PNG.sync.read(
+    fs.readFileSync(path.join(ws.project, "reference", "reference.png")),
+  );
+  const pageOne = PNG.sync.read(fs.readFileSync(path.join(revisionDir, "output.png")));
+
+  assert.equal(imported.width, pageOne.width, "the imported page is not page 1's size");
+  assert.equal(imported.height, pageOne.height, "the imported page is not page 1's size");
+  assert.ok(
+    imported.data.equals(pageOne.data),
+    "reference.png is not page 1 of the source — the page index is off again",
+  );
+});
+
+test("a multi-page import tells the render how long the document is", { skip: !havePdfPath }, () => {
+  // Rasterising the render is driven by `render.pages`, and importing a
+  // multi-page reference used to leave it at one. Both sides then had page 1
+  // and only the reference had the rest, so pages 2..N could not be compared
+  // even once the diff learned how — there was nothing to compare them to.
+  const ws = workspace("renderpages");
+  const multi = multiPagePdf();
+  if (!multi) return; // no multi-page PDF in this checkout
+
+  const { status, parsed } = runCli(ws.root, ["--project", "demo", "--file", multi]);
+  assert.equal(status, 0);
+  assert.ok(parsed.pages > 1, `${multi} rasterised as ${parsed.pages} page(s)`);
+
+  const project = projectOf(ws);
+  assert.equal(project.referencePages, parsed.pages);
+  assert.equal(project.render?.pages, parsed.pages, "the render was not told to produce them");
+});
+
+
+/** A PDF in this checkout with exactly `want` pages, asked of the renderer. */
+function pdfWithPages(want) {
+  const root = path.join(repoRoot, "examples");
+  if (!fs.existsSync(root)) return null;
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const revisions = path.join(root, entry.name, "revisions");
+    if (!fs.existsSync(revisions)) continue;
+    for (const rev of fs.readdirSync(revisions).sort()) {
+      const pdf = path.join(revisions, rev, "output.pdf");
+      if (!fs.existsSync(pdf)) continue;
+      if (!fs.existsSync(path.join(revisions, rev, "output.png"))) continue;
+      const run = spawnSync("java", ["-jar", jar, "text", "--pdf", pdf], { encoding: "utf8" });
+      if (run.status !== 0) continue;
+      try {
+        if (JSON.parse(run.stdout).pageCount === want) return pdf;
+      } catch {
+        /* not this one */
+      }
+    }
+  }
+  return null;
+}
 
 test("a pdf is rasterised through the same PDFBox path the render loop uses", { skip: !havePdfPath }, () => {
   const ws = workspace("pdf");

@@ -63,6 +63,19 @@ terms. Do not copy or convert the file yourself: that is the single step
 where two runs of the same request end up measuring against two
 different images.
 
+**A reference can be longer than one page.** A proposal, a report or a
+book arrives as a multi-page PDF, and every page is rasterised:
+`reference.png` is page 1 and `reference-page-N.png` is the rest. The
+import also sets `render.pages`, because rasterising the render is driven
+by that field and a document rebuilt at one page cannot be compared
+against a reference that has three.
+
+Read every page before you plan. A continuation page is not a copy of the
+first with different text: it usually has no masthead, may repeat a
+header row, and carries the page numbering. Those are structural
+decisions, and finding them at page 1 is much cheaper than finding them
+after the layout is built around a single page.
+
 The metrics call marks where the run began, so the numbers can separate
 "this whole template" from "this one correction". Skip it and the run
 clock falls back to the first thing the user said, which is close but not
@@ -246,6 +259,19 @@ is a live target in the PDF, and answers with the loop verdict as its
 exit code: 0 ready, 2 revise, 3 blocked, 1 a step failed. Do not run
 render, diff and iterate-status as separate turns — that is three trips
 for one deterministic chain.
+
+Every page of the reference is compared, not only the first. Page 1 keeps
+the names it always had; page N writes `diff-page-N.png` and
+`reference-scaled-page-N.png`, and the report carries a `pages` array
+plus `worstPage`. Two verdicts come from this and neither can be argued
+with by looking at page 1:
+
+- `missing-pages` — the reference has a page the render never produced,
+  so it was never compared at all. Set `render.pages` in
+  `template-project.json` to the reference's page count and render again.
+- `page-N` — page 1 matches and a continuation page does not. Open
+  `diff-page-N.png` against `reference-scaled-page-N.png`; the fix is on
+  that page, not on the one you have been looking at.
 
 A dead link turns a ready verdict into `REVISE` with focus
 `dead-links`, and it is the one finding you cannot argue with by looking

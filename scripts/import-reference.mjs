@@ -83,7 +83,18 @@ function fail(message, code) {
   process.exit(code);
 }
 
-/** Rasterise one PDF page with the same PDFBox path the render loop uses. */
+/**
+ * Rasterise one PDF page with the same PDFBox path the render loop uses.
+ *
+ * `page` is 1-based, the way a person counts. The renderer's `--page` is a
+ * zero-based index — the same convention `render-runtime` uses when it asks for
+ * `--page 0` — and this passed the human number straight through. Importing a
+ * one-page PDF therefore asked for index 1 and was refused outright ("page
+ * index 1 out of range; pdf has 1 page(s)"), and importing a two-page PDF put
+ * page *two* into `reference.png` and never imported page one. The second is
+ * the worse of the pair: nothing fails, and every later measurement is taken
+ * against the wrong page.
+ */
 function rasterisePdfPage(source, target, page, dpi) {
   const jar = path.join(repoRoot, "tools", "preview-renderer", "target", "preview-renderer.jar");
   if (!fs.existsSync(jar)) {
@@ -91,7 +102,19 @@ function rasterisePdfPage(source, target, page, dpi) {
   }
   const run = spawnSync(
     "java",
-    ["-jar", jar, "preview", "--pdf", source, "--out", target, "--dpi", String(dpi), "--page", String(page)],
+    [
+      "-jar",
+      jar,
+      "preview",
+      "--pdf",
+      source,
+      "--out",
+      target,
+      "--dpi",
+      String(dpi),
+      "--page",
+      String(page - 1),
+    ],
     { encoding: "utf8" },
   );
   return run.status === 0 && fs.existsSync(target)
@@ -109,13 +132,40 @@ function convertRaster(source, target) {
     : { ok: false, error: (run.stderr || run.stdout || `${MAGICK} failed`).trim() };
 }
 
-/** How many pages a PDF has, read from its own page-tree count. */
+/**
+ * How many pages a PDF has — asked of the parser, not guessed from the bytes.
+ *
+ * This used to scan the raw file for `/Type /Pages … /Count N`, which finds
+ * nothing whenever that dictionary lives in a compressed object stream — and
+ * that is where every PDF GraphCompose itself writes puts it. The function then
+ * returned its "safe floor" of one, so importing a multi-page reference
+ * rasterised page 1 and silently discarded the rest. Measured on the two-page
+ * `examples/cv-reference` renders: the scan found 0 in all nine revisions,
+ * while the renderer reports 2.
+ *
+ * The renderer is already required on this path — `rasterisePdfPage` refuses
+ * without it — so asking it costs nothing that was not already being paid. The
+ * byte scan stays as a fallback for the case where it cannot run at all.
+ */
 function pdfPageCount(file) {
+  const jar = path.join(repoRoot, "tools", "preview-renderer", "target", "preview-renderer.jar");
+  if (fs.existsSync(jar)) {
+    const run = spawnSync("java", ["-jar", jar, "text", "--pdf", file], { encoding: "utf8" });
+    if (run.status === 0) {
+      try {
+        const reported = JSON.parse(run.stdout).pageCount;
+        if (Number.isInteger(reported) && reported > 0) return reported;
+      } catch {
+        // Fall through to the scan rather than failing an import over the shape
+        // of a diagnostic.
+      }
+    }
+  }
+
   const text = fs.readFileSync(file).toString("latin1");
   const counts = [...text.matchAll(/\/Type\s*\/Pages\b[^>]*?\/Count\s+(\d+)/g)].map((m) => Number(m[1]));
   if (counts.length) return Math.max(...counts);
-  // A linearised or object-stream PDF may not expose it in the raw bytes; one
-  // page is the safe floor, and --pages overrides it.
+  // Nothing could answer. One page is the safe floor, and --pages overrides it.
   return 1;
 }
 
@@ -203,6 +253,16 @@ const project = JSON.parse(fs.readFileSync(projectFile, "utf8"));
 project.referenceImage = "reference/reference.png";
 project.referenceSource = `reference/source${extension}`;
 project.referencePages = written.length;
+
+// Rasterising the render is driven by `render.pages`, and importing a
+// three-page reference used to leave it at one. Both sides then had page 1 and
+// only the reference had the rest, so pages 2..N could not be compared even
+// once the diff learned how — there was nothing on the render side to compare
+// them to. A reference states how long the document is; this carries that over.
+if (written.length > 1) {
+  project.render = { ...(project.render ?? {}), pages: written.length };
+}
+
 project.updatedAt = new Date().toISOString();
 fs.writeFileSync(projectFile, `${JSON.stringify(project, null, 2)}\n`, "utf8");
 

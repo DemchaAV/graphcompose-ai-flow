@@ -47,6 +47,14 @@ node scripts/render-and-diff.mjs --project <id> --revision <revision-id> --skip-
 alone: the reference is scaled to the render's size automatically (and
 persisted as `reference-scaled.png`), the diff and stats land in the
 revision folder, and the loop verdict comes back as the exit code.
+
+For a document longer than one page, every page is measured. Page 1 keeps
+the familiar names; page N is `diff-page-N.png` against
+`reference-scaled-page-N.png`, and the report's `pages` array and
+`worstPage` say where to look first. Review the worst page, not page 1 —
+on a proposal, page 1 is the cover and is the page most likely to be
+right. If `missingFromRender` is not empty, those pages were never
+compared and no number in the report says anything about them.
 `--against parent` diffs against the parent revision's render instead —
 what the `exact-diff` and `region-diff` gates compare — and never
 resamples: parent and child come from the same renderer, so a size

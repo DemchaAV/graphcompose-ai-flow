@@ -299,3 +299,88 @@ test("a suffixed render writes only its own PDF and never the live preview", () 
     assert.ok(after.includes(marker), `${marker} moved above the fixture return`);
   }
 });
+
+// --- a reference longer than one page -----------------------------------------
+
+/** Add continuation pages to a scenario, on either or both sides. */
+function addPages(s, { reference = [], render = [] }) {
+  for (const [page, value] of reference) {
+    writePng(path.join(s.project, "reference", `reference-page-${page}.png`), 102, 154, value);
+  }
+  for (const [page, value] of render) {
+    writePng(path.join(s.revision, `output-page-${page}.png`), 124, 175, value);
+  }
+}
+
+test("every page of the reference is compared, not only the first", () => {
+  // The gap this closes: import-reference has always rasterised page 2, the
+  // renderer has always rasterised page 2, and nothing ever compared them.
+  const s = scenario({ verdict: "READY_FOR_APPROVAL", label: "twopage" });
+  addPages(s, { reference: [[2, 200]], render: [[2, 200]] });
+
+  const { parsed } = runCli(s.root, ["--json"]);
+  assert.equal(parsed.diff.referencePages, 2);
+  assert.equal(parsed.diff.renderPages, 2);
+  assert.deepEqual(parsed.diff.pages.map((p) => p.page), [1, 2]);
+  assert.ok(
+    fs.existsSync(path.join(s.revision, "diff-page-2.png")),
+    "page 2 produced no diff image to look at",
+  );
+  assert.ok(
+    fs.existsSync(path.join(s.revision, "reference-scaled-page-2.png")),
+    "page 2's reference was never brought to size and persisted",
+  );
+});
+
+test("a matching page 1 does not carry a broken page 2 to approval", () => {
+  // The verdict is formed from page 1, because that is the diff every
+  // downstream tool reads. On a proposal, page 1 is the cover.
+  const s = scenario({ verdict: "READY_FOR_APPROVAL", label: "badpage2" });
+  addPages(s, { reference: [[2, 200]], render: [[2, 10]] });
+
+  const { status, parsed } = runCli(s.root, ["--json"]);
+  assert.equal(parsed.diff.worstPage, 2);
+  assert.equal(parsed.loop.verdict, "REVISE", "a page nobody looked at passed as ready");
+  assert.equal(parsed.loop.focus, "page-2");
+  assert.equal(parsed.loop.focusSource, "page-parity");
+  assert.match(parsed.loop.next, /diff-page-2\.png/, "the reader is not told what to open");
+  assert.equal(status, 2);
+});
+
+test("a page the render never produced is a named stop with the manifest fix in it", () => {
+  // render.pages drives rasterisation and import-reference used to leave it at
+  // one, so the render side had nothing for page 2 and the gap scored zero.
+  const s = scenario({ verdict: "READY_FOR_APPROVAL", label: "missingpage" });
+  addPages(s, { reference: [[2, 200], [3, 200]] });
+
+  const { status, parsed } = runCli(s.root, ["--json"]);
+  assert.deepEqual(parsed.diff.missingFromRender, [2, 3]);
+  assert.equal(parsed.loop.verdict, "REVISE");
+  assert.equal(parsed.loop.focus, "missing-pages");
+  assert.match(parsed.loop.next, /render\.pages/, "the manifest field to change is not named");
+  assert.equal(status, 2);
+});
+
+test("a render longer than its reference is reported without being condemned", () => {
+  // A flowing document can legitimately run longer than the sample it was
+  // rebuilt from; that is a fact for the reviewer, not a defect.
+  const s = scenario({ verdict: "READY_FOR_APPROVAL", label: "longer" });
+  addPages(s, { render: [[2, 200]] });
+
+  const { status, parsed } = runCli(s.root, ["--json"]);
+  assert.deepEqual(parsed.diff.extraInRender, [2]);
+  assert.equal(parsed.loop.verdict, "READY_FOR_APPROVAL");
+  assert.equal(status, 0);
+});
+
+test("a one-page document reports exactly what it always did", () => {
+  // The common case must not grow a page list it has no use for, and the
+  // top-level numbers stay where every consumer already reads them.
+  const s = scenario({ verdict: "READY_FOR_APPROVAL", label: "onepage" });
+  const { parsed } = runCli(s.root, ["--json"]);
+
+  assert.equal(parsed.diff.referencePages, 1);
+  assert.equal(parsed.diff.pages.length, 1);
+  assert.equal(parsed.diff.pages[0].mismatchPx, parsed.diff.mismatchPx);
+  assert.equal(parsed.loop.verdict, "READY_FOR_APPROVAL");
+});

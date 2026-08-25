@@ -41,6 +41,7 @@ import {
   projectDir as workspaceProjectDir,
   resolveWorkspace,
 } from "./lib/workspace.mjs";
+import { pagePairs } from "./lib/page-pairs.mjs";
 
 const repoRoot = installRoot();
 
@@ -97,6 +98,25 @@ const projectDir = workspaceProjectDir(workspace, args.project);
 const revisionDir = path.join(projectDir, "revisions", args.revision);
 
 const result = { project: args.project, revision: args.revision, steps: [], diff: null, loop: null };
+
+/**
+ * Which file the project itself calls page 1 of the reference.
+ *
+ * Older projects predate `import-reference` and name it something else; the
+ * manifest is the only place that knows, so it is asked rather than assumed.
+ */
+function projectReferenceImage() {
+  const file = path.join(projectDir, "template-project.json");
+  if (!fs.existsSync(file)) return null;
+  try {
+    const declared = JSON.parse(fs.readFileSync(file, "utf8")).referenceImage;
+    return declared ? path.join(projectDir, declared) : null;
+  } catch {
+    // A malformed manifest is reported by the tools that own it; here it just
+    // means falling back to the canonical name.
+    return null;
+  }
+}
 
 /** The revision's overflow dataset, by name, or null. */
 function overflowFixture() {
@@ -214,59 +234,102 @@ if (!args.skipRender) {
 }
 
 step("diff", (entry) => {
-  const outputPng = path.join(revisionDir, "output.png");
-
-  let referencePng;
+  let parentDir = null;
   if (args.against === "parent") {
     const revision = JSON.parse(fs.readFileSync(path.join(revisionDir, "revision.json"), "utf8"));
     if (!revision.parentRevisionId) {
       throw new Error("--against parent, but this revision has no parent");
     }
-    referencePng = path.join(projectDir, "revisions", revision.parentRevisionId, "output.png");
-    if (!fs.existsSync(referencePng)) {
-      throw new Error(`the parent revision has no output.png: ${referencePng}`);
-    }
-  } else {
-    // Prefer the scaled copy a previous pass already produced; else the
-    // project reference, which --scale-reference below brings to size.
-    referencePng = [
-      path.join(revisionDir, "reference-scaled.png"),
-      path.join(projectDir, "reference", "reference.png"),
-    ].find(fs.existsSync);
-    if (!referencePng) {
-      throw new Error(`no reference image found under ${path.join(projectDir, "reference")}`);
+    parentDir = path.join(projectDir, "revisions", revision.parentRevisionId);
+    if (!fs.existsSync(path.join(parentDir, "output.png"))) {
+      throw new Error(`the parent revision has no output.png: ${parentDir}`);
     }
   }
 
-  const diffArgs = [
-    referencePng,
-    outputPng,
-    "--json",
-    "--out",
-    path.join(revisionDir, "diff.png"),
-    "--update-revision",
+  // Every page the source has, not only the first. A reference can be a
+  // proposal or a book; comparing page 1 and stopping left the rest of the
+  // document measured by nobody, while both sides had rasters on disk.
+  const referenceDir = path.join(projectDir, "reference");
+  const pages = pagePairs({
+    referenceDir,
+    referenceImage: projectReferenceImage(),
     revisionDir,
-  ];
-  if (args.against === "reference") {
-    // Scaling is for the reference comparison only. A parent comparison is
-    // same-renderer, same-size by construction — if the sizes differ there,
-    // something real changed and the diff must fail loudly, not resample.
-    diffArgs.push("--scale-reference", "--save-scaled", path.join(revisionDir, "reference-scaled.png"));
+    parentDir,
+    against: args.against,
+  });
+
+  if (!pages.pairs.length) {
+    throw new Error(
+      args.against === "parent"
+        ? `the parent revision has no page to compare against: ${parentDir}`
+        : `no reference image found under ${referenceDir}`,
+    );
   }
 
-  const diffed = run(path.join(repoRoot, "tools", "visual-diff", "bin", "visual-diff.mjs"), diffArgs);
-  if (diffed.status !== 0) throw new Error(diffed.output.trim() || "diff failed");
+  const perPage = [];
+  for (const pair of pages.pairs) {
+    // Prefer the scaled copy a previous pass produced; else the source image,
+    // which --scale-reference below brings to size.
+    const source =
+      args.against === "reference" && fs.existsSync(pair.scaled) ? pair.scaled : pair.reference;
 
-  const stats = JSON.parse(diffed.stdout);
+    const diffArgs = [source, pair.render, "--json", "--out", pair.diff];
+    if (pair.page === 1) {
+      // Page 1 alone writes the revision's diff artifacts. Everything
+      // downstream reads those names, and having page 3 overwrite them would
+      // make the recorded stats depend on page order.
+      diffArgs.push("--update-revision", revisionDir);
+    }
+    if (args.against === "reference") {
+      // Scaling is for the reference comparison only. A parent comparison is
+      // same-renderer, same-size by construction — if the sizes differ there,
+      // something real changed and the diff must fail loudly, not resample.
+      diffArgs.push("--scale-reference", "--save-scaled", pair.scaled);
+    }
+
+    const diffed = run(path.join(repoRoot, "tools", "visual-diff", "bin", "visual-diff.mjs"), diffArgs);
+    if (diffed.status !== 0) {
+      throw new Error(diffed.output.trim() || `diff failed on page ${pair.page}`);
+    }
+    const stats = JSON.parse(diffed.stdout);
+    perPage.push({
+      page: pair.page,
+      mismatchPx: stats.mismatchPx,
+      percent: stats.percent,
+      classification: stats.classification,
+      parityScore: stats.parityScore,
+      diffImage: stats.diff,
+    });
+  }
+
+  const first = perPage[0];
+  const worst = perPage.reduce((a, b) => (b.mismatchPx > a.mismatchPx ? b : a));
   result.diff = {
     against: args.against,
-    mismatchPx: stats.mismatchPx,
-    percent: stats.percent,
-    classification: stats.classification,
-    parityScore: stats.parityScore,
-    diffImage: stats.diff,
+    // Page 1's numbers keep their place at the top level: every consumer of
+    // this report already reads them there, and a multi-page document does not
+    // change what page 1 scored.
+    mismatchPx: first.mismatchPx,
+    percent: first.percent,
+    classification: first.classification,
+    parityScore: first.parityScore,
+    diffImage: first.diffImage,
+    referencePages: pages.referencePages,
+    renderPages: pages.renderPages,
+    pages: perPage,
+    worstPage: worst.page,
+    missingFromRender: pages.missingFromRender,
+    extraInRender: pages.extraInRender,
   };
-  entry.detail = `${stats.mismatchPx} px vs ${args.against} — ${stats.classification}`;
+
+  entry.detail =
+    perPage.length === 1
+      ? `${first.mismatchPx} px vs ${args.against} — ${first.classification}`
+      : `${perPage.length} pages vs ${args.against} — worst is page ${worst.page} ` +
+        `(${worst.mismatchPx} px, ${worst.classification})` +
+        (pages.missingFromRender.length
+          ? `; page(s) ${pages.missingFromRender.join(", ")} missing from the render`
+          : "");
 });
 
 step("links", (entry) => {
@@ -391,6 +454,40 @@ if (result.document?.defects?.length && result.loop?.verdict === "READY_FOR_APPR
   result.loop.focus = first.id;
   result.loop.focusSource = "document-integrity";
   result.loop.next = `fix ${first.id}: ${first.detail}`;
+}
+
+// The verdict is formed from page 1, because that is the diff every downstream
+// tool reads. On a one-page document that is the whole document and nothing
+// here fires. On a proposal or a book it is the cover: a continuation page can
+// be wrong in every way page 1 is right, and the pass would have called it
+// ready without ever having looked.
+if (result.loop?.verdict === "READY_FOR_APPROVAL") {
+  const missing = result.diff?.missingFromRender ?? [];
+  const bad = (result.diff?.pages ?? []).filter(
+    (p) => p.page > 1 && (p.classification === "MAJOR" || p.classification === "CRITICAL"),
+  );
+
+  if (missing.length) {
+    // The reference has a page the render does not. Rasterisation is driven by
+    // `render.pages`, so this is usually a manifest that was never told how
+    // long the document is — and the page is genuinely uncompared either way.
+    result.loop.verdict = "REVISE";
+    result.loop.focus = "missing-pages";
+    result.loop.focusSource = "page-parity";
+    result.loop.next =
+      `the reference has ${result.diff.referencePages} page(s) and the render produced ` +
+      `${result.diff.renderPages}: page(s) ${missing.join(", ")} were never compared. ` +
+      `Set render.pages in template-project.json to ${result.diff.referencePages} and render again`;
+  } else if (bad.length) {
+    const worst = bad.reduce((a, b) => (b.mismatchPx > a.mismatchPx ? b : a));
+    result.loop.verdict = "REVISE";
+    result.loop.focus = `page-${worst.page}`;
+    result.loop.focusSource = "page-parity";
+    result.loop.next =
+      `page 1 matches, page ${worst.page} does not: ${worst.mismatchPx} px ` +
+      `(${worst.classification}). Compare diff-page-${worst.page}.png against ` +
+      `reference-scaled-page-${worst.page}.png`;
+  }
 }
 
 if (result.links?.missing?.length && result.loop?.verdict === "READY_FOR_APPROVAL") {
