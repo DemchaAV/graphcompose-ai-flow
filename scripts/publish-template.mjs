@@ -144,7 +144,19 @@ if (args["dry-run"]) {
 
 mkdirp(targetSrcDir, targetDataDir, targetAssetsDir, targetIconsDir, targetPreviewDir);
 
-const sourceClassFile = path.join(revisionDir, "generated-template.java");
+// Accept either name, exactly as the render-runner pom does: the flow writes
+// "generated-template.java", and an IDE renames it to match the public class
+// the moment anyone opens it. The pom has taken both since it was written; the
+// publisher took only the first, so a revision that had been opened in an IDE
+// approved cleanly and then failed to publish, with the approval already done.
+// The canonical name wins when both exist, matching the pom's condition.
+const sourceClassFile = (() => {
+  const declared = simpleClassName(projectMeta.render && projectMeta.render.templateClass)
+    || simpleClassName(projectMeta.templateClass);
+  const canonical = declared ? path.join(revisionDir, `${declared}.java`) : null;
+  if (canonical && fs.existsSync(canonical)) return canonical;
+  return path.join(revisionDir, "generated-template.java");
+})();
 const targetClassFile = path.join(targetSrcDir, `${className}.java`);
 const sourceClassName =
   simpleClassName(projectMeta.render && projectMeta.render.templateClass)

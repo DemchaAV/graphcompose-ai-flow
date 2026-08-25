@@ -30,6 +30,19 @@ change is a new revision.
 node tools/revision-manager/bin/graphcompose-flow.mjs new-revision "<the user's words>" --project <project-dir>
 ```
 
+The render refuses to run into a revision that already carries a
+`visual-review.json` — that revision's pass has been judged, and rendering
+over it would replace the render the review was written about. It is the
+one place the rule is enforced rather than stated, so if you see that
+refusal, the answer is the command above and not `RENDER_SAME_REVISION=1`.
+
+The cost of skipping it is not tidiness. A real run put three corrections
+into one revision: the template was rewritten and the review overwritten,
+so there was nothing to roll back to, the user's two corrections survive
+nowhere in the record, and `iterate-status` — which counts iterations by
+walking the revision chain — saw one pass where there had been three, so
+every loop bound was off.
+
 Then write `orchestration-decision.json`
 ([schema](../../../schemas/orchestration.schema.json)) with `intent`,
 `scope`, `parentRevision`, and the `stages` + `gate` copied from the

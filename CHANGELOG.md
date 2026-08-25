@@ -5,6 +5,59 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.10.0 — 2026-08-25
+
+Three things a real run showed were missing, and the two fixes the session
+that found them had already written.
+
+**A correction has to open a revision, and now it does.** "Every change
+creates a NEW revision" is the first non-negotiable in this project's own
+contract, and `new-revision` was a command nobody was obliged to run. A
+proposal run put three corrections into one revision, which lived 2h 23m:
+the template was rewritten, the render replaced, the review overwritten.
+So there was no earlier state to roll back to, the two corrections survive
+nowhere in the record, and `iterate-status` — which counts iterations by
+walking the revision chain — saw one pass where there had been three. Every
+loop bound was off for that run.
+
+The signal is exact. A revision carrying a `visual-review.json` has had its
+pass judged; rendering into it again is the moment a revision should have
+been opened. A failed compile fixed and re-rendered inside the same pass is
+not that, because there is no review yet. The refusal happens before Maven
+starts, names the command that opens a revision, and leaves
+`RENDER_SAME_REVISION=1` for someone who means it.
+
+**Continuation pages stopped costing a process each.** The JVM that builds
+the PDF was already rasterising page one in-process and then exiting, and
+the harness launched a fresh `java -jar` for every page after it — once for
+the clean render and again for the debug one. Measured: 1.7s per launch
+against 0.22s of bare JVM startup, so a twelve-page document paid about
+thirty-seven seconds of process starts on every loop pass.
+
+`render` and `preview` both take `--pages` now and rasterise inside the
+process that already has the document open. On a two-page PDF: 3324ms as
+two launches, 1722ms as one — the second page costs about twenty
+milliseconds. `import-reference` uses the same path, so a two-hundred-page
+book reference is one launch rather than two hundred.
+
+**Publishing accepted only one of the two filenames it produces.** The
+render-runner pom has always taken either `generated-template.java` or the
+Java-canonical class name, because an IDE renames the file the moment
+anyone opens it. The publisher took the first only, so a revision that had
+been opened in an IDE approved cleanly and then failed to publish — with
+the approval already committed. It takes both now, canonical winning,
+matching the pom's own condition.
+
+**And a bundle could not be finished after that failure.** The README is
+generated inside `approve-and-publish`, which correctly refuses to re-run
+once the revision is APPROVED — so running `publish-template` standalone to
+get past the failure above left no way to produce the README except by hand.
+`--readme-only` locates the published bundle, regenerates it and verifies,
+skipping approve and publish.
+
+The last two are from the session that hit them; imported rather than
+rewritten, because they were already right.
+
 ## v0.9.2 — 2026-08-25
 
 The `v0.9.1` tag points at a commit whose own test suite fails, so it is

@@ -63,17 +63,20 @@ function usage(code = 0) {
       "  --root <workspace>  workspace override (default: discovered)\n" +
       "  --verify <tier>     bundle verification after publishing (default: static;\n" +
       "                      render also compiles and renders the bundle standalone)\n" +
+      "  --readme-only       the bundle is already published and only its README is\n" +
+      "                      missing; regenerate and verify, skipping approve\n" +
       "  --json              machine-readable result\n",
   );
   process.exit(code);
 }
 
 function parseArgs(argv) {
-  const out = { project: null, revision: null, root: null, verify: "static", json: false };
+  const out = { project: null, revision: null, root: null, verify: "static", json: false, readmeOnly: false };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--help" || a === "-h") usage(0);
     else if (a === "--json") out.json = true;
+    else if (a === "--readme-only") out.readmeOnly = true;
     else if (a === "--project" || a === "-p") out.project = argv[++i];
     else if (a === "--revision" || a === "-r") out.revision = argv[++i];
     else if (a === "--root") out.root = argv[++i];
@@ -174,6 +177,63 @@ const revisionManager = path.join(repoRoot, "tools", "revision-manager", "bin", 
 
 let revisionId = args.revision;
 let templateId = null;
+
+// --readme-only: the bundle is already on disk and only its README is missing.
+// That happens when publish-template was run on its own to get past a failure —
+// the publisher writes the bundle, the README is generated here, and the
+// composite cannot be re-run end to end because the revision is APPROVED by
+// then and re-approving history is correctly refused. Skipping straight to the
+// README step is the difference between finishing the bundle and hand-writing
+// generated content back into it.
+if (args.readmeOnly) {
+  step("locate the published bundle", (entry) => {
+    const metaPath = path.join(projectDir, "template-project.json");
+    if (!fs.existsSync(metaPath)) {
+      throw new Error(`no project at ${projectDir} (missing template-project.json)`);
+    }
+    const meta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
+    templateId = meta.templateId || meta.projectName || args.project;
+    const bundleDir = path.join(workspace.templatesDir, templateId);
+    if (!fs.existsSync(path.join(bundleDir, "template.json"))) {
+      throw new Error(
+        `no published bundle at ${bundleDir} — publish it first with `
+          + `scripts/publish-template.mjs --project ${args.project}`,
+      );
+    }
+    result.bundle = bundleDir;
+    entry.detail = templateId;
+  });
+
+  step("write the README's generated half", (entry) => {
+    const readme = generateReadme(result.bundle);
+    result.readme = readme;
+    entry.detail = readme.state;
+  });
+
+  if (args.verify !== "none") {
+    step(`verify (${args.verify})`, (entry) => {
+      const verified = run(path.join(repoRoot, "scripts", "verify-published-template.mjs"), [
+        "--template-id", templateId,
+        ...(args.root ? ["--root", args.root] : []),
+        ...(args.verify === "render" ? ["--render"] : []),
+        "--json",
+      ]);
+      let parsed = null;
+      try {
+        parsed = JSON.parse(verified.stdout);
+      } catch {
+        /* the reporter below falls back to the raw output */
+      }
+      result.verify = parsed ?? { ok: verified.status === 0, output: verified.output.trim() };
+      entry.detail = (parsed && parsed.ok) || verified.status === 0
+        ? "bundle verified"
+        : "bundle did NOT verify";
+      if (verified.status !== 0) throw new Error(entry.detail);
+    });
+  }
+
+  finish(0);
+}
 
 step("resolve the draft", (entry) => {
   const metaPath = path.join(projectDir, "template-project.json");

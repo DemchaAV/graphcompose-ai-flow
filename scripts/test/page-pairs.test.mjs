@@ -19,6 +19,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { spawnSync } from "node:child_process";
 
 import {
   countReferencePages,
@@ -204,4 +205,83 @@ test("a missing directory is refused by name, not resolved against the process c
     /needs referenceDir or referenceImage/,
   );
   assert.throws(() => pagePairs({ referenceDir: "/ref" }), /revisionDir is required/);
+});
+
+// --- rasterising the pages ------------------------------------------------------
+
+const jar = path.join(
+  path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/(?=[A-Za-z]:)/, "")), "..", ".."),
+  "tools", "preview-renderer", "target", "preview-renderer.jar",
+);
+const haveRenderer =
+  fs.existsSync(jar) && spawnSync("java", ["-version"], { encoding: "utf8" }).status === 0;
+
+test("the renderer writes every page in one JVM, named the way the pairing expects",
+  { skip: !haveRenderer }, () => {
+  // This used to be a process launch per continuation page, per pass, and again
+  // for the debug render — 1.7s each against 0.22s of bare JVM startup. On a
+  // two-page PDF: 3324ms as two launches, 1722ms as one, because the second
+  // page costs about twenty milliseconds once the document is loaded.
+  //
+  // What matters for correctness is the naming: page 1 keeps the name it was
+  // given and the rest land beside it as `<stem>-page-N.png`, which is exactly
+  // what pagePairs looks for.
+  const anyTwoPage = (() => {
+    const root = path.join(path.dirname(jar), "..", "..", "..", "examples");
+    if (!fs.existsSync(root)) return null;
+    for (const project of fs.readdirSync(root)) {
+      const revisions = path.join(root, project, "revisions");
+      if (!fs.existsSync(revisions)) continue;
+      for (const rev of fs.readdirSync(revisions)) {
+        if (fs.existsSync(path.join(revisions, rev, "output-page-2.png"))) {
+          const pdf = path.join(revisions, rev, "output.pdf");
+          if (fs.existsSync(pdf)) return pdf;
+        }
+      }
+    }
+    return null;
+  })();
+  if (!anyTwoPage) return; // nothing multi-page in this checkout
+
+  const out = path.join(tempDir("raster"), "output.png");
+  const run = spawnSync(
+    "java",
+    ["-jar", jar, "preview", "--pdf", anyTwoPage, "--out", out, "--dpi", "72", "--page", "0", "--pages", "2"],
+    { encoding: "utf8" },
+  );
+  assert.equal(run.status, 0, run.stderr);
+
+  assert.ok(fs.existsSync(out), "page 1 was not written under the name it was given");
+  const second = renderPageFile(path.dirname(out), 2);
+  assert.ok(
+    fs.existsSync(second),
+    `page 2 is not where the pairing looks for it: ${path.basename(second)}`,
+  );
+  assert.equal(countRenderPages(path.dirname(out)), 2, "the pairing cannot count what was written");
+});
+
+test("asking for more pages than the document has stops at the end rather than failing",
+  { skip: !haveRenderer }, () => {
+  // `render.pages` is a declaration about the document. A render that came out
+  // shorter is a fact for the caller to report — page-pairs already reports it
+  // as missingFromRender — not a crash inside the rasteriser.
+  const onePage = (() => {
+    const root = path.join(path.dirname(jar), "..", "..", "..", "examples", "invoice-reference", "revisions");
+    if (!fs.existsSync(root)) return null;
+    for (const rev of fs.readdirSync(root)) {
+      const pdf = path.join(root, rev, "output.pdf");
+      if (fs.existsSync(pdf) && !fs.existsSync(path.join(root, rev, "output-page-2.png"))) return pdf;
+    }
+    return null;
+  })();
+  if (!onePage) return;
+
+  const out = path.join(tempDir("overshoot"), "output.png");
+  const run = spawnSync(
+    "java",
+    ["-jar", jar, "preview", "--pdf", onePage, "--out", out, "--dpi", "72", "--page", "0", "--pages", "5"],
+    { encoding: "utf8" },
+  );
+  assert.equal(run.status, 0, `asking for five pages of a one-page document failed: ${run.stderr}`);
+  assert.equal(countRenderPages(path.dirname(out)), 1);
 });

@@ -84,7 +84,14 @@ function fail(message, code) {
 }
 
 /**
- * Rasterise one PDF page with the same PDFBox path the render loop uses.
+ * Rasterise `count` pages from `page`, in one JVM, with the same PDFBox path
+ * the render loop uses.
+ *
+ * This used to launch a process per page: a two-hundred-page book paid two
+ * hundred JVM starts at about 1.7s each to rasterise pages the renderer holds
+ * open together. Measured on a two-page PDF: 3324ms as two launches, 1722ms as
+ * one — the second page costs about twenty milliseconds once the document is
+ * loaded, and everything else was process startup.
  *
  * `page` is 1-based, the way a person counts. The renderer's `--page` is a
  * zero-based index — the same convention `render-runtime` uses when it asks for
@@ -95,7 +102,7 @@ function fail(message, code) {
  * the worse of the pair: nothing fails, and every later measurement is taken
  * against the wrong page.
  */
-function rasterisePdfPage(source, target, page, dpi) {
+function rasterisePdfPages(source, target, page, count, dpi) {
   const jar = path.join(repoRoot, "tools", "preview-renderer", "target", "preview-renderer.jar");
   if (!fs.existsSync(jar)) {
     fail(`preview-renderer.jar is missing — run npm run setup first (${jar})`, 4);
@@ -114,12 +121,19 @@ function rasterisePdfPage(source, target, page, dpi) {
       String(dpi),
       "--page",
       String(page - 1),
+      "--pages",
+      String(Math.max(1, count)),
     ],
     { encoding: "utf8" },
   );
-  return run.status === 0 && fs.existsSync(target)
-    ? { ok: true }
-    : { ok: false, error: (run.stderr || run.stdout || "preview-renderer failed").trim() };
+  if (run.status !== 0 || !fs.existsSync(target)) {
+    return { ok: false, error: (run.stderr || run.stdout || "preview-renderer failed").trim() };
+  }
+  // It prints one absolute path per page it wrote, and stops at the end of the
+  // document rather than failing — a page count read from the raw bytes can
+  // overshoot, and an import that produced fewer pages than asked still worked.
+  const written = run.stdout.split(/\r?\n/).filter((line) => line.trim() !== "").length;
+  return { ok: true, written: Math.max(1, written) };
 }
 
 function convertRaster(source, target) {
@@ -223,16 +237,15 @@ fs.copyFileSync(source, sourceCopy);
 const written = [];
 if (extension === ".pdf") {
   const total = args.pages && args.pages > 0 ? args.pages : pdfPageCount(source);
-  for (let page = 1; page <= total; page += 1) {
-    const target = path.join(referenceDir, page === 1 ? "reference.png" : `reference-page-${page}.png`);
-    const result = rasterisePdfPage(source, target, page, args.dpi);
-    if (!result.ok) {
-      if (page === 1) fail(`could not rasterise page 1 of the PDF: ${result.error}`, 4);
-      // A page count read from the raw bytes can overshoot; stop at the first
-      // page that is not there rather than failing an import that worked.
-      break;
-    }
-    written.push(path.basename(target));
+  // Every page in one JVM. This used to be a launch per page: a two-hundred
+  // page book paid two hundred process starts at about 1.7s each to rasterise
+  // pages the renderer holds open together. The naming is unchanged —
+  // `reference.png` then `reference-page-N.png`.
+  const target = path.join(referenceDir, "reference.png");
+  const result = rasterisePdfPages(source, target, 1, total, args.dpi);
+  if (!result.ok) fail(`could not rasterise the PDF: ${result.error}`, 4);
+  for (let page = 1; page <= result.written; page += 1) {
+    written.push(page === 1 ? "reference.png" : `reference-page-${page}.png`);
   }
 } else if (extension === ".png") {
   fs.copyFileSync(source, path.join(referenceDir, "reference.png"));

@@ -15,8 +15,9 @@
  *   5. Two render passes via tools/preview-renderer: clean PDF +
  *      output.png, then debug PDF (`--guide-lines true`) +
  *      output-debug.png.
- *   6. Page rasterisation for every extra page declared in the project's
- *      `render.pages` field (page 2 of a two-page CV, etc.).
+ *   6. Continuation pages, rasterised inside the render pass itself — the JVM
+ *      that built the PDF is holding it open, so `render.pages` is passed
+ *      through as `--pages` rather than paid for one process at a time.
  *
  * The runtime knows nothing about CV vs invoice vs proposal vs
  * cover-letter. All doc-kind-specific choices live in
@@ -137,9 +138,41 @@ export function runRender({
   // the reference-shaped one the diff compares, and an overflow fixture that
   // proves the pagination path. Empty by default, so the ordinary render keeps
   // the names every other tool already reads.
+  const fixtureRender = outputSuffix !== "";
   const outputPdf = path.join(revisionDir, `output${outputSuffix}.pdf`);
   const debugPdf = path.join(revisionDir, `output${outputSuffix}-debug.pdf`);
   const dataFile = dataDriven ? path.join(revisionDir, dataFileName) : null;
+  // 0. Revision discipline
+  //
+  // A revision that already carries a review has had its pass judged. Rendering
+  // into it again is the moment a correction should have opened a new revision
+  // and did not — and nothing said so, because `new-revision` is a command
+  // nobody is obliged to run.
+  //
+  // Measured on a real proposal run: one revision lived 2h 23m and absorbed
+  // three corrections in place. The template was rewritten, the render replaced
+  // and the review overwritten, so there was no state to roll back to, the two
+  // corrections survive nowhere in the record, and `iterate-status` — which
+  // counts iterations by walking the revision chain — saw one pass where there
+  // had been three. Every loop bound was off for that run.
+  //
+  // A failed compile fixed and re-rendered within the same pass is not this:
+  // that revision has no review yet.
+  if (!fixtureRender && fs.existsSync(path.join(revisionDir, "visual-review.json"))) {
+    if (process.env.RENDER_SAME_REVISION !== "1") {
+      abort(
+        `${revisionId} already has a visual-review.json — its pass has been judged, so ` +
+          "rendering into it again would overwrite the render the review was written about."+"\n" +
+          "  Open a revision for this change:\n" +
+          `    node tools/revision-manager/bin/graphcompose-flow.mjs new-revision "<what you are changing>" --project ${projectDir}\n` +
+          "  Re-rendering the same revision on purpose: RENDER_SAME_REVISION=1",
+      );
+    }
+    console.log(
+      `> re-rendering ${revisionId}, which already has a review (RENDER_SAME_REVISION=1)`,
+    );
+  }
+
   const live = createLiveMirror(repoRoot, projectDir);
 
   // 1. Skill validation gate
@@ -302,6 +335,13 @@ export function runRender({
       "150",
       "--page",
       "0",
+      // Every page, in the JVM that just built the PDF and is still holding it
+      // open. This used to be one more `java -jar` per continuation page, per
+      // pass, and again for the debug render: 1.7s each against 0.22s of bare
+      // JVM startup, so a twelve-page document paid about thirty-seven seconds
+      // of process launches on every loop pass.
+      "--pages",
+      String(pages),
     ],
     repoRoot,
   );
@@ -321,29 +361,7 @@ export function runRender({
     return;
   }
 
-  // 6. Extra-page rasterisation
-  for (let pageIdx = 1; pageIdx < pages; pageIdx += 1) {
-    const previewOut = path.join(
-      revisionDir,
-      `output-page-${pageIdx + 1}.png`,
-    );
-    runJava(
-      [
-        "-jar",
-        previewRendererJar,
-        "preview",
-        "--pdf",
-        outputPdf,
-        "--out",
-        previewOut,
-        "--dpi",
-        "150",
-        "--page",
-        String(pageIdx),
-      ],
-      repoRoot,
-    );
-  }
+  // 6. Continuation pages came out of the render pass above, in the same JVM.
 
   // Mirror the clean render into the live-preview folder (live/current.*).
   live.update(outputPdf, "current.pdf");
@@ -380,36 +398,16 @@ export function runRender({
       "150",
       "--page",
       "0",
+      "--pages",
+      String(pages),
       "--guide-lines",
       "true",
     ],
     repoRoot,
   );
 
-  for (let pageIdx = 1; pageIdx < pages; pageIdx += 1) {
-    const debugOut = path.join(
-      revisionDir,
-      `output-debug-page-${pageIdx + 1}.png`,
-    );
-    runJava(
-      [
-        "-jar",
-        previewRendererJar,
-        "preview",
-        "--pdf",
-        debugPdf,
-        "--out",
-        debugOut,
-        "--dpi",
-        "150",
-        "--page",
-        String(pageIdx),
-      ],
-      repoRoot,
-    );
-  }
+  // The debug pass asks for its continuation pages the same way.
 
-  // Mirror the debug render too, then point the user at the live file.
   live.update(debugPdf, "current-debug.pdf");
   live.update(path.join(revisionDir, "output-debug.png"), "current-debug.png", "shared");
   live.manifest({ projectId, revisionId, revisionDir, hasDebug: true });

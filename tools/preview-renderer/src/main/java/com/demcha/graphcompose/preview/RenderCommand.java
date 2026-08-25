@@ -64,6 +64,10 @@ final class RenderCommand {
         Path outputPng = resolveRevisionPath(revisionFolder, flags.get("preview"), "output.png");
         int dpi = parseIntOrDefault(flags, "dpi", DEFAULT_DPI);
         int page = parseIntOrDefault(flags, "page", DEFAULT_PAGE);
+        // How many pages to rasterise from `page`, in this JVM. The harness used
+        // to launch one more JVM per continuation page; the process that just
+        // built the PDF is holding it open already.
+        int pages = parseIntOrDefault(flags, "pages", 1);
         boolean guideLines = parseBoolFlag(flags, "guide-lines");
 
         if (!Files.isDirectory(revisionFolder)) {
@@ -105,6 +109,7 @@ final class RenderCommand {
                     outputPng,
                     dpi,
                     page,
+                    pages,
                     guideLines,
                     classpathLoader,
                     out);
@@ -119,6 +124,7 @@ final class RenderCommand {
             Path outputPng,
             int dpi,
             int page,
+            int pages,
             boolean guideLines,
             URLClassLoader classpathLoader,
             PrintStream out) throws Exception {
@@ -147,14 +153,15 @@ final class RenderCommand {
         if (!Files.isRegularFile(outputPdf)) {
             throw new IllegalStateException("GraphCompose did not write expected PDF: " + outputPdf);
         }
-        PreviewCommand.runRender(outputPdf, outputPng, dpi, page);
+        int rasterised = PreviewCommand.runRenderPages(outputPdf, outputPng, dpi, page, Math.max(1, pages));
 
         ArtifactUpdater.markArtifactsPresent(
                 revisionFolder,
                 List.of(outputPdf.getFileName().toString(), outputPng.getFileName().toString()));
 
         out.println("rendered pdf: " + outputPdf.toAbsolutePath());
-        out.println("rendered preview: " + outputPng.toAbsolutePath());
+        out.println("rendered preview: " + outputPng.toAbsolutePath()
+                + (rasterised > 1 ? " (+" + (rasterised - 1) + " continuation page(s))" : ""));
         writeRenderLog(revisionFolder, List.of(
                 "graphcompose runtime detected",
                 "templateClass=" + templateClass,
