@@ -108,8 +108,8 @@ Run the command.
 link declared in the data that never reached the rendered PDF turns a
 `READY_FOR_APPROVAL` into `REVISE` with focus `dead-links`. It is the
 one defect the images cannot show — an annotation has no pixels — so it
-is read from the file instead of looked at. See
-[link integrity](../../../docs/link-integrity.md). Only READY is
+is read from the file instead of looked at, and the rule is in
+[the authoring rules](authoring-rules.md). Only READY is
 downgraded: an already-revising pass keeps the focus its reviewer chose,
 and `BLOCKED` stays blocked.
 

@@ -172,6 +172,19 @@ test("every asset in the revision reaches the bundle, not just icons", () => {
   assert.ok(fs.existsSync(path.join(bundleOf(root), "assets", "icons", "email.png")), "icons were dropped");
 });
 
+test("an svg icon reaches the bundle, now that icons resolve as vectors", () => {
+  // Icons stopped being PNGs. A publisher that copied by extension would ship a
+  // bundle whose manifest names a file it does not contain.
+  const { root, revision } = workspaceWith({ label: "svgasset" });
+  write(path.join(revision, "assets", "icons", "mail.svg"), '<svg viewBox="0 0 8 8"><path d="M0 0 L1 1"/></svg>');
+  publish(root);
+
+  assert.ok(
+    fs.existsSync(path.join(bundleOf(root), "assets", "icons", "mail.svg")),
+    "the svg icon was dropped from the bundle",
+  );
+});
+
 test("the published class is rewritten from the revision on every publish", () => {
   const { root, revision } = workspaceWith({ label: "determinism" });
   publish(root);
@@ -221,6 +234,45 @@ test("an absolute path in a published source fails the publish", () => {
 
   const { output } = failing(() => publish(root));
   assert.match(output, /absolute path/);
+});
+
+test("a bundle is the approved revision and nothing else", () => {
+  // A template class renamed between revisions used to leave the old .java in
+  // the bundle. It still compiles, so nothing downstream notices that the
+  // published template ships two templates, one of them dead.
+  const { root } = workspaceWith({ label: "stale" });
+  publish(root);
+
+  const bundle = bundleOf(root);
+  const leftover = path.join(bundle, "src", "OldNameTemplate.java");
+  write(leftover, "public final class OldNameTemplate {}\n");
+  const orphanAsset = path.join(bundle, "assets", "icons", "no-longer-referenced.png");
+  write(orphanAsset, "PNG");
+
+  // publish() throws on a non-zero exit, so reaching the assertions is the pass.
+  const output = publish(root);
+  assert.ok(!fs.existsSync(leftover), `a renamed class survived the republish
+${output}`);
+  assert.ok(!fs.existsSync(orphanAsset), "an asset the data no longer names survived the republish");
+  assert.match(output, /removed stale/, "the removal was not reported");
+
+  // And what belongs is still there.
+  assert.ok(fs.existsSync(path.join(bundle, "src", "NavySidebarCvTemplate.java")));
+  assert.ok(fs.existsSync(path.join(bundle, "assets", "avatar.png")));
+  assert.ok(fs.existsSync(path.join(bundle, "template.json")));
+});
+
+test("the README's hand-written half survives pruning", () => {
+  // The publisher does not write README.md; approve-and-publish does, and the
+  // half below its marker is the one part of a bundle a person authored.
+  const { root } = workspaceWith({ label: "readme" });
+  publish(root);
+
+  const readme = path.join(bundleOf(root), "README.md");
+  write(readme, ["# Navy CV", "", "## Design notes", "", "The headline derives from cap height.", ""].join("\n"));
+
+  publish(root);
+  assert.match(fs.readFileSync(readme, "utf8"), /derives from cap height/);
 });
 
 test("verify reports a bundle that does not contain what its data references", () => {

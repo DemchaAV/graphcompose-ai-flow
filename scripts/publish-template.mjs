@@ -41,6 +41,18 @@ import {
   resolveWorkspace,
 } from "./lib/workspace.mjs";
 
+/**
+ * Every path this run wrote into the bundle.
+ *
+ * A bundle is not a directory that accumulates; it is the published form of one
+ * approved revision. Anything in it this run did not write came from a previous
+ * one, and a renamed template class is exactly how a bundle ends up shipping two
+ * templates, one of them dead — which still compiles, so nothing downstream
+ * notices.
+ */
+const written = new Set();
+const record = (destPath) => written.add(path.resolve(destPath));
+
 const repoRoot = installRoot();
 
 const args = parseArgs(process.argv.slice(2));
@@ -265,7 +277,17 @@ const manifest = {
 };
 const manifestPath = path.join(targetDir, "template.json");
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
+record(manifestPath);
 console.log(`[publish-template] wrote ${display(manifestPath)}`);
+
+// The bundle is the approved revision and nothing else. Anything this run did
+// not write is left over from a previous one: a renamed class, an asset the
+// data no longer names, a preview page a shorter document no longer has. A
+// stale .java still compiles, so nothing downstream would have noticed.
+const pruned = pruneStale(targetDir, written);
+for (const stale of pruned) {
+  console.log(`[publish-template] removed stale ${display(stale)}`);
+}
 
 // Nothing above proves the bundle is self-consistent, and the failures it can
 // leave are quiet ones: a name that no longer resolves, a path that only exists
@@ -385,6 +407,7 @@ function copyJavaClass(srcPath, destPath, opts) {
   }
   const previous = fs.existsSync(destPath) ? fs.readFileSync(destPath, "utf8") : null;
   fs.writeFileSync(destPath, content, "utf8");
+  record(destPath);
   const state = previous === null ? "new" : previous === content ? "unchanged" : "UPDATED";
   console.log(`[publish-template] copied ${display(srcPath)} -> ${display(destPath)} (${state})`);
 }
@@ -394,12 +417,46 @@ function copyJavaSource(srcPath, destPath) {
     abort(`Source class missing: ${srcPath}`);
   }
   fs.copyFileSync(srcPath, destPath);
+  record(destPath);
   console.log(`[publish-template] copied ${display(srcPath)} -> ${display(destPath)}`);
 }
 
 function copyFile(srcPath, destPath) {
   fs.copyFileSync(srcPath, destPath);
+  record(destPath);
   console.log(`[publish-template] copied ${display(srcPath)} -> ${display(destPath)}`);
+}
+
+/**
+ * Delete everything under the bundle this run did not write.
+ *
+ * README.md survives: the publisher does not write it, and it carries the
+ * hand-written half that approve-and-publish is careful to preserve. Removing
+ * it here would delete the one part of a bundle a person authored.
+ */
+function pruneStale(root, keep) {
+  const PRESERVE = new Set(["README.md"]);
+  const removed = [];
+
+  const walk = (dir) => {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+        // A directory that emptied out was only there for files that are gone.
+        if (fs.readdirSync(full).length === 0) fs.rmdirSync(full);
+        continue;
+      }
+      if (PRESERVE.has(path.relative(root, full))) continue;
+      if (keep.has(path.resolve(full))) continue;
+      fs.rmSync(full, { force: true });
+      removed.push(full);
+    }
+  };
+
+  walk(root);
+  return removed;
 }
 
 function mkdirp(...dirs) {

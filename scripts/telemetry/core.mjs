@@ -92,11 +92,21 @@ export function projectCounters(projectDir) {
 
   let renders = 0;
   let visualReviews = 0;
+  let failedRevisions = 0;
   for (const dir of revisions) {
     if (fs.existsSync(path.join(dir, "output.pdf"))) renders += 1;
     if (fs.existsSync(path.join(dir, "visual-review.json"))) visualReviews += 1;
+    // FAILED is the revision manager's own record of a compile or render
+    // breakage. It is the one build-failure figure that can be counted without
+    // inventing it: a status someone set, not a log line someone hoped for.
+    try {
+      const revision = JSON.parse(fs.readFileSync(path.join(dir, "revision.json"), "utf8"));
+      if (revision.status === "FAILED") failedRevisions += 1;
+    } catch {
+      /* a revision with no readable revision.json contributes nothing */
+    }
   }
-  return { revisions: revisions.length, renders, visualReviews };
+  return { revisions: revisions.length, renders, visualReviews, failedRevisions };
 }
 
 /** Newest revision id in a project, for "revision-007 -> revision-008" lines. */

@@ -37,6 +37,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { findDataFile } from "./lib/data-spec.mjs";
 import { readPdfLinks, containsTarget } from "./lib/pdf-links.mjs";
 import {
   describeWorkspaceLine,
@@ -142,29 +143,6 @@ function targetVariants(target) {
   if (HAS_SCHEME.test(trimmed)) return [trimmed];
   const bare = trimmed.replace(/^www\./i, "");
   return [trimmed, `https://${trimmed}`, `http://${trimmed}`, `https://www.${bare}`];
-}
-
-function findDataFile(projectDir, revisionDir) {
-  const projectFile = path.join(projectDir, "template-project.json");
-  if (fs.existsSync(projectFile)) {
-    try {
-      const project = JSON.parse(fs.readFileSync(projectFile, "utf8"));
-      const configured = project.render?.dataFileName;
-      // null is meaningful: the project ships its data inline in Java, so there
-      // is no spec to compare against.
-      if (configured === null) return null;
-      const name = configured ?? `${project.docKind || "doc"}-data.json`;
-      const candidate = path.join(revisionDir, name);
-      if (fs.existsSync(candidate)) return candidate;
-    } catch {
-      /* fall through to the scan */
-    }
-  }
-  const found = fs
-    .readdirSync(revisionDir)
-    .filter((f) => f.endsWith("-data.json"))
-    .sort();
-  return found.length ? path.join(revisionDir, found[0]) : null;
 }
 
 // --- run ---------------------------------------------------------------------

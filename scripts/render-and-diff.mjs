@@ -7,14 +7,16 @@
  *
  * Every pass of the iteration loop runs the same deterministic chain: render,
  * scale the reference to the render's size, diff, check that the links in the
- * data are live in the PDF, write the evidence into the revision, ask whether
- * the loop may continue. The serif acceptance run paid for that as three to
- * four separate model turns per pass — and solved the scaling step itself, with
- * ImageMagick shell arithmetic that left junk files in the user's project root.
+ * data are live in the PDF and that the document itself is whole, write the
+ * evidence into the revision, ask whether the loop may continue. The serif
+ * acceptance run paid for that as three to four separate model turns per pass —
+ * and solved the scaling step itself, with ImageMagick shell arithmetic that
+ * left junk files in the user's project root.
  *
- * The link check is here rather than at approval time because it is the one
- * property the diff cannot see: an annotation has no pixels, so a document
- * whose every link is dead diffs identically to one where they all work.
+ * The link and document checks are here rather than at approval time because
+ * they are what the diff cannot see. An annotation has no pixels, so a document
+ * whose every link is dead diffs identically to one where they all work; and a
+ * page reading "Page 1 of 1" in a three-page document is forty grey pixels.
  *
  * This is that chain as one call. The agent's part of a pass — look at the
  * images, judge, decide the one cause to fix — is untouched; what is removed
@@ -129,6 +131,12 @@ function finish(code) {
       console.log(
         `\n  diff: ${result.diff.mismatchPx} px (${result.diff.percent.toFixed(3)}%) — ${result.diff.classification}`,
       );
+    }
+    for (const d of result.document?.defects ?? []) {
+      console.log(`  DOCUMENT DEFECT  ${d.id}: ${d.detail}`);
+    }
+    for (const n of result.document?.notes ?? []) {
+      console.log(`  note             ${n}`);
     }
     for (const m of result.links?.missing ?? []) {
       console.log(`  MISSING LINK  ${m.at} = ${m.target}  (declared in the data, absent from the render)`);
@@ -263,6 +271,42 @@ step("links", (entry) => {
     : `not checked — ${links.skipped}`;
 });
 
+step("document integrity", (entry) => {
+  // The other blind spot: page count, "Page N of M" and whether pagination ran
+  // at all are functional properties of a multi-page document, and each of them
+  // scores as a few dozen grey pixels in a diff — or as nothing, when the
+  // reference never had the page that went missing.
+  const checked = run(path.join(repoRoot, "scripts", "check-document-integrity.mjs"), [
+    "--project",
+    args.project,
+    "--revision",
+    args.revision,
+    "--root",
+    workspace.root,
+    "--json",
+  ]);
+  let integrity;
+  try {
+    integrity = JSON.parse(checked.stdout);
+  } catch {
+    entry.detail = "not checked";
+    return;
+  }
+  result.document = {
+    checked: integrity.checked,
+    skipped: integrity.skipped,
+    pageCount: integrity.pageCount,
+    flow: integrity.flow?.kind ?? null,
+    defects: integrity.defects,
+    notes: integrity.notes,
+  };
+  entry.detail = integrity.checked
+    ? `${integrity.pageCount} page(s)` +
+      (integrity.flow ? `, ${integrity.flow.kind}` : "") +
+      (integrity.defects.length ? ` — ${integrity.defects.length} DEFECT(S)` : "")
+    : `not checked — ${integrity.skipped}`;
+});
+
 step("loop verdict", (entry) => {
   const status = run(path.join(repoRoot, "scripts", "iterate-status.mjs"), [
     args.project,
@@ -304,6 +348,17 @@ step("loop verdict", (entry) => {
 // is the argument for the downgrade, not against it. Only READY is downgraded:
 // an already-REVISE pass keeps the focus the reviewer chose, and BLOCKED stays
 // blocked.
+// A document defect outranks a clean visual verdict for the same reason a dead
+// link does: it is invisible in the comparison the verdict was formed from. A
+// page reading "Page 1 of 1" in a three-page document is forty grey pixels.
+if (result.document?.defects?.length && result.loop?.verdict === "READY_FOR_APPROVAL") {
+  const first = result.document.defects[0];
+  result.loop.verdict = "REVISE";
+  result.loop.focus = first.id;
+  result.loop.focusSource = "document-integrity";
+  result.loop.next = `fix ${first.id}: ${first.detail}`;
+}
+
 if (result.links?.missing?.length && result.loop?.verdict === "READY_FOR_APPROVAL") {
   const targets = result.links.missing.map((m) => m.target).join(", ");
   result.loop.verdict = "REVISE";

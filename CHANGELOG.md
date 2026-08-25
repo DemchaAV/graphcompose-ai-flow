@@ -7,6 +7,86 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.6.0 — the allow-list is the artifact, not the source
+
+Hardening pass over everything two real acceptance runs turned up. The
+theme is the same throughout: replace a place where an agent had to
+improvise with a command or a contract that decides.
+
+**The API surface is read from the pinned jar.** The old indexer parsed
+GraphCompose's Java source with regexes, so it could not see anything
+Lombok generates — and four value types whose whole construction path is
+generated came out empty or near-empty. `DocumentMetadata (class)` had no
+members at all. Under the allow-list's own first rule, "a symbol absent
+here does not exist", page headers and footers were unreachable, which is
+exactly what a 2.2.0 run concluded.
+
+- `tools/api-surface/extract-api.mjs` reads the artifact's class files
+  with `javap` and merges parameter names in from the sources jar:
+  bytecode decides what exists, source only decides what things are
+  called. A member in one and not the other is `origin: "generated"`,
+  which is a definition rather than a guess.
+- `skills/versions/<line>/api-surface.json` is now the canonical form and
+  `00-api-surface.md` is generated from it; `api-query` reads the JSON and
+  gained `--query` as the everyday entry point. 268 types became 357 with
+  **nothing lost**, and 1336 previously invisible members are listed.
+- A second defect fell out of the same change: the source parser folded
+  nested types into their enclosing type, so the allow-list claimed
+  `GraphCompose.margin(...)` was a static call. Nested types are now their
+  own entries, kept only where the surface can reach them.
+- `--check` compares the committed pack against a fresh extraction.
+
+**Two more behaviours of 2.2 are on record, each with a probe.**
+`DocumentTableCell.node(...)` accepts any node and draws three kinds:
+Row, ShapeContainer and CanvasLayer draw none of their children, and
+Section and LayerStack draw 0.4 of them — worse to diagnose than nothing,
+because a half-drawn cell reads as a styling problem. Measured by rendered
+ink, because cell content never appears in `layoutSnapshot()` by name.
+Table borders are per cell, and zero-width stroking a group removes every
+edge of those cells rather than the shared divider alone, so a group needs
+a stroked cell on each side of it. `observations` gained `find <symbol>`,
+so a lookup starts from the call about to be written, and an
+`engineDefect` field, so a workaround is scaffolding with an expiry rather
+than permanent guidance.
+
+**Icons resolve as SVG.** GraphCompose draws them through
+`SvgIcon.read` + `addSvgIcon`; rasterising everything discarded the vector
+for every icon to survive the rare one outside the reader's subset. The
+compatibility check encodes that subset and separates refusal from
+degradation, the SVG cache is keyed without a raster size, and the
+manifest records `format` and the `fallbackReason`. Verified against live
+Iconify: 226 bytes of vector where the PNG was 2.7 KB. The first version
+of the check would have rasterised the entire icon set, because Iconify
+serves `width="1em"` alongside a viewBox — pinned by a test.
+
+**One canonical workspace, and commands that produce it.**
+`import-reference` converts png / jpg / webp / pdf into
+`reference/reference.png`, keeps the original as `reference/source.<ext>`,
+and records both — the one step where two hosts would otherwise measure
+against two different images. `workspace-layout.md` states the layout
+once, and a parity test asserts that every command and reference a skill
+names exists and ships to Codex, and that no skill branches on the host.
+
+**A multi-page document is checked as a document.**
+`check-document-integrity` reads the rendered PDF's decoded text — subset
+fonts make the raw stream unsearchable — and reports page count against
+the analysis, a flowing template whose example data never crossed a page
+break, and "Page N of M" that does not add up. `flow.pageEnumeration` is
+required for a flowing document, so the decision is made rather than
+defaulted by omission. The `page-enumeration` probe is the fixture: three
+rows stay on one page reading "Page 1 of 1", forty produce six pages
+numbered through with the header and footer on every one and no row lost.
+
+**Publishing removes what it no longer writes.** A stale file survived a
+republish — a renamed template class left its old `.java` in the bundle,
+where it still compiles and nothing downstream notices. The publisher now
+prunes anything this run did not write, preserving the README's
+hand-written half.
+
+Also: `observations verify` could never confirm an array-valued result;
+telemetry counts `failedRevisions`, the one build-failure figure that can
+be counted honestly. 351 tests pass.
+
 ### v0.5.6 — a link with no pixels
 
 Two things the loop could not see, both reported from real use.

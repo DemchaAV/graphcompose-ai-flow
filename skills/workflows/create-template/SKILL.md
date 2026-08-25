@@ -43,22 +43,33 @@ Two things it hands you that are easy to skip and expensive to skip:
 - `knowledge.observations` — behaviours previous runs paid to discover.
   Read these before the first render, not after the third.
 
-Then create the project and the first revision:
+Then create the project, import the reference, and open the first
+revision. Each of these is a command because each is a place where two
+hosts would otherwise choose differently — see
+[the canonical workspace](../references/workspace-layout.md):
 
 ```bash
 node scripts/init-workspace.mjs --project-dir <java-project> --project <project-name>
+node scripts/import-reference.mjs --project <project-name> --file <the reference the user gave you>
 node tools/revision-manager/bin/graphcompose-flow.mjs new-revision "<the user's words>" --project <project-dir>
 node scripts/telemetry/run-metrics.mjs start --project <project-name> --workflow create-template
 ```
 
-The last one marks where the run began, so the metrics can separate "this
-whole template" from "this one correction". Skip it and the run clock
-falls back to the first thing the user said, which is close but not the
-same thing.
+`import-reference` takes png, jpg, webp or pdf, keeps the original as
+`reference/source.<ext>`, and writes `reference/reference.png` — the one
+path every later step reads — rasterising a PDF through the same PDFBox
+the render loop uses, so reference and render are compared on equal
+terms. Do not copy or convert the file yourself: that is the single step
+where two runs of the same request end up measuring against two
+different images.
 
-Put the reference in `reference/reference.png` (plus
-`reference-page-N.png` for extra pages). Print the chain you are about
-to run with `node scripts/run-pipeline.mjs <project-id>`.
+The metrics call marks where the run began, so the numbers can separate
+"this whole template" from "this one correction". Skip it and the run
+clock falls back to the first thing the user said, which is close but not
+the same thing.
+
+Print the chain you are about to run with
+`node scripts/run-pipeline.mjs <project-id>`.
 
 ## The stages
 
@@ -123,12 +134,40 @@ sections drawn once; `"table-header"` means `repeatHeader` on the table.
 Drawing chrome as content is invisible on a one-page render and wrong on
 every page after it.
 
+**Decide whether a missing page has to be detectable, and record it in
+`flow.pageEnumeration`.** The schema requires this for a flowing
+document, so it is a decision someone makes rather than one that happens
+by omission — and `required: false` with a reason is a perfectly good
+answer. It is not decoration and it is not for everything: an invoice, a
+statement, an estimate, a formal proposal or a report is a record
+someone may print, post or file, and a page that vanishes from it should
+be noticeable. A CV or a poster carries no such duty. When it is
+required, `"Page {page} of {pages}"` is the format that carries it —
+`{pages}` is the half that makes a missing page detectable, and "Page 3"
+alone does not. It belongs in chrome:
+
+```java
+session.footer(DocumentHeaderFooter.builder()
+        .zone(DocumentHeaderFooterZone.FOOTER)
+        .centerText("Page {page} of {pages}")
+        .build());
+```
+
 **For a flowing document, the example data must reach page 2.** A
 pagination path that the render never exercises is untested code shipped
 as a template: give `<doc-kind>-data.json` enough rows that the render
 actually paginates, and check the repeated headers and the footer on the
 continuation page. Set `page.pageCount` in the analysis to what the
 *data* produces, not what the screenshot shows.
+
+`render-and-diff` enforces both of these from the rendered file:
+`pagination-never-exercised` when a flowing document fits on one page,
+`page-number-wrong` / `page-total-wrong` when the enumeration is
+inconsistent, `page-count-mismatch` when the render disagrees with the
+analysis. They are read from the PDF's decoded text, so they are facts
+about the document rather than a judgement about it. The reference
+implementation is the `page-enumeration` probe, which renders one table
+that fits and one that cannot and checks the whole list.
 
 Anything you cannot read confidently goes in `unclearParts` with the
 assumption you are making. Do not silently guess — a recorded assumption

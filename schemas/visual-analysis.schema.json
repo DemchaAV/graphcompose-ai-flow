@@ -391,8 +391,66 @@
         "overflowExpectation": {
           "type": "string",
           "description": "One sentence of reasoning: why real data will or will not spill past the page the reference shows. This is the sentence that decides whether the example data must include enough rows to reach page 2."
+        },
+        "pageEnumeration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "required"
+          ],
+          "description": "Whether the reader has to be able to tell that a page is missing. It is not decoration and it is not for every document: an invoice, a statement, an estimate, a formal proposal or a report is a record someone may print, post or file, and a page that vanishes from it should be detectable. A CV or a poster does not carry that duty. Recording the decision structurally is what stops it being made by whether the analyst happened to notice a page number in the reference.",
+          "properties": {
+            "required": {
+              "type": "boolean",
+              "description": "true when a missing page must be detectable from the page itself."
+            },
+            "reason": {
+              "type": "string",
+              "description": "One sentence: why this document does or does not carry that duty."
+            },
+            "location": {
+              "type": "string",
+              "enum": [
+                "footer",
+                "header"
+              ],
+              "description": "Which chrome zone carries it. Maps to DocumentSession.footer(...) / .header(...) with DocumentHeaderFooterZone."
+            },
+            "format": {
+              "type": "string",
+              "description": "The literal chrome text, with GraphCompose's placeholders, e.g. \"Page {page} of {pages}\". The {pages} half is the part that makes a missing page detectable; \"Page 3\" alone does not."
+            },
+            "repeat": {
+              "type": "string",
+              "enum": [
+                "every-page",
+                "after-first"
+              ],
+              "description": "every-page is the default. after-first suppresses it on a cover page, via DocumentPageNumbering.showOnFirstPage(false)."
+            }
+          }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "flowing"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "pageEnumeration"
+            ],
+            "description": "A flowing document has more than one page in its future, so whether the reader can tell a page is missing is a decision someone has to make. Requiring the field forces it to be made rather than defaulted by omission; recording `required: false` with a reason is a perfectly good answer."
+          }
+        }
+      ]
     }
   }
 }

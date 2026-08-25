@@ -21,6 +21,7 @@ public final class Probes {
 
     private static final Map<String, Supplier<Probe>> REGISTRY = new TreeMap<>(Map.ofEntries(
             Map.entry("anchor-alignment", AnchorAlignmentProbe::new),
+            Map.entry("page-enumeration", PageEnumerationProbe::new),
             Map.entry("row-nesting", RowNestingProbe::new),
             Map.entry("shape-paint", ShapePaintProbe::new),
             Map.entry("table-borders", TableBorderProbe::new),

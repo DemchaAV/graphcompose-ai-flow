@@ -9,12 +9,16 @@ import java.util.logging.Logger;
 /**
  * Command-line entry point for the GraphCompose AI Flow preview renderer.
  *
- * <p>Two subcommands are dispatched here:
+ * <p>Three subcommands are dispatched here:
  * <ul>
  *   <li>{@code preview} — convert a PDF page to a PNG image (functional).</li>
  *   <li>{@code render}  — invoke a generated GraphCompose template to produce a PDF
  *       when GraphCompose is present on the supplied classpath, otherwise emit
  *       the non-fatal detection message.</li>
+ *   <li>{@code text}    — read a PDF's text back page by page, decoded through
+ *       the embedded ToUnicode maps, so a caller can ask functional questions
+ *       ("is this page 2 of 3?", "did the footer repeat?") that pixels cannot
+ *       answer.</li>
  * </ul>
  *
  * <p>Argument parsing is intentionally hand-rolled: this tool keeps its
@@ -56,6 +60,8 @@ public final class PreviewRenderer {
                     return PreviewCommand.run(parseFlags(rest), out, err);
                 case "render":
                     return RenderCommand.run(parseFlags(rest), out, err);
+                case "text":
+                    return TextCommand.run(parseFlags(rest), out, err);
                 case "--help":
                 case "-h":
                 case "help":
@@ -106,9 +112,12 @@ public final class PreviewRenderer {
         stream.println("                           [--spec-provider <fqcn>]");
         stream.println("                           [--output <pdf-path>] [--preview <png-path>]");
         stream.println("                           [--dpi <int>] [--page <int>] [--guide-lines true|false]");
+        stream.println("  preview-renderer text    --pdf <path>");
         stream.println();
         stream.println("notes:");
         stream.println("  - 'preview' uses Apache PDFBox to rasterize a single page to PNG.");
+        stream.println("  - 'text' prints {pageCount, pages[]} as JSON, decoded through the PDF's");
+        stream.println("    ToUnicode maps: subset fonts make the raw content stream unsearchable.");
         stream.println("  - 'render' exits 0 with a skipped message when GraphCompose is not on --classpath.");
         stream.println("  - data-driven templates must provide --spec-provider <fqcn>.");
     }

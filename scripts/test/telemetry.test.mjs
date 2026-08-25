@@ -144,12 +144,33 @@ test("counters are derived from the project, so they cannot drift from it", () =
     for (const f of files) fs.writeFileSync(path.join(dir, f), "{}", "utf8");
   }
 
-  assert.deepEqual(projectCounters(project), { revisions: 3, renders: 2, visualReviews: 1 });
+  assert.deepEqual(projectCounters(project), {
+    revisions: 3,
+    renders: 2,
+    visualReviews: 1,
+    failedRevisions: 0,
+  });
   assert.equal(latestRevision(project), "revision-003");
 });
 
+test("a FAILED revision is the one build-failure figure that can be counted honestly", () => {
+  // Not a log line someone hoped for: a status the revision manager set when a
+  // compile or render broke.
+  const project = tempDir("failed");
+  for (const [id, status] of [["revision-001", "APPROVED"], ["revision-002", "FAILED"]]) {
+    const dir = path.join(project, "revisions", id);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "revision.json"), JSON.stringify({ id, status }), "utf8");
+  }
+  assert.equal(projectCounters(project).failedRevisions, 1);
+});
+
 test("counters on a project with no revisions are zero, not an error", () => {
-  assert.deepEqual(projectCounters(tempDir("empty")), { revisions: 0, renders: 0, visualReviews: 0 });
+  assert.deepEqual(projectCounters(tempDir("empty")), {
+    revisions: 0,
+    renders: 0,
+    visualReviews: 0,
+  });
 });
 
 test("processed tokens include cache, which is why they are never reported alone", () => {

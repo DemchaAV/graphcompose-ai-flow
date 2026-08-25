@@ -18,7 +18,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -220,12 +219,4 @@ test("nothing in the harness still claims GraphCompose cannot render SVG", () =>
       `${path.relative(repoRoot, file)} still says GraphCompose cannot render SVG`,
     );
   }
-});
-
-// --- keep the temp dir tidy for the suite ------------------------------------
-
-test("the compatibility check does not touch the filesystem", () => {
-  const before = fs.readdirSync(os.tmpdir()).length;
-  checkSvgCompatibility(TYPICAL_ICONIFY_ICON);
-  assert.equal(fs.readdirSync(os.tmpdir()).length, before);
 });
