@@ -155,6 +155,7 @@ Before committing: `npm run verify`.
 - [`docs/revision-model.md`](docs/revision-model.md) · [`docs/rollback.md`](docs/rollback.md) — statuses, undo, selective rollback
 - [`docs/visual-accuracy-contract.md`](docs/visual-accuracy-contract.md) — mismatch classification
 - [`docs/limitations.md`](docs/limitations.md) · [`docs/roadmap.md`](docs/roadmap.md) — honest scope, and what is coming
+- [`docs/benchmarks.md`](docs/benchmarks.md) — the measured baseline, and the protocol for the next one
 - [`examples/cv-reference/`](examples/cv-reference/) — a worked chain; reading revisions 001 → 009 shows what iteration actually looks like
 
 > **Historical:** the eleven-agent prompt chain this harness replaced,

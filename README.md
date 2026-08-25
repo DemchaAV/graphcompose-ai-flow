@@ -122,7 +122,8 @@ approve and publish          2 min ·   8.1k output ·  6.5M cache read ·  11 r
 
 A correction costs roughly a tenth of the original run. That ratio is the
 one to watch, and it is why the harness measures itself rather than
-guessing — see [telemetry](scripts/telemetry/README.md).
+guessing — see [telemetry](scripts/telemetry/README.md) and
+[the benchmark protocol](docs/benchmarks.md).
 
 ### What this does not claim
 

@@ -51,8 +51,8 @@
     },
     "testRender": {
       "kind": "tool",
-      "tool": "scripts/render.mjs",
-      "description": "compile + render (clean + debug)  <- mechanical",
+      "tool": "scripts/render-and-diff.mjs",
+      "description": "compile + render + diff + loop verdict, one call  <- mechanical",
       "label": "compile-render"
     },
     "visualReview": {

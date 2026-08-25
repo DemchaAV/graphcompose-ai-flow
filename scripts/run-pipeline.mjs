@@ -5,11 +5,12 @@
  *
  *   node scripts/run-pipeline.mjs <project-id> [--revision <id>] [--scope <scope>] [--render]
  *
- * The authoring steps are LLM-driven: the agent opens each prompt and writes the
- * revision artifacts. This script does NOT fake them. It resolves the correct
- * ordered agent chain for the revision's scope and prints the exact prompt files
- * to open, in order, plus the mechanical render command. With --render it runs
- * the deterministic render step (scripts/render.mjs).
+ * The authoring steps are LLM-driven: the agent follows the owning workflow
+ * skill and writes the revision artifacts. This script does NOT fake them. It resolves the correct
+ * ordered stage chain for the revision's scope, plus the two composite
+ * commands that do the mechanical work: render-and-diff for a loop pass and
+ * approve-and-publish for the handover. With --render it runs the render step
+ * directly (scripts/render.mjs).
  *
  * Routing source of truth: config/pipeline.json, read through
  * scripts/lib/pipeline-config.mjs. This script holds no chain of its own — when
@@ -97,14 +98,12 @@ const revisionId =
   args.revision || project.currentDraftRevisionId || "revision-001";
 const revisionDir = path.join(projectDir, "revisions", revisionId);
 const revision = readJsonOr(path.join(revisionDir, "revision.json"), null);
-// In install mode the project lives at examples/<id> and the printed commands
-// stay exactly what they always were; in a user workspace they carry --root so
-// they can be copied out of the terminal and run anywhere.
 // Forward slashes: these strings are printed as commands to paste into a
 // shell, where a Windows path.join separator would be an escape character.
 const posix = (p) => p.split(path.sep).join("/");
-const projectDisplay =
-  workspace.mode === "install" ? `examples/${args.project}` : posix(projectDir);
+// In install mode the project lives at examples/<id> and the printed commands
+// stay exactly what they always were; in a user workspace they carry --root so
+// they can be copied out of the terminal and run anywhere.
 const rootFlag = workspace.mode === "install" ? "" : ` --root ${workspace.root}`;
 
 if (!revision && !args.render) {
@@ -153,12 +152,10 @@ stages.forEach((stage, i) => {
   );
 });
 
-console.log(`\n  ${bold("mechanical render")} (the Test+Render step):`);
-console.log(`        node scripts/render.mjs ${args.project} ${revisionId}${rootFlag}`);
-console.log(`\n  ${bold("when parity is clean, approve")} (-> Revision Manager, then Template Publisher rebuilds templates/):`);
-console.log(
-  `        node tools/revision-manager/bin/graphcompose-flow.mjs approve ${revisionId} --project ${projectDisplay}`,
-);
+console.log(`\n  ${bold("mechanical loop pass")} (render + diff + verdict, one call — exit 0 ready / 2 revise / 3 blocked):`);
+console.log(`        node scripts/render-and-diff.mjs --project ${args.project} --revision ${revisionId}${rootFlag}`);
+console.log(`\n  ${bold("when the user approves")} (approve + publish + README + verify, one call):`);
+console.log(`        node scripts/approve-and-publish.mjs --project ${args.project}${rootFlag}`);
 
 // --- optionally run the mechanical render -----------------------------------
 if (args.render) {

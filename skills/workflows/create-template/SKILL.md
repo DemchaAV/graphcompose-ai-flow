@@ -62,6 +62,29 @@ to run with `node scripts/run-pipeline.mjs <project-id>`.
 
 ## The stages
 
+**Fan the analysis out, where the host can.** The first three artifacts
+describe the same reference and do not read each other, so they can be
+produced by three parallel subagents (in Claude Code: the Agent tool;
+in a host without subagents, do the same three sequentially, in this
+order):
+
+| Subagent | Owns, exclusively | Reads |
+|---|---|---|
+| geometry | `visual-analysis.json` | the reference + its schema |
+| content | `<doc-kind>-data.json` (+ `data-schema.md`) | the reference only |
+| assets | `asset-request.json` | the reference + the request format |
+
+The rules that make this safe are the same ones that make it fast. Each
+subagent writes **only its own files** — the files are the join point,
+and two writers on one file is a merge conflict with no merger. Each
+gets the reference image and its task, **not** this conversation, so its
+context stays a fraction of the parent's. Its reply should be one line
+("wrote visual-analysis.json, 9 regions"); the parent reads results from
+disk, never from transcripts. Rejoin when all three files exist, then
+continue below — architecture depends on the geometry, the template on
+all three. The render loop that follows is serial by nature (each pass
+depends on the previous render); do not try to parallelise it.
+
 **Analyse the reference** → `visual-analysis.json`
 ([schema](../../../schemas/visual-analysis.schema.json)).
 

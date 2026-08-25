@@ -7,6 +7,36 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.4 — the analysis fans out, and the benchmark has a protocol
+
+The last item from the optimization plan, plus the coherence pass that
+closes it.
+
+- **`create-template` can fan the analysis out to parallel subagents**,
+  where the host supports them (Claude Code's Agent tool; sequential
+  fallback elsewhere). Three subagents, three disjoint owners: geometry →
+  `visual-analysis.json`, content → `<doc-kind>-data.json`, assets →
+  `asset-request.json`. Files are the join points — each subagent writes
+  only its own, replies in one line, and the parent reads results from
+  disk, never from transcripts, so subagent output does not live in the
+  parent's context. The render loop stays serial on purpose: each pass
+  depends on the previous render, and the skill says so.
+- **`docs/benchmarks.md`** records the baseline's shape and the protocol
+  for v2: same reference, same opening sentence verbatim, fresh project
+  id, fresh session, no steering until the loop stops, `run-metrics
+  finish` afterwards. Compare per cycle, not per total — totals mix in
+  how much steering the human chose to do, which is not the harness's
+  variable. Honest expectations included: composites remove turns, not
+  thinking, so the realistic near-term win is fewer requests and a much
+  faster correction path, not a 3x create.
+- **`run-pipeline` and `config/pipeline.json` caught up with the
+  composites**: the render stage's tool is `render-and-diff`, and the
+  printed hints name the two one-call commands instead of the retired
+  step-by-step chain (the approve hint still pointed at the revision
+  manager directly). Removed a dangling `posix` deletion my own edit had
+  introduced — caught by exercising the missing-revision path, not by
+  the suite, which is why the hint text is now covered by the smoke run.
+
 ### v0.5.3 — one loop pass, one command
 
 Third optimization from the baseline. Every pass of the loop runs the
