@@ -367,3 +367,38 @@ test("a measured render passes the gate and says so", () => {
   assert.equal(step?.ok, true);
   assert.match(step.detail, /compared against the reference/);
 });
+
+test("a revision whose source parted from its review is not published", () => {
+  // The render gate stops the second render; the edit happens before it, so a
+  // revision can reach approval carrying source that was never rendered and
+  // never reviewed. Publishing that puts code nobody compared with anything
+  // into a bundle, under a review written about other code.
+  const s = scenario({ verdict: "READY_FOR_APPROVAL" });
+  fs.writeFileSync(path.join(s.revision, "output.pdf"), "%PDF-1.7\n%%EOF\n");
+  fs.writeFileSync(path.join(s.revision, "visual-diff-stats.json"), '{"mismatchPx":0}');
+
+  const edited = path.join(s.revision, "generated-template.java");
+  fs.writeFileSync(edited, "package x;\npublic final class GeneratedCvTemplate {}\n");
+  const later = new Date(Date.now() + 700 * 1000);
+  fs.utimesSync(edited, later, later);
+
+  const { status, parsed, output } = runCli(s.root, ["--json"]);
+  assert.notEqual(status, 0, "it published source that was never reviewed");
+
+  const step = (parsed?.steps ?? []).find((e) => e.name === "does the source match what was reviewed");
+  assert.ok(step, `the seal step did not run: ${output}`);
+  assert.equal(step.ok, false);
+  assert.match(step.error, /after the review that judged it/);
+  assert.match(step.error, /render-and-diff/, "the way to make it true again is not named");
+});
+
+test("a revision unchanged since its review passes the seal step", () => {
+  const s = scenario({ verdict: "READY_FOR_APPROVAL" });
+  fs.writeFileSync(path.join(s.revision, "output.pdf"), "%PDF-1.7\n%%EOF\n");
+  fs.writeFileSync(path.join(s.revision, "visual-diff-stats.json"), '{"mismatchPx":0}');
+
+  const { parsed } = runCli(s.root, ["--json"]);
+  const step = (parsed?.steps ?? []).find((e) => e.name === "does the source match what was reviewed");
+  assert.equal(step?.ok, true);
+  assert.match(step.detail, /unchanged since the review/);
+});

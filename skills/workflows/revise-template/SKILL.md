@@ -110,6 +110,30 @@ that repetition is what the tool counts. See
 render methods actually touched. This is what makes selective rollback
 work later ("keep the new awards but restore the old header").
 
+**8. If you learned something about the engine, record it as an
+observation — not in a README.** A correction is where library behaviour
+turns up, because a correction is where a reasonable expectation meets
+what the layout actually does. When that happens:
+
+```bash
+node scripts/observations.mjs find <the call you were using>
+node scripts/probe.mjs --list
+```
+
+If nothing on record explains it, the finding is worth a probe in
+`tools/diagnostics/graphcompose-<line>/` and an observation beside it.
+`observations verify` then re-confirms it on every later version and
+retires it when the library is fixed — which is not hypothetical: two
+observations were retired the day 2.2.1 landed, and the skill pack that
+had been teaching their workarounds was corrected with them.
+
+A measurement written into a bundle README instead does none of that. It
+is true, it is unreachable, and the next run pays to discover it again.
+That happened: a proposal run measured that the right margin on a rule
+inside a row cell is counted twice — asked for 15.5pt, got 27.9 — and
+recorded it under `knownLimitations`, where `observations find` will
+never look.
+
 ## Judgement calls
 
 - **When the scope stops fitting mid-flight, stop and say so.** A

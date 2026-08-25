@@ -72,7 +72,7 @@
         "confirmed",
         "retired"
       ],
-      "description": "suspected: seen once, no probe agreement yet. confirmed: a probe reproduces it on demand. retired: the library changed and the probe no longer reproduces it \u2014 kept so the next reader knows it was checked, not forgotten."
+      "description": "suspected: seen once, no probe agreement yet. confirmed: a probe reproduces it on demand. retired: the library changed and the probe no longer reproduces it — kept so the next reader knows it was checked, not forgotten."
     },
     "sourceRun": {
       "type": "object",
@@ -98,7 +98,7 @@
         "string",
         "null"
       ],
-      "description": "The skill-pack file this was folded into, once a probe confirmed it and someone decided it belongs in the pack. Null means it is still only evidence. Promotion is deliberate \u2014 an observation added to a skill automatically would be an unverified claim presented as the API contract."
+      "description": "The skill-pack file this was folded into, once a probe confirmed it and someone decided it belongs in the pack. Null means it is still only evidence. Promotion is deliberate — an observation added to a skill automatically would be an unverified claim presented as the API contract."
     },
     "engineDefect": {
       "type": "object",
@@ -130,6 +130,31 @@
           "description": "The GraphCompose version that fixes it, once known. While null, the workaround stands; once set, this observation should be retired for that line and the workaround removed rather than carried forward."
         }
       }
+    },
+    "retiredNote": {
+      "type": "string",
+      "minLength": 40,
+      "description": "Why this stopped holding, and what was measured instead. `confidence: retired` records that an observation is no longer true and, on its own, records nothing about why — which is the drift this whole system exists to prevent. Name the version that changed it and quote the probe values that moved, so a reader on the older line can still tell whether the workaround applies to them."
     }
-  }
+  },
+  "allOf": [
+    {
+      "description": "A retired observation has to say what retired it.",
+      "if": {
+        "properties": {
+          "confidence": {
+            "const": "retired"
+          }
+        },
+        "required": [
+          "confidence"
+        ]
+      },
+      "then": {
+        "required": [
+          "retiredNote"
+        ]
+      }
+    }
+  ]
 }

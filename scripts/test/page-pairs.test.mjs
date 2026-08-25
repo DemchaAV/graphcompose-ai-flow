@@ -20,6 +20,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 import {
   countReferencePages,
@@ -209,10 +210,8 @@ test("a missing directory is refused by name, not resolved against the process c
 
 // --- rasterising the pages ------------------------------------------------------
 
-const jar = path.join(
-  path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/(?=[A-Za-z]:)/, "")), "..", ".."),
-  "tools", "preview-renderer", "target", "preview-renderer.jar",
-);
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+const jar = path.join(repoRoot, "tools", "preview-renderer", "target", "preview-renderer.jar");
 const haveRenderer =
   fs.existsSync(jar) && spawnSync("java", ["-version"], { encoding: "utf8" }).status === 0;
 
@@ -227,7 +226,7 @@ test("the renderer writes every page in one JVM, named the way the pairing expec
   // given and the rest land beside it as `<stem>-page-N.png`, which is exactly
   // what pagePairs looks for.
   const anyTwoPage = (() => {
-    const root = path.join(path.dirname(jar), "..", "..", "..", "examples");
+    const root = path.join(repoRoot, "examples");
     if (!fs.existsSync(root)) return null;
     for (const project of fs.readdirSync(root)) {
       const revisions = path.join(root, project, "revisions");
@@ -266,7 +265,7 @@ test("asking for more pages than the document has stops at the end rather than f
   // shorter is a fact for the caller to report — page-pairs already reports it
   // as missingFromRender — not a crash inside the rasteriser.
   const onePage = (() => {
-    const root = path.join(path.dirname(jar), "..", "..", "..", "examples", "invoice-reference", "revisions");
+    const root = path.join(repoRoot, "examples", "invoice-reference", "revisions");
     if (!fs.existsSync(root)) return null;
     for (const rev of fs.readdirSync(root)) {
       const pdf = path.join(root, rev, "output.pdf");

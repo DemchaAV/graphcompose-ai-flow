@@ -163,6 +163,7 @@ if (command === "verify") {
   }
 
   let stale = 0;
+  let returned = 0;
   for (const { body, file } of subjects) {
     const probe = body.minimalReproduction?.probe;
     if (!probe) {
@@ -194,6 +195,24 @@ if (command === "verify") {
     }
 
     const differences = compare(body.probeResult ?? {}, result);
+
+    // A retired observation is a record of something that STOPPED being true.
+    // Demanding that it still hold is backwards: what is worth knowing about it
+    // is the opposite — if the probe starts agreeing with it again, a behaviour
+    // came back and the note explaining the retirement is now wrong.
+    if (body.confidence === "retired") {
+      if (differences.length === 0) {
+        returned += 1;
+        console.error(
+          `  BACK ${body.id}: retired, but the probe agrees with it again — ` +
+            `either it was retired in error or the behaviour returned`,
+        );
+      } else {
+        console.log(`  ret  ${body.id} (${probe}) — retired, and still not true`);
+      }
+      continue;
+    }
+
     if (differences.length === 0) {
       console.log(`  ok   ${body.id} (${probe})`);
     } else {
@@ -204,12 +223,20 @@ if (command === "verify") {
     }
   }
 
-  console.log(
-    stale === 0
-      ? `[observations] ${subjects.length} observation(s) still hold`
-      : `[observations] ${stale} of ${subjects.length} no longer hold`,
-  );
-  process.exit(stale === 0 ? 0 : 1);
+  const retired = retiredCount(subjects);
+  const live = subjects.length - retired;
+  const summary = [
+    stale === 0 ? `${live} observation(s) still hold` : `${stale} of ${live} no longer hold`,
+    retired ? `${retired} retired` : null,
+    returned ? `${returned} retired but true again` : null,
+  ].filter(Boolean).join(", ");
+  console.log(`[observations] ${summary}`);
+  process.exit(stale === 0 && returned === 0 ? 0 : 1);
+}
+
+/** How many of these are on record as no longer true. */
+function retiredCount(list) {
+  return list.filter(({ body }) => body.confidence === "retired").length;
 }
 
 if (command === "promote") {

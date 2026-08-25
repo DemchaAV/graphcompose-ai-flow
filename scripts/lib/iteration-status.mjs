@@ -25,6 +25,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { describeSeal, sealState } from "./revision-seal.mjs";
+
 /** Verdicts this module can return, in the order they end the loop. */
 export const VERDICTS = Object.freeze(["READY_FOR_APPROVAL", "REVISE", "BLOCKED"]);
 
@@ -221,13 +223,23 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     );
   }
 
+  // A revision edited after it was judged is not the revision that was judged.
+  // The render gate stops the second render; the edit happens before it, so the
+  // loop has to be able to say that the source and the review have parted.
+  const seal = sealState(path.join(projectDir, "revisions", latest.id));
+  if (seal.broken) {
+    reasons.push(`${latest.id}: ${describeSeal(seal)}`);
+    if (verdict === "READY_FOR_APPROVAL") verdict = "REVISE";
+  }
+
   // A render nobody compared cannot be ready. The review may be perfectly
   // observant — the one that prompted this carried seven real mismatches — but
   // "ready" is a claim about parity with the reference, and parity is the one
   // thing looking at the render alone cannot establish. REVISE rather than
   // BLOCKED: the agent fixes this itself, in one command.
   const evidence = measurementEvidence(path.join(projectDir, "revisions", latest.id));
-  if (evidence.rendered && !evidence.measured) {
+  const unmeasuredRender = evidence.rendered && !evidence.measured;
+  if (unmeasuredRender) {
     reasons.push(
       `${latest.id} has a render and no comparison — no visual-diff-stats.json, no diff.png, ` +
         "no reference-scaled.png. Every gate lives in render-and-diff, so skipping it skipped " +
@@ -286,10 +298,17 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     // downgraded" reads as "this was measured" on a revision whose review had
     // already said REVISE, which is the opposite of what happened.
     measurement: evidence,
+    // Whether the source still matches what the review judged.
+    seal: { reviewed: seal.reviewed, broken: seal.broken, edited: seal.edited },
     // The next command differs: "fix this mismatch" and "you have not compared
     // anything yet" are not the same instruction.
-    largestMismatch:
-      evidence.rendered && !evidence.measured ? "unmeasured-render" : largestMismatch,
+    // Both of these outrank a named mismatch: fixing the mismatch is pointless
+    // while the render is uncompared or the source has parted from its review.
+    largestMismatch: unmeasuredRender
+      ? "unmeasured-render"
+      : seal.broken
+        ? "edited-after-review"
+        : largestMismatch,
     // Named so a caller can say "because you asked" rather than reporting a
     // user's own observation back to them as a measurement.
     focusSource: focus.source,

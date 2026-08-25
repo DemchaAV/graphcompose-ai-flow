@@ -32,12 +32,12 @@
     "fullThreshold": 0.75
   },
   "workaround": "Keep cell content to the three kinds that survive: DocumentTableCell.text(...) for one logical value, DocumentTableCell.lines(...) for an explicit multiline value, and DocumentTableCell.node(ParagraphNode) when the value needs styling or inline runs. A nested TableNode is the supported route for structure inside a cell. Do not reach for a Section, Row, ShapeContainer, LayerStack or CanvasLayer to arrange a cell's insides — the arrangement will look right in the code and be missing on the page. Where a cell genuinely needs two-dimensional arrangement, use a nested table, or take the content out of the table and place it with the page's own layout primitives.",
-  "confidence": "confirmed",
+  "confidence": "retired",
   "engineDefect": {
     "isDefect": true,
     "affectedVersions": "2.2.0",
     "reportedTo": null,
-    "fixedIn": null
+    "fixedIn": "2.2.1"
   },
   "sourceRun": {
     "project": "olive-curve-invoice",
@@ -45,5 +45,6 @@
     "date": "2026-08-25",
     "note": "Reported from a real acceptance run and reproduced here independently. The probe found more than was reported: the partial-draw cases (Section, LayerStack) were not in the original account, and they are the ones that mislead, because a half-drawn cell reads as a styling problem rather than a lost-content one."
   },
-  "promotedTo": null
+  "promotedTo": null,
+  "retiredNote": "Fixed in 2.2.1. Re-running `table-cell-node` against 2.2.1 shows all eight node kinds drawing in full: contentDrawnInFull became [ParagraphNode, ListNode, TableNode, SectionNode, RowNode, LayerStackNode, ShapeContainerNode, CanvasLayerNode], with contentPartiallyDrawn and contentLost both empty. On 2.2.0 a RowNode, ShapeContainerNode or CanvasLayerNode in a cell reserved the cell's height and drew none of its child content, and a SectionNode or LayerStackNode drew about 0.4 of the ink. The workaround above is what a project still pinned to 2.2.0 needs; on 2.2.1 a cell takes any node."
 }

@@ -150,17 +150,30 @@ mkdirp(targetSrcDir, targetDataDir, targetAssetsDir, targetIconsDir, targetPrevi
 // publisher took only the first, so a revision that had been opened in an IDE
 // approved cleanly and then failed to publish, with the approval already done.
 // The canonical name wins when both exist, matching the pom's condition.
-const sourceClassFile = (() => {
-  const declared = simpleClassName(projectMeta.render && projectMeta.render.templateClass)
-    || simpleClassName(projectMeta.templateClass);
-  const canonical = declared ? path.join(revisionDir, `${declared}.java`) : null;
-  if (canonical && fs.existsSync(canonical)) return canonical;
-  return path.join(revisionDir, "generated-template.java");
-})();
+const declaredClassName =
+  simpleClassName(projectMeta.render && projectMeta.render.templateClass)
+  || simpleClassName(projectMeta.templateClass);
+const flowName = path.join(revisionDir, "generated-template.java");
+const canonicalName = declaredClassName ? path.join(revisionDir, `${declaredClassName}.java`) : null;
+const sourceClassFile =
+  canonicalName && fs.existsSync(canonicalName) ? canonicalName : flowName;
+
+// Both names, when neither is there. Reporting one of two candidates is how the
+// failure this whole branch exists to fix stayed opaque: the reader is told a
+// file is missing and never learns the other name was tried too.
+if (!fs.existsSync(sourceClassFile)) {
+  abort(
+    `no template source in ${revisionDir} — looked for ` +
+      [canonicalName, flowName]
+        .filter(Boolean)
+        .map((file) => path.basename(file))
+        .join(" and "),
+  );
+}
+
 const targetClassFile = path.join(targetSrcDir, `${className}.java`);
 const sourceClassName =
-  simpleClassName(projectMeta.render && projectMeta.render.templateClass)
-  || simpleClassName(projectMeta.templateClass)
+  declaredClassName
   || inferPublicClassName(sourceClassFile)
   || "GeneratedCvTemplate";
 // The published class is always rewritten from the revision. It used to be

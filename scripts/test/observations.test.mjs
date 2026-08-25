@@ -183,3 +183,67 @@ test("an already-promoted observation is not promoted a second time", () => {
   assert.equal(result.status, 1);
   assert.match(result.output, /already promoted/);
 });
+
+// --- what retirement means ------------------------------------------------------
+
+test("a retired observation says what retired it", () => {
+  // `confidence: retired` on its own records that something stopped being true
+  // and nothing about why — which is how a measured fact becomes folklore. The
+  // first two retirements, when 2.2.1 fixed the defects they described, are what
+  // exposed that the schema had no place to put the reason.
+  for (const { body, file } of records()) {
+    if (body.confidence !== "retired") continue;
+    assert.ok(
+      typeof body.retiredNote === "string" && body.retiredNote.length > 40,
+      `${path.basename(file)} is retired and does not say why`,
+    );
+    assert.match(
+      body.retiredNote,
+      /\d+\.\d+\.\d+/,
+      `${body.id}: the note does not name the version that changed it`,
+    );
+  }
+});
+
+test("verify does not demand that a retired observation still hold", () => {
+  // Backwards, and it used to do exactly that: an observation retired because
+  // the library fixed the defect was reported FAIL on every run, so the command
+  // that proves the record is current could never come back clean once anything
+  // had been retired.
+  const retired = records().filter(({ body }) => body.confidence === "retired");
+  if (retired.length === 0) return; // nothing retired in this checkout
+
+  const result = run(["verify"]);
+  assert.equal(result.status, 0, `verify failed on a retired record:
+${result.output}`);
+  for (const { body } of retired) {
+    assert.ok(
+      result.output.includes(`ret  ${body.id}`),
+      `${body.id} was not reported as retired`,
+    );
+    assert.ok(
+      !new RegExp(`FAIL ${body.id}`).test(result.output),
+      `${body.id} is retired and was still reported as a failure`,
+    );
+  }
+  assert.match(result.output, /retired/, "the summary does not say how many are retired");
+});
+
+test("the revise workflow sends a discovery where it can be found again", () => {
+  // A correction is where library behaviour turns up, and revise-template used
+  // to mention observations zero times. A real run measured that the right
+  // margin on a rule inside a row cell is counted twice and wrote it into a
+  // bundle README, where `observations find` will never look and the next run
+  // pays to discover it again.
+  const revise = fs.readFileSync(
+    path.join(repoRoot, "skills", "workflows", "revise-template", "SKILL.md"),
+    "utf8",
+  );
+  assert.match(revise, /observations\.mjs find/, "the revise workflow never reaches for what is on record");
+  assert.match(revise, /probe\.mjs/, "it does not say a finding needs a probe");
+  assert.match(
+    revise,
+    /README/,
+    "it does not say where a measurement must NOT go",
+  );
+});

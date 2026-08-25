@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "targetLibrary": "GraphCompose",
   "targetVersion": "2.2.x",
-  "verifiedAgainst": "2.2.0",
+  "verifiedAgainst": "2.2.1",
   "generator": "tools/api-surface/extract-api.mjs",
   "generatedFrom": [
-    "io.github.demchaav:graph-compose-core:2.2.0",
-    "io.github.demchaav:graph-compose-templates:2.2.0"
+    "io.github.demchaav:graph-compose-core:2.2.1",
+    "io.github.demchaav:graph-compose-templates:2.2.1"
   ],
   "parameterNamesFrom": [
     "graph-compose-core:sources",

@@ -20,7 +20,7 @@
   <properties>
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <graphcompose.version>2.2.0</graphcompose.version>
+    <graphcompose.version>2.2.1</graphcompose.version>
   </properties>
 
   <dependencies>

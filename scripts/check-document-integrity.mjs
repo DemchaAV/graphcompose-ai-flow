@@ -34,6 +34,7 @@ import { spawnSync } from "node:child_process";
 
 import { contentStrings, dataFileFor, findDataFile, normalizeText, valueAppears } from "./lib/data-spec.mjs";
 import { PAGE_OF, findFooterOverlaps } from "./lib/footer-overlap.mjs";
+import { findHeaderGaps } from "./lib/table-header-gaps.mjs";
 import {
   describeWorkspaceLine,
   installRoot,
@@ -218,27 +219,21 @@ if (!fs.existsSync(pdfPath)) {
       result.notes.push("page enumeration is not required by the analysis, so it was not checked");
     }
 
-    // 3b. A repeated table header, checked where it can be: on the pages after
-    //     the first. A continuation page with five unlabelled columns of numbers
-    //     is a document defect and a zero-pixel one.
+    // 3b. A header that went missing while its table continued.
+    //
+    //     The rule and the reasoning live in lib/table-header-gaps.mjs, which is
+    //     pure and tested directly; this is the I/O around it.
     if (overflow && overflow.pageCount > 1) {
-      for (const region of analysis?.regions ?? []) {
-        if (region.role !== "table-header") continue;
-        const tokens = String(region.label ?? "")
-          .toLowerCase()
-          .split(/[^a-z0-9]+/i)
-          .filter((t) => t.length >= 4);
-        if (!tokens.length) continue;
-        overflow.pages.forEach((pageText, index) => {
-          const normalized = normalizeText(pageText);
-          const found = tokens.filter((t) => normalized.includes(t)).length;
-          if (found / tokens.length < 0.7) {
-            defect(
-              "table-header-not-repeated",
-              `overflow page ${index + 1} does not carry "${region.label}" (region ${region.id})`,
-            );
-          }
-        });
+      for (const gap of findHeaderGaps({
+        regions: analysis?.regions ?? [],
+        pages: overflow.pages ?? [],
+        normalize: normalizeText,
+      })) {
+        defect(
+          "table-header-not-repeated",
+          `overflow page ${gap.page} does not carry "${gap.label}" (region ${gap.region}), ` +
+            `though pages ${gap.spans[0]} and ${gap.spans[1]} do — the table spans the gap`,
+        );
       }
     }
 

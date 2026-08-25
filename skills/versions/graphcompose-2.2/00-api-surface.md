@@ -2,10 +2,10 @@
 skillId: graphcompose-api-surface
 targetLibrary: GraphCompose
 targetVersion: 2.2.x
-verifiedAgainst: 2.2.0
+verifiedAgainst: 2.2.1
 status: active
 generator: tools/api-surface/extract-api.mjs
-generatedFrom: "io.github.demchaav:graph-compose-core:2.2.0, io.github.demchaav:graph-compose-templates:2.2.0"
+generatedFrom: "io.github.demchaav:graph-compose-core:2.2.1, io.github.demchaav:graph-compose-templates:2.2.1"
 note: "Generated from the pinned artifact's class files. Authoritative closed set: a symbol absent here does not exist for this version. Regenerate, do not hand-edit."
 ---
 
@@ -21,7 +21,7 @@ note: "Generated from the pinned artifact's class files. Authoritative closed se
 >
 > Ask it a question instead of reading it: `node scripts/api-query.mjs --search <term>`.
 
-**GraphCompose version:** 2.2.0
+**GraphCompose version:** 2.2.1
 
 Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 1312
 

@@ -16,9 +16,12 @@ import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.junit.jupiter.api.Test;
 
 /**
- * Generates a real one-page PDF with PDFBox and then converts it to a PNG via
- * {@link PreviewCommand#runRender}. Asserts the output exists, has plausible
- * size, and starts with the PNG magic header.
+ * Generates a real PDF with PDFBox and converts it to PNGs.
+ *
+ * {@link PreviewCommand#runRenderPages} is the path every render takes — both
+ * the `preview` subcommand and the in-process rasterisation `render` does after
+ * building the PDF — so it is what these assert. {@code runRender} is kept and
+ * still covered because it is the single-page shape callers may want.
  */
 class PreviewCommandTest {
 
@@ -38,6 +41,78 @@ class PreviewCommandTest {
             assertPngMagic(png);
         } finally {
             deleteRecursively(tempDir);
+        }
+    }
+
+    @Test
+    void rendersEveryRequestedPageBesideTheFirst() throws Exception {
+        // The naming is the contract: page 1 keeps the name it was given and the
+        // rest land beside it as `<stem>-page-N.png`, which is what page-pairs
+        // looks for when it pairs a render against a reference.
+        Path tempDir = Files.createTempDirectory("preview-renderer-pages-");
+        try {
+            Path pdf = tempDir.resolve("sample.pdf");
+            createPdf(pdf, 3);
+
+            Path png = tempDir.resolve("output.png");
+            int written = PreviewCommand.runRenderPages(pdf, png, 72, 0, 3);
+
+            assertEquals(3, written, "every requested page should have been written");
+            assertTrue(Files.isRegularFile(png), "page 1 should keep the name it was given");
+            assertTrue(Files.isRegularFile(tempDir.resolve("output-page-2.png")), "page 2 is misnamed");
+            assertTrue(Files.isRegularFile(tempDir.resolve("output-page-3.png")), "page 3 is misnamed");
+            assertPngMagic(tempDir.resolve("output-page-3.png"));
+        } finally {
+            deleteRecursively(tempDir);
+        }
+    }
+
+    @Test
+    void stopsAtTheEndOfTheDocumentRatherThanFailing() throws Exception {
+        // `render.pages` is a declaration about the document. A render that came
+        // out shorter is a fact for the caller to report — page-pairs reports it
+        // as missingFromRender — not a crash inside the rasteriser.
+        Path tempDir = Files.createTempDirectory("preview-renderer-short-");
+        try {
+            Path pdf = tempDir.resolve("sample.pdf");
+            createPdf(pdf, 2);
+
+            Path png = tempDir.resolve("output.png");
+            int written = PreviewCommand.runRenderPages(pdf, png, 72, 0, 9);
+
+            assertEquals(2, written, "it should stop at the end of the document");
+            assertTrue(Files.notExists(tempDir.resolve("output-page-3.png")), "a page was invented");
+        } finally {
+            deleteRecursively(tempDir);
+        }
+    }
+
+    @Test
+    void namesContinuationPagesBesideWhateverTheFirstWasCalled() {
+        assertEquals(
+                Path.of("out", "output-debug-page-2.png"),
+                PreviewCommand.siblingForPage(Path.of("out", "output-debug.png"), 2),
+                "the debug pass must not collide with the clean pass");
+        assertEquals(
+                Path.of("out", "output-overflow-page-5.png"),
+                PreviewCommand.siblingForPage(Path.of("out", "output-overflow.png"), 5));
+    }
+
+    /** A PDF with `pages` pages, each carrying enough ink to rasterise. */
+    private static void createPdf(Path pdfPath, int pages) throws IOException {
+        try (PDDocument document = new PDDocument()) {
+            for (int page = 1; page <= pages; page += 1) {
+                PDPage pdPage = new PDPage();
+                document.addPage(pdPage);
+                try (PDPageContentStream content = new PDPageContentStream(document, pdPage)) {
+                    content.beginText();
+                    content.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 24);
+                    content.newLineAtOffset(72, 700);
+                    content.showText("page " + page);
+                    content.endText();
+                }
+            }
+            document.save(pdfPath.toFile());
         }
     }
 

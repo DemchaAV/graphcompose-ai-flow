@@ -5,6 +5,86 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.11.0 — 2026-08-25
+
+GraphCompose 2.2.1, and three things a real proposal run showed.
+
+**The seal is on the revision now, not only on the render.** v0.10.0
+stopped a correction rendering into a revision that already carried a
+review, and in the first run that hit it the gate worked — the agent
+opened a new revision and carried on. The record still came out damaged,
+because the edit happens *before* the render:
+
+```text
+revision-001  output.pdf                     20:37:32
+              visual-review.json             20:39:00
+              GeneratedProposalTemplate.java 20:50:54   <- eleven minutes later
+```
+
+Nothing was lost — `new-revision` copies the body forward — but
+revision-001's template was never rendered and never reviewed, so rolling
+back to it hands you code nobody checked, which is the one thing keeping
+every revision is for. A source file modified after the review that
+judged it is now reported by the render refusal, downgrades the loop
+verdict to `REVISE` with the focus `edited-after-review`, and stops
+`approve-and-publish` before it can put unreviewed code into a bundle.
+Checked against every project on this machine: none of their latest
+revisions is affected.
+
+A generated test is deliberately not counted. It exercises the template
+rather than composing the document, so editing it changes nothing the
+review looked at — and every example here carries one.
+
+**A discovery made while correcting goes into `observations`, not a
+README.** The revise workflow mentioned observations zero times, and the
+instruction to record one lived only in create-template's probe section —
+which an agent reads when it is about to write a probe, not when it has
+just measured something while fixing a layout. So a run measured that the
+right margin on a rule inside a row cell is counted twice (asked for
+15.5pt, got 27.9) and wrote it into a bundle README, where
+`observations find` will never look and the next run pays to discover it
+again. Step 8 of the revise workflow now says where it goes and why.
+
+**A table header cannot repeat on a page its table never reaches.**
+`check-document-integrity` demanded every `table-header` region's label
+on every page of the overflow render, and failed a working two-table
+proposal three times: its investment table only reaches page 3, and its
+timeline header matched two of its four words on page 1 out of prose.
+There was no test on the rule at all, which is how it shipped. It reports
+a *gap* now — present, missing, present again means the table spans all
+three pages and lost its header in the middle, which is unambiguous. On
+the run that hit it: three findings before, none after.
+
+## GraphCompose 2.2.1
+
+The public surface is byte-for-byte identical: 2702 members, none added,
+none removed. What changed is behaviour, and two recorded observations
+stopped holding — both because the defects they described were fixed.
+
+`table-cell-loses-composite-content` was the engine defect. On 2.2.0 a
+Row, ShapeContainer or CanvasLayer in a table cell reserved the cell's
+height and drew none of its child content, and a Section or LayerStack
+drew about 0.4 of the ink. On 2.2.1 all eight node kinds draw in full,
+with nothing partial and nothing lost. `row-cannot-nest-in-row-cell` is
+lifted the same way: `horizontalInLayerStack` measured false and now
+measures true.
+
+Both are retired with those numbers, and the skill pack that had been
+teaching their workarounds **as rules** is corrected — a cell takes any
+node on 2.2.1, and which half applies is decided by the version in your
+build file rather than by the page.
+
+Three gaps surfaced while doing it. `confidence: retired` recorded that
+something stopped being true and nothing about *why*, which is how a
+measured fact becomes folklore — `retiredNote` is now required when a
+record retires. `observations verify` demanded that a retired observation
+still hold, so the command that proves the record is current could never
+come back clean once anything had been retired; it checks the opposite
+now, and reports `BACK` if a retired behaviour returns. And two tests
+pinned the exact patch number, so every release of yours broke them while
+telling nobody anything — they pin the line and the pack's own
+self-consistency instead.
+
 ## v0.10.0 — 2026-08-25
 
 Three things a real run showed were missing, and the two fixes the session

@@ -126,14 +126,36 @@ function rasterisePdfPages(source, target, page, count, dpi) {
     ],
     { encoding: "utf8" },
   );
-  if (run.status !== 0 || !fs.existsSync(target)) {
+  // Count the files, not the renderer's stdout. Deriving the number from
+  // printed lines meant any future log line — a PDFBox warning, a progress
+  // note — would inflate it, and `referencePages` and `render.pages` would then
+  // claim pages that are not there, which every later diff reports as missing
+  // forever. The files are the answer and cannot drift from themselves.
+  let written = 0;
+  while (fs.existsSync(pageFile(target, page + written))) written += 1;
+
+  if (written === 0) {
     return { ok: false, error: (run.stderr || run.stdout || "preview-renderer failed").trim() };
   }
-  // It prints one absolute path per page it wrote, and stops at the end of the
-  // document rather than failing — a page count read from the raw bytes can
-  // overshoot, and an import that produced fewer pages than asked still worked.
-  const written = run.stdout.split(/\r?\n/).filter((line) => line.trim() !== "").length;
-  return { ok: true, written: Math.max(1, written) };
+  // A failure partway through keeps what landed. The renderer stops at the end
+  // of the document on its own, but a page it cannot encode throws — and the
+  // pages before it are already written. Losing a 40-page import because page
+  // 12 would not encode is worse than importing 11 and saying so.
+  const partial = run.status !== 0;
+  return {
+    ok: true,
+    written,
+    partial,
+    error: partial ? (run.stderr || run.stdout || "preview-renderer failed").trim() : null,
+  };
+}
+
+/** Page 1 is the name it was given; the rest carry the suffix, beside it. */
+function pageFile(firstTarget, page) {
+  if (page <= 1) return firstTarget;
+  const dir = path.dirname(firstTarget);
+  const base = path.basename(firstTarget, path.extname(firstTarget));
+  return path.join(dir, `${base}-page-${page}${path.extname(firstTarget)}`);
 }
 
 function convertRaster(source, target) {
@@ -157,7 +179,7 @@ function convertRaster(source, target) {
  * `examples/cv-reference` renders: the scan found 0 in all nine revisions,
  * while the renderer reports 2.
  *
- * The renderer is already required on this path — `rasterisePdfPage` refuses
+ * The renderer is already required on this path — `rasterisePdfPages` refuses
  * without it — so asking it costs nothing that was not already being paid. The
  * byte scan stays as a fallback for the case where it cannot run at all.
  */
@@ -244,6 +266,12 @@ if (extension === ".pdf") {
   const target = path.join(referenceDir, "reference.png");
   const result = rasterisePdfPages(source, target, 1, total, args.dpi);
   if (!result.ok) fail(`could not rasterise the PDF: ${result.error}`, 4);
+  if (result.partial) {
+    process.stderr.write(
+      `[import-reference] rasterised ${result.written} of ${total} page(s); the rest failed: ` +
+        `${result.error.split("\n")[0]}\n`,
+    );
+  }
   for (let page = 1; page <= result.written; page += 1) {
     written.push(page === 1 ? "reference.png" : `reference-page-${page}.png`);
   }

@@ -44,6 +44,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { createLiveMirror } from "./live-mirror.mjs";
+import { describeSeal, sealState } from "./revision-seal.mjs";
 import { ensureSkillValidationVerdict } from "./skill-validation-gate.mjs";
 
 /**
@@ -160,11 +161,17 @@ export function runRender({
   // that revision has no review yet.
   if (!fixtureRender && fs.existsSync(path.join(revisionDir, "visual-review.json"))) {
     if (process.env.RENDER_SAME_REVISION !== "1") {
+      // If the source was already edited, say so. The gate stops the render,
+      // and the edit happens before it — so by the time anyone reads this, the
+      // revision being protected may already be a state nobody can return to.
+      const seal = describeSeal(sealState(revisionDir));
       abort(
         `${revisionId} already has a visual-review.json — its pass has been judged, so ` +
           "rendering into it again would overwrite the render the review was written about."+"\n" +
+          (seal ? `  Already edited: ${seal}\n` : "") +
           "  Open a revision for this change:\n" +
           `    node tools/revision-manager/bin/graphcompose-flow.mjs new-revision "<what you are changing>" --project ${projectDir}\n` +
+          "  new-revision copies the body forward, so an edit already made is carried over."+"\n" +
           "  Re-rendering the same revision on purpose: RENDER_SAME_REVISION=1",
       );
     }
@@ -340,8 +347,11 @@ export function runRender({
       // pass, and again for the debug render: 1.7s each against 0.22s of bare
       // JVM startup, so a twelve-page document paid about thirty-seven seconds
       // of process launches on every loop pass.
-      "--pages",
-      String(pages),
+      //
+      // Not for a fixture. A checker reads its PDF and nobody looks at its
+      // pages, which is what the early return below is for — asking for them
+      // here would undo that silently and make the line it prints untrue.
+      ...(fixtureRender ? [] : ["--pages", String(pages)]),
     ],
     repoRoot,
   );
@@ -352,8 +362,7 @@ export function runRender({
   // overflow fixture costs a loop pass and removes the only way it could
   // overwrite the real render's artifacts, since those two passes write their
   // names without the suffix.
-  const fixtureOnly = outputSuffix !== "";
-  if (fixtureOnly) {
+  if (fixtureRender) {
     // And it does not touch the live mirror. current.pdf is what a person has
     // open while they work; replacing their document with a thirty-row overflow
     // fixture every loop pass would be worse than showing nothing.

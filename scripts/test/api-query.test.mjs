@@ -135,8 +135,17 @@ test("every answer names the version it speaks for", () => {
   // call the pinned version does not have.
   const { parsed } = run(["--type", "TimelineBuilder"]);
   assert.equal(parsed.graphComposeLine, "2.2");
-  assert.equal(parsed.verifiedAgainst, "2.2.0");
   assert.match(parsed.source, /graphcompose-2\.2/);
+
+  // The line, and the exact release the pack was generated from — read from the
+  // pack rather than written here. Pinning the patch number meant every patch
+  // release broke this test while telling nobody anything: what has to hold is
+  // that the answer names a release on the line it claims to speak for.
+  assert.match(parsed.verifiedAgainst, /^2\.2\./, `answered for ${parsed.verifiedAgainst}`);
+  const pack = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, "skills", "versions", "graphcompose-2.2", "api-surface.json"), "utf8"),
+  );
+  assert.equal(parsed.verifiedAgainst, pack.verifiedAgainst, "the answer and the pack disagree");
 });
 
 test("a line with no pack is refused rather than answered from another", () => {

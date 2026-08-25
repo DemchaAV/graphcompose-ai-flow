@@ -68,7 +68,7 @@ with `claude plugin tag`). `/plugin install` follows the marketplace's
 default branch; to hold an exact release, add the repository at its tag:
 
 ```text
-/plugin marketplace add DemchaAV/graphcompose-ai-flow@graphcompose-flow--v0.10.0
+/plugin marketplace add DemchaAV/graphcompose-ai-flow@graphcompose-flow--v0.11.0
 /plugin install graphcompose-flow@graphcompose
 ```
 

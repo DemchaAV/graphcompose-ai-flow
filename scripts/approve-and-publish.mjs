@@ -40,6 +40,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { measurementEvidence } from "./lib/iteration-status.mjs";
+import { describeSeal, sealState } from "./lib/revision-seal.mjs";
 
 import {
   describeWorkspaceLine,
@@ -186,6 +187,18 @@ let templateId = null;
 // README step is the difference between finishing the bundle and hand-writing
 // generated content back into it.
 if (args.readmeOnly) {
+  // --revision has no meaning here and taking it silently would let someone
+  // believe they had regenerated a particular revision's bundle. This path
+  // reads whatever bundle is on disk; that is the whole point of it.
+  if (args.revision) {
+    process.stderr.write(
+      "[approve-and-publish] --readme-only regenerates the README of the bundle that is " +
+        `already published, so --revision ${args.revision} would be ignored. Drop it, or use ` +
+        "the full composite to approve and publish that revision.\n",
+    );
+    process.exit(2);
+  }
+
   step("locate the published bundle", (entry) => {
     const metaPath = path.join(projectDir, "template-project.json");
     if (!fs.existsSync(metaPath)) {
@@ -311,6 +324,33 @@ step("was it measured", (entry) => {
       "has passed none of them.\n" +
       `  Measure it: node scripts/render-and-diff.mjs --project ${args.project} --revision ${revisionId} --skip-render\n` +
       "  If you mean to approve it unmeasured anyway, run the revision manager's approve directly.",
+  );
+});
+
+step("does the source match what was reviewed", (entry) => {
+  // The render gate stops a second render into a judged revision. The edit
+  // happens before the render, so a revision can reach approval with source
+  // that was never rendered and never reviewed — measured on a real run, where
+  // a template was rewritten eleven minutes after the review that judged it.
+  //
+  // Publishing that is the irreversible half: the bundle carries code nobody
+  // compared with anything, under a review that was written about other code.
+  const seal = sealState(path.join(projectDir, "revisions", revisionId));
+  result.seal = { reviewed: seal.reviewed, broken: seal.broken, edited: seal.edited };
+
+  if (!seal.reviewed) {
+    entry.detail = "no review to compare against";
+    return;
+  }
+  if (!seal.broken) {
+    entry.detail = "unchanged since the review";
+    return;
+  }
+  throw new Error(
+    `${describeSeal(seal)}.\n` +
+      "  Re-render and re-review it, or carry the change into a new revision:\n" +
+      `    node scripts/render-and-diff.mjs --project ${args.project} --revision ${revisionId}\n` +
+      "  If you mean to approve the reviewed state anyway, run the revision manager's approve directly.",
   );
 });
 

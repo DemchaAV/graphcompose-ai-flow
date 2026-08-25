@@ -20,12 +20,13 @@
     "error": "cannot contain a nested horizontal row"
   },
   "workaround": "Place horizontal pairs with anchors on a shape container. For a timeline rail, use an accent on the section holding the entries so its height derives from the entries rather than from a computed number.",
-  "confidence": "confirmed",
+  "confidence": "retired",
   "sourceRun": {
     "project": "navy-sidebar-cv",
     "revision": "revision-001",
     "date": "2026-08-24",
     "note": "The first render stacked every inner row vertically."
   },
-  "promotedTo": null
+  "promotedTo": null,
+  "retiredNote": "Lifted in 2.2.1. Re-running `row-nesting` against 2.2.1 shows horizontalInLayerStack true where 2.2.0 measured false, so a horizontal arrangement inside a row cell now composes through a layer stack. The anchor-on-a-shape-container workaround above still works and is what a project pinned to 2.2.0 needs; on 2.2.1 it is a choice rather than the only route."
 }

@@ -18,7 +18,7 @@ An ordinary Java project. The only thing that matters is the pin:
 <dependency>
   <groupId>io.github.demchaav</groupId>
   <artifactId>graph-compose</artifactId>
-  <version>2.2.0</version>
+  <version>2.2.1</version>
 </dependency>
 ```
 
@@ -30,7 +30,7 @@ from the project root:
 ```console
 $ cd my-java-app/src/main/java
 $ node scripts/resolve-version.mjs
-GraphCompose 2.2.0 (2.2.x) -> skills/versions/graphcompose-2.2
+GraphCompose 2.2.1 (2.2.x) -> skills/versions/graphcompose-2.2
   from ~/demo/my-java-app/pom.xml
 ```
 

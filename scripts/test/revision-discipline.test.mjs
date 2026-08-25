@@ -31,7 +31,9 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+import { describeSeal, sealState } from "../lib/revision-seal.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -80,7 +82,7 @@ function scenario(label, { reviewed }) {
 function render(projectDir, env = {}) {
   const script =
     "import { runRender } from " +
-    JSON.stringify(`file:///${path.join(repoRoot, "scripts", "lib", "render-runtime.mjs").replace(/\\/g, "/")}`) +
+    JSON.stringify(pathToFileURL(path.join(repoRoot, "scripts", "lib", "render-runtime.mjs")).href) +
     ";\n" +
     "runRender({ repoRoot: process.argv[2], projectId: 'demo', revisionId: 'revision-001', projectDir: process.argv[3] });\n";
   const file = path.join(tempDir("driver"), "drive.mjs");
@@ -132,14 +134,100 @@ test("RENDER_SAME_REVISION=1 says so out loud rather than passing in silence", (
   assert.match(output, /re-rendering revision-001, which already has a review/);
 });
 
-test("the skills tell the reader what the refusal means", () => {
+test("the revise skill explains the refusal, not just the command", () => {
+  // The first version of this asserted only that `new-revision` appears — which
+  // it did before this change too, so it pinned nothing. What has to survive is
+  // the explanation: that the render refuses, that the escape hatch is not the
+  // answer, and what skipping the rule actually costs.
   const revise = fs.readFileSync(
     path.join(repoRoot, "skills", "workflows", "revise-template", "SKILL.md"),
     "utf8",
   );
-  assert.match(
-    revise,
-    /new-revision/,
-    "the revise workflow never names the command that opens a revision",
-  );
+  assert.match(revise, /new-revision/, "the command that opens a revision is not named");
+  assert.match(revise, /visual-review\.json/, "nothing says which state makes the render refuse");
+  assert.match(revise, /RENDER_SAME_REVISION/, "the escape hatch is never mentioned");
+  assert.match(revise, /iterate-status/, "the cost to the loop bounds is not stated");
+});
+
+// --- the seal on the revision, not just on the render ---------------------------
+
+/** Write a file with an mtime `seconds` after now. */
+function writeAged(file, contents, seconds) {
+  write(file, contents);
+  const at = new Date(Date.now() + seconds * 1000);
+  fs.utimesSync(file, at, at);
+}
+
+test("a source file edited after the review breaks the seal", () => {
+  // The gate stops the second RENDER; the edit happens before it. Measured on a
+  // real run: a template rewritten 714 seconds after the review that judged it,
+  // leaving a revision whose source was never rendered and never reviewed —
+  // which is exactly what a rollback target must not be.
+  const s = scenario("sealbroken", { reviewed: true });
+  writeAged(path.join(s.revision, "GeneratedTemplate.java"), "class T {}", 700);
+
+  const state = sealState(s.revision);
+  assert.equal(state.reviewed, true);
+  assert.equal(state.broken, true);
+  assert.equal(state.edited.length, 1);
+  assert.match(describeSeal(state), /GeneratedTemplate\.java was modified 70\ds after the review/);
+  assert.match(describeSeal(state), /not a state you can roll back to/);
+});
+
+test("a source file written just before its review does not break it", () => {
+  // The review is written moments after the source it judges. Two files in the
+  // same second are not evidence of anything.
+  const s = scenario("sealok", { reviewed: true });
+  write(path.join(s.revision, "GeneratedTemplate.java"), "class T {}");
+
+  assert.equal(sealState(s.revision).broken, false);
+  assert.equal(describeSeal(sealState(s.revision)), null);
+});
+
+test("a revision nothing has judged has no seal to break", () => {
+  // new-revision copies the body forward, so every file in a fresh revision is
+  // newer than the parent's review. Without a review of its own there is
+  // nothing to compare against, and reporting one would fire on every pass.
+  const s = scenario("sealnone", { reviewed: false });
+  writeAged(path.join(s.revision, "GeneratedTemplate.java"), "class T {}", 700);
+
+  const state = sealState(s.revision);
+  assert.equal(state.reviewed, false);
+  assert.equal(state.broken, false);
+});
+
+test("a generated test edited after the review is not a broken seal", () => {
+  // The review judged the RENDER. A test exercises the template; it does not
+  // compose the document, so editing it changes nothing the review looked at.
+  // Counting it fired the seal on an ordinary act — every example in this
+  // repository carries a generated test beside its template.
+  const s = scenario("sealtest", { reviewed: true });
+  writeAged(path.join(s.revision, "generated-test.java"), "class T {}", 700);
+  assert.equal(sealState(s.revision).broken, false);
+
+  writeAged(path.join(s.revision, "GeneratedTemplate.java"), "class T {}", 700);
+  assert.equal(sealState(s.revision).broken, true, "the template still counts");
+});
+
+test("only the files the review was about count", () => {
+  // A note, a log or a preview written afterwards says nothing about whether
+  // the rendered source changed.
+  const s = scenario("sealscope", { reviewed: true });
+  for (const name of ["render.log", "notes.md", "output.png", "visual-analysis.json"]) {
+    writeAged(path.join(s.revision, name), "later", 700);
+  }
+  assert.equal(sealState(s.revision).broken, false);
+
+  writeAged(path.join(s.revision, "proposal-data.json"), "{}", 700);
+  assert.equal(sealState(s.revision).broken, true, "the data file is part of what was rendered");
+});
+
+test("the refusal names an edit that has already happened", () => {
+  const s = scenario("sealrefusal", { reviewed: true });
+  writeAged(path.join(s.revision, "GeneratedTemplate.java"), "class T {}", 700);
+
+  const { status, output } = render(s.project);
+  assert.notEqual(status, 0);
+  assert.match(output, /Already edited:/, "the refusal does not say the seal is already broken");
+  assert.match(output, /copies the body forward/, "it does not say the edit will be carried over");
 });

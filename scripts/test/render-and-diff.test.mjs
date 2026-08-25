@@ -281,7 +281,8 @@ test("a suffixed render writes only its own PDF and never the live preview", () 
   // by adding one line in the wrong place. Assert the shape, not the wording.
   const source = fs.readFileSync(path.join(repoRoot, "scripts", "lib", "render-runtime.mjs"), "utf8");
 
-  const branch = source.indexOf("const fixtureOnly");
+  // The predicate used to be declared twice under two names; there is one now.
+  const branch = source.indexOf("if (fixtureRender) {");
   assert.ok(branch > 0, "the fixture branch is gone — this contract needs rewriting, not deleting");
   const returned = source.indexOf("return;", branch);
   assert.ok(returned > branch, "the fixture branch no longer returns early");
@@ -298,6 +299,19 @@ test("a suffixed render writes only its own PDF and never the live preview", () 
   for (const marker of ["output-debug", "live.update"]) {
     assert.ok(after.includes(marker), `${marker} moved above the fixture return`);
   }
+
+  // The other half, which regressed once already: --pages was added to the
+  // render call ABOVE this branch, so the continuation pages the early return
+  // claims to skip were rasterised anyway and the line it prints became untrue.
+  const renderCall = source.slice(0, branch);
+  const pagesFlag = renderCall.lastIndexOf('"--pages"');
+  assert.ok(pagesFlag > 0, "the render pass no longer asks for its pages at all");
+  const guarded = renderCall.slice(Math.max(0, pagesFlag - 200), pagesFlag);
+  assert.match(
+    guarded,
+    /fixtureRender \?/,
+    "the fixture render asks for continuation pages it does not read, and then says it skipped them",
+  );
 });
 
 // --- a reference longer than one page -----------------------------------------

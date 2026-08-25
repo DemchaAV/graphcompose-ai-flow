@@ -130,20 +130,25 @@ holds:
 | several lines that are one value | `DocumentTableCell.lines("Support package", "12 months, 24/7")` | `text("a
 b")` — a newline inside `text(...)` is not the multiline route |
 | a value that needs styling or inline runs | `DocumentTableCell.node(paragraphNode)` | a Section wrapping a paragraph |
-| structure inside the cell | a nested `TableNode` | a Row, LayerStack, ShapeContainer or CanvasLayer |
+| structure inside the cell | any node — a nested `TableNode`, a Row, a LayerStack | on **2.2.0 only**, anything but a Table, Paragraph or List (see below) |
 
-The last row is not a style preference. On GraphCompose 2.2.0, a `RowNode`,
-`ShapeContainerNode` or `CanvasLayerNode` in a cell reserves the cell's height
-and draws **none** of its child content, and a `SectionNode` or `LayerStackNode`
-draws only part of it — measured at 0.4 of the ink the same child draws in plain
-page flow. Nothing is thrown and nothing is logged; the table is structurally
-correct and the content is quietly missing or truncated. It is invisible to the
-layout tree too, because cell content does not appear in `layoutSnapshot()`.
+**On 2.2.1 a cell takes any node**, and the first three rows above are about
+picking the narrowest form that says what you mean, not about what survives.
 
-That is a defect in this version rather than a design limit, recorded with its
-measurements and its reproduction as the observation
-`table-cell-loses-composite-content`. Re-run it before assuming it still holds
-on a later line:
+**On 2.2.0 the last row was a hard limit, not a preference.** A `RowNode`,
+`ShapeContainerNode` or `CanvasLayerNode` in a cell reserved the cell's height
+and drew **none** of its child content, and a `SectionNode` or `LayerStackNode`
+drew only part of it — measured at 0.4 of the ink the same child draws in plain
+page flow. Nothing was thrown and nothing was logged; the table was structurally
+correct and the content quietly missing or truncated, invisible to the layout
+tree as well, because cell content does not appear in `layoutSnapshot()`.
+
+It was a defect rather than a design limit, and 2.2.1 fixes it: re-running the
+probe there shows all eight node kinds drawing in full, with nothing partial and
+nothing lost. The observation is retired with those measurements.
+
+Which half applies is decided by the version in *your* build file, not by this
+page. Check it rather than assuming:
 
 ```bash
 node scripts/observations.mjs show table-cell-loses-composite-content
