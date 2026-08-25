@@ -95,11 +95,13 @@ public final class PreviewRenderer {
                 throw new IllegalArgumentException("expected --flag, got: " + token);
             }
             String name = token.substring(2);
-            if (i + 1 >= tokens.length) {
-                throw new IllegalArgumentException("missing value for --" + name);
-            }
-            flags.put(name, tokens[i + 1]);
-            i += 2;
+            // A flag followed by another flag, or ending the line, is a switch.
+            // Assuming every flag took a value made `--lines --pdf x` swallow
+            // `--pdf` as the value of `--lines`, and the path after it then read
+            // as a stray argument — an error that named the wrong token.
+            boolean hasValue = i + 1 < tokens.length && !tokens[i + 1].startsWith("--");
+            flags.put(name, hasValue ? tokens[i + 1] : "");
+            i += hasValue ? 2 : 1;
         }
         return flags;
     }

@@ -60,6 +60,39 @@ comparison. For a region-aware gate, mask first with
 Under `exact-diff` and `region-diff` gates the numbers *are* the
 verdict. Quote the metric verbatim — `AE == 0`, not "looks identical".
 
+**1b. When a table looks wrong, compare the borders, not the rows.**
+Counting rows answers the wrong question. A reference that groups two
+adjacent rows draws **no line between them on purpose**, and a render
+that draws one there has not matched more closely — it has broken the
+grouping. The reverse costs just as little in pixels: a divider the
+render lost is a hairline among hundreds of thousands of pixels, so the
+diff scores it as noise.
+
+```bash
+node scripts/check-border-topology.mjs --project <id> --revision <revision-id> --region items-table
+```
+
+Scope it with `--region` to the region whose bounds cover the table.
+Whole-page is available and noisy: a filled band or a curved masthead
+edge is not a rule, and while thick fills are excluded, a curve's edge
+still crosses the scan intermittently.
+
+Three findings, three different meanings:
+
+| Finding | What it means | What to do |
+|---|---|---|
+| `rule-missing-from-render` | the reference draws it, the render does not | a divider was **lost** — restore it |
+| `rule-only-in-render` | the render draws it, the reference does not | if the reference groups content there, **this line is the defect** — suppress it |
+| `rule-displaced` | the same rule, out of place | move it; do not add or remove anything |
+
+Suppress a shared divider through the table, never around it: borders
+are per cell, so an unstroked cell is how a table draws no line. Do not
+replace the table with positioned shapes to hide one rule, and do not
+paint a white rectangle over it — a rectangle stays on page one while
+the rule moves. See
+[`table-borders-are-per-cell`](../../../observations/graphcompose-2.2/table-borders-are-per-cell.json)
+for what unstroking actually removes, which is more than the one edge.
+
 **2. Look.** Read the reference and the output as images, region by
 region, in the priority order from
 [the iteration loop](../references/iteration-loop.md): geometry, then

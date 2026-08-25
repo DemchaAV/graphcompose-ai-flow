@@ -25,6 +25,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { contentStrings, normalizeText, valueAppears } from "../lib/data-spec.mjs";
+import { findFooterOverlaps } from "../lib/footer-overlap.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CLI = path.join(repoRoot, "scripts", "check-document-integrity.mjs");
@@ -96,6 +97,63 @@ test("a suffixed target key is not content to look for either", () => {
 test("nested arrays keep a readable path, so a finding says which row", () => {
   const values = contentStrings({ items: [{ description: "Consulting retainer" }] });
   assert.equal(values[0].at, "items[0].description");
+});
+
+// --- the footer must be under the body, not through it ------------------------
+
+/** Line boxes as the extractor reports them: points, y from the page top. */
+const line = (text, top, height = 8) => ({ text, top, height, x: 50, width: 200 });
+
+test("a body line crossing into the footer is a defect, with the amount", () => {
+  // Reproduced in a real run by removing one bottom margin: the last row of a
+  // continuation page ran 6.1 pt into "Page 1 of 3". Page one showed nothing,
+  // because its content ends well above the fold - which is why a single-page
+  // render is structurally unable to reveal this.
+  const findings = findFooterOverlaps([[
+    line("Line item 29", 700),
+    line("Nullam tempor elit egestas neque.", 812),
+    line("Page 1 of 3", 816, 5),
+  ]]);
+
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].overlap, true);
+  assert.equal(findings[0].page, 1);
+  assert.ok(findings[0].by > 3 && findings[0].by < 6, `overlap measured as ${findings[0].by}`);
+  assert.equal(findings[0].footer, "Page 1 of 3");
+});
+
+test("a comfortable gap is not reported at all", () => {
+  const findings = findFooterOverlaps([[
+    line("Line item 29", 700),
+    line("Page 2 of 3", 816, 5),
+  ]]);
+  assert.deepEqual(findings, []);
+});
+
+test("clearing the footer by a hair is a note, not a defect", () => {
+  // Nothing is wrong yet; nothing is holding it off either.
+  const findings = findFooterOverlaps([[
+    line("Line item 30", 810, 4),
+    line("Page 3 of 3", 816, 5),
+  ]]);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].overlap, false);
+});
+
+test("a page with no recognisable footer contributes nothing", () => {
+  // Guessing which line was meant as chrome would invent the defect it claims
+  // to find.
+  assert.deepEqual(findFooterOverlaps([[line("Terms and conditions", 800)]]), []);
+});
+
+test("each page is judged on its own", () => {
+  const findings = findFooterOverlaps([
+    [line("clear", 700), line("Page 1 of 2", 816, 5)],
+    [line("crowded", 814, 6), line("Page 2 of 2", 816, 5)],
+  ]);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].page, 2);
+  assert.equal(findings[0].overlap, true);
 });
 
 // --- the gate ----------------------------------------------------------------

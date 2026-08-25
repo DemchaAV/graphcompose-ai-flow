@@ -33,6 +33,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { contentStrings, dataFileFor, findDataFile, normalizeText, valueAppears } from "./lib/data-spec.mjs";
+import { PAGE_OF, findFooterOverlaps } from "./lib/footer-overlap.mjs";
 import {
   describeWorkspaceLine,
   installRoot,
@@ -41,7 +42,7 @@ import {
 } from "./lib/workspace.mjs";
 
 const repoRoot = installRoot();
-const PAGE_OF = /page\s+(\d+)\s+of\s+(\d+)/i;
+
 
 function usage(code = 0) {
   process.stdout.write(
@@ -73,7 +74,10 @@ function parseArgs(argv) {
 function readPdfText(pdfPath) {
   const jar = path.join(repoRoot, "tools", "preview-renderer", "target", "preview-renderer.jar");
   if (!fs.existsSync(jar)) return { error: `preview-renderer.jar is missing — run npm run setup` };
-  const run = spawnSync("java", ["-jar", jar, "text", "--pdf", pdfPath], {
+  // --lines carries where each line landed as well as what it says. The
+  // characters answer "did the footer repeat"; only the geometry answers "is
+  // the last row sitting on top of it".
+  const run = spawnSync("java", ["-jar", jar, "text", "--lines", "--pdf", pdfPath], {
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
   });
@@ -235,6 +239,32 @@ if (!fs.existsSync(pdfPath)) {
             );
           }
         });
+      }
+    }
+
+    // 3c. The footer has to be under the body, not through it.
+    //
+    //     A footer is chrome: the engine reserves its band and the body is
+    //     supposed to stop above it. Nothing enforces that — the reservation
+    //     comes from the page's bottom margin, and a template that sets none
+    //     runs its last row straight into the page number. Page one almost never
+    //     shows it, because its content ends well above the fold, so this is a
+    //     defect a single-page render is structurally unable to reveal.
+    for (const [label, source] of [["render", text], ["overflow", overflow]]) {
+      if (!source?.lines) continue;
+      for (const finding of findFooterOverlaps(source.lines)) {
+        if (finding.overlap) {
+          defect(
+            "footer-overlaps-body",
+            `${label} page ${finding.page}: "${finding.body}" runs ${finding.by.toFixed(1)} pt into ` +
+              `the footer line "${finding.footer}"`,
+          );
+        } else {
+          result.notes.push(
+            `${label} page ${finding.page}: the last body line clears the footer by only ` +
+              `${(-finding.by).toFixed(1)} pt — not an overlap, but nothing is holding it off`,
+          );
+        }
       }
     }
 

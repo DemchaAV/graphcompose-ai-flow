@@ -7,6 +7,56 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.6.2 — the footer band, and a divider that is missing on purpose
+
+Two checks the last acceptance run showed were needed and that nothing
+measured. Both are about differences a pixel diff scores as noise and a
+reader notices immediately.
+
+**The footer has to be under the body, not through it.** A footer is
+chrome: the engine reserves its band and the body is meant to stop above
+it, but nothing enforced that — the reservation comes from the page's
+bottom margin, and a template that sets none runs its last row straight
+into the page number. Page one almost never shows it, because its content
+ends well above the fold, so it is a defect a single-page render is
+structurally unable to reveal. `preview-renderer text` gained `--lines`,
+which reports where each line landed as well as what it says, and
+`check-document-integrity` compares the lowest body line against the
+footer's top edge. Proven by putting the defect back: removing one margin
+produced `footer-overlaps-body: overflow page 1: "Nullam tempor elit
+egestas neque." runs 6.1 pt into the footer line "Page 1 of 3"`. A body
+line that clears the footer by less than 6 pt is a note rather than a
+defect — nothing is wrong yet, and nothing is holding it off either.
+
+**A missing internal border is often the design.** A reference that groups
+two adjacent rows draws no line between them on purpose. Counting rows
+calls that a match and calls a drawn divider an improvement; it is the
+thing that breaks the grouping. `check-border-topology` extracts the rules
+both images actually draw and compares them as a structure, reporting the
+asymmetry rather than a score:
+
+```text
+rule-missing-from-render   the reference has it, the render lost it
+rule-only-in-render        the render drew it, the reference groups there
+rule-displaced             the same rule, out of place
+```
+
+The third exists because a rule slightly beyond tolerance was being
+reported as one lost and one invented: two findings with two wrong fixes,
+where there is one rule and one fix. Fills are separated from rules by
+thickness — a rule is a line, and the invoice's sage masthead came back as
+five missing dividers before that. Scope it with `--region`; whole-page is
+available and noisy on a design with bands.
+
+It is deliberately not wired into `render-and-diff`. It is comparative
+evidence, not a gate, and the judgement belongs in the review — where the
+skill now says which finding means which fix, and that suppressing a
+shared divider goes through the table's own cell styles, never around it.
+
+Also: the preview renderer's flag parser assumed every flag took a value,
+so `--lines --pdf x` swallowed `--pdf` and blamed the path after it.
+371 tests pass.
+
 ### v0.6.1 — a flowing document, end to end
 
 A third acceptance run, this time an invoice: the reference is a sage
