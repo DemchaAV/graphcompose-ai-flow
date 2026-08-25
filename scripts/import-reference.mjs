@@ -259,7 +259,13 @@ project.referencePages = written.length;
 // only the reference had the rest, so pages 2..N could not be compared even
 // once the diff learned how — there was nothing on the render side to compare
 // them to. A reference states how long the document is; this carries that over.
-if (written.length > 1) {
+//
+// Downward too, and that is the half worth stating: only raising it left a
+// project that had carried a three-page reference rasterising three pages
+// forever after a one-page reference replaced it — two renders per pass that
+// nothing compares, reported as `extraInRender` on every single loop. The
+// field follows the reference rather than remembering an older one.
+if (project.render || written.length > 1) {
   project.render = { ...(project.render ?? {}), pages: written.length };
 }
 

@@ -5,6 +5,55 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.7.1 — 2026-08-25
+
+A review of v0.7.0, which shipped hours earlier. Four defects, all in the
+code that release added, plus one the icon question surfaced.
+
+**A parent comparison that loses a page was blamed on the manifest.**
+The two comparisons fail for different reasons and take different fixes.
+Against the reference, a short render usually means `render.pages` was
+never told how long the document is. Against the parent, the manifest is
+not involved at all: the previous revision produced that page and this
+one does not, which is exactly the regression the parent gate exists to
+catch. It said *"the reference has 2 page(s) … set render.pages"* and
+sent the reader to the wrong file.
+
+**`render.pages` never corrected downward.** Importing a shorter
+reference over a longer one left the old number, so a project that had
+once carried a three-page reference rasterised three pages forever after
+a one-page reference replaced it — two renders a pass that nothing
+compares, reported as `extraInRender` on every loop. The field follows
+the reference now, in both directions.
+
+**The worst page was the biggest one.** Pages are not obliged to share a
+size, and picking by raw pixel count let a large page that matches
+out-score a small page that is entirely wrong. It picks by share.
+
+**A missing directory resolved against the working directory.** The guard
+in `page-pairs` was `?? ""`, which is worse than no guard: an empty path
+made the count answer from whatever files happened to be in the process's
+cwd. It also only covered the count, so the pairing then threw
+`path.join(null, …)` — a Node type error naming neither the caller nor
+the argument. Both cases are named refusals now.
+
+**And an icon can ship as SVG missing part of itself.** GraphCompose's
+reader draws no `<use>`, `<image>` or `<text>`, so an icon built from
+them passes the compatibility check, keeps its geometry and loses the
+rest. That is worse than a rasterised fallback because nothing fails: it
+renders slightly wrong, and a few hundred wrong pixels are invisible in a
+whole-page diff. It was recorded in the manifest and printed once,
+mid-run, among every other icon's line. The resolver now repeats it at
+the end, together with anything that fell back to PNG and why.
+
+For the record, since the question came up: SVG has priority and it
+works. Re-resolving the exact icon set from a run earlier today — the one
+whose published bundle carries six PNGs — produces six SVGs, and a mixed
+sample of twelve across mdi, entypo-social, simple-icons, logos, twemoji,
+fluent-emoji, noto, lucide, tabler, ph and material-symbols produces
+twelve. The PNGs on disk are from runs made before SVG-first landed in
+`0.6.0`; the installed plugin was still `0.5.5` at the time.
+
 ## v0.7.0 — 2026-08-25
 
 A reference can be a proposal, a report or a book. Until now the harness

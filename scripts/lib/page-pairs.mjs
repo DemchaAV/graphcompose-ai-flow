@@ -93,14 +93,27 @@ export function pagePairs({
   parentDir = null,
   against = "reference",
 } = {}) {
+  // Refuse a missing directory by name. `?? ""` was worse than nothing here: an
+  // empty path resolves against the working directory, so a count silently
+  // answered from whatever files happened to be there — and the guard was only
+  // on the count, so the pairing below crashed on `path.join(null, …)` with a
+  // Node type error that names neither the caller nor the argument.
+  if (against === "parent" && !parentDir) {
+    throw new Error("pagePairs: a parent comparison needs parentDir");
+  }
+  if (against !== "parent" && !referenceDir && !referenceImage) {
+    throw new Error("pagePairs: a reference comparison needs referenceDir or referenceImage");
+  }
+  if (!revisionDir) throw new Error("pagePairs: revisionDir is required");
+
   const renderPages = countRenderPages(revisionDir);
 
   // A parent comparison has no reference folder: the parent's own render is the
   // reference, so the page set is whatever the parent produced.
   const sourcePages =
     against === "parent"
-      ? countRenderPages(parentDir ?? "")
-      : countReferencePages(referenceDir ?? "", referenceImage);
+      ? countRenderPages(parentDir)
+      : countReferencePages(referenceDir, referenceImage);
 
   const pairs = [];
   const missingFromRender = [];

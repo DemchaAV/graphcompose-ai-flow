@@ -67,6 +67,32 @@ async function main(argv) {
   const manifestPath = path.join(revisionDir, "assets-manifest.json");
   await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
   log(`manifest written: ${manifestPath}`);
+
+  // An icon can pass the compatibility check and still lose part of itself: the
+  // reader draws no <use>, <image> or <text>, so an icon built from them keeps
+  // its geometry and ships missing pieces. That is worse than a rasterised
+  // fallback, because nothing fails — it renders slightly wrong, and a few
+  // hundred wrong pixels are invisible in a whole-page diff. It was recorded in
+  // the manifest and printed once, mid-run, among every other icon's line.
+  // Repeat it at the end, where the last thing printed is the thing acted on.
+  const degraded = Object.entries(iconResults).filter(([, icon]) => icon.droppedSvgContent);
+  if (degraded.length) {
+    log(
+      `${degraded.length} icon(s) kept as SVG with content the reader will not draw — ` +
+        "check these against the reference before trusting them:",
+    );
+    for (const [token, icon] of degraded) {
+      log(`  ${token} (${icon.iconSet}): drops ${icon.droppedSvgContent.join(", ")}`);
+    }
+  }
+
+  const rasterised = Object.entries(iconResults).filter(([, icon]) => icon.format === "png");
+  if (rasterised.length) {
+    log(
+      `${rasterised.length} icon(s) fell back to PNG: ` +
+        rasterised.map(([token, icon]) => `${token} (${icon.fallbackReason})`).join("; "),
+    );
+  }
 }
 
 async function resolveIcons(iconRequests, iconsDir, useVisual, log) {

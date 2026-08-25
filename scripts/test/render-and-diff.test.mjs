@@ -384,3 +384,42 @@ test("a one-page document reports exactly what it always did", () => {
   assert.equal(parsed.diff.pages[0].mismatchPx, parsed.diff.mismatchPx);
   assert.equal(parsed.loop.verdict, "READY_FOR_APPROVAL");
 });
+
+test("losing a page against the parent is not reported as a manifest problem", () => {
+  // The two comparisons fail for different reasons and take different fixes.
+  // Against the parent the manifest is not involved: the previous revision
+  // produced that page and this one does not, which is the regression the
+  // parent gate exists to catch. Naming render.pages sends the reader to the
+  // wrong file entirely.
+  const s = scenario({ verdict: "READY_FOR_APPROVAL", withParent: true, label: "lostpage" });
+  writePng(path.join(s.project, "revisions", "revision-001", "output-page-2.png"), 124, 175, 200);
+
+  const { parsed } = runCli(s.root, ["--against", "parent", "--json"]);
+
+  assert.deepEqual(parsed.diff.missingFromRender, [2]);
+  assert.equal(parsed.loop.focus, "missing-pages");
+  assert.match(parsed.loop.next, /the parent revision has 2 page/);
+  assert.ok(
+    !/render\.pages/.test(parsed.loop.next),
+    `a parent comparison was blamed on the manifest: ${parsed.loop.next}`,
+  );
+});
+
+test("the worst page is the one furthest from its reference, not the biggest one", () => {
+  // Pages are not obliged to be the same size, and a page with more pixels in
+  // it will win a raw-count comparison while matching better than a small page
+  // that is proportionally far worse.
+  const s = scenario({ verdict: "READY_FOR_APPROVAL", label: "worstshare" });
+  // Page 2 is small and completely wrong; page 3 is large and slightly wrong.
+  writePng(path.join(s.project, "reference", "reference-page-2.png"), 20, 20, 200);
+  writePng(path.join(s.revision, "output-page-2.png"), 20, 20, 10);
+  writePng(path.join(s.project, "reference", "reference-page-3.png"), 400, 400, 200);
+  writePng(path.join(s.revision, "output-page-3.png"), 400, 400, 200);
+
+  const { parsed } = runCli(s.root, ["--json"]);
+  const byPage = Object.fromEntries(parsed.diff.pages.map((p) => [p.page, p]));
+
+  assert.equal(byPage[2].percent, 100, "page 2 was meant to be entirely wrong");
+  assert.equal(byPage[3].percent, 0, "page 3 was meant to match");
+  assert.equal(parsed.diff.worstPage, 2, "the biggest page won instead of the worst one");
+});

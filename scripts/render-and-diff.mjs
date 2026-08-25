@@ -303,7 +303,11 @@ step("diff", (entry) => {
   }
 
   const first = perPage[0];
-  const worst = perPage.reduce((a, b) => (b.mismatchPx > a.mismatchPx ? b : a));
+  // By share, not by raw pixel count. Pages are not obliged to be the same
+  // size — a continuation page rendered at a different dpi has a different
+  // denominator — and "worst" should mean the page furthest from its
+  // reference, not the page with the most pixels in it.
+  const worst = perPage.reduce((a, b) => (b.percent > a.percent ? b : a));
   result.diff = {
     against: args.against,
     // Page 1's numbers keep their place at the top level: every consumer of
@@ -468,18 +472,25 @@ if (result.loop?.verdict === "READY_FOR_APPROVAL") {
   );
 
   if (missing.length) {
-    // The reference has a page the render does not. Rasterisation is driven by
-    // `render.pages`, so this is usually a manifest that was never told how
-    // long the document is — and the page is genuinely uncompared either way.
     result.loop.verdict = "REVISE";
     result.loop.focus = "missing-pages";
     result.loop.focusSource = "page-parity";
+    // The two comparisons fail for different reasons and take different fixes.
+    // Against the reference, a short render is usually a manifest that was
+    // never told how long the document is. Against the parent, the manifest is
+    // not involved at all: the previous revision produced that page and this
+    // one does not, which is the regression the parent gate exists to catch.
+    // Naming `render.pages` there would send the reader to the wrong file.
     result.loop.next =
-      `the reference has ${result.diff.referencePages} page(s) and the render produced ` +
-      `${result.diff.renderPages}: page(s) ${missing.join(", ")} were never compared. ` +
-      `Set render.pages in template-project.json to ${result.diff.referencePages} and render again`;
+      args.against === "parent"
+        ? `the parent revision has ${result.diff.referencePages} page(s) and this one produced ` +
+          `${result.diff.renderPages}: page(s) ${missing.join(", ")} disappeared. ` +
+          `A refactor does not lose a page — find what stopped emitting it`
+        : `the reference has ${result.diff.referencePages} page(s) and the render produced ` +
+          `${result.diff.renderPages}: page(s) ${missing.join(", ")} were never compared. ` +
+          `Set render.pages in template-project.json to ${result.diff.referencePages} and render again`;
   } else if (bad.length) {
-    const worst = bad.reduce((a, b) => (b.mismatchPx > a.mismatchPx ? b : a));
+    const worst = bad.reduce((a, b) => (b.percent > a.percent ? b : a));
     result.loop.verdict = "REVISE";
     result.loop.focus = `page-${worst.page}`;
     result.loop.focusSource = "page-parity";

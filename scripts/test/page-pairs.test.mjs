@@ -188,3 +188,20 @@ test("nothing to compare produces no pairs rather than an invented one", () => {
   assert.deepEqual(pairs, []);
   assert.equal(referencePages, 0);
 });
+
+test("a missing directory is refused by name, not resolved against the process cwd", () => {
+  // The guard here was `?? ""`, which is worse than no guard: an empty path
+  // resolves against the working directory, so the count answered from whatever
+  // files happened to be sitting there. And it only covered the count — the
+  // pairing then threw `path.join(null, …)`, a Node type error naming neither
+  // the caller nor the argument.
+  assert.throws(
+    () => pagePairs({ revisionDir: ".", against: "parent" }),
+    /a parent comparison needs parentDir/,
+  );
+  assert.throws(
+    () => pagePairs({ revisionDir: "." }),
+    /needs referenceDir or referenceImage/,
+  );
+  assert.throws(() => pagePairs({ referenceDir: "/ref" }), /revisionDir is required/);
+});
