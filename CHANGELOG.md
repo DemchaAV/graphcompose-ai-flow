@@ -5,6 +5,23 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.9.2 — 2026-08-25
+
+The `v0.9.1` tag points at a commit whose own test suite fails, so it is
+superseded rather than moved.
+
+The smoke test added with the ImageMagick fix reached into
+`tools/visual-diff/node_modules` for pngjs — present on a machine that has
+run setup, absent on the runner, because the asset-resolver package has no
+dependencies and its CI job installs none. It passed locally and failed CI
+with `MODULE_NOT_FOUND`.
+
+ImageMagick is already required for that test to mean anything, and it
+reports its own pixel statistics exactly: mean alpha over the canvas for how
+much of the glyph survived, peak red for whether it is still white. No
+decoder, no dependency, same assertions — putting the argument order back
+still trips it with the reason in the message.
+
 ## v0.9.1 — 2026-08-25
 
 **A light icon rasterised to nothing.** `-background none` is a setting
