@@ -104,6 +104,32 @@ that otherwise get drawn as free-floating text: initials or icons inside
 circles, text inside pills or badges, content inside rounded cards,
 images clipped by rounded shapes, badges anchored on a shape boundary.
 
+**Decide fixed or flowing, and record it in `flow`.** A one-page invoice
+*screenshot* is not a one-page *document*: the sample shows four line
+items, real data brings thirty. `flow.kind: "fixed"` means the page is
+the artifact (CV, certificate, poster) and content is curated to fit;
+`"flowing"` means content volume is data-driven (line items,
+transactions, an article body) and the layout must paginate. For flowing
+documents name the growing region in `drivenBy` and say why in
+`overflowExpectation`. This one field decides three things downstream:
+`pagination.md` gets loaded, page furniture maps to chrome, and the
+example data must overflow.
+
+**Mark page furniture with `role`.** A region that repeats on every page
+— a page header, a page footer, a table header — is chrome, not content:
+`role: "page-header" | "page-footer"` regions map to
+`DocumentSession.header/.footer` in the architecture, never to body
+sections drawn once; `"table-header"` means `repeatHeader` on the table.
+Drawing chrome as content is invisible on a one-page render and wrong on
+every page after it.
+
+**For a flowing document, the example data must reach page 2.** A
+pagination path that the render never exercises is untested code shipped
+as a template: give `<doc-kind>-data.json` enough rows that the render
+actually paginates, and check the repeated headers and the footer on the
+continuation page. Set `page.pageCount` in the analysis to what the
+*data* produces, not what the screenshot shows.
+
 Anything you cannot read confidently goes in `unclearParts` with the
 assumption you are making. Do not silently guess — a recorded assumption
 is a question the user can answer later; a silent one becomes a bug with

@@ -190,10 +190,21 @@ function renderVisualAnalysis(a) {
   if (page.margins) out.push("", `Margins: ${inline(page.margins)}`);
   if (page.background) out.push("", `Background: ${inline(page.background)}`);
 
+  // The fixed-vs-flowing call leads: it decides pagination, chrome mapping and
+  // whether the example data must overflow — a reader needs it before regions.
+  const flow = a.flow;
+  if (flow?.kind) {
+    const parts = [`**Flow: ${flow.kind}.**`];
+    if (flow.drivenBy) parts.push(`Grows with data: \`${flow.drivenBy}\`.`);
+    if (flow.overflowExpectation) parts.push(flow.overflowExpectation);
+    out.push("", parts.join(" "));
+  }
+
   out.push(...section("Regions", table(
-    ["id", "label", "page", "contains", "proportions"],
+    ["id", "role", "label", "page", "contains", "proportions"],
     (a.regions ?? []).map((r) => [
       code(r.id),
+      r.role && r.role !== "content" ? `**${r.role}**` : code(r.role),
       r.label,
       r.page,
       list(r.contains),

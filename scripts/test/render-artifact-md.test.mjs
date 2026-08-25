@@ -332,3 +332,35 @@ test("--out with --revision is refused rather than writing everything to one fil
   assert.match(result.output, /--out takes one destination/);
   assert.ok(!fs.existsSync(path.join(dir, "combined.md")), "it wrote anyway");
 });
+
+test("the flow decision and region roles surface in the reading copy", () => {
+  // A one-page invoice screenshot is not a one-page document. The flow call
+  // and the furniture roles are what stop that mistake, so the reading copy
+  // must show them — an invisible decision is one nobody reviews.
+  const { json, md } = artifact(
+    "visual-analysis",
+    {
+      schemaVersion: 1,
+      page: { format: "A4", pageCount: 1 },
+      flow: {
+        kind: "flowing",
+        drivenBy: "line-items",
+        overflowExpectation: "The sample shows 4 line items; real invoices carry dozens.",
+      },
+      regions: [
+        { id: "invoice-footer", role: "page-footer", label: "Footer", contains: ["page number"] },
+        { id: "line-items", role: "content", label: "Items", contains: ["rows"] },
+      ],
+    },
+    "flow",
+  );
+  run([json]);
+  const text = fs.readFileSync(md, "utf8");
+
+  assert.match(text, /\*\*Flow: flowing\.\*\*/);
+  assert.match(text, /Grows with data: `line-items`/);
+  assert.match(text, /real invoices carry dozens/);
+  assert.match(text, /\*\*page-footer\*\*/, "the furniture role is not highlighted");
+  // The flow line must come before the regions table.
+  assert.ok(text.indexOf("Flow: flowing") < text.indexOf("## Regions"), "flow is buried below the regions");
+});

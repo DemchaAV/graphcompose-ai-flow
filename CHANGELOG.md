@@ -7,6 +7,35 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.5 — a one-page screenshot is not a one-page document
+
+Both acceptance runs were single-page CVs, so the flowing-document path —
+an invoice whose line items outgrow the page, an article — was never
+exercised, and inspection found the chain broken in three places even
+though GraphCompose 2.2 has the machinery (`DocumentSession.header` /
+`.footer`, `DocumentHeaderFooterZone`, `TableBuilder.repeatHeader`) and
+the pack teaches it in `pagination.md`.
+
+- **The analysis can now record the decision.** `visual-analysis.json`
+  gains `flow` — `kind: fixed | flowing`, the region that grows
+  (`drivenBy`), and one sentence of overflow reasoning — plus
+  `regions[].role` (`page-header`, `page-footer`, `table-header`,
+  `background`, default `content`). Until now even a perfect analysis had
+  no field to say "this footer repeats on every page".
+- **The skill forces the question while the reference is in front of the
+  analyst**: decide fixed-vs-flowing explicitly; map furniture roles to
+  session chrome, never to body sections ("drawing chrome as content is
+  invisible on a one-page render and wrong on every page after it"); and
+  for a flowing document the example data must reach page 2 — a
+  pagination path the render never exercises is untested code shipped as
+  a template.
+- **The `pagination.md` loading trigger was circular** — "content that
+  will overflow" requires having already thought about overflow. It now
+  fires on the content kind: any repeated-row content, even when the
+  screenshot shows one page.
+- The reading copy leads with the flow call and highlights furniture
+  roles, because an invisible decision is one nobody reviews.
+
 ### v0.5.4 — the analysis fans out, and the benchmark has a protocol
 
 The last item from the optimization plan, plus the coherence pass that

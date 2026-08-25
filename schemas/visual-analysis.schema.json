@@ -126,6 +126,17 @@
                 "maximum": 1
               }
             }
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "content",
+              "page-header",
+              "page-footer",
+              "table-header",
+              "background"
+            ],
+            "description": "What the region IS to the page, not what it contains. page-header / page-footer are chrome that repeats on every page and must map to DocumentSession.header/.footer (or the version equivalent), never be drawn as body content; table-header repeats at the top of every page its table reaches (TableBuilder.repeatHeader); background is page-level fill behind everything. Default when absent: content."
           }
         }
       }
@@ -355,6 +366,32 @@
       "items": {
         "type": "string",
         "minLength": 1
+      }
+    },
+    "flow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "The fixed-vs-flowing decision, made explicitly at analysis time. A one-page invoice SCREENSHOT is not a one-page DOCUMENT: the sample shows four line items, real data brings thirty, and a template built as a fixed page breaks on the first real dataset. Recording the decision here is what forces the question to be asked while the reference is in front of the analyst, not after the first overflow bug.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "fixed",
+            "flowing"
+          ],
+          "description": "fixed: the page IS the artifact (CV, certificate, poster) - content is curated to fit. flowing: content volume is data-driven (invoice line items, transactions, an article) and the layout must paginate."
+        },
+        "drivenBy": {
+          "type": "string",
+          "description": "For flowing documents: the region id whose content grows with real data, e.g. line-items."
+        },
+        "overflowExpectation": {
+          "type": "string",
+          "description": "One sentence of reasoning: why real data will or will not spill past the page the reference shows. This is the sentence that decides whether the example data must include enough rows to reach page 2."
+        }
       }
     }
   }

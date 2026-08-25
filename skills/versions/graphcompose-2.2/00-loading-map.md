@@ -51,7 +51,7 @@ document kind usually does.
 | Coloured bands, panels, tinted sidebars, full-bleed surfaces | [`backgrounds-and-panels.md`](backgrounds-and-panels.md) |
 | Circles, pills, badges, rounded cards, clipped images | [`shapes-and-containers.md`](shapes-and-containers.md) |
 | Elements that genuinely overlap, or sit on top of a surface | [`layer-stacks-and-overlays.md`](layer-stacks-and-overlays.md) |
-| More than one page, or content that will overflow | [`pagination.md`](pagination.md) |
+| More than one page — or any repeated-row content (line items, transactions, an article body), **even when the screenshot shows one page**: the sample is short, real data is not | [`pagination.md`](pagination.md) |
 
 ## Worked starting points
 
