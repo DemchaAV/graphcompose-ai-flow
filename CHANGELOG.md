@@ -5,6 +5,31 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.6.4 — 2026-08-25
+
+Two documents that named the wrong version, and the tag that carries the
+fix. v0.6.3 was tagged before either was noticed, so the release a reader
+installs told them to install a different one.
+
+**The install example named a release three versions old.** `/plugin
+marketplace add ...@graphcompose-flow--v0.5.0` was the worked example for
+holding an exact version. A reader following it pins the wrong release
+and has nothing to tell them so — the command succeeds.
+
+**The benchmark protocol named 0.6.1 in four places**, including the
+column headers of the results table the run is meant to fill in. A number
+recorded under the wrong label is worse than no number: the comparison it
+feeds is the entire reason for holding everything else still. The table
+of what the run will meet now also lists what 0.6.2 and 0.6.3 added — the
+overflow fixture with the integrity gate, and link checking inside the
+loop pass — so a delta has something to be attributed to.
+
+Both are the drift this project keeps finding by hand: the README claimed
+Codex acceptance was outstanding after Codex had already fired the skill,
+and the user caught that one too. The v0.6.3 contract test that checks
+every documented `node scripts/*.mjs --flag` covers commands; a version
+number in prose is still checked by reading it.
+
 ## v0.6.3 — 2026-08-25
 
 The 0.6 line, cut after a review of everything it added. The review is the

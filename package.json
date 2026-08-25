@@ -1,6 +1,6 @@
 {
   "name": "graphcompose-ai-flow",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "private": true,
   "description": "Installable GraphCompose harness for coding agents: drop in a document reference, get a maintainable Java template, rendered, compared and iterated until ready for approval.",
   "type": "module",
