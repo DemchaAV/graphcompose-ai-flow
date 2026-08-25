@@ -104,3 +104,63 @@ describe('assertFractionalBounds', () => {
     expect(() => assertFractionalBounds({ x: 0, y: 0, w: Number.NaN, h: 0.1 })).toThrow(/not a number/);
   });
 });
+
+// scale.ts shares the "one page area, many resolutions" contract, so its
+// tests live beside the crop tests that rely on the same idea.
+import { encodePng, scaleTo } from '../src/scale.js';
+
+describe('scaleTo', () => {
+  const solid = (width: number, height: number, value: number) => ({
+    width,
+    height,
+    data: Buffer.alloc(width * height * 4, value),
+  });
+
+  it('hits the exact target dimensions', () => {
+    const out = scaleTo(solid(1024, 1536, 128), 1240, 1753);
+    expect(out.width).toBe(1240);
+    expect(out.height).toBe(1753);
+    expect(out.data.length).toBe(1240 * 1753 * 4);
+  });
+
+  it('a solid image stays solid — no edge artifacts from the sampler', () => {
+    const out = scaleTo(solid(100, 100, 77), 173, 91);
+    for (let i = 0; i < out.data.length; i += 1) {
+      expect(out.data[i]).toBe(77);
+    }
+  });
+
+  it('same size returns the source untouched', () => {
+    const source = solid(50, 50, 10);
+    expect(scaleTo(source, 50, 50)).toBe(source);
+  });
+
+  it('a horizontal gradient stays monotone after downscale', () => {
+    // Bilinear must not reorder values; a broken sampler shows up as ripples.
+    const width = 200;
+    const source = { width, height: 4, data: Buffer.alloc(width * 4 * 4) };
+    for (let y = 0; y < 4; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const at = (y * width + x) * 4;
+        source.data[at] = source.data[at + 1] = source.data[at + 2] = Math.round((x / (width - 1)) * 255);
+        source.data[at + 3] = 255;
+      }
+    }
+    const out = scaleTo(source, 60, 4);
+    for (let x = 1; x < 60; x += 1) {
+      expect(out.data[x * 4]).toBeGreaterThanOrEqual(out.data[(x - 1) * 4]);
+    }
+  });
+
+  it('encodePng produces a decodable PNG of the same dimensions', () => {
+    const buffer = encodePng(scaleTo(solid(30, 20, 200), 60, 40));
+    const decoded = PNG.sync.read(buffer);
+    expect(decoded.width).toBe(60);
+    expect(decoded.height).toBe(40);
+  });
+
+  it('refuses nonsense dimensions', () => {
+    expect(() => scaleTo(solid(10, 10, 0), 0, 5)).toThrow(/cannot scale/);
+    expect(() => scaleTo(solid(10, 10, 0), 5.5 as number, 5)).toThrow(/cannot scale/);
+  });
+});

@@ -88,7 +88,8 @@ PowerShell, cmd and bash.
 | Create the workspace (first thing in a new project) | `node scripts/init-workspace.mjs --project-dir <dir> --project <id>` |
 | Print the chain for a project | `node scripts/run-pipeline.mjs <project-id>` |
 | Open a revision | `node tools/revision-manager/bin/graphcompose-flow.mjs new-revision "<gesture>" --project <dir>` |
-| Render | `node scripts/render.mjs <project-id> <revision-id> [--root <workspace>]` |
+| One loop pass: render + diff + verdict | `node scripts/render-and-diff.mjs --project <id> --revision <id>` — exit 0 ready, 2 revise, 3 blocked |
+| Render only | `node scripts/render.mjs <project-id> <revision-id> [--root <workspace>]` |
 | Generate an artifact's reading copy | `node scripts/render-artifact-md.mjs --revision <revision-dir>` |
 | Ask how the library behaves | `node scripts/probe.mjs --list` · `node scripts/probe.mjs <name>` |
 | What previous runs learned | `node scripts/observations.mjs list` · `verify` |

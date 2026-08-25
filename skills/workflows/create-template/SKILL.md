@@ -109,8 +109,15 @@ typed spec, no invented API.
 **Compile and render:**
 
 ```bash
-node scripts/render.mjs <project-id> <revision-id> [--root <workspace>]
+node scripts/render-and-diff.mjs --project <project-id> --revision <revision-id> [--root <workspace>]
 ```
+
+One call renders, scales the reference to the render's size (persisting
+`reference-scaled.png` for later passes and crops), diffs with the
+evidence written into the revision, and answers with the loop verdict as
+its exit code: 0 ready, 2 revise, 3 blocked, 1 a step failed. Do not run
+render, diff and iterate-status as separate turns — that is three trips
+for one deterministic chain.
 
 **Review** with `review-template` → `visual-review.json`.
 

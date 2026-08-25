@@ -15,6 +15,7 @@ import { resolve } from 'node:path';
 import { Command, InvalidArgumentError } from 'commander';
 
 import { loadPng, runDiff, type DiffResult } from './diff.js';
+import { encodePng, scaleTo } from './scale.js';
 import {
   updateRevision,
   type VisualDiffStats,
@@ -26,6 +27,8 @@ interface CliOptions {
   includeAa: boolean;
   json: boolean;
   updateRevision?: string;
+  scaleReference: boolean;
+  saveScaled?: string;
 }
 
 export function buildProgram(): Command {
@@ -52,6 +55,15 @@ export function buildProgram(): Command {
       false,
     )
     .option('--json', 'print machine-readable stats JSON', false)
+    .option(
+      '--scale-reference',
+      'when dimensions differ, scale the reference to the output size before diffing',
+      false,
+    )
+    .option(
+      '--save-scaled <file>',
+      'write the scaled reference here (with --scale-reference), so later passes and crop-region reuse it',
+    )
     .option(
       '--update-revision <folder>',
       'also write diff.png + stats.json + classification snippet into the revision folder',
@@ -83,6 +95,8 @@ function normalizeOptions(raw: unknown): CliOptions {
     includeAa: r.includeAa === true,
     json: r.json === true,
     updateRevision,
+    scaleReference: r.scaleReference === true,
+    saveScaled: typeof r.saveScaled === 'string' ? r.saveScaled : undefined,
   };
 }
 
@@ -95,10 +109,26 @@ async function runCli(
   const outputPath = resolve(outputArg);
   const diffPath = resolve(options.out);
 
-  const [reference, output] = await Promise.all([
+  let [reference, output] = await Promise.all([
     loadPng(referencePath),
     loadPng(outputPath),
   ]);
+
+  // A reference screenshot almost never matches the render's resolution, and
+  // every run used to solve that itself — one shelled out to ImageMagick and
+  // left junk files in the user's project. Opt-in, so a deliberate same-size
+  // comparison (parent vs child render) can never be silently resampled.
+  let scaledReferencePath: string | undefined;
+  if (
+    options.scaleReference &&
+    (reference.width !== output.width || reference.height !== output.height)
+  ) {
+    reference = scaleTo(reference, output.width, output.height);
+    if (options.saveScaled !== undefined) {
+      scaledReferencePath = resolve(options.saveScaled);
+      await writeFile(scaledReferencePath, encodePng(reference));
+    }
+  }
 
   const result = runDiff(reference, output, {
     threshold: options.threshold,
@@ -108,7 +138,7 @@ async function runCli(
   await writeFile(diffPath, result.diffImage);
 
   const stats: VisualDiffStats = {
-    reference: referencePath,
+    reference: scaledReferencePath ?? referencePath,
     output: outputPath,
     diff: diffPath,
     width: result.width,

@@ -40,12 +40,20 @@ mismatch turns out to be about that topic.
 anything:
 
 ```bash
-node tools/visual-diff/bin/visual-diff.mjs <reference-or-parent.png> <revision>/output.png --json --update-revision <revision>
+node scripts/render-and-diff.mjs --project <id> --revision <revision-id> --skip-render [--against parent]
 ```
 
-`--update-revision` writes `diff.png` and `stats.json` into the revision
-folder, so the evidence sits beside the review rather than in a
-terminal. For a region-aware gate, mask first with
+`--skip-render` reuses the existing render, so this is the measure step
+alone: the reference is scaled to the render's size automatically (and
+persisted as `reference-scaled.png`), the diff and stats land in the
+revision folder, and the loop verdict comes back as the exit code.
+`--against parent` diffs against the parent revision's render instead —
+what the `exact-diff` and `region-diff` gates compare — and never
+resamples: parent and child come from the same renderer, so a size
+difference there is a real change, not a resolution mismatch.
+
+The underlying `visual-diff` CLI remains available for a bare two-image
+comparison. For a region-aware gate, mask first with
 `node tools/visual-diff/bin/mask-regions.mjs --input … --regions-file …
 --mode keep-only`, then diff the masked pair.
 

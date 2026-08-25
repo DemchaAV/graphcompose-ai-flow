@@ -145,6 +145,11 @@ jobs:
       - name: build the revision-manager CLI the workspace test drives
         working-directory: tools/revision-manager
         run: npm ci && npm run build
+      # render-and-diff drives the visual-diff CLI (scaling + diff), and its
+      # test generates PNGs with the same pngjs the tool uses.
+      - name: build the visual-diff CLI the loop-pass test drives
+        working-directory: tools/visual-diff
+        run: npm ci && npm run build
       - name: contract, workspace, loop, plugin and adapter tests
         run: npm test
 

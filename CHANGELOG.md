@@ -7,6 +7,34 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### v0.5.3 — one loop pass, one command
+
+Third optimization from the baseline. Every pass of the loop runs the
+same deterministic chain — render, scale the reference, diff, write the
+evidence, ask the loop — and the serif run paid for it as three to four
+model turns per pass, improvising the scaling step with ImageMagick
+shell arithmetic that left junk files in the user's project root.
+
+- **`scripts/render-and-diff.mjs`** is that chain as one call, and its
+  exit code is the loop's own verdict: 0 ready, 2 revise, 3 blocked, 1 a
+  step failed — so a skill branches on the code without parsing prose.
+  `--skip-render` reuses the existing render (the measure step alone);
+  `--against parent` serves the exact-diff and region-diff gates.
+- **`visual-diff` gained `--scale-reference` / `--save-scaled`**: when
+  dimensions differ, the reference is scaled to the render's size with a
+  documented, deterministic bilinear sampler (pure pngjs), and persisted
+  as `reference-scaled.png` for later passes and crop-region. Opt-in, so
+  a deliberate same-size comparison can never be silently resampled —
+  and the parent comparison never scales at all: parent and child come
+  from the same renderer, so a size difference there is a real change.
+- A render failure surfaces as the build log's tail inside the one
+  result, not as a separate turn spent re-reading Maven output.
+
+The sampler's point is not to match ImageMagick — it is to be the same
+every run, so diff numbers are comparable across passes. The scaling
+method lives with the comparison that needs it, in the tool, not in
+whatever shell the agent improvises.
+
 ### v0.5.2 — corrections read crops, not pages
 
 Second optimization from the baseline. The measured case: "too close to
