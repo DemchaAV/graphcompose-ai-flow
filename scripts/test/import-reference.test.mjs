@@ -132,8 +132,13 @@ test("an unknown project is a named refusal that says how to create one", () => 
   assert.match(spawned.stderr, /init-workspace/);
 });
 
-test("an unsupported format is refused with the list of what is supported", () => {
+test("an unsupported format is refused without destroying the reference it has", () => {
+  // The replacement is destructive, and it used to run before the format check:
+  // aiming a .docx at the command deleted the working reference and then failed,
+  // so a user error cost the file it was aimed at.
   const ws = workspace("badformat");
+  runCli(ws.root, ["--project", "demo", "--file", writePng(path.join(ws.host, "good.png"))]);
+
   const source = path.join(ws.host, "reference.docx");
   fs.writeFileSync(source, "not an image");
   const spawned = spawnSync(
@@ -141,9 +146,15 @@ test("an unsupported format is refused with the list of what is supported", () =
     [CLI, "--root", ws.root, "--project", "demo", "--file", source],
     { encoding: "utf8" },
   );
+
   assert.equal(spawned.status, 2);
   assert.match(spawned.stderr, /unsupported reference format ".docx"/);
   assert.match(spawned.stderr, /\.pdf/);
+  assert.deepEqual(
+    fs.readdirSync(path.join(ws.project, "reference")).sort(),
+    ["reference.png", "source.png"],
+    "the refusal took the previous reference with it",
+  );
 });
 
 test("a missing file is a usage error, not a half-written reference folder", () => {

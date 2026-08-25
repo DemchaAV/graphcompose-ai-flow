@@ -306,6 +306,21 @@ export function runRender({
     repoRoot,
   );
 
+  // A suffixed render is a fixture, not something anyone looks at: a checker
+  // reads its PDF. The debug overlay exists for a human and the page rasters for
+  // the diff, and neither applies — so both are skipped, which halves what an
+  // overflow fixture costs a loop pass and removes the only way it could
+  // overwrite the real render's artifacts, since those two passes write their
+  // names without the suffix.
+  const fixtureOnly = outputSuffix !== "";
+  if (fixtureOnly) {
+    // And it does not touch the live mirror. current.pdf is what a person has
+    // open while they work; replacing their document with a thirty-row overflow
+    // fixture every loop pass would be worse than showing nothing.
+    console.log(`> fixture render complete (${path.basename(outputPdf)}); debug pass and page rasters skipped`);
+    return;
+  }
+
   // 6. Extra-page rasterisation
   for (let pageIdx = 1; pageIdx < pages; pageIdx += 1) {
     const previewOut = path.join(

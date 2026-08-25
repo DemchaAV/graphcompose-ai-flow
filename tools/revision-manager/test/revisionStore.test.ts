@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { makeTempDir, rmrf } from './helpers.js';
 import {
+  canonicaliseArtifacts,
   nextRevisionId,
   copyRevisionBody,
   formatRevisionId,
@@ -68,5 +69,57 @@ describe('revisionStore.copyRevisionBody', () => {
     await fs.access(path.join(destDir, 'sub', 'nested.txt'));
     // revision.json was excluded.
     await expect(fs.access(path.join(destDir, 'revision.json'))).rejects.toThrow();
+  });
+});
+
+describe('canonicaliseArtifacts', () => {
+  it('renames the labels an agent reaches for instead of the canonical one', () => {
+    // Two acceptance runs of this harness labelled the same seven files two
+    // ways. Both read fine; only one satisfies revision.schema.json, and the
+    // error it produces ("missing property template") names a key that is
+    // sitting in the file under a different spelling.
+    expect(
+      canonicaliseArtifacts({
+        userRequest: 'user-request.md',
+        generatedTemplate: 'Invoice.java',
+        generatedTest: 'InvoiceTest.java',
+        outputPdf: 'output.pdf',
+        dataFile: 'invoice-data.json',
+      }),
+    ).toEqual({
+      userRequest: 'user-request.md',
+      template: 'Invoice.java',
+      test: 'InvoiceTest.java',
+      pdf: 'output.pdf',
+      data: 'invoice-data.json',
+    });
+  });
+
+  it('leaves an already-canonical map exactly as it is', () => {
+    const canonical = { userRequest: 'user-request.md', template: 'Cv.java', test: 'CvTest.java' };
+    expect(canonicaliseArtifacts(canonical)).toEqual(canonical);
+  });
+
+  it('lets an explicit canonical entry win over an alias for the same slot', () => {
+    // Otherwise the result depends on key order, which is not something a
+    // manifest should decide by.
+    expect(
+      canonicaliseArtifacts({ generatedTemplate: 'Old.java', template: 'New.java' }),
+    ).toEqual({ template: 'New.java' });
+    expect(
+      canonicaliseArtifacts({ template: 'New.java', generatedTemplate: 'Old.java' }),
+    ).toEqual({ template: 'New.java' });
+  });
+
+  it('does not invent an artifact that is absent under every name', () => {
+    // Renaming is the deterministic half of the problem. A genuinely missing
+    // artifact is a real gap and has to stay visible as one.
+    expect(canonicaliseArtifacts({ userRequest: 'user-request.md' })).toEqual({
+      userRequest: 'user-request.md',
+    });
+  });
+
+  it('survives a revision written before artifacts existed', () => {
+    expect(canonicaliseArtifacts(undefined as never)).toEqual({});
   });
 });

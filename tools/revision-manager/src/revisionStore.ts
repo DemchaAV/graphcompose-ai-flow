@@ -61,10 +61,53 @@ export async function loadRevision(projectRoot: string, revisionId: string): Pro
   return readJson<Revision>(fp);
 }
 
+/**
+ * Artifact labels an agent reached for instead of the canonical one.
+ *
+ * Nothing writes the artifact map: the workflow leaves the labelling to whoever
+ * is driving it, and two acceptance runs of the same harness produced two
+ * vocabularies for the same seven files — `generatedTemplate` in one,
+ * `template` in the other. Both are perfectly readable and neither satisfies
+ * `revision.schema.json`, which requires the canonical names; the resulting
+ * error says "missing property template" with `generatedTemplate` sitting two
+ * lines above it.
+ *
+ * Renaming is the deterministic half of that problem, so it is done here rather
+ * than asked for in a skill. What is NOT done here is inventing a missing
+ * artifact: a label absent under every name is a real gap and stays reported.
+ */
+const ARTIFACT_ALIASES: Readonly<Record<string, string>> = Object.freeze({
+  generatedTemplate: 'template',
+  generatedTest: 'test',
+  templateFile: 'template',
+  testFile: 'test',
+  outputPdf: 'pdf',
+  outputPreview: 'preview',
+  dataFile: 'data',
+  dataJson: 'data',
+  skillValidationReport: 'skillValidation',
+});
+
+/** Rewrite known aliases to the canonical label, keeping anything already canonical. */
+export function canonicaliseArtifacts(
+  artifacts: Revision['artifacts'],
+): Revision['artifacts'] {
+  const out: Revision['artifacts'] = {};
+  for (const [label, file] of Object.entries(artifacts ?? {})) {
+    const canonical = ARTIFACT_ALIASES[label] ?? label;
+    // An explicit canonical entry wins over an alias for the same slot, so a
+    // manifest carrying both does not depend on key order.
+    if (canonical !== label && Object.prototype.hasOwnProperty.call(artifacts, canonical)) continue;
+    out[canonical] = file;
+  }
+  return out;
+}
+
 export async function saveRevision(projectRoot: string, revision: Revision): Promise<void> {
   const stamped: Revision = {
     ...revision,
     schemaVersion: revision.schemaVersion ?? CURRENT_SCHEMA_VERSION,
+    artifacts: canonicaliseArtifacts(revision.artifacts),
   };
   await writeJsonAtomic(revisionFilePath(projectRoot, revision.id), stamped);
 }

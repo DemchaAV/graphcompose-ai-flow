@@ -267,3 +267,35 @@ test("usage errors are usage errors", () => {
   );
   assert.equal(badAgainst.status, 2);
 });
+
+// --- the overflow fixture is a fixture, not a preview --------------------------
+
+test("a suffixed render writes only its own PDF and never the live preview", () => {
+  // Two separate ways a fixture render could damage the pass it belongs to:
+  // the debug pass and the page rasters write names WITHOUT the suffix, so
+  // running them would overwrite the real render's artifacts; and current.pdf
+  // is the file a person keeps open while they work, so pushing a thirty-row
+  // overflow dataset into it would replace their document with a test input.
+  //
+  // Both are avoided by returning early, which is a shape a reader can break
+  // by adding one line in the wrong place. Assert the shape, not the wording.
+  const source = fs.readFileSync(path.join(repoRoot, "scripts", "lib", "render-runtime.mjs"), "utf8");
+
+  const branch = source.indexOf("const fixtureOnly");
+  assert.ok(branch > 0, "the fixture branch is gone — this contract needs rewriting, not deleting");
+  const returned = source.indexOf("return;", branch);
+  assert.ok(returned > branch, "the fixture branch no longer returns early");
+
+  const body = source.slice(branch, returned);
+  assert.equal(
+    /\blive\.[a-zA-Z]/.test(body),
+    false,
+    `a fixture render touches the live mirror: ${body.match(/\blive\.[a-zA-Z]+/g)?.join(", ")}`,
+  );
+
+  // And everything the clean pass does afterwards is genuinely after it.
+  const after = source.slice(returned);
+  for (const marker of ["output-debug", "live.update"]) {
+    assert.ok(after.includes(marker), `${marker} moved above the fixture return`);
+  }
+});

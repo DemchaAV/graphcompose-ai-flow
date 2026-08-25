@@ -122,6 +122,19 @@ test("a body line crossing into the footer is a defect, with the amount", () => 
   assert.equal(findings[0].footer, "Page 1 of 3");
 });
 
+test("prose that reads like a page number does not become the footer", () => {
+  // "continued on page 2 of 3" in a terms block matches the same pattern the
+  // chrome does. Taking the first match made that line the footer and the real
+  // footer a body line below it, which reports an overlap in a document that
+  // has none.
+  const findings = findFooterOverlaps([[
+    line("Delivery continued on page 2 of 3 of the annex", 400),
+    line("Terms and conditions apply", 500),
+    line("Page 2 of 3", 816, 5),
+  ]]);
+  assert.deepEqual(findings, [], `reported: ${JSON.stringify(findings)}`);
+});
+
 test("a comfortable gap is not reported at all", () => {
   const findings = findFooterOverlaps([[
     line("Line item 29", 700),

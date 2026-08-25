@@ -93,8 +93,27 @@ const canonicalPath = path.join(packDir, CANONICAL_FILE);
 const usingCanonical = fs.existsSync(canonicalPath);
 const surfacePath = usingCanonical ? canonicalPath : path.join(packDir, SURFACE_FILE);
 if (!fs.existsSync(surfacePath)) {
-  process.stderr.write(`[api-query] no allow-list for GraphCompose ${line}: ${packDir}\n`);
-  process.exit(1);
+  // Which lines CAN answer. Two of the packs on disk are prose written before
+  // the surface was extracted from the jar, and a bare "no allow-list" left the
+  // reader unable to tell a missing generation step from a typo in --version.
+  const answerable = fs.existsSync(PACKS_DIR)
+    ? fs
+        .readdirSync(PACKS_DIR, { withFileTypes: true })
+        .filter((e) => e.isDirectory() && e.name.startsWith("graphcompose-"))
+        .map((e) => e.name.replace("graphcompose-", ""))
+        .filter(
+          (l) =>
+            fs.existsSync(path.join(PACKS_DIR, `graphcompose-${l}`, CANONICAL_FILE)) ||
+            fs.existsSync(path.join(PACKS_DIR, `graphcompose-${l}`, SURFACE_FILE)),
+        )
+    : [];
+  process.stderr.write(
+    `[api-query] no allow-list for GraphCompose ${line}: ${packDir}\n` +
+      `  lines that can answer: ${answerable.join(", ") || "(none)"}\n` +
+      "  this line's pack is prose only. Verify calls against the pinned jar:\n" +
+      "    javap -classpath <core jar> com.demcha.compose.document.api.DocumentDsl\n",
+  );
+process.exit(1);
 }
 
 const surface = usingCanonical

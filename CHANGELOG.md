@@ -5,7 +5,64 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
-## Unreleased
+## v0.6.3 — 2026-08-25
+
+The 0.6 line, cut after a review of everything it added. The review is the
+reason this is a release rather than another increment: it found seven
+defects in code that had passed 372 tests, two of them in tests that were
+themselves passing without checking anything.
+
+### v0.6.3 — the review, and the two tests that were testing nothing
+
+**Two assertions had never run.** A backslash eaten before a file was
+written turned a word-boundary escape into the byte it names: backslash
+plus `b` became 0x08, so two regexes went looking for a literal
+backspace character where they meant a word boundary. Both regexes match
+no input that has ever existed, so both tests passed, and both pinned
+nothing — the damage is invisible in a diff and invisible in a test run.
+Repaired, and a contract test now walks the tree for control characters
+where an escape was meant, proven by injecting one.
+A second contract test extracts every
+`node scripts/*.mjs --flag` printed anywhere in the documentation and
+checks the script exists and reads the flag: 28 pairs across 120
+documents, all currently honest.
+
+**A fixture render no longer overwrites the render it belongs to.** The
+overflow pass writes `output-overflow.pdf`, but the debug pass and the
+page rasters that followed it wrote their names *without* the suffix, so
+running the fixture clobbered the real render's debug artifacts — and
+pushed a thirty-row test dataset into `current.pdf`, the file a person
+keeps open while they work. A suffixed render is read by a checker and
+looked at by nobody: it now returns after its own clean pass.
+
+**The footer is the lowest page-number line, not the first.** Prose
+containing "continued on page 2 of 3" read exactly like chrome, and
+taking the first match made a body line the footer and the real footer a
+body line below it — inventing an overlap in a document that had none.
+
+**Importing an unsupported reference no longer destroys the one you
+have.** The format check ran *after* the reference folder was pruned and
+the source copied, so aiming a `.docx` at the command deleted the working
+reference and then failed. Validation moved ahead of the first
+destructive step.
+
+**A skill pack is not automatically an allow-list.** The 1.6 and 1.7
+packs are prose written before the surface was extracted from the jar.
+They resolved as `supported`, and then `api-query` — which the workflow
+requires before writing any call — dead-ended on a file nobody had
+generated. `resolve-version` now reports `hasAllowList` and warns with
+what to do instead (`javap` against the pinned jar); `api-query` names
+the lines that *can* answer.
+
+**Artifact labels collapse to the canonical name on save.** Nothing wrote
+the artifact map, so two acceptance runs of this harness produced two
+vocabularies for the same seven files — `generatedTemplate` in one,
+`template` in the other. Both read fine; only one satisfies
+`revision.schema.json`, whose error then reads "missing property
+template" with `generatedTemplate` sitting two lines above it. Known
+aliases are rewritten at the single write choke point. What is *not* done
+is inventing a missing artifact: a label absent under every name stays
+reported as the gap it is.
 
 ### v0.6.2 — the footer band, and a divider that is missing on purpose
 

@@ -120,7 +120,7 @@ test("the eleven-prompt chain is gone, and nothing live still sends a reader to 
     "skills/workflows/README.md",
   ]) {
     assert.ok(
-      !/prompts\/[a-z]/.test(read(file)),
+      !/\bprompts\/[a-z]/.test(read(file)),
       `${file} still points at a file under prompts/, which no longer exists`,
     );
   }
@@ -410,4 +410,77 @@ test("every repository link the site makes still resolves", () => {
   }
 
   assert.deepEqual(dead, [], `the site links to paths that no longer exist:\n  ${dead.join("\n  ")}`);
+});
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "target", "coverage", "private"]);
+
+test("no source file carries a control character where an escape was meant", () => {
+  // Two assertions in this repository silently tested nothing because a
+  // backslash was eaten before the file was written: `/\\blive\\./` became
+  // `/<0x08>live\\./` and matched no input ever. Both tests passed, and both
+  // pinned nothing. The damage is invisible in a diff and invisible in a test
+  // run — the only thing that makes it visible is looking for the byte.
+  //
+  // ESC (0x1b) is exempt: it is how the terminal output is coloured.
+  const offenders = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (SKIP_DIRS.has(entry.name)) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (!/\.(mjs|js|ts|json|md)$/.test(entry.name)) continue;
+      const text = fs.readFileSync(full, "utf8");
+      for (let i = 0; i < text.length; i += 1) {
+        const code = text.charCodeAt(i);
+        if (code < 32 && code !== 9 && code !== 10 && code !== 13 && code !== 27) {
+          offenders.push(`${path.relative(repoRoot, full)}: 0x${code.toString(16)} at offset ${i}`);
+          break;
+        }
+      }
+    }
+  };
+  walk(repoRoot);
+
+  assert.deepEqual(offenders, [], `an escape was mangled into a literal control character:\n  ${offenders.join("\n  ")}`);
+});
+
+test("every command the documentation prints is a command that exists", () => {
+  // The README once claimed a state the harness had already left, and the user
+  // caught it before any test did. Prose drifts from code silently; a flag that
+  // was renamed leaves a copy-pasteable line that fails on the reader's machine
+  // and looks like their mistake. Both halves are mechanical to check.
+  const docs = [];
+  const collect = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (SKIP_DIRS.has(entry.name)) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) collect(full);
+      else if (entry.name.endsWith(".md")) docs.push(full);
+    }
+  };
+  collect(repoRoot);
+
+  const CALL = /node[ ]+(scripts\/[A-Za-z0-9_.-]+\.mjs)((?:[ ]+--?[A-Za-z0-9-]+(?:[ ]+[^ `|\n]+)?)*)/g;
+  const problems = [];
+  for (const doc of docs) {
+    const text = fs.readFileSync(doc, "utf8");
+    for (const [, script, tail] of text.matchAll(CALL)) {
+      const file = path.join(repoRoot, script);
+      const where = path.relative(repoRoot, doc);
+      if (!fs.existsSync(file)) {
+        problems.push(`${where}: names a script that does not exist - ${script}`);
+        continue;
+      }
+      const source = fs.readFileSync(file, "utf8");
+      for (const flag of tail.match(/--[A-Za-z0-9-]+/g) ?? []) {
+        if (!source.includes(`"${flag}"`) && !source.includes(`'${flag}'`)) {
+          problems.push(`${where}: \`node ${script} ${flag}\` - the script never reads ${flag}`);
+        }
+      }
+    }
+  }
+
+  assert.deepEqual(problems, [], `documented commands that would fail:\n  ${problems.join("\n  ")}`);
 });

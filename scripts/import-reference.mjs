@@ -142,6 +142,17 @@ const source = path.resolve(args.file);
 if (!fs.existsSync(source)) fail(`no such file: ${source}`, 2);
 
 const extension = path.extname(source).toLowerCase();
+
+// Refuse before touching anything. The replacement below is destructive, and
+// running it first meant that trying to import a .docx deleted the working
+// reference and then failed — a user error costing the file it was aimed at.
+if (extension !== ".pdf" && !RASTER.has(extension)) {
+  fail(
+    `unsupported reference format "${extension}". Supported: ${[...RASTER].join(", ")}, .pdf`,
+    2,
+  );
+}
+
 const referenceDir = path.join(projectDir, "reference");
 fs.mkdirSync(referenceDir, { recursive: true });
 
@@ -186,11 +197,6 @@ if (extension === ".pdf") {
     );
   }
   written.push("reference.png");
-} else {
-  fail(
-    `unsupported reference format "${extension}". Supported: ${[...RASTER].join(", ")}, .pdf`,
-    2,
-  );
 }
 
 const project = JSON.parse(fs.readFileSync(projectFile, "utf8"));

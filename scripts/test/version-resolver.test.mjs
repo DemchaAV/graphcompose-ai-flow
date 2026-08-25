@@ -267,6 +267,34 @@ test("an explicit --version skips build-file detection", () => {
   assert.equal(result.buildFile, null);
 });
 
+test("a pack with prose but no generated allow-list says so before authoring starts", () => {
+  // 1.6 and 1.7 predate the surface extraction. They resolve as supported —
+  // correctly, the prose is real — and then `api-query`, which the workflow
+  // requires before writing any call, dead-ends on a file nobody generated.
+  // The resolver is the only place that knows early enough to warn.
+  const prose = resolveVersion({ projectDir: tempDir("prose"), install: repoRoot, version: "1.7.1" });
+  assert.equal(prose.status, "supported");
+  assert.equal(prose.hasAllowList, false);
+  assert.match(prose.message, /javap/, "the warning does not say how to verify a call instead");
+
+  const generated = resolveVersion({ projectDir: tempDir("gen"), install: repoRoot, version: "2.2.0" });
+  assert.equal(generated.hasAllowList, true);
+  assert.equal(generated.message, undefined, "a pack that can answer should carry no warning");
+});
+
+test("api-query names the lines that can answer rather than only the one that cannot", () => {
+  const cli = path.join(repoRoot, "scripts", "api-query.mjs");
+  let stderr = "";
+  try {
+    execFileSync(process.execPath, [cli, "--version", "1.7", "--search", "table"], { stdio: "pipe" });
+    assert.fail("a prose-only line answered a query");
+  } catch (err) {
+    stderr = err.stderr?.toString() ?? "";
+  }
+  assert.match(stderr, /lines that can answer: .*2\.2/);
+  assert.match(stderr, /javap/);
+});
+
 test("the packs reported are the ones in skills/versions, newest line first", () => {
   const packs = availableSkillPacks(repoRoot);
   assert.ok(packs.length > 0, "no skill packs were found");

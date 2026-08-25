@@ -36,8 +36,14 @@ export function findFooterOverlaps(pages, { crowding = CROWDING_POINTS } = {}) {
   const findings = [];
   for (let page = 0; page < (pages?.length ?? 0); page += 1) {
     const lines = pages[page] ?? [];
-    const footer = lines.find((line) => PAGE_OF.test(line.text));
-    if (!footer) continue;
+    // The LOWEST line that reads like a page number, not the first. Prose can
+    // contain the phrase - "continued on page 2 of 3" in a terms block reads
+    // exactly like chrome - and taking the first match would make a body line
+    // the footer and the real footer a body line below it, inventing an
+    // overlap out of a document that has none.
+    const candidates = lines.filter((line) => PAGE_OF.test(line.text));
+    if (!candidates.length) continue;
+    const footer = candidates.reduce((a, b) => (a.top > b.top ? a : b));
 
     const body = lines.filter((line) => line !== footer);
     if (!body.length) continue;

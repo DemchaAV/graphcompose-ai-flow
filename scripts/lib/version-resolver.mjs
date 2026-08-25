@@ -172,6 +172,11 @@ export function versionLine(version) {
  * @param {string} install harness install root
  * @returns {Array<{ line: string, path: string }>}
  */
+export function packHasAllowList(install, line) {
+  const dir = path.join(install, "skills", "versions", `graphcompose-${line}`);
+  return fs.existsSync(path.join(dir, "api-surface.json")) || fs.existsSync(path.join(dir, "00-api-surface.md"));
+}
+
 export function availableSkillPacks(install) {
   const versionsDir = path.join(install, "skills", "versions");
   if (!fs.existsSync(versionsDir)) return [];
@@ -277,6 +282,13 @@ export function resolveVersion({ projectDir = process.cwd(), install, version = 
     };
   }
 
+  // A pack is not automatically an allow-list. The 1.6 and 1.7 packs are prose
+  // only: they were written before the surface was extracted from the jar, and
+  // nothing has re-extracted them. Reporting "supported" and stopping there
+  // sent an agent to `api-query` — which the workflow requires before writing
+  // any call — only for it to dead-end on a file that was never generated.
+  const hasAllowList = packHasAllowList(install, match.line);
+
   return {
     status: "supported",
     version: pinned.version,
@@ -285,5 +297,15 @@ export function resolveVersion({ projectDir = process.cwd(), install, version = 
     buildFile,
     skillPack: match.path,
     availablePacks,
+    hasAllowList,
+    ...(hasAllowList
+      ? {}
+      : {
+          message:
+            `the ${match.line} pack carries prose but no generated allow-list, so ` +
+            "`api-query` cannot answer for this line. Verify every call against the " +
+            "pinned jar itself (`javap -classpath <jar> <type>`) before writing it — " +
+            "the prose describes the shape of the API, not its exact signatures.",
+        }),
   };
 }

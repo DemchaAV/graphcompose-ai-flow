@@ -58,7 +58,10 @@ if (args.json) {
 } else if (result.status === "supported") {
   process.stdout.write(
     `GraphCompose ${result.version} (${result.line}.x) -> ${result.skillPack}\n` +
-      (result.buildFile ? `  from ${result.buildFile}\n` : ""),
+      (result.buildFile ? `  from ${result.buildFile}\n` : "") +
+      // A pack without a generated allow-list still resolves; saying so here is
+      // the only warning before `api-query` dead-ends mid-authoring.
+      (result.hasAllowList === false ? `  warning: ${result.message}\n` : ""),
   );
 } else {
   process.stderr.write(`${result.status}: ${result.message}\n`);
