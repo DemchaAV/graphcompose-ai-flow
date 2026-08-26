@@ -75,10 +75,19 @@ you want. The skills fire from the words, so no command is needed:
 
 | You say | What happens |
 |---|---|
+| "An invoice like the one we did before" | the catalog of published templates is checked **first** — a match is a file copy into your project, not the loop |
 | "Create this in GraphCompose" (+ a screenshot) | analyse → architecture → assets → code → compile → render → diff → fix the largest mismatch → repeat |
 | "Make the sidebar wider" | a new revision under the narrowest scope that fits, gated against the right baseline |
 | "What's still different?" | a measured verdict and a ranked mismatch list, without changing anything |
 | "approve" | DRAFT → APPROVED, the previous approved superseded, the bundle published |
+
+Reuse is checked before reconstruction because the two cost different
+orders of magnitude. `node scripts/templates.mjs` lists what has already
+been published and `inspect <id>` says how to use it;
+`node scripts/use-template.mjs <id> --target <java-project>` copies the
+sources, assets and data in, or `--new-project <dir>` stands up a
+runnable project from scratch. A published bundle carries no dependency
+on this harness — it is Java, a JSON data file and a pom.
 
 See [`docs/demo.md`](docs/demo.md) for a real transcript of the
 deterministic half — version resolution, workspace creation, the chain,
@@ -197,7 +206,7 @@ Anything a script can decide is decided by a script:
                                               READY_FOR_APPROVAL / BLOCKED
 ```
 
-Four things make that more than a prompt:
+Five things make that more than a prompt:
 
 - **The version decides the API.** `scripts/resolve-version.mjs` reads
   your `pom.xml` or `build.gradle`, maps the line to a skill pack, and
@@ -213,6 +222,16 @@ Four things make that more than a prompt:
 - **Nothing is overwritten.** Every change opens a revision; approving
   supersedes rather than replaces; a single component can be restored
   from any earlier one.
+- **The geometry is measured, not guessed at.** The renderer writes
+  GraphCompose's own post-layout snapshot beside the PDF, so "this block
+  is too far right" is arithmetic rather than an argument about a
+  screenshot. `node scripts/layout.mjs explain <node> x` answers it with
+  the additive chain — `canvas.margin.left 0 + Sidebar.padding.left 17 +
+  Heading.padding.left 9 = 26` — naming the node that *owns* the offset
+  rather than the one that shows it. `diff` says whether a patch moved
+  only what it meant to, `doctor` says whether the geometry sits on the
+  node that owns it, and each of them will answer "I cannot derive this"
+  rather than produce a number it cannot support.
 
 [`docs/architecture.md`](docs/architecture.md) has the full picture,
 including what this project deliberately does **not** build: no LLM API
@@ -241,8 +260,19 @@ integration, no MCP server, no standalone runtime.
 - The GraphCompose **2.2 pack ships** and its five fixtures compile,
   test and render against 2.2.0 with every render identical to its
   baseline. The conceptual skills stay `needs-validation` on coverage —
-  five fixtures are a subset of what fifteen skills describe. See
+  five fixtures are a subset of what fourteen skills describe. See
   [`skills/README.md`](skills/README.md).
+- **The layout diagnostics are built and their effect is not proven.**
+  The tools measurably do what they were built to do: 749 of 988
+  coordinate queries on a real CV resolve to an exact derivation, an
+  evidence package is 78× smaller than the snapshot it replaces, the font
+  matcher names the right family first six times out of six. But no
+  project has yet been *authored* with them in place, so the corpus has
+  not moved and all three headline metrics — owner correct on first
+  attempt, renders per geometry correction, collateral nodes per revision
+  — are still null. Capability and effect are different claims;
+  [`docs/benchmarks.md`](docs/benchmarks.md) keeps them apart and says
+  exactly what would settle the second.
 - Details and scope limits: [`docs/limitations.md`](docs/limitations.md),
   progress: [`docs/roadmap.md`](docs/roadmap.md).
 

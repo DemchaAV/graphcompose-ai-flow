@@ -68,7 +68,7 @@ The active pack lists 17 skills in
   evidence for this pack is proven, not inherited. What still keeps the
   status is coverage rather than doubt: five fixtures exercise rows,
   sections, tables, layer stacks and shape containers, which is a subset
-  of what the fifteen skills describe. A skill is promoted to `active`
+  of what the fourteen skills describe. A skill is promoted to `active`
   when a fixture covers it.
 
   Porting those fixtures across the major was not a formality. They used

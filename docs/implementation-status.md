@@ -1,12 +1,16 @@
 # Implementation Status
 
-> **Predates the harness migration.** The matrix below describes the
-> original seven phases and was last checked before the workflow kit
-> became an installable harness. For the current state read
-> [`docs/roadmap.md`](roadmap.md) § Harness migration and the "What is
-> honest about the current state" section of the
-> [README](../README.md); the two gaps that matter today are the
-> unrecorded acceptance runs and the skill fixtures still pinning 1.9.0.
+> **Historical. Do not read this for the current state.** The matrix
+> below describes the original seven phases and was last checked before
+> the workflow kit became an installable harness. It is kept as the
+> record of what was claimed and when.
+>
+> The current state is in [`docs/roadmap.md`](roadmap.md) and the "What
+> is honest about the current state" section of the
+> [README](../README.md) — and only there. This banner used to name "the
+> two gaps that matter today"; one of them (fixtures pinned to 1.9.0) had
+> since been closed, which is exactly the failure a staleness warning
+> creates when it goes stale itself: it tells the reader what to trust.
 
 Current claim/reality matrix for the Phase 1-7 deliverables and CI.
 This file supersedes the historical audit notes in `AUDIT.md` when
