@@ -61,6 +61,20 @@ const SCHEMA_BINDINGS = [
     filename: 'flow.config.json',
     schemaFile: 'flow-config.schema.json',
   },
+  // The published bundle's contract. Bound by bare filename like the rest,
+  // which is safe because `template.json` only ever names a bundle manifest —
+  // an authoring project's metadata is `template-project.json`.
+  {
+    filename: 'template.json',
+    schemaFile: 'template-manifest.schema.json',
+  },
+  // Written by the preview renderer from GraphCompose's own post-layout
+  // measurement, so drift here means the engine changed its shape, not that an
+  // agent wrote the file wrongly.
+  {
+    filename: 'layout-snapshot.json',
+    schemaFile: 'layout-snapshot.schema.json',
+  },
   // Observations are named after what they describe, not after their kind, so
   // this one binds by the directory that holds them.
   {

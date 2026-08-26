@@ -5,6 +5,11 @@ argument-hint: "[path to the reference, or a note about it]"
 
 Create a GraphCompose template from the reference the user has supplied.
 
+First run `node scripts/templates.mjs --json`. If the user named a
+template that is already published, or asked for "another one like X",
+offer `use-template` instead — reuse is a file copy, and reconstructing
+an approved layout is the most expensive mistake available here.
+
 Follow the `create-template` skill in
 `skills/workflows/create-template/SKILL.md` — read it before starting,
 including the shared references it links to. In short: resolve the

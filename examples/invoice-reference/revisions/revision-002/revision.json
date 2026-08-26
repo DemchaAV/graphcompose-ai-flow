@@ -19,7 +19,6 @@
     "template": "generated-template.java",
     "test": "generated-test.java",
     "patch": "patch.diff",
-    "layoutSnapshot": "layout-snapshot.json",
     "pdf": "output.pdf",
     "preview": "output.png",
     "visualReview": "visual-review.md",

@@ -22,7 +22,6 @@
     "architecturePlan": "architecture-plan.md",
     "template": "generated-template.java",
     "test": "generated-test.java",
-    "layoutSnapshot": "layout-snapshot.json",
     "pdf": "output.pdf",
     "preview": "output.png",
     "visualReview": "visual-review.md",

@@ -91,6 +91,7 @@ export function validatePipelineConfig(config) {
   validateWorkflows(config.workflows, config.scopes);
   validateLimits(config.limits);
   validateFailureCategories(config.failureCategories);
+  validateVocabulary(config.mismatchCauses, "mismatchCauses");
 
   return config;
 }
@@ -208,20 +209,29 @@ function validateLimits(limits) {
 }
 
 function validateFailureCategories(categories) {
-  if (!Array.isArray(categories) || categories.length === 0) {
-    throw new PipelineConfigError("failureCategories must be a non-empty array");
+  validateVocabulary(categories, "failureCategories");
+}
+
+/**
+ * A closed SCREAMING_SNAKE_CASE vocabulary this config declares once and other
+ * files copy. Shared by `failureCategories` and `mismatchCauses`, which have the
+ * same shape and the same reason for existing: the validator compiles each
+ * schema standalone, so the enum cannot be `$ref`-ed across files and the copies
+ * are kept honest by a test rather than by the type system.
+ */
+function validateVocabulary(values, at) {
+  if (!Array.isArray(values) || values.length === 0) {
+    throw new PipelineConfigError(`${at} must be a non-empty array`);
   }
   const seen = new Set();
-  for (const category of categories) {
-    if (typeof category !== "string" || !/^[A-Z][A-Z_]*[A-Z]$/.test(category)) {
-      throw new PipelineConfigError(
-        `failureCategories entries must be SCREAMING_SNAKE_CASE, got ${JSON.stringify(category)}`,
-      );
+  for (const value of values) {
+    if (typeof value !== "string" || !/^[A-Z][A-Z_]*[A-Z]$/.test(value)) {
+      throw new PipelineConfigError(`${at} entries must be SCREAMING_SNAKE_CASE, got ${JSON.stringify(value)}`);
     }
-    if (seen.has(category)) {
-      throw new PipelineConfigError(`failureCategories contains a duplicate: ${category}`);
+    if (seen.has(value)) {
+      throw new PipelineConfigError(`${at} contains a duplicate: ${value}`);
     }
-    seen.add(category);
+    seen.add(value);
   }
 }
 

@@ -609,6 +609,107 @@ step("region roles", (entry) => {
     (!contract.length && !unroled.length ? " — each built the way its role says" : "");
 });
 
+step("structural smells", (entry) => {
+  // The fourth blind spot, and the only one that is invisible even to a perfect
+  // render. Three siblings each carrying the same margin look exactly like one
+  // parent carrying the equivalent spacing — the diff is zero — but the first
+  // is three numbers the next revision has to find and move together.
+  const checked = run(path.join(repoRoot, "scripts", "check-structural-smells.mjs"), [
+    "--project",
+    args.project,
+    "--revision",
+    args.revision,
+    "--root",
+    workspace.root,
+    "--json",
+  ]);
+  let smells;
+  try {
+    smells = JSON.parse(checked.stdout);
+  } catch {
+    // No generated template yet is the ordinary state early in a loop.
+    entry.detail = "not checked";
+    return;
+  }
+  result.structure = { template: smells.template, findings: smells.findings };
+  const byKind = new Map();
+  for (const f of smells.findings) byKind.set(f.kind, (byKind.get(f.kind) ?? 0) + 1);
+  entry.detail = smells.findings.length
+    ? [...byKind].map(([kind, n]) => `${n} ${kind}`).join(", ")
+    : "geometry sits where it is owned";
+});
+
+step("layout collateral", (entry) => {
+  // The blind spot every other check here shares: they all look at the region
+  // under review. Nothing looks at the rest of the document, so a section three
+  // pages away can shift and the loop finds out when a human opens the PDF.
+  //
+  // Two layout snapshots settle it, because the engine measured both. Insets
+  // are what a person edits and placement is what the engine computes, so a
+  // moved node either descends from an edit — the intended blast radius — or it
+  // does not, and that is worth a line.
+  //
+  // Evidence, not a gate. It reports into the result and does not touch the
+  // verdict: promoting it to a gate belongs in config/pipeline.json, and only
+  // after it has been quiet on real runs. A check that blocked the loop on its
+  // first day would be turned off on its second.
+  const revisionFile = path.join(revisionDir, "revision.json");
+  let parentId = null;
+  let expected = null;
+  try {
+    const revision = JSON.parse(fs.readFileSync(revisionFile, "utf8"));
+    parentId = revision.parentRevisionId ?? null;
+    expected = revision.expectedAffectedNodes ?? null;
+  } catch {
+    entry.detail = "not checked";
+    return;
+  }
+  if (!parentId) {
+    // A first revision has nothing to diff against, which is a fact about the
+    // revision and not a failure of the check.
+    entry.detail = "first revision — nothing to compare against";
+    return;
+  }
+
+  const argv = ["diff", parentId, args.revision, "--project", args.project, "--root", workspace.root, "--json"];
+  const diffed = run(path.join(repoRoot, "scripts", "layout.mjs"), argv);
+  let diff;
+  try {
+    diff = JSON.parse(diffed.stdout);
+  } catch {
+    // Either revision may predate the snapshot writer, or pin a GraphCompose
+    // that has none. Both are ordinary.
+    entry.detail = "no snapshot on one side";
+    return;
+  }
+
+  result.layout = {
+    parentRevisionId: parentId,
+    changed: diff.totals.changed,
+    edited: diff.authoredChanges.length,
+    followed: diff.affectedDescendants.length,
+    collateral: diff.collateral.map((c) => ({ path: c.path, name: c.name, changes: c.changes.derived })),
+    paginationChanged: diff.pagination.changed,
+    ownership: diff.ownership,
+  };
+
+  if (Array.isArray(expected) && expected.length) {
+    const declared = new Set(expected.map((e) => String(e)));
+    result.layout.expectedAffectedNodes = [...declared];
+    result.layout.unexpected = diff.changedNodes
+      .filter((c) => ![...declared].some((d) => c.path === d || c.name === d || c.path.endsWith(`/${d}`) || c.path.includes(`/${d}[`)))
+      .map((c) => ({ path: c.path, name: c.name }));
+  }
+
+  const parts = [];
+  if (diff.pagination.changed) parts.push(`pages ${diff.pagination.before} → ${diff.pagination.after}`);
+  parts.push(`${diff.authoredChanges.length} edited, ${diff.affectedDescendants.length} followed`);
+  if (diff.collateral.length) parts.push(`${diff.collateral.length} unexplained`);
+  if (diff.ownership.length) parts.push(`${diff.ownership.length} ownership finding(s)`);
+  if (result.layout.unexpected?.length) parts.push(`${result.layout.unexpected.length} outside expectedAffectedNodes`);
+  entry.detail = diff.totals.changed === 0 ? "nothing moved" : parts.join(", ");
+});
+
 step("loop verdict", (entry) => {
   const status = run(path.join(repoRoot, "scripts", "iterate-status.mjs"), [
     args.project,

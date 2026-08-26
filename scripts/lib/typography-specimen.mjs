@@ -1,0 +1,215 @@
+/**
+ * scripts/lib/typography-specimen.mjs — one render, every candidate.
+ *
+ * The naive way to test twenty fonts is twenty renders. Item 37 forbids it and
+ * it would be unusable anyway: twenty JVM starts to answer one question inside
+ * a loop that only gets eight passes.
+ *
+ * So the candidates go into **one** document, one paragraph each, and the whole
+ * sheet renders once. Slicing it back apart afterwards needs no image analysis
+ * and no guessing, because the layout snapshot from that same render says
+ * exactly where each paragraph's box is — which is the first thing the
+ * snapshot has been used for that is not a diagnosis.
+ *
+ * The specimen is generated Java rather than a fixture with a data file. It has
+ * no design and never becomes a template: it exists for a few seconds inside a
+ * scratch directory, and the only thing read back out of it is pixels.
+ *
+ * No model is called from any path in this file.
+ */
+
+/** The family names the pinned 2.2 pack declares on `FontName`. */
+export const BUNDLED_FAMILIES = Object.freeze([
+  "ALEGREYA_SANS",
+  "AMIRI",
+  "ANDIKA",
+  "ARSENAL",
+  "ASAP_CONDENSED",
+  "BAI_JAMJUREE",
+  "BARLOW",
+  "BARLOW_CONDENSED",
+  "CARLITO",
+  "COUSINE",
+  "CRIMSON_TEXT",
+  "DAVID_LIBRE",
+  "FIRA_SANS",
+  "FIRA_SANS_CONDENSED",
+  "GENTIUM_PLUS",
+  "GOTHIC_A1",
+  "IBM_PLEX_MONO",
+  "IBM_PLEX_SERIF",
+  "JETBRAINS_MONO",
+  "KANIT",
+  "LATO",
+  "NOTO_SANS_ARMENIAN",
+  "NOTO_SANS_GEORGIAN",
+  "POPPINS",
+  "PROMPT",
+  "PT_SANS",
+  "PT_SERIF",
+  "SARABUN",
+  "SPECTRAL",
+  "TAVIRAJ",
+  "TINOS",
+  "TRIRONG",
+  "UBUNTU",
+  "VOLKHOV",
+  "ZILLA_SLAB",
+]);
+
+/**
+ * The fourteen built into every PDF reader, plus `DEFAULT`.
+ *
+ * Kept separate because they are not Google fonts and do not need the
+ * `graph-compose-fonts` artifact — a specimen restricted to these renders
+ * against a bare `graph-compose` dependency.
+ */
+export const CORE_FAMILIES = Object.freeze([
+  "COURIER",
+  "COURIER_BOLD",
+  "COURIER_BOLD_OBLIQUE",
+  "COURIER_OBLIQUE",
+  "DEFAULT",
+  "HELVETICA",
+  "HELVETICA_BOLD",
+  "HELVETICA_BOLD_OBLIQUE",
+  "HELVETICA_OBLIQUE",
+  "TIMES_BOLD",
+  "TIMES_BOLD_ITALIC",
+  "TIMES_ITALIC",
+  "TIMES_ROMAN",
+]);
+
+/** Every family the matcher will try when the caller names none. */
+export const ALL_FAMILIES = Object.freeze([...BUNDLED_FAMILIES, ...CORE_FAMILIES].sort());
+
+const IDENTIFIER = /^[A-Z][A-Z0-9_]*$/;
+
+/**
+ * Reject a family the pinned pack does not declare.
+ *
+ * The closed-set rule, applied where it would otherwise fail late and
+ * confusingly: an unknown constant is a Java compile error inside a generated
+ * file the caller never asked to see.
+ */
+export function validateFamilies(families) {
+  const known = new Set(ALL_FAMILIES);
+  const unknown = families.filter((f) => !known.has(f));
+  if (unknown.length) {
+    throw new TypeError(
+      `not FontName constants in the pinned pack: ${unknown.join(", ")}. ` +
+        "Run `node scripts/api-query.mjs --version <line> --query FontName` for the list.",
+    );
+  }
+  return families;
+}
+
+/** Does this candidate set need the separately-published Google fonts? */
+export const needsBundledFonts = (candidates) => candidates.some((c) => BUNDLED_FAMILIES.includes(c.family));
+
+/**
+ * Java string literal escaping.
+ *
+ * The specimen text comes from a command line, so it is the one part of the
+ * generated source that is not under this file's control.
+ */
+function javaString(text) {
+  return `"${String(text)
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\r/g, "\\r")
+    .replace(/\n/g, "\\n")
+    .replace(/\t/g, "\\t")}"`;
+}
+
+/**
+ * The specimen document: one named paragraph per candidate, same string.
+ *
+ * The name is what ties a paragraph back to its candidate through the snapshot,
+ * so it is generated rather than derived from the family — two candidates can
+ * share a family when the size is what varies.
+ */
+export function specimenSource({ candidates, text, packageName = "com.graphcompose.flow.typography", className = "TypographySpecimen" }) {
+  if (!Array.isArray(candidates) || candidates.length === 0) throw new TypeError("no candidates");
+  for (const candidate of candidates) {
+    if (!IDENTIFIER.test(candidate.family)) throw new TypeError(`not a FontName constant: ${candidate.family}`);
+    if (!Number.isFinite(candidate.size) || candidate.size <= 0) throw new TypeError(`bad size: ${candidate.size}`);
+  }
+
+  const paragraphs = candidates
+    .map(
+      (candidate) => `            page.addParagraph(p -> p
+                    .name(${javaString(candidate.id)})
+                    .text(TEXT)
+                    .textStyle(DocumentTextStyle.builder()
+                            .fontName(FontName.${candidate.family})
+                            .size(${candidate.size})
+                            .build()));`,
+    )
+    .join("\n");
+
+  return `// Generated by scripts/typography.mjs. Not a template, not committed, not a design:
+// one paragraph per candidate so a single render can be sliced back apart by
+// the layout snapshot it produced.
+package ${packageName};
+
+import com.demcha.compose.document.api.DocumentSession;
+import com.demcha.compose.document.style.DocumentTextStyle;
+import com.demcha.compose.font.FontName;
+
+public final class ${className} {
+
+    private static final String TEXT = ${javaString(text)};
+
+    public void compose(DocumentSession document) {
+        document.pageFlow(page -> {
+            page.name("Specimen").spacing(12);
+${paragraphs}
+        });
+    }
+}
+`;
+}
+
+/**
+ * The specimen's pom.
+ *
+ * `graph-compose-fonts` is added only when a bundled family is actually in the
+ * candidate set — the artifact split at 1.8.0, and a specimen of the fourteen
+ * core PDF faces has no reason to resolve it.
+ */
+export function specimenPom({ graphComposeVersion, fontsVersion, needsFonts }) {
+  const fonts =
+    needsFonts && fontsVersion
+      ? `
+    <dependency>
+      <groupId>io.github.demchaav</groupId>
+      <artifactId>graph-compose-fonts</artifactId>
+      <version>${fontsVersion}</version>
+    </dependency>`
+      : "";
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.graphcompose.flow</groupId>
+  <artifactId>typography-specimen</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.github.demchaav</groupId>
+      <artifactId>graph-compose</artifactId>
+      <version>${graphComposeVersion}</version>
+    </dependency>${fonts}
+  </dependencies>
+</project>
+`;
+}

@@ -35,6 +35,9 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { describeWorkspaceLine, installRoot, resolveWorkspace } from "./lib/workspace.mjs";
+import { readManifest } from "./lib/template-bundle.mjs";
+import { blocking, formatFinding, known, scanPortability } from "./lib/bundle-portability.mjs";
+import { generatePom, maven, stageResources, stageSources } from "./lib/bundle-project.mjs";
 
 const repoRoot = installRoot();
 
@@ -204,6 +207,24 @@ if (!fs.existsSync(path.join(bundleDir, "README.md"))) {
   problem("README.md is missing");
 }
 
+// Would this work on someone else's machine? Publishing runs the same scan, so
+// anything found here got in before that gate existed — but the bundle is what
+// a consumer receives, and it is the consumer who discovers a path that only
+// resolves where it was published.
+const portability = scanPortability(bundleDir);
+for (const finding of blocking(portability)) {
+  problem(formatFinding(finding));
+}
+const knownLeaks = known(portability);
+if (knownLeaks.length > 0) {
+  // Counted rather than listed: it is the same scheduled leak on every line,
+  // and repeating it seven times buries the findings that need acting on.
+  const rules = [...new Set(knownLeaks.map((f) => f.rule))].join(", ");
+  ok(`portable, apart from ${knownLeaks.length} known leak(s) (${rules})`);
+} else if (blocking(portability).length === 0) {
+  ok("portable — no path that resolves only where it was published");
+}
+
 // ----------------------------------------------------------------- build ---
 
 if (args.build && problems.length === 0) {
@@ -222,19 +243,21 @@ if (args.build && problems.length === 0) {
 }
 
 function buildAndMaybeRender(dir) {
-  const pkg = packageOf(path.join(srcDir, sources[0]));
-  const javaDir = pkg
-    ? path.join(dir, "src", "main", "java", ...pkg.split("."))
-    : path.join(dir, "src", "main", "java");
-  fs.mkdirSync(javaDir, { recursive: true });
-  for (const file of sources) {
-    fs.copyFileSync(path.join(srcDir, file), path.join(javaDir, file));
-  }
+  // The contract as a consumer reads it. The static tier above deliberately
+  // parses template.json by hand, so that a missing or malformed one is a
+  // reported problem rather than a crash; by here it has parsed, and the build
+  // is the tier that has to see what a consumer sees.
+  const contract = readManifest(bundleDir);
+
+  // Staged through the same library `use-template` uses, so a bundle that
+  // verifies here is a bundle that instantiates there — the two cannot drift
+  // apart, because there is only one implementation to drift.
+  stageSources(bundleDir, dir, { className: contract.className });
 
   // The pom is generated from template.json alone. That is the point: if the
   // manifest's dependencies are wrong or incomplete, this fails to compile,
   // which is exactly the report we want.
-  fs.writeFileSync(path.join(dir, "pom.xml"), generatePom(manifest), "utf8");
+  fs.writeFileSync(path.join(dir, "pom.xml"), generatePom(contract), "utf8");
 
   const compile = maven(["-q", "-B", "compile"], dir);
   if (compile.status !== 0) {
@@ -265,24 +288,13 @@ function buildAndMaybeRender(dir) {
   );
 
   // The renderer reads data and assets relative to one directory, so the bundle
-  // is staged as that directory — the same shape a revision has.
+  // is staged as that directory — the same shape a revision has, and the same
+  // shape `use-template` produces. The asset manifest goes with them: a template
+  // that draws icons resolves it against this directory, and without it the
+  // render fails on the first icon for a reason that has nothing to do with the
+  // template being verified.
   const stage = path.join(dir, "stage");
-  fs.mkdirSync(stage, { recursive: true });
-  const docKind = manifest?.docKind ?? "doc";
-  const example = path.join(dataDir, `${docKind}-data.example.json`);
-  if (fs.existsSync(example)) {
-    fs.copyFileSync(example, path.join(stage, `${docKind}-data.json`));
-  }
-  const assetsDir = path.join(bundleDir, "assets");
-  if (fs.existsSync(assetsDir)) copyTree(assetsDir, path.join(stage, "assets"));
-  // The manifest sits beside the assets in a revision and beside template.json in
-  // a bundle, and a template that draws icons resolves it against this directory.
-  // Stage it too, or the render fails on the first icon for a reason that has
-  // nothing to do with the template being verified.
-  const bundleManifest = path.join(bundleDir, "assets-manifest.json");
-  if (fs.existsSync(bundleManifest)) {
-    fs.copyFileSync(bundleManifest, path.join(stage, "assets-manifest.json"));
-  }
+  stageResources(bundleDir, stage, contract);
 
   // The renderer patches pendingArtifacts in the revision it renders into, so
   // the stage needs one even though nothing here is a revision. A stub keeps
@@ -296,6 +308,8 @@ function buildAndMaybeRender(dir) {
   const render = spawnSync(
     "java",
     [
+      // Both names: this has to render a bundle written to either contract.
+      `-Dgraphcompose.template.dir=${stage}`,
       `-Dgraphcompose.revision.dir=${stage}`,
       "-jar",
       rendererJar,
@@ -303,8 +317,8 @@ function buildAndMaybeRender(dir) {
       "--revision",
       stage,
       "--template-class",
-      fqcn(pkg, manifest?.className),
-      ...(manifest?.specProviderClass ? ["--spec-provider", manifest.specProviderClass] : []),
+      contract.entrypoint.templateClass,
+      ...(contract.entrypoint.providerClass ? ["--spec-provider", contract.entrypoint.providerClass] : []),
       "--classpath-file",
       classpathFile,
       "--output",
@@ -370,76 +384,8 @@ function collectAssetReferences(node, found = new Set()) {
   return found;
 }
 
-function packageOf(javaFile) {
-  const match = fs.readFileSync(javaFile, "utf8").match(/^\s*package\s+([\w.]+)\s*;/m);
-  return match ? match[1] : null;
-}
-
-function fqcn(pkg, simple) {
-  if (!simple) return null;
-  return pkg ? `${pkg}.${simple}` : simple;
-}
-
 function reportTail(output, keep) {
   for (const line of output.split(/\r?\n/).filter(keep).slice(-8)) {
     if (line.trim()) problem(`  ${line.trim()}`);
-  }
-}
-
-function generatePom(manifestJson) {
-  const dependencies = manifestJson?.dependencies ?? {};
-  const entries = Object.entries(dependencies).map(([key, version]) => {
-    // "group:artifact" is the current shape; "graphcompose" / "jackson" are the
-    // shorthand older manifests used — read rather than rejected, so a bundle
-    // published before this change still verifies.
-    const [groupId, artifactId] = key.includes(":")
-      ? key.split(":")
-      : key === "jackson"
-        ? ["com.fasterxml.jackson.core", "jackson-databind"]
-        : ["io.github.demchaav", "graph-compose"];
-    return [
-      "    <dependency>",
-      `      <groupId>${groupId}</groupId>`,
-      `      <artifactId>${artifactId}</artifactId>`,
-      `      <version>${version ?? "RELEASE"}</version>`,
-      "    </dependency>",
-    ].join("\n");
-  });
-
-  return [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<project xmlns="http://maven.apache.org/POM/4.0.0">',
-    "  <modelVersion>4.0.0</modelVersion>",
-    "  <groupId>verify.bundle</groupId>",
-    `  <artifactId>${manifestJson?.id ?? "bundle"}-verify</artifactId>`,
-    "  <version>0.0.1-SNAPSHOT</version>",
-    "  <properties>",
-    "    <maven.compiler.release>21</maven.compiler.release>",
-    "    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>",
-    "  </properties>",
-    "  <dependencies>",
-    entries.join("\n"),
-    "  </dependencies>",
-    "</project>",
-    "",
-  ].join("\n");
-}
-
-function maven(mvnArgs, cwd) {
-  const command = process.platform === "win32" ? "mvn.cmd" : "mvn";
-  return spawnSync(command, mvnArgs, {
-    cwd,
-    encoding: "utf8",
-    shell: process.platform === "win32",
-  });
-}
-
-function copyTree(srcDir, destDir) {
-  fs.mkdirSync(destDir, { recursive: true });
-  for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
-    const src = path.join(srcDir, entry.name);
-    const dest = path.join(destDir, entry.name);
-    if (entry.isDirectory()) copyTree(src, dest);
-    else if (entry.isFile()) fs.copyFileSync(src, dest);
   }
 }

@@ -113,6 +113,133 @@ is read from the file instead of looked at, and the rule is in
 downgraded: an already-revising pass keeps the focus its reviewer chose,
 and `BLOCKED` stays blocked.
 
+## Targeted Evidence First
+
+When a mismatch is geometric — something is in the wrong place, or the
+wrong size — do not reason from the image about which of four nested
+paddings moved. The render was measured. `layout-snapshot.json` in the
+revision folder is GraphCompose's own post-layout record of where every
+node ended up, and three commands query it:
+
+```bash
+node scripts/layout.mjs inspect <node>  --project <id> --revision <id>
+node scripts/layout.mjs explain <node> <x|y|width|height|contentX|contentY> …
+node scripts/layout.mjs diff <revA> <revB> --project <id> [--region <node>]
+```
+
+Six steps, in order:
+
+1. **Name the node the user named.** "The Languages block" is
+   `inspect Languages` — the tool resolves the name, so you never need
+   the full node path. An ambiguous name lists its candidates.
+2. **Read where it actually is** — `inspect` gives the placement box,
+   the computed content box, margin, padding and page.
+3. **Ask why that coordinate is what it is** — `explain <node> x` returns
+   the additive chain, naming every node that contributes:
+
+   ```text
+   HeadingText_CONTACT.x = 26
+     canvas.margin.left               0
+   + Sidebar.padding.left            17
+   + Heading_CONTACT.padding.left     9
+   = 26   (flowStart, exact)
+   ```
+
+4. **Fix the owner, not the symptom.** The chain names who contributes
+   what. Changing the node that *shows* the offset when a grandparent's
+   padding produced it is how a template accumulates the compensating
+   constants [the authoring rules](authoring-rules.md) forbid.
+5. **Believe `not derivable`.** A paragraph is as wide as its text and a
+   weighted row column's x comes from weights, and neither the metrics
+   nor the weights are in the snapshot. When `explain` says it cannot
+   derive a value, that is the answer — it is not an invitation to
+   estimate one. An inexact chain reports the leftover as
+   `unattributed`, and that number is the finding: it is the amount no
+   node has claimed.
+6. **Confirm the change landed where you meant, and only there.**
+
+   ```bash
+   node scripts/layout.mjs diff <parent-revision> <this-revision> --project <id>
+   ```
+
+   It separates what a person edited — margins, padding, tree position — from
+   what the engine then computed, so the answer is not "47 nodes changed" but
+   "one padding was edited, three children followed it, and one node moved that
+   no edit explains". That last group is **collateral**, and it is the one to
+   read: a parent growing because its widest child did is the engine working
+   correctly, but nothing in your edit said it would happen.
+
+   `--region <node>` scopes it to one subtree. `render-and-diff` runs it for you
+   against the parent revision and reports it as a step; it is evidence and does
+   not change the verdict.
+
+   Declaring `expectedAffectedNodes` in `revision.json` **before** the render
+   turns it into a claim the diff can check — anything that moved outside those
+   subtrees is reported. Written afterwards to match the diff it proves nothing,
+   which is why it is worth writing first.
+
+### When the cause is typography
+
+`evidence.mjs` will not tell a wrong font from a wrong colour — it says
+`UNKNOWN` and names the candidates. Two of them are measurable rather
+than guessable:
+
+```bash
+node scripts/typography.mjs match --reference <crop.png> --text "<the exact string>"
+node scripts/typography.mjs search --reference <crop.png> --text "<the exact string>" --family <NAME> --from 9 --to 12 --step 0.25 --scale <px-per-pt>
+```
+
+   `evidence.mjs` answers the **substitution** case on its own, with no crop and
+   no judgement: GraphCompose reports the font a style declared beside the font
+   the document was actually set in, so a mismatch is a fact and the cause comes
+   back `TYPOGRAPHY` rather than `UNKNOWN`. It arrives with a prohibition —
+   **do not adjust geometry** — because a substituted font changes every glyph
+   width in the run, so the box is the wrong size *because* the type is.
+
+   The trap it catches: a standard-14 *face* such as `Helvetica-Bold` is an
+   alias of its family, and the face is chosen from the style's decoration. A
+   style that names the bold face and sets no decoration renders **regular**,
+   lays out, draws, and fails nothing. Name the family and set the weight
+   through the decoration.
+
+   That needs a render against GraphCompose 2.2.2 or newer. Older renders carry
+   no typography at all, and the package says `reported: false` rather than
+   reporting a clean bill of health — "no font problem here" and "nothing
+   looked" are different answers.
+
+
+`match` sets every candidate family in **one** render and ranks them by
+two independent signals: how wide the string runs, and — with width
+normalised away — the letterforms. When those disagree, that is
+information: matching shapes at the wrong width is a condensed cut of the
+same face. Read the gap to the runner-up before believing the winner; a
+lead inside 0.02 is a coin toss reported as a result.
+
+`search` needs `--scale`, and refuses without it. A size cannot be
+recovered from a crop of unknown resolution, and the family metric
+deliberately normalises scale away. Take the scale from
+`region-diff-stats.json` as `width ÷ canvas.pageWidth`, or as the dpi the
+crop was rendered at over 72.
+
+**Read the curve, not just the winner.** A flat run of near-equal scores
+means the measurement cannot separate 23 from 24, and the tool says so.
+Re-rendering to find out spends passes on a difference nothing can see.
+
+Get the crop from `crop-region.mjs`, which already pads for context.
+
+
+**Never read `layout-snapshot.json` into context.** It is 227 KB for a
+one-page CV — 248 nodes, of which one is the answer. Loading it spends
+the budget the loop needs and buries the row that matters. That is the
+whole reason these commands exist; use them even when the file looks
+small enough to skim.
+
+This is not `scripts/probe.mjs`. A probe answers "how does GraphCompose
+behave?" by running the library. The inspector answers "how did *this*
+template lay out?" by reading what the renderer measured. Reach for the
+probe when you do not know what a primitive does, and for the inspector
+when you do not know where a node went.
+
 ## Bounds
 
 From `limits` in [`config/pipeline.json`](../../../config/pipeline.json),

@@ -1,0 +1,31 @@
+// Source of the typography-snapshot fixture. Not compiled by anything in the
+// repository — see scripts/test/fixtures/README.md.
+package com.demcha.compose.document.fixtures.typography;
+
+import com.demcha.compose.document.api.DocumentSession;
+import com.demcha.compose.document.node.TextAlign;
+import com.demcha.compose.document.style.DocumentTextStyle;
+import com.demcha.compose.font.FontName;
+
+public final class TypographyFixtureDocument {
+
+    private static final String BODY =
+            "Payment is due within thirty days of the invoice date, after which the outstanding "
+                    + "balance accrues interest at the statutory rate applicable in the jurisdiction "
+                    + "named above.";
+
+    public void compose(DocumentSession document) {
+        document.pageFlow(page -> page
+                .name("TypographyFixture")
+                .spacing(10)
+                // Names a FACE, not a family: this renders regular Helvetica and
+                // nothing about the page says so. It is the case the fixture exists for.
+                .addParagraph(p -> p.name("Heading").text("Quarterly report")
+                        .textStyle(DocumentTextStyle.builder().fontName(FontName.HELVETICA_BOLD).size(20).build()))
+                .addParagraph(p -> p.name("Body").text(BODY)
+                        .textStyle(DocumentTextStyle.builder().fontName(FontName.HELVETICA).size(11).build()))
+                .addParagraph(p -> p.name("RightNote").text("Aligned right")
+                        .align(TextAlign.RIGHT)
+                        .textStyle(DocumentTextStyle.builder().fontName(FontName.COURIER).size(9).build())));
+    }
+}

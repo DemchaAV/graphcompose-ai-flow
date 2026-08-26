@@ -46,11 +46,58 @@ test("every routing fixture names a scope the config declares", () => {
       );
       continue;
     }
+    // Not a scope: the user named a template that already exists and wants new
+    // content in it, so no revision is opened and there is nothing to approve.
+    if (entry.scope === "reuse") {
+      assert.equal(
+        entry.expectsNoRevision,
+        true,
+        `${entry.gesture}: a reuse opens no revision, and the fixture must say so`,
+      );
+      continue;
+    }
     assert.ok(
       Object.hasOwn(config.scopes, entry.scope),
       `${entry.gesture}: scope "${entry.scope}" is not in config/pipeline.json`,
     );
   }
+});
+
+test("reuse and revise are both exercised, because naming a template does not decide it", () => {
+  const fixtures = readJson("tests/routing-fixtures.json");
+  const reuse = fixtures.cases.filter((c) => c.scope === "reuse");
+  assert.ok(reuse.length >= 2, "too few reuse fixtures to pin the cheaper route");
+
+  // The case that makes the rule non-obvious: a gesture that names a published
+  // template and asks for a layout change is a revision, not a reuse.
+  const namesTemplateAndRevises = fixtures.cases.filter(
+    (c) => c.expectsNoRevision === false && /northline|mint-editorial/.test(c.gesture),
+  );
+  assert.ok(
+    namesTemplateAndRevises.length >= 1,
+    "no fixture covers naming a template while asking for a layout change",
+  );
+});
+
+test("the reuse rule is where an agent will actually meet it", () => {
+  // A rule only in a reference nobody opens is a rule that does not exist. It
+  // has to be in the dispatch file, in the routing reference it points at, and
+  // in the skill that would otherwise start reconstructing.
+  const anchor = "#template-reuse-first--before-any-scope";
+  const routing = read("skills/workflows/references/scope-routing.md");
+  assert.match(routing, /## Template Reuse First/, "scope-routing.md does not state the rule");
+  assert.match(routing, /use-template opens no revision|opens no revision/i);
+
+  for (const file of ["AGENTS.md", "skills/workflows/revise-template/SKILL.md"]) {
+    assert.ok(read(file).includes(anchor), `${file} does not link to the reuse rule`);
+  }
+
+  const create = read("skills/workflows/create-template/SKILL.md");
+  assert.match(
+    create,
+    /node scripts\/templates\.mjs --json/,
+    "create-template does not check the catalog before reconstructing",
+  );
 });
 
 test("the fixtures cover every revision scope, so none is left unspecified", () => {

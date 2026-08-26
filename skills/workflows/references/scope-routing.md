@@ -14,6 +14,66 @@ node scripts/run-pipeline.mjs <project-id>
 This page is about *picking* the scope. The config is about what
 follows from the pick.
 
+## Template Reuse First — before any scope
+
+A scope is a question about a **revision**. Ask a cheaper one first:
+does this need a revision at all?
+
+```text
+Before generating a new layout, check whether the user named or
+selected an existing published template.
+
+If they did, do not reconstruct it from its preview or its reference.
+Instantiate the published bundle and change the data only, unless the
+user asked for a structural or design change.
+```
+
+Reuse costs a file copy. Reconstruction costs a full loop — analysis,
+authoring, render, compare, iterate — and lands somewhere near the
+original rather than on it. An agent that rebuilds an approved layout
+because the user described it has spent the expensive half of the
+lifecycle to arrive at something already on disk.
+
+```bash
+node scripts/templates.mjs --json
+```
+
+Run it before analysing a reference. If a published bundle matches what
+the user named, say so and offer it.
+
+### `use` and `revise` are different gestures
+
+| The user says | This is | What happens |
+|---|---|---|
+| "make a new proposal for Acme using Northline" | **USE** | `use-template`, then edit the data file. No revision. |
+| "here is my CV content, use mint-editorial-cv" | **USE** | same — the content is data, and the layout already exists |
+| "in Northline, make the header taller and move the logo right" | **REVISE** | a new revision in the project Northline was published from |
+| "like Northline but two columns" | **REVISE** | a design change; the reuse is a starting point, not the answer |
+
+The discriminator is what changes. New content is a **use**; new layout
+is a **revise**. A gesture naming a template and describing a layout
+change is a revise even though it names a template.
+
+### Using a template opens no revision
+
+`use-template` copies files into someone's project. It writes nothing
+into the workspace, opens no revision, and produces no gate result —
+there is nothing to approve, because the approval already happened.
+
+And a published bundle is never where a design change is made. It is the
+immutable output of an APPROVED revision, and `publish-template` rewrites
+its sources from that revision on every publish, so an edit there is
+silently reverted the next time anyone publishes. The path back is:
+
+```text
+published bundle → the project it came from → new revision
+    → render / review → APPROVE → republish
+```
+
+If the source project is not in the workspace, say so rather than
+editing the bundle. `template.json` records `sourceProject` and
+`sourceRevision`, which is how you find out where it came from.
+
 ## Picking the scope
 
 Read the gesture first, then verify it against the surface the change

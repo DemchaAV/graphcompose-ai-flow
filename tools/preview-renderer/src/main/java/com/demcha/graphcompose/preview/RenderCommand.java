@@ -141,9 +141,30 @@ final class RenderCommand {
         createParentDirectory(outputPng);
 
         Object documentSession = createDocumentSession(classpathLoader, outputPdf, guideLines);
+        String snapshotJson = null;
+        String snapshotSkipped = null;
         try {
             invoke(composeMethod, template, composeArguments(documentSession, spec, composeMethod));
             invoke(documentSessionType.getMethod("buildPdf"), documentSession);
+
+            // Taken after the PDF and before the session closes. After, because
+            // the layout graph is resolved and cached by then, so this is a
+            // cache hit rather than a second compile; before, because
+            // layoutSnapshot() reads session state and throws once closed.
+            //
+            // A failure here must not cost a render that has already succeeded:
+            // the PDF is the deliverable and the snapshot is diagnostics.
+            try {
+                snapshotJson = LayoutSnapshotWriter
+                        .capture(documentSession, documentSessionType, Instant.now().toString())
+                        .orElse(null);
+                if (snapshotJson == null) {
+                    snapshotSkipped = "this GraphCompose has no layoutSnapshot()";
+                }
+            } catch (Exception snapshotFailure) {
+                snapshotSkipped = snapshotFailure.getClass().getSimpleName()
+                        + ": " + snapshotFailure.getMessage();
+            }
         } finally {
             if (documentSession instanceof AutoCloseable closeable) {
                 closeable.close();
@@ -155,9 +176,18 @@ final class RenderCommand {
         }
         int rasterised = PreviewCommand.runRenderPages(outputPdf, outputPng, dpi, page, Math.max(1, pages));
 
-        ArtifactUpdater.markArtifactsPresent(
-                revisionFolder,
+        String snapshotFile = null;
+        if (snapshotJson != null) {
+            Path snapshotPath = revisionFolder.resolve("layout-snapshot.json");
+            Files.writeString(snapshotPath, snapshotJson);
+            snapshotFile = snapshotPath.getFileName().toString();
+            out.println("layout snapshot: " + snapshotPath.toAbsolutePath());
+        }
+
+        List<String> artifacts = new ArrayList<>(
                 List.of(outputPdf.getFileName().toString(), outputPng.getFileName().toString()));
+        if (snapshotFile != null) artifacts.add(snapshotFile);
+        ArtifactUpdater.markArtifactsPresent(revisionFolder, artifacts);
 
         out.println("rendered pdf: " + outputPdf.toAbsolutePath());
         out.println("rendered preview: " + outputPng.toAbsolutePath()
@@ -171,6 +201,9 @@ final class RenderCommand {
                 "dpi=" + dpi,
                 "page=" + page,
                 "guideLines=" + guideLines,
+                snapshotFile != null
+                        ? "layoutSnapshot=" + snapshotFile
+                        : "layoutSnapshot=skipped (" + snapshotSkipped + ")",
                 "status=rendered"));
         return 0;
     }

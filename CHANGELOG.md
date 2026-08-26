@@ -5,6 +5,652 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## Unreleased
+
+**The diagnostics are not proven to have helped, and `docs/benchmarks.md` now
+says so with the numbers.** The pre-diagnostics baseline was written so this
+could be honest; here is the honest version.
+
+- **The corpus has not moved.** `run-metrics baseline` re-run after the tools
+  landed returns the same figures project by project — 53 revisions, 52 renders,
+  5 structural smells, 2 negative insets. No project has been authored with the
+  diagnostics in place, so there is nothing to compare against.
+- **All three headline metrics are still null**, and one of them changed
+  character without changing value: `collateralNodesPerRevision` is no longer
+  un-computable, it is uncomputed, because no project has two consecutive
+  revisions that both carry a snapshot. `collateralComparablePairs: 0` sits
+  beside it so nobody mistakes an average over nothing for an average over
+  something.
+- **Capability is measurable and is recorded separately**, because "the tools
+  answer the question they were built for" and "the loop got better" are
+  different claims: 749 of 988 coordinate queries on a real CV resolve to an
+  exact additive chain; an evidence package is 78× smaller than the snapshot;
+  `doctor` finds 7 things on 248 nodes and nothing on a clean document; the font
+  matcher ranks the right family first 6 times out of 6.
+- **The uncomfortable number is stated rather than buried.** On the reference
+  CV's seven reviewed mismatches the cause classifier returns `UNKNOWN` seven
+  times. Six of those correctly rule out geometry, which is most of a decision —
+  but it rules almost nothing in, and the cause that would convert several of
+  them, `TYPOGRAPHY`, has never fired outside a fixture because **zero renders in
+  the corpus carry typography**.
+
+**Writing that section found a real defect and fixed it.** The classifier's one
+positive verdict on live data was wrong: `masthead` came back `GEOMETRY` off an
+11.5pt displacement that was an artifact of comparing two boxes that were never
+the same box — the analyst's region is 45% wider than the node it named. A
+displacement is now only readable when the owner and the region agree on size
+(`SHAPE_AGREEMENT_TOLERANCE`), and the case is pinned by a test.
+
+The gate is deliberately on **size**, not on overlap: a node genuinely displaced
+by 40pt overlaps its region no better than one that is simply the wrong shape, so
+an overlap floor would have suppressed the true positives along with the false
+one. A second test pins that too.
+
+**`layout doctor` reads the resolved tree for the maintainability defects a
+render cannot show.** Five paragraphs that each carry a trailing gap look
+identical on the page to one parent with `spacing(...)` — the pixel diff between
+them is zero — but the first is five numbers a later revision has to find and
+move together, and the sixth paragraph somebody adds will not have the gap.
+
+- `node scripts/layout.mjs doctor` reports geometry stated on children that one
+  value on the parent would state once, and clusters of negative insets. Each
+  finding names the parent, the children, the value and what to put it on
+  instead. Evidence, exit 0 either way — the same contract
+  `check-structural-smells.mjs` has.
+- **It is not a second front-end on the source check, and cannot be.** That
+  check's central discriminator is literal-versus-named-constant, and in a
+  snapshot both are just a number. So the two overlap and neither contains the
+  other: the source sees what one method wrote, the snapshot sees siblings
+  spread across several methods and geometry that arrived from a theme or a
+  preset. The wording never claims you typed a value twice — only that it is
+  stated N times.
+- **Calibrated against a real 248-node CV before the thresholds were written,**
+  then read finding by finding as the plan requires. That manual pass produced
+  the two corrections that made the output worth reading:
+  - `spacing(...)` is suggested only when the sharers are effectively all the
+    children. It applies to *every* gap in the parent, so recommending it for
+    four of six alternating item/rule children would have told an author to make
+    a change that moves the page. Those get "one named constant" instead.
+  - One component instantiated six times is one finding. Six of the thirteen raw
+    groups were the same shape repeated across `AchievementText_0/1/2` and
+    `CertificationText_0/1/2`; a reader scrolling past five restatements of a
+    finding they have already read has been handed noise.
+
+  Thirteen raw groups became seven, and a manual read of all seven finds no
+  false positive. A third candidate rule — three or more distinct inset values
+  among a parent's children — was measured, found to fire on a two-column row
+  whose columns simply have different paddings, and **dropped**.
+- `node scripts/layout.mjs impact <node>` reports what a property change there
+  reaches: its children, deeper descendants, and the siblings stacked after it,
+  each separately because the reason and the fix differ. Structural reach only —
+  it refuses to predict the resulting page, which would be inventing the
+  geometry this whole track exists to measure.
+
+**A wrong font is now a fact, not a suspicion.** GraphCompose 2.2.2 reports what
+each run of text actually became — the font the style *declared* beside the font
+the document was *set in* — and the harness reads it.
+
+- `schemas/layout-snapshot.schema.json` accepts the engine's new `typography`
+  list (additive and optional: every render before 2.2.2 has none, which is an
+  ordinary state, not a defect).
+- `layout inspect <node>` prints the font, size and line count, and flags
+  `declaredFont → resolvedFont ⚠ substituted` when they differ.
+- **`evidence.mjs` assigns the `TYPOGRAPHY` cause** for a substitution, and
+  checks it **before** geometry. A substituted font changes every glyph width in
+  the run, so the box is the wrong size *because* the type is — calling it
+  `GEOMETRY` would send the next pass to move a block whose position is only a
+  symptom. The verdict arrives with a prohibition: do not adjust geometry; name
+  the family and set the weight through the style's decoration.
+- The trap this catches is real and quiet. A standard-14 **face** such as
+  `Helvetica-Bold` is an alias of its family, and the face is chosen from the
+  decoration — so a style that names the bold face and sets none renders
+  *regular*. It lays out, it draws, it fails nothing, and no pixel comparison
+  will ever report it.
+- **"No font problem" and "nothing looked" are kept apart.** A render older than
+  2.2.2 reports `typography.reported: false` with the reason, rather than an
+  empty result that reads as a clean bill of health. The `charcoal-gold-cv` and
+  `layout-diff-pair` fixtures stay on format 2.0 so a test proves the difference.
+- A wrong *size* or a wrong colour is still `UNKNOWN`. Separating those needs a
+  comparison against the reference's own type — that is `typography.mjs`, and it
+  needs a crop a human chose.
+
+**"Which font is that?" is now measured instead of guessed at.** It used to
+cost revisions: try PT Serif, be wrong, try again; then "the size looks a little
+small, try 10.5", and again. Each one is a render and a comparison out of a
+budget of eight.
+
+- **`node scripts/typography.mjs match`** sets every candidate family in **one**
+  document — one paragraph each — renders it once, and slices the sheet back
+  apart using the layout snapshot that same render produced. Twenty candidates
+  cost one JVM start, not twenty. Ranking uses two independent signals: how wide
+  the string runs, and the letterforms with width normalised away. They are
+  reported separately, because when they disagree that is information — matching
+  shapes at the wrong width is a condensed cut of the same face.
+- **The gap to the runner-up is reported.** A lead inside 0.02 is a coin toss,
+  and a caller reading only the first result would never know.
+- **`node scripts/typography.mjs search` refuses without `--scale`.** A size
+  cannot be recovered from a crop of unknown resolution, and the family metric
+  normalises scale away on purpose. The first implementation scored sizes through
+  that metric anyway and reported "best 28 — a clear minimum" for a crop that was
+  24pt; every number in it was rendering noise.
+- **It returns the curve, not just a winner.** When several sizes score within a
+  tenth of a point, the tool says they are indistinguishable rather than picking
+  one — re-rendering to chase a difference nothing can measure is exactly the
+  waste this replaces. It also reports the size implied by proportion, since type
+  scales linearly and one measurement answers the question outright.
+- Comparison images are blurred before being compared. Sharp, every wrong family
+  scores about the same — misaligned black-on-white text is uncorrelated, so the
+  spread across wrong answers was 0.44–0.47, and the ranking below first place
+  carried no information. Blurred, the same comparison spreads 0.084–0.121.
+- `scripts/test/fixtures/typography-crops/` holds six real renders of the same
+  string. The test feeds each back in as its own reference and asserts that
+  family ranks first, and separately asserts the six are separable by width
+  alone — if that ever collapses, the ranking is leaning on one signal without
+  anybody noticing.
+
+Uses ImageMagick and Maven, both already required. No new npm dependency.
+
+**A review pass no longer has to guess what kind of defect it is looking at.** A
+block in the wrong place and a block in the wrong colour look equally different
+in a diff, and the fixes have nothing in common — one is a layout property on a
+named owner, the other is a file or a font. Guessing between them from an image
+is how a pass spends itself nudging margins until a *wrong icon* lines up.
+
+- **`cause` is a new field on a mismatch** in `schemas/visual-review.schema.json`:
+  `GEOMETRY | TYPOGRAPHY | PAINT | ASSET | CONTENT | PAGINATION | UNKNOWN`. It is
+  orthogonal to `severity` (how bad) and to `rootCause` (which mismatches share
+  an origin); all three can be set at once and none substitutes for another. The
+  enum is mirrored into `config/pipeline.json` as `mismatchCauses` and
+  `scripts/test/pipeline-config.test.mjs` asserts the copies agree, the same
+  contract `failureCategories` already has.
+- **`node scripts/evidence.mjs`** joins the three files that already held the
+  answer and were never read together: the region bounds taken off the
+  reference, the measured per-region pixel difference, and the engine's record
+  of where every node ended up. It returns about **4 KB** — the owning node, how
+  far it sits from where the reference puts the region, its hierarchy, its
+  children, and the properties that actually produced its position. Against a
+  227 KB snapshot; the boundedness is the feature and a test pins it.
+- **The recommended properties are not suggestions.** They come from the
+  inspector's additive chain, so they name the node that *owns* the offset. On
+  the reference CV, `Masthead`'s position resolves to `MainColumn.padding.left`
+  and `MainColumn.padding.top` — editing `Masthead` would have been the
+  compensating constant the authoring rules forbid.
+- **It assigns four of the seven causes and declines the rest.** `PAGINATION`
+  (page counts differ, checked first because it invalidates everything after
+  it), `GEOMETRY` (the owner is past tolerance from the reference region),
+  `ASSET` (box right, role carries a file, interior heavily different — with the
+  "do not compensate an asset with margins" prohibition attached to the verdict),
+  and `UNKNOWN`. `TYPOGRAPHY`, `PAINT` and `CONTENT` are **never** assigned:
+  separating them needs a typography snapshot that does not exist, so they come
+  back as candidates. A test asserts they cannot be produced.
+- **Owner selection is by overlap, not containment.** A containment test named
+  the entire 797pt `Sidebar` column as the owner of the skills block, because
+  the reference's bounds — read off an image by eye — started 0.63pt to its
+  left. The displacement then read 338pt and meant nothing. Intersection over
+  union picks the section; below a floor it names no owner at all, since every
+  number downstream is computed against it.
+- `docs/visual-accuracy-contract.md` gains a "Cause classification" section
+  beside the severity table, including the `JSON → geometry, PNG → appearance`
+  split. `skills/workflows/review-template/SKILL.md` gains step 1c and now
+  records a cause alongside a severity — and is told not to read the snapshot.
+
+**The layout inspector can now prove a patch moved only what it meant to.**
+Every other check in the loop looks at the region under review, so a section
+three pages away could shift and nothing would notice until a human opened the
+PDF.
+`node scripts/layout.mjs diff <revA> <revB>` compares two renders the engine
+measured and answers the question a pixel comparison cannot.
+
+- **Authored versus derived.** Nobody types an x coordinate into a template —
+  they type `padding(0, 0, 0, 12)` and the engine works out that three
+  paragraphs now start at 12. So inset and structure changes are treated as
+  causes, placement changes as consequences, and "5 nodes changed" becomes
+  "one padding was edited, three children followed it, and one node moved that
+  no edit explains".
+- **Collateral is the third group**, and the one worth reading: a derived change
+  with no edited ancestor. In the committed fixture pair, adding 12 of left
+  padding to one section makes the document root grow by 12, because its widest
+  child got wider. Nothing is wrong — and nothing in the edit said it would
+  happen. It is reported rather than failed on.
+- **Ownership evidence.** Two or more siblings each gaining the same inset in
+  one revision is reported as `shared-sibling-displacement` with a recommended
+  owner and a property candidate — `padding.left` on the parent, or `spacing`
+  when it is a trailing gap. Two, not three: the census behind
+  `check-structural-smells.mjs` found nothing in the corpus repeating an inset
+  three times, so a rule firing at three would never fire. Evidence only; the
+  model decides and edits.
+- **`expectedAffectedNodes`** is new and optional in `schemas/revision.schema.json`:
+  the nodes a revision *intends* to move, named the way a person says them.
+  Anything that moved outside those subtrees is reported. Declaring nothing
+  disables the check rather than asserting stillness — a revision that forgot to
+  fill it in must not read as one that promised nothing would move. A name that
+  matches no node is reported rather than ignored, since the usual cause is a
+  typo and silently treating it as "nothing expected" would switch the check off
+  exactly when somebody tried to use it.
+- `render-and-diff` runs the diff against the parent revision and reports it as
+  a step. **It does not touch the verdict.** Promoting it to a gate belongs in
+  `config/pipeline.json` and only after it has been quiet on real runs; a check
+  that blocked the loop on its first day would be switched off on its second.
+- `collateralNodesPerRevision` in the telemetry baseline is computed rather than
+  null — averaged over consecutive revisions where both sides carry a real
+  snapshot, with `collateralComparablePairs` beside it. It still reports null
+  across today's corpus, because no project yet has two consecutive revisions
+  that both carry one; `docs/benchmarks.md` says so rather than implying the
+  number is a measurement.
+- `scripts/test/fixtures/layout-diff-pair/` is two real renders of the same
+  eight-node document differing by exactly one property, with the source kept
+  beside them as the recipe. It includes a sibling subtree that must not move —
+  "only the intended thing changed" is not provable without something that was
+  supposed to stay put.
+
+**Geometry is measured now, not guessed at.** The renderer writes GraphCompose's
+own post-layout snapshot into the revision folder, and until now the only way to
+use it was to read it — 227 KB and 248 nodes for a one-page CV, of which one is
+ever the answer. So "the Languages block is too far right" still ended in an
+agent staring at a PNG and reasoning backwards about which of four nested
+paddings had moved. `scripts/layout.mjs` replaces that with arithmetic.
+
+- `layout inspect <node>` returns one node's placement box, computed content
+  box, insets, page range, parent and children. The node is named the way a
+  user names it — `Languages`, not
+  `CharcoalGoldCv[0]/Body[0]/Sidebar[0]/Languages[5]` — and an ambiguous name
+  lists its candidates rather than answering about the wrong one.
+- `layout explain <node> <x|y|width|height|contentX|contentY>` returns the
+  additive chain, naming every node that contributes to the number:
+  `HeadingText_CONTACT.x = 26` is `canvas.margin.left 0 + Sidebar.padding.left
+  17 + Heading_CONTACT.padding.left 9`. Two owners, neither of them the node
+  that shows the offset — which is the difference between fixing a layout and
+  adding a compensating constant to it.
+- **It can decline.** 109 of 247 nodes in the reference document have a width no
+  arithmetic over the snapshot recovers — a paragraph is as wide as its text and
+  the metrics are not in the file — and 16 have an x set by weights the snapshot
+  does not record. Those report `not derivable` and say what it would take. A
+  chain that is close but not exact reports the leftover as `unattributed`
+  rather than absorbing it: that number is parent spacing or an unrecorded
+  offset, which is to say it is the finding.
+- The content box is **computed** from placement and padding. The snapshot's
+  `contentWidth` field is equal to `placementWidth` on all 248 nodes despite the
+  schema describing it otherwise, so reading it would have been wrong by exactly
+  the padding, silently, on every node that has any. A test corrupts the field
+  and asserts nothing changes.
+- `y` is bottom-up. Every vertical rule works in top edges and converts at the
+  end, and both the CLI and `inspect` say so, because a reader who assumes
+  otherwise inverts every vertical fix they make.
+- Four rules for `x`, three for `y`, two each for `width` and `height` — each
+  one measured against all 247 non-root nodes before it was written, and the
+  per-rule counts pinned by a test. A change that quietly stops explaining forty
+  nodes turns that test red instead of degrading back into guessing.
+- "Targeted Evidence First" in
+  `skills/workflows/references/iteration-loop.md` makes it the required route
+  for a geometric mismatch, and prohibits reading the snapshot into context.
+  `AGENTS.md` separates it from `scripts/probe.mjs`: the probe answers how
+  GraphCompose behaves, the inspector answers how this template laid out.
+- `scripts/test/fixtures/charcoal-gold-cv/layout-snapshot.json` is a byte copy
+  of a real render's snapshot, and every number in the tests comes from it.
+  `validate-schemas.mjs` picks it up by filename, so it is proved schema-valid
+  on every `npm run verify`.
+
+**A published bundle now states its own consumer contract.** Everything after
+APPROVE was supposed to be deterministic tooling — read the manifest, substitute
+a few names, copy the files, build. But `template.json` only said `className`,
+`specClass` and `specProviderClass`, and a generator still had to infer the
+package from a source file, the data file from a naming convention, the runtime
+rename from nowhere at all, and the assets from a directory listing. Inference
+is where a zero-token step quietly needs a model again.
+
+- `schemas/template-manifest.schema.json` pins the manifest, at
+  `schemaVersion` `1.1.0`. New: `entrypoint` (the three fully-qualified names a
+  runner substitutes), `data` (`example` **and** the `runtimeName` a consumer
+  renames it to — the half `dataFile` never stated), `resources`,
+  `graphComposeVersion`, `pageCount`, and a bundle `version`.
+- The bundle `version` is preserved across a republish and moved only by
+  `--version`. Whether consumers must re-integrate is a judgement about what
+  changed in the layout; a publish step cannot make it, and resetting it every
+  time would tell every consumer they were already up to date.
+- `scripts/lib/template-bundle.mjs` is the one place a manifest is expanded.
+  `readManifest` back-fills the contract from disk for the three `1.0.0`
+  bundles already published, so no caller branches on `schemaVersion`, and
+  `normaliseDependencies` expands the pre-1.1.0 shorthand keys once.
+- That consolidation fixed a live defect. `generatePom` in
+  `verify-published-template.mjs` expanded `"jackson"` to
+  `com.fasterxml.jackson.core:jackson-databind`; the README generator in
+  `approve-and-publish.mjs` expanded the same key to `io.github.demchaav:jackson`
+  and printed it as the coordinate a consumer should declare — a dependency that
+  does not exist, in the one document a consumer reads before writing their
+  build file. Both read the same manifest; only one was right.
+- An unknown shorthand key is now flagged (`assumedGroupId`) rather than
+  silently resolving to `graph-compose`, which is what the old expansion did to
+  any key it did not recognise.
+- `validate-schemas.mjs` binds `template.json`, so the contract is enforced in
+  CI like every other on-disk artifact.
+
+**The consumer generator became reachable.** `verify-published-template.mjs` has
+been synthesising a Maven project from `template.json` alone and compiling the
+bundle against it since the `--build` tier landed — the one piece of code that
+could turn a published bundle into a working project was locked inside the one
+command whose output a consumer never sees.
+
+- `scripts/lib/bundle-project.mjs` is that code, extracted: `generatePom`,
+  `stageSources`, `stageResources`, `generateMainClass`,
+  `generateConsumerReadme`, `resolveDependencies`, `copyTree`, `maven`. The
+  verifier now imports it, so a bundle that verifies is a bundle that
+  instantiates — there is one implementation, and it cannot drift from itself.
+- `scripts/lib/consumer-main.java.tpl` is the runner: a static Java file with
+  five names substituted by plain `${…}` replacement. No model decides anything
+  in the consumer lane.
+- It sets **both** `graphcompose.template.dir` and `graphcompose.revision.dir`.
+  Every bundle published so far reads the second, and its provider throws when
+  the property is unset rather than defaulting, so setting only the new name
+  would break every existing bundle at startup. The old line goes away when the
+  published providers read the new one.
+- `resolveDependencies` backfills `graph-compose-fonts` for a bundle on 1.8.0 or
+  later whose manifest omits it — the mapping `scaffold-runner.mjs` already had,
+  now shared with it rather than copied. Without the artifact a template asking
+  for `FontName.LATO` fails at render with "Bundled font resource not found",
+  which reads like a template bug and is not one.
+- Behaviour-neutral, and measured: `verify-published-template --template-id all`
+  produces byte-identical JSON to the pre-refactor run at both the `--build` and
+  `--render` tiers, down to the rendered PDF sizes.
+
+**There is a catalog.** Nothing listed what had been published, and answering
+"how do I use this bundle" meant opening `template.json`, then a source to find
+the package, then `data/` to find the example, then the README for the
+dependencies. Four files and a convention, to learn facts the manifest already
+states — and an agent that has read that much of a bundle is already tempted to
+rebuild it instead of reusing it.
+
+- `node scripts/templates.mjs` lists every published bundle: id, name, kind,
+  page count, GraphCompose version, bundle version, source project and revision.
+- `node scripts/templates.mjs inspect <id>` prints the classes, the data file
+  and the name to copy it to, the assets by extension, the font roles and which
+  need manual registration, the dependencies, the provenance, and the call
+  itself — generated from the bundle's own classes, so it cannot describe an API
+  the bundle does not have.
+- The dependency list is what a build file **needs**, not what the manifest
+  happens to list: a 2.x bundle whose manifest omits `graph-compose-fonts` shows
+  it marked `not in the manifest; this line needs it`.
+- The snippet names the JVM property the bundle's own sources read, found by
+  reading them. Bundles published so far read `graphcompose.revision.dir` and
+  their providers throw when it is unset, so a snippet naming the newer property
+  would look authoritative and not run. Those bundles are flagged as carrying
+  harness vocabulary into published code.
+- `--json` on both, for agents. Neither path calls a model, and a corrupt
+  manifest in one bundle is reported rather than suppressing the rest.
+
+**`use-template` closes the lifecycle.** After APPROVE there was no consumer
+workflow at all: a published bundle could be verified and could not be used.
+
+- `node scripts/use-template.mjs <id> --new-project <dir>` writes a complete
+  runnable project — pom with the runner wired to `exec:java`, `Main.java`, the
+  bundle's classes at their own package, the data file under its runtime name,
+  the assets, a README — then compiles it before reporting success. All three
+  published bundles produce a project that runs and renders a PDF byte-identical
+  to the verifier's: 3173, 22172 and 50015 bytes.
+- `node scripts/use-template.mjs <id> --target <project>` copies into a project
+  that already exists and **reports** what its build file is missing, with the
+  snippet in that build file's own syntax. It does not patch the build file:
+  editing someone's pom by pattern is how a working build becomes a broken one.
+- The report states the Java release too. The first real `--target` run reported
+  one missing dependency, it was added exactly as printed, and the build failed
+  anyway — the target pom set no compiler release, so Maven defaulted to
+  `-source 8` and the template's records would not parse. A report that is
+  followed and still does not compile is worse than no report.
+- A dependency the project already declares is not reported missing; a version
+  that differs from the one the bundle was published against is a note rather
+  than a demand.
+- Nothing is overwritten without `--force`, and a clash is refused **before**
+  anything is written — a half-finished copy leaves a project that neither has
+  the template nor is as it was. A directory that is not a Java project is
+  refused rather than turned into one.
+- Resources land under `template/<template-id>/` in an existing project, so
+  installing a second template cannot silently overwrite the first one's data.
+
+**A bundle that only works here no longer publishes.** The failure mode was
+quiet: `templates/<id>/` looks complete, compiles, its manifest parses, and the
+first consumer to run it gets a missing file whose path names a computer they
+have never used.
+
+- `scripts/lib/bundle-portability.mjs` scans every text file for absolute paths,
+  paths into a `graphcompose-flow` workspace, paths into a `revisions/`
+  directory, and revision vocabulary. Publishing fails on any of them; the
+  verifier runs the same scan, so a bundle cannot pass publishing and then fail
+  the consumer gate for a reason publishing could have caught.
+- The line is between a path and a word. `revision-009` inside `template.json`
+  or the README is traceability the consumer contract deliberately keeps — it is
+  how a rendering service logs which template produced a document. The same word
+  in a `.java` file is code that knows about a revision, and a *path* through
+  `revisions/` is blocked everywhere, including the README.
+- `graphcompose.revision.dir` is reported as a **known** leak rather than a
+  blocking one: it is real and scheduled, and every bundle published so far
+  reads it, so failing over it would stop the harness rather than improve a
+  bundle. It prints on every publish so it cannot be forgotten.
+- It found live defects in the two bundles this repository ships. Both READMEs
+  linked to `../../examples/.../revisions/…`, which resolves only inside a clone
+  of the harness — a broken link for every consumer. `InvoiceClassicTemplate`
+  went further and returned `"(revision-003 - Page margin added…)"` from
+  `getDescription()`: harness vocabulary in a value callers can render. Both
+  bundles now state their provenance the way the contract intends, by pointing
+  at `template.json`. Neither was republished — their Javadoc has been curated
+  by hand since publication, and regenerating from the revision would have
+  destroyed that and reintroduced more revision vocabulary than it removed.
+- `npm run verify` now extends its untracked-files caveat to the published-bundle
+  step too, since both walk the working tree rather than the index.
+
+**Published code stops knowing this harness exists.** A template outlives the
+run that produced it. Once published it is ordinary Java in someone else's
+project — and a class resolving its data through a property called
+`graphcompose.revision.dir` has told that project about revisions, workspaces
+and an approval loop it will never have.
+
+- `skills/workflows/references/authoring-rules.md` now states the contract, and
+  that file is loaded on every authoring pass — which matters because the
+  property was documented **nowhere**. New templates learned it by copying older
+  ones, so the leak reproduced itself with no rule to point at.
+- Every provider gets two ways in, and the property-free one is the real API:
+  `load(Path dataFile)` for production, `create()` for the render runtime. A
+  template that loads assets takes a resource root through a constructor, so a
+  service rendering a thousand documents shares one set of assets instead of a
+  directory per document.
+- `create()` resolves `graphcompose.template.dir`, then
+  `graphcompose.revision.dir`, then `"."` — never the reverse. The fallback is
+  for reading, never for writing; new code does not emit the old name, and the
+  portability scan reports it if it does.
+- The harness sets both names (`render-runtime.mjs`, `verify-published-template.mjs`)
+  while templates on either contract exist.
+- `use-template`'s wire-up instructions now name the property the bundle's own
+  sources read, found by reading them, rather than the one the harness prefers.
+  Telling a consumer to set a name their template never looks up produces a
+  provider that throws with the property already set. `resourceProperty` moved
+  into `template-bundle.mjs` so the catalog and the installer answer this the
+  same way.
+
+**Template Reuse First.** With a catalog and an installer in place, the
+remaining way to waste the expensive half of the lifecycle is to run it on
+purpose: rebuild an approved layout because the user described it. Reuse is a
+file copy; reconstruction is analysis, authoring, render, compare, iterate — and
+it lands *near* the approved layout rather than on it.
+
+- `scope-routing.md` gains the rule above the scope table, because a scope is a
+  question about a revision and this one asks whether a revision is needed at
+  all. `create-template` now runs `node scripts/templates.mjs --json` before
+  analysing anything, and `/create` says so too — a rule only in a reference
+  nobody opens is a rule that does not exist.
+- The discriminator is **what changes**, not whether a template is named. New
+  content is a use; new layout is a revise. "In Northline, make the header
+  taller" names a published template and is still a revision.
+- A revision on a published template belongs in the project `template.json`
+  names as `sourceProject`. `publish-template` rewrites a bundle's sources from
+  its revision on every publish, so an edit in the bundle is reverted the next
+  time anyone publishes — and until then the bundle no longer matches the
+  revision it claims to come from.
+- Four routing fixtures pin it, including the two that make the rule
+  non-obvious: naming a template while asking for a layout change, and asking
+  for "something like X but different". `reuse` is a fixture answer that is not
+  a scope, alongside `ambiguous`.
+- Fixed while proving the rule was reachable: the skill link checker resolved
+  `#anchor` as part of the filename, so a valid anchor link failed as a missing
+  file. It now splits the fragment and checks that the target file really has a
+  heading for it — a stale anchor is the same broken link one edit later.
+
+**Stale knowledge is an instruction, not an inaccuracy.** An agent that reads
+"work-experience timelines currently require bullets plus
+`LineBuilder.vertical(...)` and margin tuning" believes it, and hand-assembles a
+timeline with repeated sibling margins — against a library that has shipped
+`addTimeline` for two minor versions. The generated code then reads as the
+agent's judgement rather than as stale documentation, which is where the cost
+hides.
+
+- The audit found the active 2.2 pack **clean**: every "workaround" in it is
+  retrospective, and `layout-primitives.md` already documents the timeline
+  primitive positively. The one stale document was
+  `docs/engine-feedback-noir-corporate-cv.md`, and it was an orphan — nothing
+  linked to it, and it was not in the documentation map. It has been retired to
+  `docs/private/`, annotated with what the allow-list actually says. An
+  unreferenced document that greps well is a trap.
+- Two of its seven items were provably resolved, checked against the generated
+  allow-list rather than from memory: **item 5**, `addTimeline` with a full
+  `TimelineBuilder`; **item 2**, `pageBackgrounds(List<PageBackgroundFill>)` —
+  which is exactly the declarative background-band API it asked for. Item 6
+  (`headingBar`) is genuinely still absent, so it stands.
+- `scripts/check-knowledge-drift.mjs` stops it recurring, and runs inside
+  `npm run verify`. It is deliberately narrow: a curated list of semantic
+  primitives paired with the hand-built construction each replaced, and a pair
+  is inert unless the pinned pack actually declares the primitive.
+- The first version scanned prose generally — any absence phrase near any
+  allow-listed symbol — and was unusable. Its loudest false positives were the
+  sentences *teaching the closed-set rule itself*: "if it is not listed there,
+  it does not exist" names builders while denying nothing. A check that cries
+  wolf is a check somebody turns off, so the passages that must stay silent are
+  now pinned by tests as hard as the one that must fire.
+
+**Semantic primitive first, and geometry belongs to whoever owns it.** Two
+rules in `authoring-rules.md`, which every authoring pass loads.
+
+- **Semantic primitive before manual composition.** A primitive that represents
+  the *relationship* is preferred even when equivalent output can be assembled
+  from lower-level nodes, with a mapping table from pattern to primitive —
+  timeline, table, page header/footer, shape-owned content, overlap, page
+  background band, named vertical and horizontal groups. `LineBuilder`,
+  `ShapeBuilder` and canvas drawing are fallbacks, not the default authoring
+  model. Every name in the table was checked against the generated allow-list
+  before it was written down.
+- Two reasons it is a rule and not a preference: a hand-assembled timeline is a
+  dozen constants a later revision has to find and move together, and the
+  primitive knows things the assembly does not — `keepTogether()` survives a
+  page break, three siblings with matching margins do not.
+- **Layout ownership.** A property shared by several children belongs to their
+  nearest common semantic parent. `margin` positions a component in its
+  surroundings, `padding` positions children inside their owner, `spacing` sets
+  the repeated gap between them — all three on `AbstractFlowBuilder`, so which
+  one you reach for says who owns the geometry. The test is a revision request:
+  "move the language list 6pt left" should be one property change, not three.
+- **Change the smallest owning property.** Fix a mismatch at its owner, not at
+  whatever number can be adjusted to compensate. Widening the search until
+  something moves is how a template accumulates constants that each described
+  one pass and together describe no layout.
+
+The corpus was censused for the pattern rather than assumed to have it: 862
+`margin`/`padding` calls across 35 generated and published templates yield **7
+distinct repeated-sibling instances**, five of them trailing-gap margins that
+belong on the parent as `spacing(...)`. Worth knowing for the lint that
+follows — 21 further groups repeat `DocumentInsets.zero()` three or more times,
+which is neutralising a default, not a shared inset, and flagging it would make
+the check noise.
+
+**A template can be pixel-perfect and built wrong.** Three siblings each
+carrying `margin(0, 0, 5, 0)` render exactly like one parent carrying
+`spacing(5)` — the diff between them is zero — but the first is three numbers a
+later revision has to find and move together, and the fourth item somebody adds
+will not have the margin. Every gate the loop had was blind to it, because none
+of them reads the source.
+
+- `scripts/check-structural-smells.mjs` does, and `render-and-diff` folds its
+  findings into the loop verdict beside the region-role check. Evidence, not a
+  build failure: exit 0 either way, so a reviewer sees the whole list.
+- Four rules — `repeated-sibling-offset`, `negative-margin-cluster`,
+  `manual-semantic-pattern`, `independent-geometry-cluster`. The last is a count
+  of *distinct* literals, so the same derived constant used twenty times is
+  fine and twelve unrelated numbers are not.
+- The thresholds came from the census rather than from the rule that motivated
+  them. Repeated insets fire at **two**, because nothing in the repository
+  repeats one three times and a stricter rule would have found nothing at all.
+- Three exclusions, each of which would otherwise have made the check noise on
+  its first run: a repeated `DocumentInsets.zero()` neutralises a default rather
+  than stating shared geometry (21 groups); an inset built from a named constant
+  is the relational-geometry rule *working*, not a smell; and the manual-timeline
+  rule is gated on the pinned pack actually declaring `addTimeline`, since
+  before it existed that construction was the correct answer.
+- It reported `skillBar()` as a hand-built timeline while being written — a
+  gauge, one rail and one marker, matched because the rule counted the local
+  `markerLeft` identifier instead of call sites. Fixed to count real construct
+  calls and require three. A rule that misreads one construct as another is
+  worse than no rule, because the next real finding is not believed either.
+- Run over the corpus it reports exactly the five sites the census found, and
+  nothing else.
+
+**A baseline anyone can recount.** The layout-diagnostics work is an investment,
+and the only honest way to find out afterwards whether it helped is to write
+down what things looked like first, with a date on it.
+
+- `node scripts/telemetry/run-metrics.mjs baseline` counts the corpus:
+  revisions, renders, FAILED revisions, revisions that edited Java, how much
+  geometry moved between revisions, structural smells and negative insets. The
+  numbers are in `docs/benchmarks.md`, dated.
+- It needs **no session**, which is the whole point. `report` prices one live
+  run from the host's hooks, so it cannot be re-derived later; this reads what
+  is on disk, so a comparison a year from now can recompute the "before" on a
+  machine that never saw the work.
+- **Two figures are recorded as `null`, not approximated**: renders per geometry
+  correction, and whether the mismatch owner was right first time. Neither is
+  derivable from a revision folder — both need the loop to record what a pass
+  was trying to fix. A number that is nearly the thing you wanted gets quoted
+  later as if it were the thing.
+- The document separates the six tracked projects (19 revisions, reproducible
+  from a clone) from the eleven on this machine (53 revisions, not). Comparing
+  the second set across machines would silently measure a different corpus.
+- And it says which metric to stop expecting anything from: repeated geometry
+  literals number two across the tracked corpus, mostly inside immutable
+  APPROVED revisions. That figure is there to catch a regression, not to
+  demonstrate a win.
+- Fixed on the way: `projectCounters` omitted `failedRevisions` on its
+  no-revisions branch while the populated branch returned it, so summing across
+  projects produced `NaN` as soon as one project had no revisions — the ordinary
+  state of a project someone just created. A test had pinned the incomplete
+  shape.
+
+**The layout snapshot stopped being fiction.** `layout-snapshot.json` was a
+placeholder for most of this project's life: a description of the layout an
+agent *intended*, written by hand, with a `notes` field admitting as much. The
+tools about to read it cannot tell a fabricated measurement from a real one,
+which makes a fake one worse than none.
+
+- `tools/preview-renderer` now writes GraphCompose's own measurement. It calls
+  `DocumentSession.layoutSnapshot()` — which the engine produces after layout
+  and pagination and before any backend renders bytes — and writes it beside the
+  PDF. A real CV comes out as 248 nodes, 247 of them named, with resolved paths,
+  measured placement and content boxes, insets, hierarchy and page spans.
+- **This needed no engine work.** The spike behind it found the API already
+  public and already in the pinned 2.2 allow-list. What was missing was on our
+  side: `extract-api.mjs` did not index `com.demcha.compose.document.snapshot`,
+  so the pack listed the methods that *return* a snapshot and none of the
+  accessors that read one — leaving an agent, under the closed-set rule, unable
+  to read a single field. One package prefix and a regenerate.
+- `schemas/layout-snapshot.schema.json` pins the shape, and mirrors the engine's
+  record field-for-field: a projection that renamed anything would have to be
+  kept in step with an upstream release by hand. `formatVersion` is
+  GraphCompose's own contract version, carried through verbatim.
+- The writer is reflective and driven by `Class.getRecordComponents()`, so a
+  component the engine adds later appears without a code change here. A GraphCompose
+  older than 1.6.0 yields no snapshot and still renders; the render log records
+  which of the two happened.
+- **Ten illustrative snapshots were deleted**, along with the artifact
+  declarations and prose links that pointed at them. Their own `notes` field
+  said they would go when a real renderer shipped. Keeping them would have fed
+  invented numbers to an inspector whose entire value is that it measures.
+- One limit worth knowing before relying on it: a node spanning pages reports a
+  page **range**, not a box per page. The engine's layout model carries no
+  per-fragment geometry.
+
 ## v0.12.0 — 2026-08-26
 
 **The verdict stopped being a self-report.** The loop's exit condition was the

@@ -15,6 +15,21 @@ The document already renders and the user wants it different. If there
 is no template yet, use `create-template`. If they want to know
 what is different rather than change it, use `review-template`.
 
+**New content is not a revision.** "A proposal for Acme using Northline"
+changes data, not layout, and belongs in the data file of whatever
+project already uses that template — or in a fresh copy made with
+`use-template`. Opening a revision for it produces an approval record for
+a change nobody made to the template. See
+[Template Reuse First](../references/scope-routing.md#template-reuse-first--before-any-scope).
+
+**A published bundle is never where the change goes.** If the user names
+a template under `templates/`, the revision belongs in the project it was
+published from — `template.json` records `sourceProject` and
+`sourceRevision`. `publish-template` rewrites a bundle's sources from its
+revision on every publish, so an edit made in the bundle is reverted the
+next time anyone publishes it, and in the meantime the bundle no longer
+matches the revision it claims to come from.
+
 ## Steps
 
 **0. Check the page size is settled.** One command, before the scope

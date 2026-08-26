@@ -33,7 +33,7 @@ section.
 - [`./generated-template.java`](./generated-template.java)
 - [`./generated-test.java`](./generated-test.java)
 - [`./patch.diff`](./patch.diff)
-- [`./layout-snapshot.json`](./layout-snapshot.json)
+- `layout-snapshot.json`
 - [`./output.pdf`](./output.pdf)
 - [`./output.png`](./output.png)
 - [`./visual-review.md`](./visual-review.md)

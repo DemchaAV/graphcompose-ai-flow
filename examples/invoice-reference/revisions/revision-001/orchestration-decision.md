@@ -44,7 +44,7 @@ The seven specialized agents run in the order documented in
    primitives the skill pack documents.
 6. Test + Render Agent &mdash; would compile, render, and capture a
    layout snapshot. In Phase 3 the renderer is not yet wired, so it
-   writes [`./layout-snapshot.json`](./layout-snapshot.json) as an
+   writes `layout-snapshot.json` as an
    illustrative document and reports the render and preview steps as
    pending in [`./test-result.md`](./test-result.md).
 7. Visual Review Agent &mdash; would compare `output.png` to

@@ -71,6 +71,12 @@ const PACKAGES = [
   "com.demcha.compose.document.image",
   "com.demcha.compose.document.svg",
   "com.demcha.compose.document.output",
+  // The layout read model. It sits under `document.` but reads like engine
+  // internals, so it was left out — wrongly: `session.layoutSnapshot()` is
+  // listed as authoring surface while the records it returns were not, leaving
+  // an agent able to obtain a snapshot and, under the closed-set rule, not
+  // allowed to read a single field of it.
+  "com.demcha.compose.document.snapshot",
   "com.demcha.compose.document.templates.builtins",
   "com.demcha.compose.document.templates.data",
   "com.demcha.compose.document.templates.api",

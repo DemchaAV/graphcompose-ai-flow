@@ -105,6 +105,86 @@ INTENTIONAL_DIFFERENCE
 | `ACCEPTED_LIMITATION` | Difference caused by known API/tooling limitation |
 | `INTENTIONAL_DIFFERENCE` | Difference explicitly requested or approved by user |
 
+## Cause classification
+
+Severity answers *how bad*. Cause answers *what kind of thing is wrong*, and
+they are independent — a `MINOR` mismatch and a `CRITICAL` one can both be
+`GEOMETRY`, and the same picture can be a layout defect or a wrong file at the
+same severity. Both are separate again from `rootCause`, which is a grouping id
+linking symptoms of one origin. All three can be set on one mismatch and none
+substitutes for another.
+
+Cause exists because the fix has nothing in common across the values:
+
+```text
+GEOMETRY  TYPOGRAPHY  PAINT  ASSET  CONTENT  PAGINATION  UNKNOWN
+```
+
+| Cause | Meaning | The fix |
+|---|---|---|
+| `GEOMETRY` | Something is in the wrong place or the wrong size | A layout property on the **owner** the evidence names — not on the node showing the symptom |
+| `TYPOGRAPHY` | Right place, wrong type: face, size, weight, leading, tracking | A text style. Never a margin |
+| `PAINT` | Right place, right type, wrong colour or fill | A colour in the theme |
+| `ASSET` | Right place, wrong file | Replace the file. **Never compensate an asset with margins** — that moves the wrong picture into position |
+| `CONTENT` | The text itself differs | The data spec, not the template |
+| `PAGINATION` | The document broke across pages differently | Nothing else until this is resolved: every per-node comparison is against a different layout |
+| `UNKNOWN` | The available evidence cannot separate the candidates | Say so, and name the candidates |
+
+The enum is declared in [`config/pipeline.json`](../config/pipeline.json) and
+copied into `schemas/visual-review.schema.json`;
+`scripts/test/pipeline-config.test.mjs` asserts the copies agree.
+
+### JSON answers where, PNG answers what it looks like
+
+The split that makes this decidable at all. A layout snapshot is the engine's
+own measurement of where every node ended up, so *position and size are read,
+not estimated*. Nothing in a snapshot says what colour anything is, so
+appearance stays with the pixel diff.
+
+`node scripts/evidence.mjs --project <id> --revision <id> --region <id>` joins
+the two, plus the region bounds read off the reference, and returns a bounded
+package: the owning node, its displacement from where the reference puts the
+region, its hierarchy, its children, and the properties that actually produced
+its position. About 4 KB, against a 227 KB snapshot — the boundedness is the
+point, and [the iteration loop](../skills/workflows/references/iteration-loop.md)
+forbids loading the snapshot instead.
+
+### It assigns only what two measurements can settle
+
+Five of the seven values are assigned automatically:
+
+- **`PAGINATION`** — the page counts differ. Checked first, because it
+  invalidates everything after it.
+- **`GEOMETRY`** — the owning node sits further than tolerance from where the
+  reference region puts it. Tolerance is 0.5% of the page's short edge, about
+  3pt on A4: region bounds are read off an image by eye and carry real error, so
+  a tighter threshold would report the analyst's own rounding as a defect.
+- **`ASSET`** — the box is within tolerance, the region's role carries a file
+  (`image`, `icon`, `logo`), and a quarter or more of its interior pixels
+  differ.
+- **`TYPOGRAPHY`** — the snapshot reports that the text was set in a font the
+  style did not name. Not inferred from pixels: GraphCompose gives the declared
+  and the resolved font side by side, and a mismatch is a fact. Checked *before*
+  geometry, because a substituted font changes every glyph width — the box is
+  the wrong size because the type is. Needs a render against GraphCompose 2.2.2
+  or newer; older renders carry no typography and report `reported: false`
+  rather than a clean bill of health.
+- **`UNKNOWN`** — everything else.
+
+`PAINT` and `CONTENT` are **never** assigned automatically, and neither is
+`TYPOGRAPHY` on anything subtler than a substitution. Telling a wrong size from
+a wrong colour from different words needs a comparison against the reference's
+own type — that is `scripts/typography.mjs`, and it needs a crop a human chose.
+They come back as *candidates* on an `UNKNOWN` verdict instead. A classifier that picked
+between them would be the pixel-staring this replaces, in a JSON wrapper — and a
+confident wrong cause is worse than an honest unresolved one, because it sends
+the next pass to edit the wrong kind of thing.
+
+A reviewer may of course set a cause the tool declined to. That is a human
+judgement recorded as one, which is what `ACCEPTED_LIMITATION` already does for
+severity.
+
+
 ## Approval rule
 
 A revision can be approved only when:

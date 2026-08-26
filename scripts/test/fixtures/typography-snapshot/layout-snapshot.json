@@ -1,0 +1,233 @@
+{
+  "formatVersion": "2.1",
+  "canvas": {
+    "pageWidth": 595.276,
+    "pageHeight": 841.89,
+    "innerWidth": 595.276,
+    "innerHeight": 841.89,
+    "margin": {
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "left": 0
+    }
+  },
+  "totalPages": 1,
+  "nodes": [
+    {
+      "path": "TypographyFixture[0]",
+      "entityName": "TypographyFixture",
+      "entityKind": "ContainerNode",
+      "parentPath": null,
+      "childIndex": 0,
+      "depth": 1,
+      "layer": 1,
+      "computedX": 0,
+      "computedY": 775.966,
+      "placementX": 0,
+      "placementY": 775.966,
+      "placementWidth": 595.276,
+      "placementHeight": 65.924,
+      "startPage": 0,
+      "endPage": 0,
+      "contentWidth": 595.276,
+      "contentHeight": 65.924,
+      "margin": {
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
+      },
+      "padding": {
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
+      }
+    },
+    {
+      "path": "TypographyFixture[0]/Heading[0]",
+      "entityName": "Heading",
+      "entityKind": "ParagraphNode",
+      "parentPath": "TypographyFixture[0]",
+      "childIndex": 0,
+      "depth": 2,
+      "layer": 2,
+      "computedX": 0,
+      "computedY": 823.39,
+      "placementX": 0,
+      "placementY": 823.39,
+      "placementWidth": 140.04,
+      "placementHeight": 18.5,
+      "startPage": 0,
+      "endPage": 0,
+      "contentWidth": 140.04,
+      "contentHeight": 18.5,
+      "margin": {
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
+      },
+      "padding": {
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
+      }
+    },
+    {
+      "path": "TypographyFixture[0]/Body[1]",
+      "entityName": "Body",
+      "entityKind": "ParagraphNode",
+      "parentPath": "TypographyFixture[0]",
+      "childIndex": 1,
+      "depth": 2,
+      "layer": 2,
+      "computedX": 0,
+      "computedY": 793.04,
+      "placementX": 0,
+      "placementY": 793.04,
+      "placementWidth": 588.181,
+      "placementHeight": 20.35,
+      "startPage": 0,
+      "endPage": 0,
+      "contentWidth": 588.181,
+      "contentHeight": 20.35,
+      "margin": {
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
+      },
+      "padding": {
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
+      }
+    },
+    {
+      "path": "TypographyFixture[0]/RightNote[2]",
+      "entityName": "RightNote",
+      "entityKind": "ParagraphNode",
+      "parentPath": "TypographyFixture[0]",
+      "childIndex": 2,
+      "depth": 2,
+      "layer": 2,
+      "computedX": 0,
+      "computedY": 775.966,
+      "placementX": 0,
+      "placementY": 775.966,
+      "placementWidth": 595.276,
+      "placementHeight": 7.074,
+      "startPage": 0,
+      "endPage": 0,
+      "contentWidth": 595.276,
+      "contentHeight": 7.074,
+      "margin": {
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
+      },
+      "padding": {
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
+      }
+    }
+  ],
+  "typography": [
+    {
+      "path": "TypographyFixture[0]/Body[1]",
+      "fragmentIndex": 0,
+      "page": 0,
+      "declaredFont": "Helvetica",
+      "resolvedFont": "Helvetica",
+      "fontSubstituted": false,
+      "fontSize": 11,
+      "lineCount": 2,
+      "textX": 0,
+      "textY": 793.04,
+      "textWidth": 588.181,
+      "textHeight": 20.35,
+      "verticalAlign": "DEFAULT",
+      "lines": [
+        {
+          "index": 0,
+          "x": 0,
+          "y": 803.215,
+          "width": 588.181,
+          "height": 10.175,
+          "baseline": 805.492,
+          "baselineExact": true
+        },
+        {
+          "index": 1,
+          "x": 0,
+          "y": 793.04,
+          "width": 229.273,
+          "height": 10.175,
+          "baseline": 795.317,
+          "baselineExact": true
+        }
+      ]
+    },
+    {
+      "path": "TypographyFixture[0]/Heading[0]",
+      "fragmentIndex": 0,
+      "page": 0,
+      "declaredFont": "Helvetica-Bold",
+      "resolvedFont": "Helvetica",
+      "fontSubstituted": true,
+      "fontSize": 20,
+      "lineCount": 1,
+      "textX": 0,
+      "textY": 823.39,
+      "textWidth": 140.04,
+      "textHeight": 18.5,
+      "verticalAlign": "DEFAULT",
+      "lines": [
+        {
+          "index": 0,
+          "x": 0,
+          "y": 823.39,
+          "width": 140.04,
+          "height": 18.5,
+          "baseline": 827.53,
+          "baselineExact": true
+        }
+      ]
+    },
+    {
+      "path": "TypographyFixture[0]/RightNote[2]",
+      "fragmentIndex": 0,
+      "page": 0,
+      "declaredFont": "Courier",
+      "resolvedFont": "Courier",
+      "fontSubstituted": false,
+      "fontSize": 9,
+      "lineCount": 1,
+      "textX": 525.076,
+      "textY": 775.966,
+      "textWidth": 70.2,
+      "textHeight": 7.074,
+      "verticalAlign": "DEFAULT",
+      "lines": [
+        {
+          "index": 0,
+          "x": 525.076,
+          "y": 775.966,
+          "width": 70.2,
+          "height": 7.074,
+          "baseline": 777.379,
+          "baselineExact": true
+        }
+      ]
+    }
+  ],
+  "capturedAt": "2026-08-26T21:30:28.511622900Z",
+  "graphComposeVersion": null
+}

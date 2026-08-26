@@ -23,7 +23,7 @@ note: "Generated from the pinned artifact's class files. Authoritative closed se
 
 **GraphCompose version:** 2.2.1
 
-Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 1312
+Types: 363 · methods: 2812 · constants: 339 · compiler-generated members: 1351
 
 ## com.demcha.compose
 
@@ -1883,6 +1883,66 @@ Types: 357 · methods: 2766 · constants: 339 · compiler-generated members: 131
 
 ### DocumentWatermarkPosition (enum)
 - constants: `CENTER`, `TOP_LEFT`, `TOP_RIGHT`, `BOTTOM_LEFT`, `BOTTOM_RIGHT`, `TILE`
+
+## com.demcha.compose.document.snapshot
+
+### LayoutCanvasSnapshot (record)
+- `new LayoutCanvasSnapshot(double, double, double, double, LayoutInsetsSnapshot)`
+- `double pageWidth()`
+- `double pageHeight()`
+- `double innerWidth()`
+- `double innerHeight()`
+- `LayoutInsetsSnapshot margin()`
+
+### LayoutInsetsSnapshot (record)
+- `new LayoutInsetsSnapshot(double, double, double, double)`
+- `double top()`
+- `double right()`
+- `double bottom()`
+- `double left()`
+
+### LayoutNodeSnapshot (record)
+- `new LayoutNodeSnapshot(String, String, String, String, int, int, int, double, double, double, double, double, double, int, int, double, double, LayoutInsetsSnapshot, LayoutInsetsSnapshot)`
+- `String path()`
+- `String entityName()`
+- `String entityKind()`
+- `String parentPath()`
+- `int childIndex()`
+- `int depth()`
+- `int layer()`
+- `double computedX()`
+- `double computedY()`
+- `double placementX()`
+- `double placementY()`
+- `double placementWidth()`
+- `double placementHeight()`
+- `int startPage()`
+- `int endPage()`
+- `double contentWidth()`
+- `double contentHeight()`
+- `LayoutInsetsSnapshot margin()`
+- `LayoutInsetsSnapshot padding()`
+
+### LayoutSnapshot (record)
+- `new LayoutSnapshot(String, LayoutCanvasSnapshot, int, List<LayoutNodeSnapshot>)`
+- `String formatVersion()`
+- `LayoutCanvasSnapshot canvas()`
+- `int totalPages()`
+- `List<LayoutNodeSnapshot> nodes()`
+
+### PageIndex (class)
+- `new PageIndex(Collection<PageReference> references, int totalPages)`
+- `Optional<PageReference> forAnchor(String anchor)`
+- `OptionalInt pageOf(String anchor)`
+- `OptionalInt pageNumberOf(String anchor)`
+- `Map<String, PageReference> all()`
+- `int totalPages()`
+
+### PageReference (record)
+- `new PageReference(String, int)`
+- `int pageNumber()`
+- `String anchor()`
+- `int page()`
 
 ## com.demcha.compose.document.style
 

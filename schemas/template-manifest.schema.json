@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DemchaAV/graphcompose-ai-flow/schemas/template-manifest.schema.json",
+  "title": "Published template manifest",
+  "description": "The manifest at templates/<template-id>/template.json, written by scripts/publish-template.mjs when an APPROVED revision is published. It is the bundle's machine-readable contract: a consumer generator reads this and nothing else to decide which class to call, which spec provider to use, which data file to copy, where the assets are and which dependencies a build file needs. Nothing downstream may infer any of that from the directory listing or from the README, because a manifest that knows less than the prose is how a generated build file stops compiling. Read it through scripts/lib/template-bundle.mjs#readManifest, which normalises the two dependency-key shapes in the wild and back-fills the consumer contract for bundles published before schemaVersion 1.1.0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "displayName", "className", "docKind", "schemaVersion"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "enum": ["1.0.0", "1.1.0"],
+      "description": "On-disk contract version for this manifest. 1.0.0 is every bundle published before the consumer contract existed: it carries the flat className / specClass / specProviderClass triple and no entrypoint, data or resources block. 1.1.0 adds those, plus version, graphComposeVersion and pageCount. A reader must accept both; a writer emits 1.1.0."
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Template id. This is the directory name under templates/ and the argument every consumer command takes."
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-facing name, e.g. \"Mint Editorial CV\". The template id is kebab(displayName) unless --template-id overrode it."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Bundle version, independent of the harness version and of the GraphCompose version. Preserved across republishes rather than incremented: a bump is an editorial decision about whether consumers must re-integrate, and the publisher cannot make it. Set it explicitly with --version. Absent on 1.0.0 bundles, where readers assume \"1.0.0\"."
+    },
+    "docKind": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "Document kind — invoice, cv, proposal, coverletter, report. It names the data file (<docKind>-data.json) and is how a consumer command knows what to copy, so it is required even for a template that ships hard-coded content."
+    },
+    "className": {
+      "type": "string",
+      "minLength": 1,
+      "description": "SIMPLE name of the published template class, e.g. \"MintEditorialCvTemplate\". src/<className>.java must exist in the bundle. The fully-qualified form is entrypoint.templateClass; this field stays simple because verify-published-template.mjs and the bundle scan both address the file by it."
+    },
+    "specClass": {
+      "type": ["string", "null"],
+      "description": "Fully-qualified spec type the template composes against. It is NOT necessarily a class the bundle ships: invoice-classic names com.demcha.compose.document.templates.data.invoice.InvoiceDocumentSpec, which comes from GraphCompose itself. Null for a template that takes no spec. Duplicated by entrypoint.specClass on 1.1.0 bundles."
+    },
+    "specProviderClass": {
+      "type": ["string", "null"],
+      "description": "Fully-qualified provider that loads the spec from the data file. Passed to the renderer as --spec-provider. Null for a template that takes no spec. Duplicated by entrypoint.providerClass on 1.1.0 bundles."
+    },
+    "entrypoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["templateClass"],
+      "description": "The three fully-qualified names a generated runner needs, so a consumer generator substitutes rather than infers. Absent on 1.0.0 bundles, where readManifest back-fills it from className plus the package declared in src/<className>.java.",
+      "properties": {
+        "templateClass": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Fully-qualified template class — the one a runner instantiates and calls compose(session, spec) on."
+        },
+        "specClass": {
+          "type": ["string", "null"],
+          "description": "Fully-qualified spec type, same value as the top-level specClass."
+        },
+        "providerClass": {
+          "type": ["string", "null"],
+          "description": "Fully-qualified spec provider, same value as the top-level specProviderClass."
+        }
+      }
+    },
+    "data": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["example", "runtimeName"],
+      "description": "Where the example data is and what a consumer should rename it to. Null when the template ships hard-coded content and publishes no data file — that is a real shape, not a defect, and a consumer command must not invent a data file for it.",
+      "properties": {
+        "example": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path to the example data, relative to the bundle root, e.g. \"data/cv-data.example.json\"."
+        },
+        "runtimeName": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Filename the example is copied to in a consumer project, e.g. \"cv-data.json\". This is the name the spec provider looks for, so it is not a suggestion."
+        }
+      }
+    },
+    "dataFile": {
+      "type": ["string", "null"],
+      "description": "DEPRECATED. The pre-1.1.0 half-answer to the same question: it named the example but never the runtime name, so a consumer still had to know the rename convention. Present on invoice-classic. Readers should prefer data.example; writers no longer emit it."
+    },
+    "resources": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "description": "Template-owned resources, relative to the bundle root. Null when the bundle ships neither — a template drawing no icons and loading no images has no resources, and a consumer command must not create empty directories for it.",
+      "properties": {
+        "assets": {
+          "type": ["string", "null"],
+          "description": "Directory holding icons, images and any custom fonts, e.g. \"assets\". Null when the bundle ships none."
+        },
+        "manifest": {
+          "type": ["string", "null"],
+          "description": "The resolved asset manifest, e.g. \"assets-manifest.json\". A template reads it rather than hardcoding an icon extension, so it must travel with the assets. Null when the bundle ships no assets."
+        }
+      }
+    },
+    "graphComposeVersion": {
+      "type": ["string", "null"],
+      "pattern": "^\\d+\\.\\d+(\\.\\d+)?(-[A-Za-z0-9.]+)?$",
+      "description": "The GraphCompose version this bundle was published against, lifted out of dependencies so a catalog can print it without parsing coordinates. Redundant with the io.github.demchaav:graph-compose entry, and deliberately so: the catalog reads one field, the pom generator reads the map."
+    },
+    "pageCount": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "description": "Pages in the published preview render. Counted from preview/output-page-N.png, falling back to 1 when only the older single-page preview/output.png is present. Null when the bundle ships no preview."
+    },
+    "sourceProject": {
+      "type": ["string", "null"],
+      "description": "Project id in the workspace this bundle was published from. Traceability only — a consumer never needs it, and nothing in the bundle may resolve a path through it."
+    },
+    "sourceRevision": {
+      "type": ["string", "null"],
+      "description": "The APPROVED revision this bundle is the published form of. The one place revision vocabulary is allowed to survive into a bundle: it is metadata, not a path, and the portability scan allows it here for exactly that reason."
+    },
+    "sourceCommit": {
+      "type": ["string", "null"],
+      "description": "Harness commit at publish time, or null outside a git checkout. With sourceRevision and graphComposeVersion this is what lets a rendering service log which template produced a document."
+    },
+    "publishedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the bundle was written, ISO 8601."
+    },
+    "fonts": {
+      "type": ["array", "null"],
+      "description": "Font roles the template needs and how each resolves, taken from the revision's assets-manifest.json. A consumer reads this to know whether anything must be registered by hand: source \"graphcompose-bundled\" needs the fonts artifact on the classpath and nothing else, while \"custom\" or \"google-fonts\" means a file under assets/fonts must be registered. Null when the revision had no asset manifest.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role"],
+        "properties": {
+          "role": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Where the font is used — heading, body, signature, fallback."
+          },
+          "family": {
+            "type": ["string", "null"],
+            "description": "Family name as the template asks for it, e.g. \"Poppins\"."
+          },
+          "fontName": {
+            "type": ["string", "null"],
+            "description": "GraphCompose FontName constant, e.g. \"POPPINS\", when the family is one it bundles."
+          },
+          "source": {
+            "type": ["string", "null"],
+            "description": "graphcompose-bundled | google-fonts | custom | standard14."
+          },
+          "status": {
+            "type": ["string", "null"],
+            "description": "Whether the role resolved cleanly at publish time."
+          },
+          "registration": {
+            "type": ["string", "null"],
+            "description": "How the font reaches the document — default-fonts, standard14, or a manual registration call."
+          },
+          "notes": {
+            "type": ["string", "null"],
+            "description": "Anything a consumer would otherwise have to discover by rendering."
+          }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "description": "What a build file must declare for this bundle to compile and render, read from the source project's render-runner/pom.xml at publish time rather than hardcoded — the manifest used to list graphcompose and jackson while a bundle needing graph-compose-fonts said so only in its README. Two key shapes exist on disk: the current \"groupId:artifactId\" form and the pre-1.1.0 shorthand (\"graphcompose\", \"jackson\"). Readers must accept both; scripts/lib/template-bundle.mjs#normaliseDependencies is the one place that expands them.",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": ["string", "null"],
+        "description": "Version, or null when the coordinate was declared without one and inherits it from a parent pom."
+      }
+    }
+  }
+}

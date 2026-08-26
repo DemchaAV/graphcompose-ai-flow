@@ -175,10 +175,10 @@ import com.demcha.examples.cv.MintEditorialCvSpec.SocialLink;
  *
  * <h3>Source provenance</h3>
  *
- * Published from {@code examples/cv-reference/revisions/revision-008}
- * (current APPROVED baseline; supersedes revision-007 which moved
- * Awards/References to fill Main, and revision-004 which was the
- * first APPROVED Mint Editorial CV with hard-coded layout values).
+ * Recorded in {@code template.json} — {@code sourceProject},
+ * {@code sourceRevision} and {@code sourceCommit} — which is the one place
+ * it belongs: metadata a rendering service can log, not something this class
+ * should know about.
  *
  * @see MintEditorialCvSpec
  * @see MintEditorialCvSpecProvider

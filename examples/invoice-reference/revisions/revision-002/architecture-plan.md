@@ -132,7 +132,7 @@ The `compose` method now reads:
   `compose(...)` on a sample `InvoiceSpec` and asserts that the
   call does not throw. This continues to pass.
 - The layout snapshot at
-  [`./layout-snapshot.json`](./layout-snapshot.json) is expected
+  `layout-snapshot.json` is expected
   to change in the `LineItems` and `Summary` regions; an
   illustrative snapshot is committed reflecting the new shape.
 - The visual regression test will need a fresh baseline once a real

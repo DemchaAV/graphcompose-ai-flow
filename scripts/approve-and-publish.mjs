@@ -41,6 +41,7 @@ import { spawnSync } from "node:child_process";
 
 import { measurementEvidence } from "./lib/iteration-status.mjs";
 import { describeSeal, sealState } from "./lib/revision-seal.mjs";
+import { normaliseDependencies } from "./lib/template-bundle.mjs";
 
 import {
   describeWorkspaceLine,
@@ -534,10 +535,13 @@ function renderGeneratedHalf(manifest, bundleDir) {
   const dataDir = path.join(bundleDir, "data");
   const dataFiles = fs.existsSync(dataDir) ? fs.readdirSync(dataDir).filter((f) => f.endsWith(".json")) : [];
 
-  const dependencyRows = Object.entries(manifest.dependencies ?? {}).map(([key, version]) => {
-    const [groupId, artifactId] = key.includes(":") ? key.split(":") : ["io.github.demchaav", key];
-    return `| \`${groupId}\` | \`${artifactId}\` | ${version ?? "?"} |`;
-  });
+  // Through the shared normaliser, not a local expansion. This used to turn the
+  // shorthand key "jackson" into io.github.demchaav:jackson and print it as the
+  // coordinate a consumer should declare — a dependency that does not exist,
+  // stated in the one document a consumer reads before writing their build file.
+  const dependencyRows = normaliseDependencies(manifest.dependencies).map(
+    (d) => `| \`${d.groupId}\` | \`${d.artifactId}\` | ${d.version ?? "?"} |`,
+  );
 
   // Roles share families (heading and body are both Lato in the serif run),
   // so list distinct families rather than one entry per role.

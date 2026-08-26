@@ -83,7 +83,10 @@ export function writeState(sessionId, patch) {
 export function projectCounters(projectDir) {
   const revisionsDir = path.join(projectDir, "revisions");
   if (!fs.existsSync(revisionsDir)) {
-    return { revisions: 0, renders: 0, visualReviews: 0 };
+    // `failedRevisions` too: omitting it here while the other branch returns it
+    // made a caller summing across projects produce NaN the moment one project
+    // had no revisions yet.
+    return { revisions: 0, renders: 0, visualReviews: 0, failedRevisions: 0 };
   }
   const revisions = fs
     .readdirSync(revisionsDir, { withFileTypes: true })

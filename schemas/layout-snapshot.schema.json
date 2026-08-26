@@ -1,0 +1,355 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DemchaAV/graphcompose-ai-flow/schemas/layout-snapshot.schema.json",
+  "title": "Layout snapshot",
+  "description": "`layout-snapshot.json` in a revision folder: where every node of the rendered document actually ended up, measured by GraphCompose's own layout engine. This is NOT a description written by an agent — it is the projection of `LayoutSnapshot`, which the engine produces after layout and pagination have completed and before any backend renders bytes, obtained through `DocumentSession.layoutSnapshot()`. The distinction is the whole point: an agent looking at a PNG guesses why an element moved, and this says where it is. The shape mirrors GraphCompose's records exactly, field for field, because a projection that renamed anything would have to be kept in step with an upstream release by hand. `formatVersion` is the ENGINE's contract version, carried through verbatim; it is not this schema's version.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "formatVersion",
+    "canvas",
+    "totalPages",
+    "nodes"
+  ],
+  "properties": {
+    "formatVersion": {
+      "type": "string",
+      "minLength": 1,
+      "description": "GraphCompose's own snapshot contract version, read off `LayoutSnapshot.formatVersion()` and written through unchanged. Read it before assuming a shape: it is how an upstream change announces itself, and it moves on GraphCompose's schedule rather than this repository's."
+    },
+    "canvas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pageWidth",
+        "pageHeight",
+        "innerWidth",
+        "innerHeight",
+        "margin"
+      ],
+      "description": "The page every coordinate below is relative to. Without it a bounds figure cannot be judged: 42 is near the left edge of A4 and near the middle of a business card.",
+      "properties": {
+        "pageWidth": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "pageHeight": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "innerWidth": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Page width less the horizontal margin — the width content is laid out into."
+        },
+        "innerHeight": {
+          "type": "number",
+          "minimum": 0
+        },
+        "margin": {
+          "$ref": "#/$defs/insets"
+        }
+      }
+    },
+    "totalPages": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Pages the resolved layout touches. Compare against the reference's page count before reading anything else — a document that paginated differently makes every per-node comparison below meaningless."
+    },
+    "nodes": {
+      "type": "array",
+      "description": "Every resolved node, depth-first and deterministic. Flat rather than nested on purpose: the tree is recoverable from `path` and `parentPath`, and a flat list is what makes two snapshots diffable line by line.",
+      "items": {
+        "$ref": "#/$defs/node"
+      }
+    },
+    "capturedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the harness wrote this file. Added here, not by the engine — a revision folder holds artifacts from more than one pass, and knowing which render a snapshot belongs to is otherwise guesswork."
+    },
+    "graphComposeVersion": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The GraphCompose the render ran against, so a diff across revisions can tell a layout change from a library upgrade. Null when the version could not be determined."
+    },
+    "typography": {
+      "type": "array",
+      "description": "What each run of text actually became: the font it was set in, at what size, broken into how many lines, and where those lines sit. Added by GraphCompose 2.2.2 (`formatVersion` 2.1); absent from anything rendered before it, which is an ordinary state and not a defect. Attached to fragments rather than nodes because that is what text is — a paragraph broken across a page boundary emits one entry per page — so join it to `nodes` on `path` rather than assuming one entry per node.",
+      "items": {
+        "$ref": "#/$defs/typographyRun"
+      }
+    }
+  },
+  "$defs": {
+    "insets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "description": "Normalised insets. The engine substitutes zero for an unset inset rather than emitting null, so a reader never has to distinguish 'no margin' from 'margin not recorded'.",
+      "properties": {
+        "top": {
+          "type": "number"
+        },
+        "right": {
+          "type": "number"
+        },
+        "bottom": {
+          "type": "number"
+        },
+        "left": {
+          "type": "number"
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "entityKind",
+        "childIndex",
+        "depth",
+        "layer",
+        "computedX",
+        "computedY",
+        "placementX",
+        "placementY",
+        "placementWidth",
+        "placementHeight",
+        "startPage",
+        "endPage",
+        "contentWidth",
+        "contentHeight",
+        "margin",
+        "padding"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Deterministic node path — the stable identity a diff between two revisions is keyed on. It survives a re-render, which a runtime object id would not, and it is why `layout diff` can say 'Languages moved' rather than 'a node moved'."
+        },
+        "entityName": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The name the author gave this node, when they gave one. This is the word a user says — \"the Languages block is too far right\" — so a region that carries no name cannot be addressed by the thing it is called. Null is legal and common."
+        },
+        "entityKind": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Node kind, the identity fallback when there is no name."
+        },
+        "parentPath": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Full path of the parent, null at a root. With `path` this is the whole hierarchy: the layout-ownership question — does this offset belong on the parent — is answered by walking it."
+        },
+        "childIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Zero-based position among siblings."
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "layer": {
+          "type": "integer",
+          "description": "Resolved layer after layout; what decides paint order where nodes overlap."
+        },
+        "computedX": {
+          "type": "number"
+        },
+        "computedY": {
+          "type": "number"
+        },
+        "placementX": {
+          "type": "number",
+          "description": "Placement box, which is the node's own outer geometry — where it actually is."
+        },
+        "placementY": {
+          "type": "number"
+        },
+        "placementWidth": {
+          "type": "number",
+          "minimum": 0
+        },
+        "placementHeight": {
+          "type": "number",
+          "minimum": 0
+        },
+        "contentWidth": {
+          "type": "number",
+          "minimum": 0,
+          "description": "The engine's own content size. NOT placement less padding, despite the name: measured across all 248 nodes of a real 2.2.1 render, `contentWidth` equals `placementWidth` and `contentHeight` equals `placementHeight` on every one, padding notwithstanding — `Sidebar` is 190.31 wide with 17 of padding a side and reports 190.31. The box a node's children actually sit in has to be computed by insetting placement by padding, which is what `scripts/lib/layout-inspector.mjs` does; reading this field for it is wrong by exactly the padding, silently, on every node that has any. This description previously claimed the opposite and was corrected by measurement in Phase 14."
+        },
+        "contentHeight": {
+          "type": "number",
+          "minimum": 0
+        },
+        "startPage": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Zero-based first page this node touches."
+        },
+        "endPage": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Zero-based last page. A node spanning pages reports a RANGE and not a box per page: the engine's layout model carries no per-fragment geometry, so a two-page section has one placement box and `startPage != endPage`. Do not read the placement box as 'the box on page startPage'."
+        },
+        "margin": {
+          "$ref": "#/$defs/insets"
+        },
+        "padding": {
+          "$ref": "#/$defs/insets"
+        }
+      }
+    },
+    "typographyRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "fragmentIndex",
+        "page",
+        "declaredFont",
+        "resolvedFont",
+        "fontSubstituted",
+        "fontSize",
+        "lineCount",
+        "textX",
+        "textY",
+        "textWidth",
+        "textHeight",
+        "verticalAlign",
+        "lines"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path of the node that owns the text — the join key back into `nodes`."
+        },
+        "fragmentIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Which fragment of that node this is. A paragraph split across pages has more than one."
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Zero-based page the fragment sits on."
+        },
+        "declaredFont": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The font name the style asked for."
+        },
+        "resolvedFont": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The font family the text is actually laid out in."
+        },
+        "fontSubstituted": {
+          "type": "boolean",
+          "description": "Whether the declared and resolved names differ. TRUE is the finding: `DEFAULT` resolves to Helvetica, and a standard-14 face such as `Helvetica-Bold` resolves to its family because the face comes from the style's decoration — so a style naming the bold face and setting no decoration renders regular. Both lay out and draw without error, so this flag is the only thing that says the document is set in a font its author did not name."
+        },
+        "fontSize": {
+          "type": "number",
+          "description": "Point size of the fragment's BASE style. A paragraph whose spans override the size reports what it was declared with, not what its spans resolved to."
+        },
+        "lineCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of laid-out lines in this fragment."
+        },
+        "textX": {
+          "type": "number",
+          "description": "Left edge of the box the ink occupies — not the column it was laid out into, so the box always contains the lines below it."
+        },
+        "textY": {
+          "type": "number",
+          "description": "Bottom edge of the ink box. As everywhere in this file, y grows upward from the page bottom."
+        },
+        "textWidth": {
+          "type": "number",
+          "minimum": 0
+        },
+        "textHeight": {
+          "type": "number",
+          "minimum": 0
+        },
+        "verticalAlign": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Vertical seating mode. Anything other than DEFAULT means every baseline in this run is inexact — see `baselineExact`."
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/textLine"
+          },
+          "description": "The laid-out lines, in reading order. The line's own text is deliberately absent: the snapshot excludes raw text payload, so a line is identified by its index."
+        }
+      }
+    },
+    "textLine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "x",
+        "y",
+        "width",
+        "height",
+        "baseline",
+        "baselineExact"
+      ],
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "x": {
+          "type": "number",
+          "description": "Left edge of the line's ink after alignment."
+        },
+        "y": {
+          "type": "number",
+          "description": "Bottom edge of the line box."
+        },
+        "width": {
+          "type": "number",
+          "minimum": 0
+        },
+        "height": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Resolved line height, including any inline image that enlarged it."
+        },
+        "baseline": {
+          "type": "number",
+          "description": "Absolute y of the text baseline."
+        },
+        "baselineExact": {
+          "type": "boolean",
+          "description": "Whether `baseline` accounts for vertical seating. FALSE when the paragraph uses a non-default vertical alignment: that shifts the baseline by a correction read from the backend font's cap height, which a renderer-neutral snapshot cannot compute. Treat a false here as unusable rather than approximate."
+        }
+      }
+    }
+  }
+}

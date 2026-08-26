@@ -52,6 +52,12 @@
       "uniqueItems": true,
       "description": "Optional list of named private render methods whose output this revision modified — feeds the selective rollback model."
     },
+    "expectedAffectedNodes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "description": "Optional. The layout nodes this revision intends to move — names as a person would say them (\"Languages\"), a path suffix, or a full node path. `node scripts/layout.mjs diff` compares this against what actually moved and reports anything outside these subtrees as unexpected collateral. It is a claim made BEFORE the render, which is what gives it any value: a list written afterwards to match the diff proves nothing. Declaring nothing disables the check rather than asserting that nothing moves, because a revision that forgot to fill this in must not read as a revision that promised stillness."
+    },
     "reviewVerdict": {
       "type": "string",
       "enum": ["READY_FOR_APPROVAL", "REVISE", "BLOCKED"],

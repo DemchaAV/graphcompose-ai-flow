@@ -34,6 +34,7 @@ import {
   readState,
   writeState,
 } from "./core.mjs";
+import { workspaceBaseline } from "./baseline.mjs";
 import { provider } from "./providers/claude-code.mjs";
 import { describeWorkspaceLine, projectDir as workspaceProjectDir, resolveWorkspace } from "../lib/workspace.mjs";
 
@@ -43,7 +44,8 @@ function usage(code = 0) {
       "  start   --project <id> [--workflow <name>]   mark where a workflow began\n" +
       "  report  [--project <id>] [--json] [--status <verdict>]\n" +
       "  finish  [--project <id>]                     archive the run into the project\n" +
-      "  cycles  [--json]                             per-cycle breakdown for this session\n\n" +
+      "  cycles  [--json]                             per-cycle breakdown for this session\n" +
+      "  baseline [--json] [--root <dir>]             recount the corpus; needs no session\n\n" +
       "  --session <id>   override the host session id (default: $CLAUDE_SESSION_ID)\n" +
       "  --root <dir>     workspace override\n",
   );
@@ -78,6 +80,15 @@ for (let i = 1; i < argv.length; i += 1) {
     process.stderr.write(`[telemetry] unknown argument: ${a}\n`);
     usage(2);
   }
+}
+
+// Before the session lookup on purpose. Everything else here prices one live
+// run from the host's own telemetry; this recounts what is on disk, which is
+// the property a baseline needs — anyone can re-derive it later, on a machine
+// that never saw the session that produced the work.
+if (command === "baseline") {
+  runBaseline();
+  process.exit(0);
 }
 
 const sessionId = args.session ?? process.env.CLAUDE_SESSION_ID ?? newestSession();
@@ -216,6 +227,74 @@ function eventsOf(transcriptPath) {
 }
 
 /** Main-session usage in a window, plus every subagent transcript recorded. */
+/**
+ * Recount the corpus, for the record.
+ *
+ * The layout-diagnostics work is an investment, and the only honest way to find
+ * out afterwards whether it helped is to have written down what things looked
+ * like first, with a date on it.
+ */
+function runBaseline() {
+  const workspace = resolveWorkspace({ explicitRoot: args.root ?? null });
+  const banner = describeWorkspaceLine(workspace);
+  if (banner && !args.json) process.stdout.write(`${banner}\n`);
+
+  // The manual-construction rule in the lint is gated on the pinned pack, so the
+  // count depends on which pack is read. An unreadable one yields an empty set,
+  // which makes that rule silent rather than wrong.
+  let primitives = new Set();
+  try {
+    const packs = fs
+      .readdirSync(path.join(repoRoot, "skills", "versions"), { withFileTypes: true })
+      .filter((e) => e.isDirectory() && e.name.startsWith("graphcompose-"))
+      .map((e) => e.name)
+      .sort((a, b) => Number(a.slice(13)) - Number(b.slice(13)));
+    const surface = path.join(repoRoot, "skills", "versions", packs[packs.length - 1], "00-api-surface.md");
+    const source = fs.readFileSync(surface, "utf8");
+    primitives = new Set([...source.matchAll(/^- `[^`]*?\b(\w+)\s*\(/gm)].map((m) => m[1]));
+  } catch {
+    /* telemetry never fails the work it measures */
+  }
+
+  const { projects, totals } = workspaceBaseline(workspace.projectsDir, { primitives });
+
+  if (args.json) {
+    process.stdout.write(
+      `${JSON.stringify({ measuredAt: new Date().toISOString(), totals, projects }, null, 2)}\n`,
+    );
+    return;
+  }
+
+  if (!projects.length) {
+    process.stdout.write("[telemetry] no projects in this workspace to count\n");
+    return;
+  }
+
+  const pad = (value, width) => String(value ?? "-").padStart(width);
+  process.stdout.write(`\nCorpus baseline — ${projects.length} project(s)\n\n`);
+  process.stdout.write("  project                     revs  rend  fail  edits  churn  smells   neg\n");
+  for (const p of projects) {
+    process.stdout.write(
+      `  ${p.project.padEnd(26)}${pad(p.revisions, 5)}${pad(p.renders, 6)}` +
+        `${pad(p.failedRevisions, 6)}${pad(p.javaEdits, 7)}${pad(p.insetChurnPerRevision, 7)}` +
+        `${pad(p.structuralSmells.total, 8)}${pad(p.negativeInsets, 6)}\n`,
+    );
+  }
+  process.stdout.write(
+    `\n  totals: ${totals.revisions} revisions, ${totals.renders} renders, ` +
+      `${totals.failedRevisions} FAILED, ${totals.structuralSmells} structural smell(s), ` +
+      `${totals.negativeInsets} negative inset(s)\n`,
+  );
+  process.stdout.write(
+    `  iteration counts recorded on ${totals.iterationsRecorded} of ${totals.revisions} revisions\n`,
+  );
+  process.stdout.write(
+    "\n  Not measured here, and deliberately null rather than approximated:\n" +
+      "  renders per geometry correction, and whether the owner was right first time.\n" +
+      "  Both need the loop to record what a pass was trying to fix.\n\n",
+  );
+}
+
 function usageBetween(since, until) {
   if (!state.transcriptPath) return emptyUsage();
   let total = provider.foldEvents(eventsOf(state.transcriptPath), { since, until }).usage;

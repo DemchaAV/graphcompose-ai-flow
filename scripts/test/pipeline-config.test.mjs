@@ -196,6 +196,28 @@ test("the failure category vocabulary agrees across every file that spells it ou
   }
 });
 
+test("the mismatch-cause vocabulary agrees between the config and the review schema", () => {
+  // Same contract as the failure categories above, and the same reason: the
+  // validator compiles each schema standalone, so the enum cannot be $ref-ed
+  // across files and only a test keeps the copies honest.
+  const fromReview = readJson("schemas/visual-review.schema.json")
+    .properties.mismatches.items.properties.cause.enum;
+
+  assert.deepEqual(
+    [...fromReview].sort(),
+    [...config.mismatchCauses].sort(),
+    "schemas/visual-review.schema.json and config/pipeline.json disagree about the mismatch causes",
+  );
+  // UNKNOWN is not decoration. The classifier assigns only what two
+  // measurements can decide, so a vocabulary with no way to say "I could not
+  // tell" would force it to guess — which is the behaviour this whole track
+  // exists to remove.
+  assert.ok(config.mismatchCauses.includes("UNKNOWN"), "the vocabulary must be able to express an unresolved cause");
+  for (const cause of ["GEOMETRY", "TYPOGRAPHY", "PAINT", "ASSET", "CONTENT", "PAGINATION"]) {
+    assert.ok(config.mismatchCauses.includes(cause), `mismatchCauses is missing ${cause}`);
+  }
+});
+
 test("the failure stage vocabulary agrees between the schema and the tool", () => {
   const fromSchema = readJson("schemas/revision.schema.json").properties.failure.properties.stage.enum;
   const fromTool = fs.readFileSync(path.join(repoRoot, "tools/revision-manager/src/types.ts"), "utf8");
@@ -264,13 +286,37 @@ test("every scope is reachable from some workflow, and every link in a skill res
     const dir = path.dirname(file);
     const source = fs.readFileSync(file, "utf8");
     for (const [, target] of source.matchAll(/\]\((\.\.?\/[^)]+)\)/g)) {
-      assert.ok(
-        fs.existsSync(path.resolve(dir, target)),
-        `${workflow.skill} links to a missing file: ${target}`,
-      );
+      // The fragment is not part of the filename. Checking it as one reported a
+      // perfectly good anchor link as a missing file.
+      const [relPath, fragment] = target.split("#");
+      const resolved = path.resolve(dir, relPath);
+      assert.ok(fs.existsSync(resolved), `${workflow.skill} links to a missing file: ${relPath}`);
+
+      // And an anchor that no longer names a heading is the same broken link
+      // one edit later, so it is checked rather than skipped.
+      if (fragment) {
+        const headings = fs
+          .readFileSync(resolved, "utf8")
+          .split(/\r?\n/)
+          .filter((line) => line.startsWith("#"))
+          .map((line) => slugify(line.replace(/^#+\s*/, "")));
+        assert.ok(
+          headings.includes(fragment),
+          `${workflow.skill} links to #${fragment}, which ${relPath} has no heading for`,
+        );
+      }
     }
   }
 });
+
+/** GitHub's heading slug: lower-cased, punctuation dropped, spaces hyphenated. */
+function slugify(heading) {
+  return heading
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .trim()
+    .replace(/\s/g, "-");
+}
 
 test("the active pack has a loading map, and everything it names exists", () => {
   const manifest = readJson("skills/skill-manifest.json");
@@ -391,6 +437,9 @@ test("the loader rejects structurally broken configs", () => {
     ["non-positive limit", (c) => { c.limits.maxIterations = 0; }],
     ["lowercase failure category", (c) => { c.failureCategories.push("oops"); }],
     ["duplicate failure category", (c) => { c.failureCategories.push("BUILD_FAILED"); }],
+    ["lowercase mismatch cause", (c) => { c.mismatchCauses.push("geometry"); }],
+    ["duplicate mismatch cause", (c) => { c.mismatchCauses.push("GEOMETRY"); }],
+    ["missing mismatch causes", (c) => { delete c.mismatchCauses; }],
     ["gate without a comparison target", (c) => { c.gates["exact-diff"].comparedAgainst = "vibes"; }],
   ];
   for (const [name, mutate] of cases) {
