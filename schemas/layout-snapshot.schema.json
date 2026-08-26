@@ -115,7 +115,7 @@
         "contentWidth": {
           "type": "number",
           "minimum": 0,
-          "description": "Content box, which is placement less padding. The pair is what separates 'the box moved' from 'the box stayed and its padding changed' — the two readings a pixel diff cannot tell apart."
+          "description": "The engine's own content size. NOT placement less padding, despite the name: measured across all 248 nodes of a real 2.2.1 render, `contentWidth` equals `placementWidth` and `contentHeight` equals `placementHeight` on every one, padding notwithstanding — `Sidebar` is 190.31 wide with 17 of padding a side and reports 190.31. The box a node's children actually sit in has to be computed by insetting placement by padding, which is what `scripts/lib/layout-inspector.mjs` does; reading this field for it is wrong by exactly the padding, silently, on every node that has any. This description previously claimed the opposite and was corrected by measurement in Phase 14."
         },
         "contentHeight": { "type": "number", "minimum": 0 },
         "startPage": {

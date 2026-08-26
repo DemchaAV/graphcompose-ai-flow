@@ -211,6 +211,15 @@
     "maxSameMismatchAttempts": 3,
     "maxIterationGrants": 3
   },
+  "mismatchCauses": [
+    "GEOMETRY",
+    "TYPOGRAPHY",
+    "PAINT",
+    "ASSET",
+    "CONTENT",
+    "PAGINATION",
+    "UNKNOWN"
+  ],
   "failureCategories": [
     "BUILD_FAILED",
     "RENDER_FAILED",

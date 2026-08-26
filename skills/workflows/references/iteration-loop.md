@@ -113,6 +113,83 @@ is read from the file instead of looked at, and the rule is in
 downgraded: an already-revising pass keeps the focus its reviewer chose,
 and `BLOCKED` stays blocked.
 
+## Targeted Evidence First
+
+When a mismatch is geometric — something is in the wrong place, or the
+wrong size — do not reason from the image about which of four nested
+paddings moved. The render was measured. `layout-snapshot.json` in the
+revision folder is GraphCompose's own post-layout record of where every
+node ended up, and three commands query it:
+
+```bash
+node scripts/layout.mjs inspect <node>  --project <id> --revision <id>
+node scripts/layout.mjs explain <node> <x|y|width|height|contentX|contentY> …
+node scripts/layout.mjs diff <revA> <revB> --project <id> [--region <node>]
+```
+
+Six steps, in order:
+
+1. **Name the node the user named.** "The Languages block" is
+   `inspect Languages` — the tool resolves the name, so you never need
+   the full node path. An ambiguous name lists its candidates.
+2. **Read where it actually is** — `inspect` gives the placement box,
+   the computed content box, margin, padding and page.
+3. **Ask why that coordinate is what it is** — `explain <node> x` returns
+   the additive chain, naming every node that contributes:
+
+   ```text
+   HeadingText_CONTACT.x = 26
+     canvas.margin.left               0
+   + Sidebar.padding.left            17
+   + Heading_CONTACT.padding.left     9
+   = 26   (flowStart, exact)
+   ```
+
+4. **Fix the owner, not the symptom.** The chain names who contributes
+   what. Changing the node that *shows* the offset when a grandparent's
+   padding produced it is how a template accumulates the compensating
+   constants [the authoring rules](authoring-rules.md) forbid.
+5. **Believe `not derivable`.** A paragraph is as wide as its text and a
+   weighted row column's x comes from weights, and neither the metrics
+   nor the weights are in the snapshot. When `explain` says it cannot
+   derive a value, that is the answer — it is not an invitation to
+   estimate one. An inexact chain reports the leftover as
+   `unattributed`, and that number is the finding: it is the amount no
+   node has claimed.
+6. **Confirm the change landed where you meant, and only there.**
+
+   ```bash
+   node scripts/layout.mjs diff <parent-revision> <this-revision> --project <id>
+   ```
+
+   It separates what a person edited — margins, padding, tree position — from
+   what the engine then computed, so the answer is not "47 nodes changed" but
+   "one padding was edited, three children followed it, and one node moved that
+   no edit explains". That last group is **collateral**, and it is the one to
+   read: a parent growing because its widest child did is the engine working
+   correctly, but nothing in your edit said it would happen.
+
+   `--region <node>` scopes it to one subtree. `render-and-diff` runs it for you
+   against the parent revision and reports it as a step; it is evidence and does
+   not change the verdict.
+
+   Declaring `expectedAffectedNodes` in `revision.json` **before** the render
+   turns it into a claim the diff can check — anything that moved outside those
+   subtrees is reported. Written afterwards to match the diff it proves nothing,
+   which is why it is worth writing first.
+
+**Never read `layout-snapshot.json` into context.** It is 227 KB for a
+one-page CV — 248 nodes, of which one is the answer. Loading it spends
+the budget the loop needs and buries the row that matters. That is the
+whole reason these commands exist; use them even when the file looks
+small enough to skim.
+
+This is not `scripts/probe.mjs`. A probe answers "how does GraphCompose
+behave?" by running the library. The inspector answers "how did *this*
+template lay out?" by reading what the renderer measured. Reach for the
+probe when you do not know what a primitive does, and for the inspector
+when you do not know where a node went.
+
 ## Bounds
 
 From `limits` in [`config/pipeline.json`](../../../config/pipeline.json),

@@ -1,0 +1,37 @@
+// Source of the `layout diff` fixture pair. Not compiled by anything in the
+// repository — it exists so the two committed snapshots can be regenerated.
+// See scripts/test/fixtures/layout-diff-pair/README.md.
+package com.demcha.compose.document.fixtures.layoutdiff;
+
+import com.demcha.compose.document.api.DocumentSession;
+import com.demcha.compose.document.dsl.SectionBuilder;
+
+public final class LayoutDiffFixtureDocument {
+
+    /** The single property the pair differs by. BEFORE = 0, AFTER = 12. */
+    private static final float PANEL_PADDING_LEFT = 0f;   // BEFORE; the AFTER snapshot was rendered with 12f
+
+    public void compose(DocumentSession document) {
+        document.pageFlow(page -> page
+                .name("LayoutDiffFixture")
+                .spacing(8)
+                .addSection("Panel", LayoutDiffFixtureDocument::renderPanel)
+                .addSection("Untouched", LayoutDiffFixtureDocument::renderUntouched));
+    }
+
+    /** The section whose padding moves. Three children, so the diff has descendants to name. */
+    private static void renderPanel(SectionBuilder section) {
+        section.spacing(4)
+                .padding(0, 0, 0, PANEL_PADDING_LEFT)
+                .addParagraph("Invoice number")
+                .addParagraph("Issue date")
+                .addParagraph("Amount due");
+    }
+
+    /** The sibling that must not move. A padding.left change above cannot reach it. */
+    private static void renderUntouched(SectionBuilder section) {
+        section.spacing(4)
+                .addParagraph("Terms")
+                .addParagraph("Net 30");
+    }
+}

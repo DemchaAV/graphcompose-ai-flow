@@ -169,8 +169,22 @@ and the evidence packages. `baseline` reports them as `null` rather than
 approximating them, because a number that is nearly the thing you wanted
 gets quoted later as if it were the thing.
 
-`collateralNodesPerRevision` is null for the same reason: it needs a real
-layout snapshot to diff.
+`collateralNodesPerRevision` is **computed** as of the layout diff: for every
+pair of consecutive revisions where both sides carry an engine-written snapshot,
+it counts the nodes that moved with no edit in that revision to explain them,
+and averages. `collateralComparablePairs` is reported beside it, because an
+average over one pair and an average over eight are not the same claim.
+
+It still reads null across the whole corpus today, and for a reason worth
+stating rather than hiding: **no project yet has two consecutive revisions that
+both carry a real snapshot.** Only the newest revision of one project was
+rendered after the snapshot writer landed, and the five older files that look
+like snapshots are the illustrative ones — they parse as JSON, carry no `nodes`,
+and are refused rather than counted. A refused pair contributes nothing instead
+of a zero; a zero here would read as "nothing moved unexpectedly", which is the
+opposite of "we could not look".
+
+The number fills itself in on the next project that renders twice.
 
 ### One metric to stop expecting anything from
 

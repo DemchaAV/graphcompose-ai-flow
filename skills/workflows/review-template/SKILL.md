@@ -163,17 +163,78 @@ the rule moves. See
 [`table-borders-are-per-cell`](../../../observations/graphcompose-2.2/table-borders-are-per-cell.json)
 for what unstroking actually removes, which is more than the one edge.
 
+**1c. Ask what *kind* of thing is wrong, before deciding how bad it
+is.** A block in the wrong place and a block in the wrong colour look
+equally different in a diff, and the fixes have nothing in common — one
+is a layout property on a named owner, the other is a file or a font.
+Guessing between them from an image is how a pass spends itself nudging
+margins until a *wrong icon* lines up.
+
+```bash
+node scripts/evidence.mjs --project <id> --revision <revision-id> --region <region-id>
+```
+
+It joins the three files that already hold the answer — the region
+bounds read off the reference, the measured per-region pixel difference,
+and the engine's own record of where every node ended up — and returns
+about 4 KB: the owning node, how far it sits from where the reference
+puts the region, its hierarchy, its children, and **the properties that
+actually produced its position**.
+
+`--mismatch <id>` builds it for a mismatch you already wrote; `--all`
+does every mismatch in `visual-review.json` at once.
+
+Read three things from it, in order:
+
+1. **`cause`.** `GEOMETRY` means the box is genuinely misplaced — fix a
+   layout property. `ASSET` means the box is right and the file is
+   wrong, and the package says so with a prohibition attached: **do not
+   compensate an asset with margins.** `PAGINATION` means stop; nothing
+   else in the package means anything until the page count matches.
+2. **`UNKNOWN` is a real answer, not a failure.** It means the box is
+   where the reference puts it, so this is *not* geometry — which is
+   already most of the decision. The candidates it lists
+   (`TYPOGRAPHY`, `PAINT`, `CONTENT`) are the ones nothing deterministic
+   can yet separate, so that separation is yours to make and to justify.
+3. **`recommendedProperties`.** These are the terms that produced the
+   node's position, taken from the layout chain — not suggestions. If
+   the x came from `MainColumn.padding.left`, the edit belongs on
+   `MainColumn`. Adding a margin to the node that shows the symptom is
+   the compensating constant
+   [the authoring rules](../references/authoring-rules.md) forbid.
+
+**Never read `layout-snapshot.json` yourself.** It is 227 KB for a
+one-page CV, of which one node is the answer; the package is the same
+answer at a fiftieth of the size. `scripts/layout.mjs inspect` and
+`explain` are there when you need a node the package did not name.
+
+
 **2. Look.** Read the reference and the output as images, region by
 region, in the priority order from
 [the iteration loop](../references/iteration-loop.md): geometry, then
 surfaces, then anchors and spacing, then typography, then small marks,
 then colour. Compare like with like — same page, same region.
 
-**3. Classify.** Every difference gets one of the closed set:
-`CRITICAL`, `MAJOR`, `MINOR`, `ACCEPTED_LIMITATION`,
-`INTENTIONAL_DIFFERENCE`. Do not invent classifications.
-`ACCEPTED_LIMITATION` is never assigned automatically — it requires a
-human note saying it was accepted.
+**3. Classify, twice.** Every difference gets a **severity** from
+the closed set — `CRITICAL`, `MAJOR`, `MINOR`,
+`ACCEPTED_LIMITATION`, `INTENTIONAL_DIFFERENCE`. Do not invent
+classifications. `ACCEPTED_LIMITATION` is never assigned
+automatically — it requires a human note saying it was accepted.
+
+Record a **`cause`** beside it, from the second closed set:
+`GEOMETRY`, `TYPOGRAPHY`, `PAINT`, `ASSET`, `CONTENT`,
+`PAGINATION`, `UNKNOWN`. Severity is how bad, cause is what kind, and
+neither substitutes for the other — both are also separate from
+`rootCause`, which only groups symptoms of one origin. Take the cause
+from step 1c's package where it assigned one; where it returned
+`UNKNOWN` with candidates, either pick one and say why in `reason`, or
+record `UNKNOWN` honestly. A confident wrong cause is worse than an
+unresolved one: it sends the next pass to edit the wrong kind of thing.
+The vocabulary is declared once in
+[`config/pipeline.json`](../../../config/pipeline.json) as
+`mismatchCauses`, and `docs/visual-accuracy-contract.md` explains each
+value under "Cause classification" — that document is repository
+reading, not runtime, so it is named rather than linked.
 
 **4. Write `visual-review.json`** against
 [the schema](../../../schemas/visual-review.schema.json). JSON only —

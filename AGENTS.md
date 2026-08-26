@@ -95,7 +95,7 @@ PowerShell, cmd and bash.
 | One loop pass: render + diff + verdict | `node scripts/render-and-diff.mjs --project <id> --revision <id>` — exit 0 ready, 2 revise, 3 blocked |
 | Render only | `node scripts/render.mjs <project-id> <revision-id> [--root <workspace>]` |
 | Generate an artifact's reading copy | `node scripts/render-artifact-md.mjs --revision <revision-dir>` |
-| Ask how the library behaves | `node scripts/probe.mjs --list` · `node scripts/probe.mjs <name>` |
+| Ask how the library behaves | `node scripts/probe.mjs --list` · `node scripts/probe.mjs <name>` — how *GraphCompose* behaves, by running it. For how *this template* laid out, use `layout.mjs` below |
 | What previous runs learned about a call | `node scripts/observations.mjs find <symbol>` — exit 0 with the workaround, 3 if nothing is on record |
 | What previous runs learned | `node scripts/observations.mjs list` · `verify` |
 | Crop both images to one region | `node tools/visual-diff/bin/crop-region.mjs --revision <dir> --region <id>` |
@@ -104,7 +104,11 @@ PowerShell, cmd and bash.
 | Are the links in the data live in the render? | `node scripts/check-links.mjs --project <id> --revision <id>` — exit 0 clean, 1 a declared href is missing (also runs inside the two composites) |
 | Is a multi-page document whole? | `node scripts/check-document-integrity.mjs --project <id> --revision <id>` — page count, "Page N of M", content preservation (runs inside render-and-diff) |
 | Do the render and the reference draw the same rules? | `node scripts/check-border-topology.mjs --project <id> --revision <id> --region <id>` — a missing internal divider may be the design; this says which side is missing it |
-| Where did every node actually end up? | `<revision>/layout-snapshot.json` — GraphCompose's own post-layout measurement, written by the renderer. Needs GraphCompose 1.6.0+; the render log says so when a project pins older |
+| Where did this node end up? | `node scripts/layout.mjs inspect <node> --project <id> --revision <id>` — placement box, computed content box, insets and page, for the node you name (`Languages`, not its full path) |
+| **Why** is it there? | `node scripts/layout.mjs explain <node> <coordinate>` (x, y, width, height, contentX, contentY) — the additive chain, naming every node that contributes. Says `not derivable` when the snapshot cannot answer, rather than estimating |
+| **What kind of thing is wrong?** | `node scripts/evidence.mjs --project <id> --revision <id> --region <id>` (`--mismatch <id>`, `--all`) — joins the reference regions, the measured pixel difference and the layout snapshot into ~4 KB: the owning node, its displacement, and the properties that produced its position. Assigns only what two measurements settle; `UNKNOWN` with candidates otherwise |
+| Did the patch move only what it meant to? | `node scripts/layout.mjs diff <revA> <revB> --project <id>` (`--region <node>` to scope) — separates what a person edited from what the engine then computed, and names anything that moved with no edit to explain it. Evidence, exit 0 either way (runs inside `render-and-diff`) |
+| Where did every node actually end up? | `<revision>/layout-snapshot.json` — GraphCompose's own post-layout measurement, written by the renderer. Needs GraphCompose 1.6.0+; the render log says so when a project pins older. **Query it with `layout.mjs`; never read it into context** — 227 KB for a one-page CV |
 | Is the geometry on the right node? | `node scripts/check-structural-smells.mjs --project <id> --revision <id>` — siblings repeating an inset that belongs on their parent, negative-margin clusters, a hand-built timeline. Evidence, exit 0 either way (runs inside `render-and-diff`) |
 | Import the reference (png/jpg/webp/pdf) | `node scripts/import-reference.mjs --project <id> --file <path>` — also measures the page: exit 0 a standard matched, **5 the page size is a question to put to the user before designing** |
 | Is the page size settled? | `node scripts/page-size.mjs --project <id>` — exit 0 settled, 5 unanswered; `--use <A4\|LETTER\|LEGAL\|WxH> --decision "..."` records the user's answer once, for every later revision |

@@ -33,7 +33,50 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { checkStructuralSmells, insetCalls } from "../lib/structural-smells.mjs";
+import { diffSnapshots } from "../lib/layout-diff.mjs";
+import { loadSnapshot } from "../lib/layout-inspector.mjs";
 import { projectCounters } from "./core.mjs";
+
+/**
+ * Nodes that moved with no edit in the same revision to explain them, averaged
+ * over the revision pairs that can actually be compared.
+ *
+ * Only pairs where BOTH sides have an engine-written snapshot count. A revision
+ * that predates the writer, or whose project pins a GraphCompose without it,
+ * contributes nothing rather than a zero — a zero here would read as "nothing
+ * moved unexpectedly", which is the opposite of "we could not look".
+ *
+ * Null when no pair could be compared, for the same reason the two headline
+ * metrics are null: a number that is nearly the thing you wanted gets quoted
+ * later as if it were the thing.
+ */
+function collateralPerRevision(projectDir, ids) {
+  const snapshotOf = (id) => {
+    const file = path.join(projectDir, "revisions", id, "layout-snapshot.json");
+    if (!fs.existsSync(file)) return null;
+    try {
+      return loadSnapshot(JSON.parse(fs.readFileSync(file, "utf8")));
+    } catch {
+      // An illustrative snapshot predating the writer parses as JSON and has no
+      // nodes. loadSnapshot refuses it, and refusing is the right answer.
+      return null;
+    }
+  };
+
+  const counts = [];
+  for (let i = 1; i < ids.length; i += 1) {
+    const before = snapshotOf(ids[i - 1]);
+    const after = before && snapshotOf(ids[i]);
+    if (!before || !after) continue;
+    try {
+      counts.push(diffSnapshots(before, after).collateral.length);
+    } catch {
+      // Telemetry never fails the work it measures.
+    }
+  }
+  if (counts.length === 0) return { value: null, pairs: 0 };
+  return { value: round(counts.reduce((a, b) => a + b, 0) / counts.length), pairs: counts.length };
+}
 
 /** The generated template in a revision, or null. */
 function templateOf(revisionDir) {
@@ -147,6 +190,8 @@ export function projectBaseline(projectDir, { primitives = new Set() } = {}) {
   const byKind = {};
   for (const f of findings) byKind[f.kind] = (byKind[f.kind] ?? 0) + 1;
 
+  const collateral = collateralPerRevision(projectDir, ids);
+
   const negativeInsets =
     latest === null ? 0 : insetCalls(latest).filter(({ args }) => /-\s*\d/.test(args)).length;
 
@@ -170,7 +215,12 @@ export function projectBaseline(projectDir, { primitives = new Set() } = {}) {
     // wanted gets quoted later as if it were the thing.
     rendersPerGeometryCorrection: null,
     ownerCorrectOnFirstAttempt: null,
-    collateralNodesPerRevision: null,
+
+    // No longer null wherever two consecutive revisions both carry a snapshot.
+    // `comparablePairs` is reported beside it because an average over one pair
+    // and an average over eight are not the same claim.
+    collateralNodesPerRevision: collateral.value,
+    collateralComparablePairs: collateral.pairs,
   };
 }
 

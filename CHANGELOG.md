@@ -7,6 +7,146 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+**A review pass no longer has to guess what kind of defect it is looking at.** A
+block in the wrong place and a block in the wrong colour look equally different
+in a diff, and the fixes have nothing in common — one is a layout property on a
+named owner, the other is a file or a font. Guessing between them from an image
+is how a pass spends itself nudging margins until a *wrong icon* lines up.
+
+- **`cause` is a new field on a mismatch** in `schemas/visual-review.schema.json`:
+  `GEOMETRY | TYPOGRAPHY | PAINT | ASSET | CONTENT | PAGINATION | UNKNOWN`. It is
+  orthogonal to `severity` (how bad) and to `rootCause` (which mismatches share
+  an origin); all three can be set at once and none substitutes for another. The
+  enum is mirrored into `config/pipeline.json` as `mismatchCauses` and
+  `scripts/test/pipeline-config.test.mjs` asserts the copies agree, the same
+  contract `failureCategories` already has.
+- **`node scripts/evidence.mjs`** joins the three files that already held the
+  answer and were never read together: the region bounds taken off the
+  reference, the measured per-region pixel difference, and the engine's record
+  of where every node ended up. It returns about **4 KB** — the owning node, how
+  far it sits from where the reference puts the region, its hierarchy, its
+  children, and the properties that actually produced its position. Against a
+  227 KB snapshot; the boundedness is the feature and a test pins it.
+- **The recommended properties are not suggestions.** They come from the
+  inspector's additive chain, so they name the node that *owns* the offset. On
+  the reference CV, `Masthead`'s position resolves to `MainColumn.padding.left`
+  and `MainColumn.padding.top` — editing `Masthead` would have been the
+  compensating constant the authoring rules forbid.
+- **It assigns four of the seven causes and declines the rest.** `PAGINATION`
+  (page counts differ, checked first because it invalidates everything after
+  it), `GEOMETRY` (the owner is past tolerance from the reference region),
+  `ASSET` (box right, role carries a file, interior heavily different — with the
+  "do not compensate an asset with margins" prohibition attached to the verdict),
+  and `UNKNOWN`. `TYPOGRAPHY`, `PAINT` and `CONTENT` are **never** assigned:
+  separating them needs a typography snapshot that does not exist, so they come
+  back as candidates. A test asserts they cannot be produced.
+- **Owner selection is by overlap, not containment.** A containment test named
+  the entire 797pt `Sidebar` column as the owner of the skills block, because
+  the reference's bounds — read off an image by eye — started 0.63pt to its
+  left. The displacement then read 338pt and meant nothing. Intersection over
+  union picks the section; below a floor it names no owner at all, since every
+  number downstream is computed against it.
+- `docs/visual-accuracy-contract.md` gains a "Cause classification" section
+  beside the severity table, including the `JSON → geometry, PNG → appearance`
+  split. `skills/workflows/review-template/SKILL.md` gains step 1c and now
+  records a cause alongside a severity — and is told not to read the snapshot.
+
+**The layout inspector can now prove a patch moved only what it meant to.**
+Every other check in the loop looks at the region under review, so a section
+three pages away could shift and nothing would notice until a human opened the
+PDF.
+`node scripts/layout.mjs diff <revA> <revB>` compares two renders the engine
+measured and answers the question a pixel comparison cannot.
+
+- **Authored versus derived.** Nobody types an x coordinate into a template —
+  they type `padding(0, 0, 0, 12)` and the engine works out that three
+  paragraphs now start at 12. So inset and structure changes are treated as
+  causes, placement changes as consequences, and "5 nodes changed" becomes
+  "one padding was edited, three children followed it, and one node moved that
+  no edit explains".
+- **Collateral is the third group**, and the one worth reading: a derived change
+  with no edited ancestor. In the committed fixture pair, adding 12 of left
+  padding to one section makes the document root grow by 12, because its widest
+  child got wider. Nothing is wrong — and nothing in the edit said it would
+  happen. It is reported rather than failed on.
+- **Ownership evidence.** Two or more siblings each gaining the same inset in
+  one revision is reported as `shared-sibling-displacement` with a recommended
+  owner and a property candidate — `padding.left` on the parent, or `spacing`
+  when it is a trailing gap. Two, not three: the census behind
+  `check-structural-smells.mjs` found nothing in the corpus repeating an inset
+  three times, so a rule firing at three would never fire. Evidence only; the
+  model decides and edits.
+- **`expectedAffectedNodes`** is new and optional in `schemas/revision.schema.json`:
+  the nodes a revision *intends* to move, named the way a person says them.
+  Anything that moved outside those subtrees is reported. Declaring nothing
+  disables the check rather than asserting stillness — a revision that forgot to
+  fill it in must not read as one that promised nothing would move. A name that
+  matches no node is reported rather than ignored, since the usual cause is a
+  typo and silently treating it as "nothing expected" would switch the check off
+  exactly when somebody tried to use it.
+- `render-and-diff` runs the diff against the parent revision and reports it as
+  a step. **It does not touch the verdict.** Promoting it to a gate belongs in
+  `config/pipeline.json` and only after it has been quiet on real runs; a check
+  that blocked the loop on its first day would be switched off on its second.
+- `collateralNodesPerRevision` in the telemetry baseline is computed rather than
+  null — averaged over consecutive revisions where both sides carry a real
+  snapshot, with `collateralComparablePairs` beside it. It still reports null
+  across today's corpus, because no project yet has two consecutive revisions
+  that both carry one; `docs/benchmarks.md` says so rather than implying the
+  number is a measurement.
+- `scripts/test/fixtures/layout-diff-pair/` is two real renders of the same
+  eight-node document differing by exactly one property, with the source kept
+  beside them as the recipe. It includes a sibling subtree that must not move —
+  "only the intended thing changed" is not provable without something that was
+  supposed to stay put.
+
+**Geometry is measured now, not guessed at.** The renderer writes GraphCompose's
+own post-layout snapshot into the revision folder, and until now the only way to
+use it was to read it — 227 KB and 248 nodes for a one-page CV, of which one is
+ever the answer. So "the Languages block is too far right" still ended in an
+agent staring at a PNG and reasoning backwards about which of four nested
+paddings had moved. `scripts/layout.mjs` replaces that with arithmetic.
+
+- `layout inspect <node>` returns one node's placement box, computed content
+  box, insets, page range, parent and children. The node is named the way a
+  user names it — `Languages`, not
+  `CharcoalGoldCv[0]/Body[0]/Sidebar[0]/Languages[5]` — and an ambiguous name
+  lists its candidates rather than answering about the wrong one.
+- `layout explain <node> <x|y|width|height|contentX|contentY>` returns the
+  additive chain, naming every node that contributes to the number:
+  `HeadingText_CONTACT.x = 26` is `canvas.margin.left 0 + Sidebar.padding.left
+  17 + Heading_CONTACT.padding.left 9`. Two owners, neither of them the node
+  that shows the offset — which is the difference between fixing a layout and
+  adding a compensating constant to it.
+- **It can decline.** 109 of 247 nodes in the reference document have a width no
+  arithmetic over the snapshot recovers — a paragraph is as wide as its text and
+  the metrics are not in the file — and 16 have an x set by weights the snapshot
+  does not record. Those report `not derivable` and say what it would take. A
+  chain that is close but not exact reports the leftover as `unattributed`
+  rather than absorbing it: that number is parent spacing or an unrecorded
+  offset, which is to say it is the finding.
+- The content box is **computed** from placement and padding. The snapshot's
+  `contentWidth` field is equal to `placementWidth` on all 248 nodes despite the
+  schema describing it otherwise, so reading it would have been wrong by exactly
+  the padding, silently, on every node that has any. A test corrupts the field
+  and asserts nothing changes.
+- `y` is bottom-up. Every vertical rule works in top edges and converts at the
+  end, and both the CLI and `inspect` say so, because a reader who assumes
+  otherwise inverts every vertical fix they make.
+- Four rules for `x`, three for `y`, two each for `width` and `height` — each
+  one measured against all 247 non-root nodes before it was written, and the
+  per-rule counts pinned by a test. A change that quietly stops explaining forty
+  nodes turns that test red instead of degrading back into guessing.
+- "Targeted Evidence First" in
+  `skills/workflows/references/iteration-loop.md` makes it the required route
+  for a geometric mismatch, and prohibits reading the snapshot into context.
+  `AGENTS.md` separates it from `scripts/probe.mjs`: the probe answers how
+  GraphCompose behaves, the inspector answers how this template laid out.
+- `scripts/test/fixtures/charcoal-gold-cv/layout-snapshot.json` is a byte copy
+  of a real render's snapshot, and every number in the tests comes from it.
+  `validate-schemas.mjs` picks it up by filename, so it is proved schema-valid
+  on every `npm run verify`.
+
 **A published bundle now states its own consumer contract.** Everything after
 APPROVE was supposed to be deterministic tooling — read the manifest, substitute
 a few names, copy the files, build. But `template.json` only said `className`,

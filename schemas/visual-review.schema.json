@@ -228,6 +228,11 @@
             "default": "measured",
             "description": "Where this came from. `human` means the user named it; such a mismatch is never dropped for being small, because size is not why it matters."
           },
+          "cause": {
+            "type": "string",
+            "enum": ["GEOMETRY", "TYPOGRAPHY", "PAINT", "ASSET", "CONTENT", "PAGINATION", "UNKNOWN"],
+            "description": "What KIND of thing is wrong, which is a different question from `severity` (how bad) and from `rootCause` (which other mismatches share this one's origin). All three can be set at once and none substitutes for another. It exists because the fix differs entirely by kind: GEOMETRY is a layout property on a named owner, ASSET is the wrong file and must never be compensated with margins, PAGINATION invalidates every per-node comparison until it is resolved. UNKNOWN is a real answer and the default — `scripts/evidence.mjs` assigns only what two measurements can decide, and separating TYPOGRAPHY from PAINT from CONTENT needs the typography snapshot that does not exist yet. The enum is duplicated into config/pipeline.json rather than $ref-ed, because the validator compiles each schema standalone; scripts/test/pipeline-config.test.mjs asserts the copies agree."
+          },
           "rootCause": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9-]*$",
