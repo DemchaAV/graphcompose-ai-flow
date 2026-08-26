@@ -120,14 +120,41 @@ enforced by the command above:
 
 | Limit | Default | Meaning |
 |---|---|---|
-| `maxIterations` | 8 | total passes in one loop |
+| `maxIterations` | 8 | the **agent's own** passes in one loop |
 | `maxConsecutiveBuildFailures` | 3 | compile/render failures in a row |
-| `maxSameMismatchAttempts` | 3 | attempts at the *same* mismatch id |
+| `maxSameMismatchAttempts` | 3 | attempts at the *same* cause |
+| `maxIterationGrants` | 3 | extensions past the ceiling for a converging loop |
 
 When a bound is hit, stop and report `BLOCKED` with a
 `failureCategory`. Do not raise the limit to keep going — the limit
 existing at all is the admission that a loop which is not converging
 will not converge with more turns.
+
+Two things `maxIterations` does **not** charge for:
+
+- **A pass the user asked for.** A review carrying a
+  `humanReportedMismatch` id that has not appeared before in this loop
+  is a pass that exists because a person named something, not because
+  the agent decided to go round again. One report buys one free pass;
+  further passes at the same report are the agent's own, so an
+  unaddressed report cannot become unlimited licence. Charging these is
+  how a real run reported `9/8` for a correction requested one message
+  earlier.
+- **A pass that is closing mismatches.** At the ceiling, a loop whose
+  latest pass strictly reduced the number of `CRITICAL`/`MAJOR`
+  mismatches gets one more pass, up to `maxIterationGrants`, and has to
+  earn each one again. Circling is caught by `maxSameMismatchAttempts`,
+  which fires on the third attempt at one cause however many passes have
+  run; a flat ceiling on top of that also stops work that is visibly
+  converging. A real run reached 8/8 holding two `MINOR` fixes whose
+  recipes it had already written down, and wrote them into the bundle's
+  README instead of into the document.
+
+Progress is counted on the severity ledger, never on the page pixel
+count. Capping a timeline rail with its marker — a real structural fix —
+moved a page total from 211583 px to 211674, *up*, because it repainted
+a few glyph edges. A convergence test built on that number calls the fix
+a regression.
 
 **Mismatch ids must be stable.** If the same problem survives a fix,
 reuse its id verbatim; that repetition is exactly what

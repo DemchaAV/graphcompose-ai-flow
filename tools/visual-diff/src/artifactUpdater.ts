@@ -19,6 +19,7 @@ import { dirname, join, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
 
 import type { Classification } from './classify.js';
+import type { AspectMismatch } from './aspect.js';
 
 export interface VisualDiffStats {
   reference: string;
@@ -33,6 +34,20 @@ export interface VisualDiffStats {
   classification: Classification;
   threshold: number;
   includeAA: boolean;
+  /**
+   * Present only when the reference was scaled to a different SHAPE, not just a
+   * different size.
+   *
+   * `--scale-reference` resamples the reference to the render's exact width and
+   * height, which is right when the two differ only in dpi and wrong when they
+   * differ in proportion: a reference that is 5% shorter than the render gets
+   * stretched to match right before the pixels are compared, and the diff then
+   * reports parity on a page whose every vertical position is off. Three
+   * projects shipped that way. The stats carry the fact so that no reader of
+   * this file — human or otherwise — can conclude "the pixels matched" without
+   * also being told what was done to make them.
+   */
+  aspectMismatch?: AspectMismatch;
 }
 
 export interface UpdateRevisionOptions {
@@ -87,14 +102,35 @@ export async function updateRevision(
   return { diffPath, statsPath, classificationPath };
 }
 
-function renderClassificationMarkdown(stats: VisualDiffStats): string {
+export function renderClassificationMarkdown(stats: VisualDiffStats): string {
   // Headings match the suggested format in
   // docs/visual-review-loop.md so a human can paste this snippet
   // straight into visual-review.md.
   const percentText = stats.percent.toFixed(4);
+  // Above everything, and before the number it invalidates. This file is what
+  // the review skill tells a reader to paste into visual-review.md, so it is
+  // the one human-facing rendering of these figures — and until now it printed
+  // "0.3% — MINOR" with no hint that the reference had been stretched to
+  // produce it. The stats field's own contract is that no reader can conclude
+  // "the pixels matched" without being told what was done to make them; this
+  // is the reader that could.
+  const distortion: string[] = stats.aspectMismatch
+    ? [
+        '> **The reference was distorted before these numbers were measured.**',
+        `> Reference aspect \`${stats.aspectMismatch.referenceAspect}\`, render ` +
+          `\`${stats.aspectMismatch.outputAspect}\` — ` +
+          `\`${stats.aspectMismatch.deviationPercent}%\` apart. ` +
+          '`--scale-reference` stretched one onto the other, so every figure below ' +
+          'UNDERSTATES the real difference and none of them can be classified until ' +
+          'the page size is settled. This is a wrong page size, not a wrong layout: ' +
+          'settle it with `scripts/import-reference.mjs` and re-render.',
+        '',
+      ]
+    : [];
   const lines: string[] = [
     '# Visual Review',
     '',
+    ...distortion,
     '## Summary',
     '',
     `Auto-generated pixel-diff classification. See \`visual-diff-stats.json\` for raw counts and \`${DIFF_FILE}\` for the highlight image.`,
@@ -113,7 +149,12 @@ function renderClassificationMarkdown(stats: VisualDiffStats): string {
     '',
     '## Notes',
     '',
-    'The labels `ACCEPTED_LIMITATION` and `INTENTIONAL_DIFFERENCE` are never auto-applied here; they require a human note. See [docs/visual-accuracy-contract.md](../../docs/visual-accuracy-contract.md) for the canonical label definitions.',
+    // Named, not linked. This file is written into a revision folder whose
+    // depth below the harness varies — and in an installed harness the
+    // workspace is not under the harness at all, so no relative path can
+    // reach the document. The link that used to be here resolved from
+    // nowhere: every revision on disk carried it broken.
+    'The labels `ACCEPTED_LIMITATION` and `INTENTIONAL_DIFFERENCE` are never auto-applied here; they require a human note. The canonical label definitions are in the harness at `docs/visual-accuracy-contract.md`.',
     '',
   ];
   return lines.join('\n');

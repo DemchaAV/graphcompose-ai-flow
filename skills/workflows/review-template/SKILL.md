@@ -76,13 +76,59 @@ what the `exact-diff` and `region-diff` gates compare — and never
 resamples: parent and child come from the same renderer, so a size
 difference there is a real change, not a resolution mismatch.
 
+**If the report carries `aspectMismatchPages`, read that before any
+percentage.** It means the reference and the render are not the same
+shape, and `--scale-reference` stretched one onto the other before the
+pixels were compared — so the mismatch you are looking at was measured
+on a distorted reference and is *smaller* than the real difference. That
+is a wrong page size, not a wrong layout, and no amount of nudging
+regions will close it. Classify it CRITICAL regardless of the
+percentage, settle the page size with `scripts/import-reference.mjs`
+(exit 5 means it is a question for the user), and re-render. The rule is
+in the accuracy contract under "The page size is measured".
+
+**1a. Read the region table before you explain the page number.**
+`render-and-diff` runs `region-diff` on every pass and writes
+`region-diff-stats.json`; the report carries the ranking under
+`regions.ranked`. Each region gets its own mismatch count, and next to
+it the number that matters:
+
+```
+concentration = this region's share of the page's difference
+                ÷ its share of the page's area
+```
+
+Even wear sits near `1.00x`. Anti-aliasing against a softly-rendered
+reference produces exactly that — every text region near 1.00, a large
+percentage, nothing to fix. A region well above it carries damage out
+of proportion to its size, and *that* is where a structural defect is,
+whatever the page total says.
+
+This exists because a whole-page percentage cannot be checked, only
+explained. A real run explained 9.734% as type rendering — correct in
+outline — while a timeline rail ran straight through the marker meant
+to cap it. Regions disagree with each other; a page total cannot.
+
+Run it directly to interrogate one page:
+
+```bash
+node tools/visual-diff/bin/region-diff.mjs --reference <rev>/reference-scaled.png --output <rev>/output.png --regions-file <rev>/visual-analysis.json
+```
+
+Under `region-diff` the same tool **is** the gate: pass
+`--changed <region-ids>` and it exits 2 when any region outside that
+list carries mismatched pixels. Name the regions the scope was allowed
+to touch, not the ones that happen to have moved.
+
 The underlying `visual-diff` CLI remains available for a bare two-image
-comparison. For a region-aware gate, mask first with
-`node tools/visual-diff/bin/mask-regions.mjs --input … --regions-file …
---mode keep-only`, then diff the masked pair.
+comparison, and `mask-regions --mode keep-only` still masks a pair by
+hand when a rect does not correspond to a named region.
 
 Under `exact-diff` and `region-diff` gates the numbers *are* the
-verdict. Quote the metric verbatim — `AE == 0`, not "looks identical".
+verdict. Quote the metric verbatim — `AE == 0`, not "looks identical" —
+and copy the per-region figures into `gate.regions[]`. A quoted number
+that disagrees with the file it came from downgrades the verdict; see
+"`READY_FOR_APPROVAL` is audited" below.
 
 **1b. When a table looks wrong, compare the borders, not the rows.**
 Counting rows answers the wrong question. A reference that groups two
@@ -170,6 +216,30 @@ The three fields that carry weight:
 A `BLOCKED` verdict needs a `failureCategory`. Under a diff gate, put
 the measured numbers in `gate.pages[]` / `gate.regions[]` and the
 command output in `gate.metric`.
+
+### `READY_FOR_APPROVAL` is audited, not accepted
+
+`iterate-status` checks the verdict against the evidence in the same
+folder before it lets the loop stop. Four contradictions downgrade
+`READY_FOR_APPROVAL` to `REVISE`, and the reason names which one:
+
+| | |
+|---|---|
+| `binary-gate-failed` | `gate.passed: false` under `exact-diff` or `region-diff`. Those gates measure equality, so the failure is a fact. |
+| `unresolved-severity` | a `CRITICAL` or `MAJOR` mismatch is still on the list. |
+| `human-report-open` | `humanReportedMismatch` is present without `addressed: true`. |
+| `gate-metric-unmeasured` | `gate.pages[]` page 1 disagrees with `visual-diff-stats.json`. |
+
+Only the first is liftable, by `gate.override.reason` — at least 60
+characters naming what was measured instead and why it is acceptable.
+There is no override for the other three: a `CRITICAL` is reclassified
+honestly or fixed, a report is addressed, and a quoted number matches
+the file it was quoted from.
+
+`gate.passed: false` under the `visual-review` gate does **not** block.
+That gate compares against a rasterised design image whose
+anti-aliasing no PDF renderer reproduces, so its page percentage is
+never zero and a pass/fail read off it would mean nothing.
 
 **5. Report** the verdict, the largest mismatch, and the next concrete
 fix — in that order. The user should not have to open a JSON file to

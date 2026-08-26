@@ -63,6 +63,55 @@ terms. Do not copy or convert the file yourself: that is the single step
 where two runs of the same request end up measuring against two
 different images.
 
+**Settle the page size here, before anything is designed against it.**
+`import-reference` measures the page and prints the ranked standards. Its
+exit code is the instruction:
+
+| exit | meaning | what you do |
+|---|---|---|
+| `0` | a standard matched within 1% | build at `page.format`; do not ask |
+| `5` | nothing matched, the pages disagree, or the page could not be measured | **stop and ask the user**, then continue |
+
+On exit `5` the output carries the whole question — the measured
+dimensions, the nearest standard, what building at it costs in percent,
+and the exact `DocumentPageSize.of(w, h)` that keeps the reference's
+proportions. Put that choice to the user in their own terms and wait for
+an answer. Do not pick the nearest standard yourself and do not proceed
+on A4: both answers are defensible, they produce visibly different
+documents, and only the person holding the source knows which one it is.
+
+Then write the answer down, so no later revision has to ask again:
+
+```bash
+node scripts/page-size.mjs --project <project-name> --use <A4|LETTER|LEGAL|WxH> --decision "<what you asked and what they said>"
+```
+
+`--decision` is required and is not a formality: a nearby standard and
+the exact measured size are both defensible, the numbers afterwards do
+not say which was taken or why, and a question asked once per revision is
+a question that gets answered carelessly. Run `page-size.mjs` with no
+`--use` at any time to ask whether the size is settled — exit `0` it is,
+exit `5` it is not.
+
+Then record it in `visual-analysis.json` — `page.format`,
+`page.orientation`, `page.referencePx`, `page.aspect`, `page.sizePt` and
+`page.sizeSource`, plus `page.sizeDecision` when the user was the one who
+decided. The schema requires them, and this is the one thing in the whole
+analysis that is copied from a measurement rather than read off the image.
+
+This is a gate rather than a note because the failure it prevents is
+invisible downstream. `visual-diff --scale-reference` resamples the
+reference to the render's exact width **and** height, so a page built at
+the wrong proportions is stretched to fit immediately before the pixels
+are compared: the diff reports parity, the review reads a stretched
+reference, and the accuracy contract's "page size matches the reference"
+is checked against the distortion. Three projects shipped that way —
+`mocha-profile-cv` 9.5% out, `cv-reference` 4.9%, `navy-executive-cv`
+4.2% — each with a green gate and every element placed against page
+height in the wrong place. Nothing later in the chain can recover from
+it, because relational geometry derives from the page: get the page
+wrong and every ratio built on it is faithfully wrong.
+
 **Give every region a role, and let the role decide the primitive.**
 `role` is required in `visual-analysis.json` and it is not a label: it is
 the contract for how that region may be built. `page-header` and
@@ -156,8 +205,13 @@ depends on the previous render); do not try to parallelise it.
 Write the JSON only. The readable `.md` is generated — see **Reading
 copies** below.
 
-Describe the page in **ratios and dependencies, not pixels**. Name every
-region with a stable kebab-case id — every later artifact addresses
+Describe the page in **ratios and dependencies, not pixels** — with one
+exception, and it is the one the `page` block holds. The page size is
+measured, in real units, because it is what every ratio is a ratio *of*;
+carry over what `import-reference` measured rather than deciding again.
+Everything below the page is relational.
+
+Name every region with a stable kebab-case id — every later artifact addresses
 regions by those ids — and give each one `bounds: {x, y, w, h}` as page
 fractions. Four numbers per region, and they are what make a region
 croppable later: a correction pass can then read two small crops instead
@@ -295,11 +349,21 @@ node scripts/render-and-diff.mjs --project <project-id> --revision <revision-id>
 
 One call renders, scales the reference to the render's size (persisting
 `reference-scaled.png` for later passes and crops), diffs with the
-evidence written into the revision, checks that every `href` in the data
+evidence written into the revision, measures every region from
+`visual-analysis.json` separately, checks that every `href` in the data
 is a live target in the PDF, and answers with the loop verdict as its
 exit code: 0 ready, 2 revise, 3 blocked, 1 a step failed. Do not run
 render, diff and iterate-status as separate turns — that is three trips
 for one deterministic chain.
+
+**Read `regions.ranked` before the page percentage.** The page number
+against a rasterised reference is never zero and is mostly glyph
+anti-aliasing, so it can only be explained, never checked. The region
+table can be: each region reports its own mismatch and a
+`concentration` — its share of the page's difference divided by its
+share of the page's area. Even wear sits near `1.00x`; a region well
+above it is carrying a structural defect, whatever the page total says.
+That is the number to aim the next pass at.
 
 **This command is not optional, and the loop now enforces that.** Every
 gate the harness has lives inside it: the page diff, the footer band, the

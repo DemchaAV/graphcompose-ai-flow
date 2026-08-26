@@ -136,6 +136,29 @@
             }
           },
           "description": "Per-region evidence for the region-diff gate."
+        },
+        "override": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reason"
+          ],
+          "description": "Why a failed exact-diff or region-diff gate should not stop the loop. Without this, `passed: false` on either of those gates downgrades READY_FOR_APPROVAL to REVISE in scripts/lib/review-claims.mjs — they measure equality, so their verdict is a fact rather than an opinion. Never applies to the visual-review gate, whose page percentage is a signal and not a pass/fail, and never lifts a CRITICAL or MAJOR mismatch: the honest way past one of those is to reclassify it with the reason that makes the lower severity true.",
+          "properties": {
+            "reason": {
+              "type": "string",
+              "minLength": 60,
+              "description": "What was measured instead, and why that measurement is acceptable. Name the pixels and where they came from — \"the four differing pixels are FreeType stem hinting on this machine; rendering the parent twice produces the same four\" — because an override that just asserts acceptability is the self-report this gate exists to replace."
+            },
+            "acceptedBy": {
+              "type": "string",
+              "enum": [
+                "human",
+                "agent"
+              ],
+              "description": "Who decided. `human` records that the user was shown the difference and accepted it; `agent` records that the agent argued it, which is weaker and should be visible as such when the record is read back."
+            }
+          }
         }
       },
       "description": "The deterministic half of the review. The model interprets; this records what was measured."

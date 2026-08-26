@@ -5,7 +5,8 @@
   "type": "module",
   "bin": {
     "visual-diff": "bin/visual-diff.mjs",
-    "mask-regions": "bin/mask-regions.mjs"
+    "mask-regions": "bin/mask-regions.mjs",
+    "region-diff": "bin/region-diff.mjs"
   },
   "files": [
     "bin",

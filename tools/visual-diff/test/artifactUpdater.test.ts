@@ -4,7 +4,11 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { updateRevision, type VisualDiffStats } from '../src/artifactUpdater.js';
+import {
+  renderClassificationMarkdown,
+  updateRevision,
+  type VisualDiffStats,
+} from '../src/artifactUpdater.js';
 import { solidPng } from './helpers.js';
 
 const SAMPLE_STATS: VisualDiffStats = {
@@ -120,5 +124,63 @@ describe('updateRevision', () => {
     await updateRevision({ folder, diffImage, stats: SAMPLE_STATS });
     const entries = await readdir(folder);
     expect(entries.filter((e) => e.endsWith('.tmp'))).toHaveLength(0);
+  });
+});
+
+describe('the classification snippet and a distorted reference', () => {
+  it('leads with the distortion, because this file is what a human reads', () => {
+    // `output-diff-classification.md` is the artifact the review skill tells a
+    // reviewer to paste into visual-review.md. It printed "0.3% — MINOR" with
+    // no hint that the reference had been stretched to produce it, while the
+    // stats field's own contract says no reader can conclude "the pixels
+    // matched" without being told what was done to make them.
+    const stats: VisualDiffStats = {
+      reference: 'reference.png',
+      output: 'output.png',
+      diff: 'output-diff.png',
+      width: 1240,
+      height: 1753,
+      totalPx: 2173720,
+      mismatchPx: 6521,
+      percent: 0.3,
+      parityScore: 99,
+      classification: 'MINOR',
+      threshold: 0.1,
+      includeAA: false,
+      aspectMismatch: {
+        referenceAspect: 1.28014,
+        outputAspect: 1.41371,
+        deviationPercent: 9.45,
+        tolerancePercent: 1,
+      },
+    };
+
+    const md = renderClassificationMarkdown(stats);
+    const distortionAt = md.indexOf('distorted before these numbers');
+    const percentAt = md.indexOf('0.3000');
+
+    expect(distortionAt).toBeGreaterThan(-1);
+    expect(percentAt).toBeGreaterThan(-1);
+    expect(distortionAt).toBeLessThan(percentAt);
+    expect(md).toContain('9.45%');
+  });
+
+  it('says nothing when the reference was not distorted', () => {
+    const stats: VisualDiffStats = {
+      reference: 'reference.png',
+      output: 'output.png',
+      diff: 'output-diff.png',
+      width: 1240,
+      height: 1753,
+      totalPx: 2173720,
+      mismatchPx: 0,
+      percent: 0,
+      parityScore: 100,
+      classification: 'EXACT',
+      threshold: 0.1,
+      includeAA: false,
+    };
+
+    expect(renderClassificationMarkdown(stats)).not.toContain('distorted');
   });
 });

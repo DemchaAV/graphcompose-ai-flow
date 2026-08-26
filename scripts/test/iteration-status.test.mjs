@@ -86,7 +86,24 @@ function projectWith(passes, label = "loop") {
       if (pass.mismatch) review.largestMismatch = pass.mismatch;
       if (pass.reported) review.humanReportedMismatch = pass.reported;
       if (pass.failureCategory) review.failureCategory = pass.failureCategory;
+      // Everything the claim audit reads lives on the review itself, so the
+      // tests for it set the fields directly rather than growing a knob per
+      // rule on this builder.
+      if (pass.review) Object.assign(review, pass.review);
       fs.writeFileSync(path.join(revDir, "visual-review.json"), JSON.stringify(review, null, 2));
+    }
+
+    if (pass.stats) {
+      // `reference` is how review-claims tells a reference comparison from a
+      // parent one, so the fixture has to write a plausible one: inside the
+      // revision folder for a reference diff, the parent's render otherwise.
+      const comparedImage = pass.statsReferenceInside
+        ? path.join(revDir, "reference-scaled.png")
+        : path.join(dir, "revisions", "parent", "output.png");
+      fs.writeFileSync(
+        path.join(revDir, "visual-diff-stats.json"),
+        JSON.stringify({ reference: comparedImage, ...pass.stats }, null, 2),
+      );
     }
 
     parent = id;
@@ -458,4 +475,471 @@ test("the evidence is any one of the three artifacts a comparison leaves", () =>
 
   fs.writeFileSync(path.join(dir, "reference-scaled.png"), "PNG");
   assert.equal(measurementEvidence(dir).measured, true);
+});
+
+// --------------------------------------------------------------- claims ---
+//
+// The verdict in visual-review.json used to be the last word. These fix the
+// four ways it could contradict the evidence in its own folder and still end
+// the loop. The real run that motivated them ended on gate.passed:false with
+// verdict READY_FOR_APPROVAL, and every tool downstream agreed.
+
+const REVIEW_READY = { verdict: "READY_FOR_APPROVAL" };
+
+test("READY cannot stand on a binary gate that did not pass", () => {
+  const dir = projectWith([
+    {
+      ...REVIEW_READY,
+      review: {
+        gate: { kind: "exact-diff", passed: false, metric: "magick compare -metric AE => 1183" },
+      },
+    },
+  ], "binary-gate");
+
+  const status = statusOf(dir);
+  assert.equal(status.verdict, "REVISE");
+  assert.deepEqual(
+    status.claims.blocking.map((c) => c.id),
+    ["binary-gate-failed"],
+  );
+  // The metric has to survive into the reason, or the next pass is told it
+  // failed without being told by how much.
+  assert.match(status.reasons.join("\n"), /AE => 1183/);
+});
+
+test("a judgement gate is not treated as a measurement", () => {
+  // visual-review compares against a rasterised design image: its page
+  // percentage is never zero, so blocking on `passed:false` there would make
+  // the override a rubber stamp on every reference-built project.
+  const dir = projectWith([
+    {
+      ...REVIEW_READY,
+      review: {
+        gate: { kind: "visual-review", passed: false, metric: "diff: 211583 px (9.734%)" },
+      },
+    },
+  ], "judgement-gate");
+
+  const status = statusOf(dir);
+  assert.equal(status.verdict, "READY_FOR_APPROVAL");
+  assert.deepEqual(status.claims.blocking, []);
+});
+
+test("an override lifts a failed binary gate only when it carries an argument", () => {
+  const gate = { kind: "region-diff", passed: false, metric: "AE => 4 outside the changed region" };
+
+  const thin = projectWith([
+    { ...REVIEW_READY, review: { gate: { ...gate, override: { reason: "fine" } } } },
+  ], "override-thin");
+  const thinStatus = statusOf(thin);
+  assert.equal(thinStatus.verdict, "REVISE");
+  assert.match(thinStatus.reasons.join("\n"), /at least 60/);
+
+  const argued = projectWith([
+    {
+      ...REVIEW_READY,
+      review: {
+        gate: {
+          ...gate,
+          override: {
+            reason:
+              "The four pixels are FreeType stem hinting on this machine: rendering the parent " +
+              "twice produces the same four, so they are not this revision's doing.",
+          },
+        },
+      },
+    },
+  ], "override-argued");
+  const arguedStatus = statusOf(argued);
+  assert.equal(arguedStatus.verdict, "READY_FOR_APPROVAL");
+  assert.deepEqual(
+    arguedStatus.claims.lifted.map((c) => c.id),
+    ["binary-gate-failed"],
+  );
+  // A waived rule is still reported: a clean audit and a waived one are not
+  // the same thing to the person reading the status.
+  assert.match(arguedStatus.reasons.join("\n"), /waived by gate\.override/);
+});
+
+test("READY cannot stand while a CRITICAL or MAJOR mismatch is on the list", () => {
+  const dir = projectWith([
+    {
+      ...REVIEW_READY,
+      review: {
+        mismatches: [
+          { id: "footer-missing", severity: "CRITICAL", reason: "no footer band", action: "add it" },
+          { id: "dot-pitch", severity: "MINOR", reason: "13.5px vs 17", action: "two spaces" },
+        ],
+      },
+    },
+  ], "severity");
+
+  const status = statusOf(dir);
+  assert.equal(status.verdict, "REVISE");
+  assert.deepEqual(
+    status.claims.blocking.map((c) => c.id),
+    ["unresolved-severity"],
+  );
+  assert.match(status.reasons.join("\n"), /footer-missing/);
+});
+
+test("MINOR and accepted classifications do not block, which is what makes the rule usable", () => {
+  // Exactly the ledger the charcoal-gold-cv run ended on: two MINORs with
+  // recipes, three accepted limitations, two intentional differences.
+  const dir = projectWith([
+    {
+      ...REVIEW_READY,
+      review: {
+        mismatches: [
+          { id: "marker-sits-high", severity: "MINOR", reason: "4.5px", action: "verticalAlign TOP" },
+          { id: "caps-tracking", severity: "ACCEPTED_LIMITATION", reason: "no letter-spacing API" },
+          { id: "measure-too-wide", severity: "INTENTIONAL_DIFFERENCE", reason: "narrower read worse" },
+        ],
+      },
+    },
+  ], "minor-only");
+
+  assert.equal(statusOf(dir).verdict, "READY_FOR_APPROVAL");
+});
+
+test("READY cannot stand while the user's report is unaddressed", () => {
+  const dir = projectWith([
+    {
+      ...REVIEW_READY,
+      review: {
+        humanReportedMismatch: { id: "rail-crosses-marker", quote: "вот смотри проблема" },
+      },
+    },
+  ], "human-open");
+
+  const status = statusOf(dir);
+  assert.equal(status.verdict, "REVISE");
+  assert.deepEqual(
+    status.claims.blocking.map((c) => c.id),
+    ["human-report-open"],
+  );
+});
+
+test("marking the report addressed is what releases it", () => {
+  const dir = projectWith([
+    {
+      ...REVIEW_READY,
+      review: {
+        humanReportedMismatch: {
+          id: "rail-crosses-marker",
+          quote: "вот смотри проблема",
+          addressed: true,
+        },
+      },
+    },
+  ], "human-closed");
+
+  assert.equal(statusOf(dir).verdict, "READY_FOR_APPROVAL");
+});
+
+test("a quoted pixel count that disagrees with the measured one is not a measurement", () => {
+  const dir = projectWith([
+    {
+      ...REVIEW_READY,
+      stats: { mismatchPx: 211674, percent: 9.73, classification: "CRITICAL" },
+      review: {
+        gate: {
+          kind: "visual-review",
+          passed: true,
+          metric: "diff: 0 px (0.000%)",
+          pages: [{ page: 1, mismatchPixels: 0 }],
+        },
+      },
+    },
+  ], "fabricated");
+
+  const status = statusOf(dir);
+  assert.equal(status.verdict, "REVISE");
+  assert.deepEqual(
+    status.claims.blocking.map((c) => c.id),
+    ["gate-metric-unmeasured"],
+  );
+  assert.match(status.reasons.join("\n"), /211674/);
+});
+
+test("a quoted pixel count that matches the measured one passes", () => {
+  const dir = projectWith([
+    {
+      ...REVIEW_READY,
+      stats: { mismatchPx: 211674, percent: 9.73, classification: "CRITICAL" },
+      review: {
+        gate: {
+          kind: "visual-review",
+          passed: false,
+          metric: "diff: 211674 px (9.738%)",
+          pages: [{ page: 1, mismatchPixels: 211674 }],
+        },
+      },
+    },
+  ], "honest");
+
+  assert.equal(statusOf(dir).verdict, "READY_FOR_APPROVAL");
+});
+
+test("the audit only downgrades READY; it never rescues a REVISE", () => {
+  const dir = projectWith([
+    {
+      verdict: "REVISE",
+      mismatch: "header-height",
+      review: { gate: { kind: "exact-diff", passed: false, metric: "AE => 900" } },
+    },
+  ], "no-rescue");
+
+  const status = statusOf(dir);
+  assert.equal(status.verdict, "REVISE");
+  // The named mismatch keeps the focus: a blocked claim is a reason the
+  // verdict cannot stand, not automatically the thing to fix next.
+  assert.equal(status.largestMismatch, "header-height");
+});
+
+// ---------------------------------------------------------------- budget ---
+//
+// The ceiling is about the agent circling. Two things it was charging for and
+// should not: passes the user asked for, and passes that are demonstrably
+// closing mismatches. A real run reported "9/8" for a correction the user had
+// requested one message earlier, and stopped holding two MINOR fixes whose
+// recipes it had already written down.
+
+/**
+ * A pass carrying `n` blocking mismatches.
+ *
+ * `tag` makes every pass's ids distinct, so `maxSameMismatchAttempts` — which
+ * fires on the third attempt at one cause and would otherwise reach the
+ * verdict first — stays out of these tests. What is under test here is only
+ * the iteration ceiling.
+ */
+const withBlocking = (n, tag, verdict = "REVISE") => ({
+  verdict,
+  review: {
+    mismatches: Array.from({ length: n }, (_, i) => ({
+      id: `blocker-${tag}-${i + 1}`,
+      severity: "MAJOR",
+      reason: "differs",
+      action: "fix it",
+      rootCause: `cause-${tag}-${i + 1}`,
+    })),
+    largestMismatch: n > 0 ? `blocker-${tag}-1` : undefined,
+  },
+});
+
+test("a pass the user asked for is not charged to the agent's budget", () => {
+  const passes = Array.from({ length: config.limits.maxIterations }, (_, i) => ({
+    verdict: "REVISE",
+    mismatch: `mismatch-${i + 1}`,
+  }));
+  // One more, opened because the user named something — exactly the shape of
+  // the run that read 9/8.
+  passes.push({
+    verdict: "READY_FOR_APPROVAL",
+    review: {
+      humanReportedMismatch: { id: "rail-crosses-marker", quote: "вот смотри проблема", addressed: true },
+      mismatches: [],
+    },
+  });
+
+  const status = statusOf(projectWith(passes, "user-asked"));
+  assert.equal(status.iterations, config.limits.maxIterations + 1, "the total still counts them all");
+  assert.equal(status.agentIterations, config.limits.maxIterations, "the budget counts only the agent's");
+  assert.deepEqual(status.humanDirected.map((h) => h.report), ["rail-crosses-marker"]);
+  assert.equal(status.remaining.iterations, 0);
+  assert.equal(status.verdict, "READY_FOR_APPROVAL");
+});
+
+test("one report buys one free pass, not an open licence", () => {
+  // Three passes carrying the same report: the user spoke once. Charging none
+  // of them would make an unaddressed report a way to iterate forever.
+  const report = { id: "timeline-wrong", quote: "the timeline looks wrong" };
+  const dir = projectWith([
+    { verdict: "REVISE", review: { humanReportedMismatch: report, mismatches: [] } },
+    { verdict: "REVISE", review: { humanReportedMismatch: report, mismatches: [] } },
+    { verdict: "REVISE", review: { humanReportedMismatch: report, mismatches: [] } },
+  ], "one-report");
+
+  const status = statusOf(dir);
+  assert.equal(status.humanDirected.length, 1);
+  assert.equal(status.agentIterations, 2);
+});
+
+test("a loop still closing mismatches gets a capped extension past the ceiling", () => {
+  // Every pass closes one blocking mismatch. At the ceiling that is a loop
+  // converging, not a loop circling — and the bound that catches circling
+  // (maxSameMismatchAttempts) is untouched by this.
+  const start = config.limits.maxIterations + 1;
+  const passes = Array.from({ length: config.limits.maxIterations }, (_, i) =>
+    withBlocking(start - i, i),
+  );
+
+  const status = statusOf(projectWith(passes, "converging-past"));
+  assert.equal(status.verdict, "REVISE", status.reasons.join(" | "));
+  assert.ok(status.grantedExtension, "no extension was granted to a converging loop");
+  assert.equal(status.grantedExtension.used, 1);
+  assert.equal(status.grantedExtension.of, config.limits.maxIterationGrants);
+  assert.match(status.reasons.join("\n"), /closed 1 blocking mismatch/);
+});
+
+test("a loop that closed nothing on its last pass is blocked at the ceiling, as before", () => {
+  const passes = Array.from({ length: config.limits.maxIterations }, (_, i) => withBlocking(2, i));
+
+  const status = statusOf(projectWith(passes, "stalled-at-ceiling"));
+  assert.equal(status.verdict, "BLOCKED");
+  assert.equal(status.failureCategory, "ITERATION_LIMIT");
+  assert.equal(status.grantedExtension, null);
+  assert.match(status.reasons.join("\n"), /closed no blocking mismatch/);
+});
+
+test("extensions run out, so converging is not a way to iterate forever", () => {
+  // Long enough that every grant is spent and the loop is still going.
+  const total = config.limits.maxIterations + config.limits.maxIterationGrants + 1;
+  const passes = Array.from({ length: total }, (_, i) => withBlocking(total - i + 1, i));
+
+  const status = statusOf(projectWith(passes, "grants-spent"));
+  assert.equal(status.verdict, "BLOCKED");
+  assert.equal(status.failureCategory, "ITERATION_LIMIT");
+  assert.equal(status.remaining.iterationGrants, 0);
+  assert.match(status.reasons.join("\n"), /extensions are spent/);
+});
+
+test("convergence is measured on the severity ledger, never on the pixel count", () => {
+  // The case that rules the pixel count out: capping a timeline rail with its
+  // marker was a real structural fix and moved the page total UP, 211583 to
+  // 211674, because it repainted a few glyph edges. A convergence test built
+  // on that number calls the fix a regression.
+  const dir = projectWith([
+    {
+      ...withBlocking(2, "a"),
+      stats: { mismatchPx: 211583, percent: 9.734 },
+    },
+    {
+      ...withBlocking(1, "b"),
+      stats: { mismatchPx: 211674, percent: 9.738 },
+    },
+  ], "ledger-not-pixels");
+
+  const status = statusOf(dir);
+  assert.equal(status.convergence.measurable, true);
+  assert.equal(status.convergence.converging, true, "the pixel count rose; the ledger fell");
+  assert.equal(status.convergence.from, 2);
+  assert.equal(status.convergence.to, 1);
+});
+
+test("coining a fresh report id every pass does not buy an unbounded loop", () => {
+  // The loophole a review of this file found: `humanReportedMismatch` is
+  // written by the same model whose verdict this module stopped trusting, and
+  // the schema sanctions coining a new id. Uncapped, an agent that coins one
+  // per pass holds agentIterations at zero and never reaches the ceiling —
+  // the self-report closed at the verdict, reopened at the budget.
+  const total = config.limits.maxIterations + config.limits.maxIterationGrants + 4;
+  const passes = Array.from({ length: total }, (_, i) => ({
+    verdict: "REVISE",
+    review: {
+      humanReportedMismatch: { id: `coined-${i + 1}`, quote: "they said something" },
+      mismatches: [],
+    },
+  }));
+
+  const status = statusOf(projectWith(passes, "coined-ids"));
+  assert.equal(
+    status.humanDirected.length,
+    config.limits.maxIterationGrants,
+    "exemptions must be capped, not merely deduplicated",
+  );
+  assert.ok(status.exemptionsRefused.length > 0, "the refused reports are not reported");
+  assert.equal(status.agentIterations, total - config.limits.maxIterationGrants);
+  assert.equal(status.verdict, "BLOCKED");
+  assert.match(status.reasons.join("\n"), /nothing on disk\s+proves a person spoke/);
+});
+
+test("a latest pass with no review cannot be granted an extension on an older one's progress", () => {
+  // convergence() used to compare the last two entries THAT HAVE A REVIEW, so
+  // a loop whose newest revision carried none could be extended on the
+  // strength of a pass that is not the last one — while the reason string
+  // claimed "the last pass closed N".
+  const passes = Array.from({ length: config.limits.maxIterations - 1 }, (_, i) =>
+    withBlocking(config.limits.maxIterations - i, i),
+  );
+  passes.push({}); // rendered, never reviewed
+
+  const status = statusOf(projectWith(passes, "unreviewed-latest"));
+  assert.equal(status.convergence.measurable, false);
+  assert.equal(status.grantedExtension, null);
+  assert.equal(status.verdict, "BLOCKED");
+  assert.equal(status.failureCategory, "ITERATION_LIMIT");
+  assert.match(status.reasons.join("\n"), /no second reviewed pass|has no visual-review\.json/);
+});
+
+test("a review that omits its mismatch list has not closed anything", () => {
+  // Reading a damaged record as "zero blocking mismatches" would hand out an
+  // extension for having written a worse file. `mismatches` is required by the
+  // schema, so its absence is damage, not progress.
+  const passes = Array.from({ length: config.limits.maxIterations - 1 }, (_, i) =>
+    withBlocking(config.limits.maxIterations - i, i),
+  );
+  passes.push({ verdict: "REVISE", review: { largestMismatch: "still-broken", mismatches: undefined } });
+
+  const status = statusOf(projectWith(passes, "no-ledger"));
+  assert.equal(status.convergence.measurable, false, "an absent ledger is not a cleared one");
+  assert.equal(status.grantedExtension, null);
+  assert.equal(status.verdict, "BLOCKED");
+});
+
+test("a parent-comparison claim is not checked against reference stats, or the other way round", () => {
+  // visual-diff-stats.json is rewritten by whichever diff ran last. A revision
+  // diffed both ways leaves stats for one of them, and checking the other
+  // claim against that file reports a fabrication where there is only a stale
+  // file. The file says which comparison it was: a reference diff scales into
+  // the revision folder, a parent diff is handed the parent's output.png.
+  const dir = projectWith([
+    {
+      verdict: "READY_FOR_APPROVAL",
+      // Reference stats: the compared image lives inside this revision.
+      statsReferenceInside: true,
+      stats: { mismatchPx: 211674 },
+      review: {
+        comparedAgainst: "parent",
+        gate: {
+          kind: "exact-diff",
+          passed: true,
+          metric: "magick compare -metric AE => 0",
+          pages: [{ page: 1, mismatchPixels: 0 }],
+        },
+      },
+    },
+  ], "cross-comparison");
+
+  const status = statusOf(dir);
+  assert.deepEqual(
+    status.claims.blocking.map((c) => c.id),
+    [],
+    "a parent claim was blocked by reference stats",
+  );
+  assert.equal(status.verdict, "READY_FOR_APPROVAL");
+});
+
+test("a claim IS checked when the stats file records the same comparison", () => {
+  const dir = projectWith([
+    {
+      verdict: "READY_FOR_APPROVAL",
+      statsReferenceInside: true,
+      stats: { mismatchPx: 211674 },
+      review: {
+        comparedAgainst: "reference",
+        gate: {
+          kind: "visual-review",
+          passed: true,
+          metric: "diff: 0 px",
+          pages: [{ page: 1, mismatchPixels: 0 }],
+        },
+      },
+    },
+  ], "same-comparison");
+
+  assert.deepEqual(
+    statusOf(dir).claims.blocking.map((c) => c.id),
+    ["gate-metric-unmeasured"],
+  );
 });

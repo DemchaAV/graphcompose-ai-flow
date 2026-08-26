@@ -75,12 +75,14 @@
     },
     "region-diff": {
       "summary": "Region-aware pixel diff against the parent revision.",
-      "rule": "magick compare -metric AE on the affected regions (per changed-components); every region outside that list must be byte-equal to the parent (AE == 0).",
+      "rule": "tools/visual-diff/bin/region-diff.mjs --changed <ids> cuts every region out of visual-analysis.json and compares it; any region outside --changed carrying mismatched pixels exits 2. The per-region numbers land in region-diff-stats.json and are quoted into gate.regions[], never paraphrased.",
+      "enforcedBy": "tools/visual-diff/src/regionDiff.ts",
       "comparedAgainst": "parent"
     },
     "visual-review": {
       "summary": "Layer-by-layer review against the reference image.",
-      "rule": "Per docs/visual-accuracy-contract.md; APPROVE only when every mismatch is at most MINOR or ACCEPTED_LIMITATION.",
+      "rule": "Per docs/visual-accuracy-contract.md; APPROVE only when every mismatch is at most MINOR or ACCEPTED_LIMITATION. The page percentage is a signal and never a pass/fail here — a rasterised reference never scores zero — so the location of the difference comes from region-diff, whose per-region concentration ranks where to look.",
+      "enforcedBy": "scripts/lib/review-claims.mjs",
       "comparedAgainst": "reference"
     }
   },
@@ -206,7 +208,8 @@
   "limits": {
     "maxIterations": 8,
     "maxConsecutiveBuildFailures": 3,
-    "maxSameMismatchAttempts": 3
+    "maxSameMismatchAttempts": 3,
+    "maxIterationGrants": 3
   },
   "failureCategories": [
     "BUILD_FAILED",

@@ -20,11 +20,19 @@
  * A loop runs from just after the most recent APPROVED ancestor to the target
  * revision, so approving resets the count — a new round of work is not
  * penalised for the previous one.
+ *
+ * Counting is only half of it. The verdict this module starts from is the one
+ * the review wrote, and for a long time nothing checked that claim against the
+ * evidence lying beside it — so READY meant "the model typed READY". The
+ * checks below ask, in order: was the review present, was the render measured,
+ * has the source drifted from what was judged, and finally (review-claims.mjs)
+ * does what the review SAYS agree with what was measured.
  */
 
 import fs from "node:fs";
 import path from "node:path";
 
+import { auditReviewClaims } from "./review-claims.mjs";
 import { describeSeal, sealState } from "./revision-seal.mjs";
 
 /** Verdicts this module can return, in the order they end the loop. */
@@ -130,6 +138,86 @@ function focusKeyOf(entry) {
   return named?.rootCause ?? id;
 }
 
+/**
+ * How many mismatches on this pass were, by their own classification, not
+ * ready for approval.
+ *
+ * The same two severities review-claims.mjs blocks READY on, deliberately: the
+ * loop's definition of "converging" should be the loop's definition of "done",
+ * one step at a time. Anything else invents a second standard.
+ *
+ * `null`, not 0, when there is nothing to count. `mismatches` is required by
+ * the schema, so a review without it is a damaged record — and reading a
+ * damaged record as "zero blocking mismatches" would hand out an iteration
+ * extension for having written a worse file.
+ */
+function blockingSeverityCount(entry) {
+  const mismatches = entry.review?.mismatches;
+  if (!Array.isArray(mismatches)) return null;
+  return mismatches.filter((m) => m?.severity === "CRITICAL" || m?.severity === "MAJOR").length;
+}
+
+/**
+ * Which passes exist because the user said something, rather than because the
+ * loop decided to go round again.
+ *
+ * A pass the user asked for is not the agent circling, and charging it to the
+ * agent's budget is how a real run reached "9/8" for a correction the user had
+ * just requested. Only the FIRST appearance of a report id is free: if the
+ * agent then takes three passes at that one report, the other two are its own,
+ * which keeps an unaddressed report from becoming unlimited licence.
+ *
+ * BUT: nothing on disk proves a person spoke. `humanReportedMismatch` is
+ * written by the same model whose verdict this module stopped trusting, and
+ * the schema deliberately allows coining a fresh id ("coin one when they are
+ * not"). An agent that coins a new one every pass would hold `agentIterations`
+ * at zero and never reach the ceiling — the self-report closed at the verdict,
+ * reopened at the budget. So exemptions are BOUNDED as well as deduplicated:
+ * the caller caps them, and past the cap the passes are charged like any
+ * other. A person with more than that many corrections can approve, which
+ * resets the loop, or say so — both of which put a human in the path, which is
+ * the thing the exemption was pretending to detect.
+ */
+function humanDirectedPasses(chain) {
+  const seen = new Set();
+  const directed = [];
+  for (const entry of chain) {
+    const id = entry.review?.humanReportedMismatch?.id;
+    if (!id) continue;
+    if (!seen.has(id)) {
+      seen.add(id);
+      directed.push({ revision: entry.id, report: id });
+    }
+  }
+  return directed;
+}
+
+/**
+ * Did the most recent pass reduce the number of blocking mismatches?
+ *
+ * Note what this deliberately does NOT use: the page pixel count. A pass that
+ * capped a timeline rail with its marker — a real, visible structural fix —
+ * moved the page total from 211583 px to 211674, i.e. UP, because the fix
+ * repainted a few glyph edges. A convergence test built on that number would
+ * have called the fix a regression. The severity ledger is what the review
+ * actually reasoned about, so it is what progress is measured on.
+ */
+function convergence(chain) {
+  const unmeasurable = { measurable: false, converging: false, from: null, to: null };
+  if (chain.length < 2) return unmeasurable;
+
+  // The LATEST revision, not the latest one that happens to carry a review.
+  // Taking the last reviewed pass would let a loop whose newest revision has
+  // no review at all be granted an extension on the strength of an older one,
+  // and the reason string would say "the last pass closed N" about a pass that
+  // is not the last one.
+  const latest = blockingSeverityCount(chain[chain.length - 1]);
+  const previous = blockingSeverityCount(chain[chain.length - 2]);
+  if (latest === null || previous === null) return unmeasurable;
+
+  return { measurable: true, converging: latest < previous, from: previous, to: latest };
+}
+
 function isBuildFailure(entry) {
   const { revision } = entry;
   if (revision.failure?.category === "BUILD_FAILED") return true;
@@ -203,6 +291,19 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
   const focusKey = focusKeyOf(latest);
 
   const iterations = chain.length;
+  // The budget is about the agent circling, so it counts the agent's own
+  // passes. The total is still reported — a reader wants to know how many
+  // revisions this loop produced, not just how many were charged for.
+  //
+  // Capped, because the evidence for "the user asked for this" is a field the
+  // agent writes. An uncapped exemption is an uncapped loop; see
+  // humanDirectedPasses.
+  const reported = humanDirectedPasses(chain);
+  const exemptionCap = config.limits.maxIterationGrants;
+  const humanDirected = reported.slice(0, exemptionCap);
+  const exemptionsRefused = reported.slice(exemptionCap);
+  const agentIterations = Math.max(0, iterations - humanDirected.length);
+  const converged = convergence(chain);
   const consecutiveBuildFailures = trailingRun(chain, isBuildFailure);
   const sameMismatchAttempts = focusKey
     ? trailingRun(chain, (entry) => focusKeyOf(entry) === focusKey)
@@ -210,6 +311,8 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
 
   const limits = config.limits;
   const reasons = [];
+  /** Set when the iteration ceiling was lifted for a converging loop. */
+  let grantedExtension = null;
 
   // Start from what the review said, then let the bounds override it.
   let verdict = latest.review?.verdict ?? "REVISE";
@@ -248,6 +351,26 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     if (verdict === "READY_FOR_APPROVAL") verdict = "REVISE";
   }
 
+  // A verdict has to agree with the evidence in its own folder. The three
+  // checks above ask whether the review was DONE — sealed, measured, present.
+  // None of them asked what it SAID, so a review could carry a failed gate, an
+  // open user report or a pixel count nobody wrote and still end the loop by
+  // typing READY. See review-claims.mjs for how that came to be structural
+  // rather than careless.
+  const claims = auditReviewClaims({
+    revisionDir: path.join(projectDir, "revisions", latest.id),
+    review: latest.review,
+  });
+  for (const lift of claims.lifted) {
+    reasons.push(`${latest.id}: ${lift.id} waived by gate.override — ${lift.reason}`);
+  }
+  if (claims.blocking.length) {
+    for (const claim of claims.blocking) {
+      reasons.push(`${latest.id}: ${claim.detail}`);
+    }
+    if (verdict === "READY_FOR_APPROVAL") verdict = "REVISE";
+  }
+
   if (truncatedAt) {
     reasons.push(
       `the chain stops at ${truncatedAt}, whose revision.json is missing or unreadable — ` +
@@ -279,10 +402,51 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
           : `"${largestMismatch}" has survived ${sameMismatchAttempts} attempts ` +
             `(limit ${limits.maxSameMismatchAttempts}) — the next attempt would be the same attempt`,
       );
-    } else if (iterations >= limits.maxIterations) {
-      verdict = "BLOCKED";
-      failureCategory = "ITERATION_LIMIT";
-      reasons.push(`${iterations} iterations (limit ${limits.maxIterations})`);
+    } else if (agentIterations >= limits.maxIterations) {
+      // A loop still closing blocking mismatches is not the loop this bound was
+      // written for. `maxSameMismatchAttempts` above is what catches circling —
+      // it fires on the third attempt at one cause regardless of how many
+      // passes have run — so a flat ceiling on top of it also stops work that
+      // is demonstrably converging. A real run hit 8/8 holding two MINORs with
+      // written recipes and stopped, and the recipes went into the README
+      // instead of into the document.
+      //
+      // Grants are capped and have to be re-earned: each one requires the
+      // latest pass to have strictly reduced the blocking count again.
+      const grantsUsed = agentIterations - limits.maxIterations;
+      const grantsLeft = Math.max(0, limits.maxIterationGrants - grantsUsed);
+
+      if (converged.converging && grantsLeft > 0) {
+        grantedExtension = { used: grantsUsed + 1, of: limits.maxIterationGrants, ...converged };
+        reasons.push(
+          `${agentIterations} agent passes is at the limit of ${limits.maxIterations}, and the ` +
+            `last pass closed ${converged.from - converged.to} blocking mismatch(es) ` +
+            `(${converged.from} -> ${converged.to}) — extension ${grantsUsed + 1} of ` +
+            `${limits.maxIterationGrants}. The next pass must close another, or this stops`,
+        );
+      } else {
+        verdict = "BLOCKED";
+        failureCategory = "ITERATION_LIMIT";
+        reasons.push(
+          `${agentIterations} agent passes (limit ${limits.maxIterations})` +
+            (humanDirected.length
+              ? `, ${humanDirected.length} further pass(es) not charged because the user ` +
+                `asked for them: ${humanDirected.map((h) => h.report).join(", ")}`
+              : "") +
+            (exemptionsRefused.length
+              ? `; ${exemptionsRefused.length} further report(s) were charged anyway — ` +
+                `only ${exemptionCap} exemptions are available, because nothing on disk ` +
+                "proves a person spoke: " +
+                exemptionsRefused.map((h) => h.report).join(", ")
+              : "") +
+            (grantsLeft <= 0
+              ? `; all ${limits.maxIterationGrants} extensions are spent`
+              : converged.measurable
+                ? `; the last pass closed no blocking mismatch (${converged.from} -> ` +
+                  `${converged.to}), so there is nothing to extend on`
+                : "; there is no second reviewed pass to measure progress against"),
+        );
+      }
     }
   }
 
@@ -300,6 +464,10 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     measurement: evidence,
     // Whether the source still matches what the review judged.
     seal: { reviewed: seal.reviewed, broken: seal.broken, edited: seal.edited },
+    // Whether the review's own claims survive the evidence beside them. Kept
+    // as the audit rather than a boolean: "READY was downgraded" does not tell
+    // the next pass which claim failed, and that is the whole instruction.
+    claims: { blocking: claims.blocking, lifted: claims.lifted },
     // The next command differs: "fix this mismatch" and "you have not compared
     // anything yet" are not the same instruction.
     // Both of these outrank a named mismatch: fixing the mismatch is pointless
@@ -308,19 +476,39 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
       ? "unmeasured-render"
       : seal.broken
         ? "edited-after-review"
-        : largestMismatch,
+        : // A blocked claim only becomes the focus when the review named
+          // nothing: it is a reason the verdict cannot stand, not necessarily
+          // the thing to fix, and overwriting a named mismatch with it would
+          // also break the sameMismatchAttempts bound that counts on the name.
+          (largestMismatch ?? claims.blocking[0]?.id ?? null),
     // Named so a caller can say "because you asked" rather than reporting a
     // user's own observation back to them as a measurement.
     focusSource: focus.source,
     rootCause: focusKey !== largestMismatch ? focusKey : null,
     iterations,
+    // What the budget is actually measured against, and what was excused from
+    // it. Reported separately so "9 revisions, 8 of them mine" is legible
+    // rather than arriving as a single number that looks like an overrun.
+    agentIterations,
+    humanDirected,
+    // Reports past the cap. Named rather than dropped: a loop that stopped
+    // being excused should be able to say why, and a run that trips this is
+    // either working with a very talkative user or coining ids per pass —
+    // both of which a reader wants to see.
+    exemptionsRefused,
+    convergence: converged,
+    grantedExtension,
     iterationsAreLowerBound: Boolean(truncatedAt),
     chainTruncatedAt: truncatedAt,
     consecutiveBuildFailures,
     sameMismatchAttempts,
     limits,
     remaining: {
-      iterations: Math.max(0, limits.maxIterations - iterations),
+      iterations: Math.max(0, limits.maxIterations - agentIterations),
+      iterationGrants: Math.max(
+        0,
+        limits.maxIterationGrants - Math.max(0, agentIterations - limits.maxIterations),
+      ),
       buildFailures: Math.max(0, limits.maxConsecutiveBuildFailures - consecutiveBuildFailures),
       sameMismatch: Math.max(0, limits.maxSameMismatchAttempts - sameMismatchAttempts),
     },

@@ -192,7 +192,12 @@ function validateScopes(scopes, stages, gates) {
 
 function validateLimits(limits) {
   if (!isPlainObject(limits)) throw new PipelineConfigError("limits must be an object");
-  for (const key of ["maxIterations", "maxConsecutiveBuildFailures", "maxSameMismatchAttempts"]) {
+  for (const key of [
+    "maxIterations",
+    "maxConsecutiveBuildFailures",
+    "maxSameMismatchAttempts",
+    "maxIterationGrants",
+  ]) {
     const value = limits[key];
     if (!Number.isInteger(value) || value < 1) {
       throw new PipelineConfigError(

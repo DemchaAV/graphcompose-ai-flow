@@ -86,12 +86,25 @@ try {
 if (args.json) {
   process.stdout.write(`${JSON.stringify(status, null, 2)}\n`);
 } else {
-  const { verdict, iterations, limits, remaining } = status;
+  const { verdict, iterations, agentIterations, limits, remaining } = status;
   console.log(`\n${verdict}  ${status.project} / ${status.revision}\n`);
+  // Against the AGENT's passes, which is what the budget is about. A pass the
+  // user asked for is not the agent circling, and reporting it as an overrun
+  // was how a run showed "9/8" for a correction that had just been requested.
   console.log(
-    `  iterations              ${iterations}/${limits.maxIterations}` +
-      `   (${remaining.iterations} left)`,
+    `  iterations              ${agentIterations}/${limits.maxIterations}` +
+      `   (${remaining.iterations} left)` +
+      (status.humanDirected.length
+        ? `   +${status.humanDirected.length} you asked for, not charged`
+        : ""),
   );
+  if (status.grantedExtension) {
+    const g = status.grantedExtension;
+    console.log(
+      `  extension               ${g.used}/${g.of}` +
+        `   (last pass closed ${g.from - g.to} blocking mismatch(es))`,
+    );
+  }
   console.log(
     `  consecutive build fails ${status.consecutiveBuildFailures}/${limits.maxConsecutiveBuildFailures}`,
   );

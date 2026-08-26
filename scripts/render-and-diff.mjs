@@ -97,7 +97,50 @@ if (banner && !args.json) console.log(banner);
 const projectDir = workspaceProjectDir(workspace, args.project);
 const revisionDir = path.join(projectDir, "revisions", args.revision);
 
-const result = { project: args.project, revision: args.revision, steps: [], diff: null, loop: null };
+const result = {
+  project: args.project,
+  revision: args.revision,
+  steps: [],
+  diff: null,
+  regions: null,
+  loop: null,
+};
+
+/**
+ * Page 1's image pair, kept so the region step measures the same two images
+ * the page number came from rather than re-deriving them and risking a
+ * different pair.
+ */
+let pagePair1 = null;
+
+/**
+ * The visual-analysis.json governing this revision.
+ *
+ * A `visual-change` revision writes its own. The narrow scopes — data-only,
+ * asset-only, refactor-only — deliberately skip the analyser, so theirs is the
+ * nearest ancestor's: the regions did not move, which is the entire premise of
+ * those scopes. Walking up rather than giving up is what lets the region gate
+ * apply to exactly the scopes config/pipeline.json assigns it to.
+ */
+function nearestVisualAnalysis(startDir) {
+  let dir = startDir;
+  const seen = new Set();
+  while (dir && !seen.has(dir)) {
+    seen.add(dir);
+    const candidate = path.join(dir, "visual-analysis.json");
+    if (fs.existsSync(candidate)) return candidate;
+    const revision = (() => {
+      try {
+        return JSON.parse(fs.readFileSync(path.join(dir, "revision.json"), "utf8"));
+      } catch {
+        return null;
+      }
+    })();
+    if (!revision?.parentRevisionId) return null;
+    dir = path.join(projectDir, "revisions", revision.parentRevisionId);
+  }
+  return null;
+}
 
 /**
  * Which file the project itself calls page 1 of the reference.
@@ -266,12 +309,25 @@ step("diff", (entry) => {
     );
   }
 
+  pagePair1 = pages.pairs.find((p) => p.page === 1) ?? null;
+
   const perPage = [];
   for (const pair of pages.pairs) {
-    // Prefer the scaled copy a previous pass produced; else the source image,
-    // which --scale-reference below brings to size.
-    const source =
-      args.against === "reference" && fs.existsSync(pair.scaled) ? pair.scaled : pair.reference;
+    // ALWAYS the source image, never the scaled copy a previous pass left.
+    //
+    // Preferring the persisted copy switched off the aspect-mismatch warning
+    // on every run after the first: `reference-scaled.png` already has the
+    // render's exact dimensions, so `--scale-reference` finds nothing to
+    // scale, skips the measurement, and rewrites visual-diff-stats.json
+    // WITHOUT `aspectMismatch`. The distortion was still in the pixels being
+    // compared — only the notice that it was there disappeared, on the second
+    // render of the same revision. A backstop that turns itself off on retry
+    // is worse than none, because the first run taught you to trust it.
+    //
+    // Costs nothing: the scaler is deterministic by design ("the same every
+    // run, so diff numbers are comparable across passes"), so re-scaling
+    // reproduces the identical file it would have reused.
+    const source = pair.reference;
 
     const diffArgs = [source, pair.render, "--json", "--out", pair.diff];
     if (pair.page === 1) {
@@ -299,6 +355,12 @@ step("diff", (entry) => {
       classification: stats.classification,
       parityScore: stats.parityScore,
       diffImage: stats.diff,
+      // Present only when --scale-reference changed the reference's SHAPE and
+      // not just its size. It travels with the numbers because it is a fact
+      // about them: a stretched reference makes the mismatch look smaller than
+      // it is, so a percentage carrying this field understates the difference
+      // and cannot be classified until the page size is settled.
+      ...(stats.aspectMismatch ? { aspectMismatch: stats.aspectMismatch } : {}),
     });
   }
 
@@ -324,6 +386,18 @@ step("diff", (entry) => {
     worstPage: worst.page,
     missingFromRender: pages.missingFromRender,
     extraInRender: pages.extraInRender,
+    // At the top level too, and as a list of pages rather than a boolean: a
+    // reader who takes `percent` from here and stops must still be told that
+    // the number was measured on a reference that had been stretched into a
+    // shape it did not have. The page size is wrong, not the layout, and the
+    // percentage is smaller than the truth. See docs/visual-accuracy-contract.md.
+    ...(perPage.some((p) => p.aspectMismatch)
+      ? {
+          aspectMismatchPages: perPage
+            .filter((p) => p.aspectMismatch)
+            .map((p) => ({ page: p.page, ...p.aspectMismatch })),
+        }
+      : {}),
   };
 
   entry.detail =
@@ -334,6 +408,96 @@ step("diff", (entry) => {
         (pages.missingFromRender.length
           ? `; page(s) ${pages.missingFromRender.join(", ")} missing from the render`
           : "");
+});
+
+step("regions", (entry) => {
+  // Where the difference lives, not just how much of it there is.
+  //
+  // A whole-page percentage against a rasterised design reference is never
+  // zero and is dominated by glyph anti-aliasing, so the only thing a reviewer
+  // can do with it is explain it — and an explanation that covers 9.7% covers
+  // a structural defect hiding inside the same number. Regions disagree with
+  // each other, which is what makes them checkable: even wear puts every
+  // region's share of the diff near its share of the page, and a defect drives
+  // one of them well above it.
+  //
+  // Evidence, not a gate: the ranking says where to look. `region-diff
+  // --changed` is the gate, and it is what the data-only and asset-only scopes
+  // are supposed to end on.
+  const analysis = nearestVisualAnalysis(revisionDir);
+  if (!analysis) {
+    entry.detail = "no visual-analysis.json in this revision or its ancestors";
+    return;
+  }
+  const page1 = (result.diff?.pages ?? []).length ? pagePair1 : null;
+  if (!page1) {
+    entry.detail = "no page 1 pair to measure";
+    return;
+  }
+
+  const measured = run(
+    path.join(repoRoot, "tools", "visual-diff", "bin", "region-diff.mjs"),
+    [
+      "--reference",
+      // The scaled copy when the diff above made one: the regions must be cut
+      // from the same pair of images the page number came from, or the shares
+      // are computed against a denominator nobody else used.
+      args.against === "reference" && fs.existsSync(page1.scaled) ? page1.scaled : page1.reference,
+      "--output",
+      page1.render,
+      "--regions-file",
+      analysis,
+      "--write",
+      revisionDir,
+      "--json",
+    ],
+  );
+  if (measured.status !== 0) {
+    // Never fatal. A region measurement that cannot run is a missing view of
+    // a comparison that already succeeded, and failing the pass here would
+    // make a diagnostic into a blocker.
+    entry.detail = `not measured: ${(measured.output || "").trim().split("\n")[0] || "failed"}`;
+    return;
+  }
+
+  let regions;
+  try {
+    regions = JSON.parse(measured.stdout);
+  } catch {
+    entry.detail = "not measured: region-diff produced no JSON";
+    return;
+  }
+
+  const ranked = regions.ranked
+    .map((id) => regions.regions.find((r) => r.id === id))
+    .filter((r) => r && r.mismatchPx > 0)
+    // A region covering the whole page restates the page figure; it is true
+    // and it is not a location, so it does not belong at the top of a list
+    // whose whole purpose is to point somewhere.
+    .filter((r) => r.shareOfPageArea < 90);
+
+  result.regions = {
+    analysis: path.relative(revisionDir, analysis) || path.basename(analysis),
+    source: `${regions.width}x${regions.height}`,
+    pageMismatchPx: regions.pageMismatchPx,
+    stats: "region-diff-stats.json",
+    ranked: ranked.map((r) => ({
+      id: r.id,
+      role: r.role ?? null,
+      mismatchPx: r.mismatchPx,
+      percentOfRegion: Number(r.percent.toFixed(2)),
+      shareOfPageMismatch: Number(r.shareOfPageMismatch.toFixed(1)),
+      shareOfPageArea: Number(r.shareOfPageArea.toFixed(1)),
+      concentration: r.concentration === null ? null : Number(r.concentration.toFixed(2)),
+    })),
+  };
+
+  const worst = ranked[0];
+  entry.detail = worst
+    ? `${ranked.length} regions measured — worst is ${worst.id} at ` +
+      `${worst.concentration.toFixed(2)}x its share of the page ` +
+      `(${worst.mismatchPx} px, ${worst.percent.toFixed(2)}% of the region)`
+    : `${regions.regions.length} regions measured — none carries a difference`;
 });
 
 step("links", (entry) => {
