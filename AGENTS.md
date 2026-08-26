@@ -108,6 +108,8 @@ PowerShell, cmd and bash.
 | Verify a published bundle | `node scripts/verify-published-template.mjs --template-id <id> --render` |
 | **What has already been published?** | `node scripts/templates.mjs` (`--json` for an agent) — ask this before rebuilding a layout the user names |
 | How do I use a published bundle? | `node scripts/templates.mjs inspect <template-id>` — classes, data file, assets, dependencies, and the call, from the manifest |
+| Put a published template into a project | `node scripts/use-template.mjs <template-id> --target <java-project>` — copies the sources, assets and data, then reports what the build file is missing. It never edits the build file |
+| A runnable project from a published template | `node scripts/use-template.mjs <template-id> --new-project <dir>` — pom, runner, sources, data, README; compiles it before reporting success |
 | Report what a run cost | `node scripts/telemetry/run-metrics.mjs report --project <id>` |
 | Run every gate locally | `npm run verify` (`--quick` skips Java/Maven) |
 

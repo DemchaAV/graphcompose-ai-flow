@@ -35,6 +35,18 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const MAIN_TEMPLATE_PATH = path.join(HERE, "consumer-main.java.tpl");
 
 /**
+ * The Java release published sources are known to compile at.
+ *
+ * Not a preference. Generated templates use records, so anything below 16 fails
+ * to parse, and 21 is the release `verify-published-template` compiles every
+ * bundle at — so it is the one release with evidence behind it. A consumer
+ * project left at Maven's default of `-source 8` accepts the copied sources and
+ * then fails with "records are not supported", which reads like the template is
+ * broken.
+ */
+export const JAVA_RELEASE = 21;
+
+/**
  * Which bundled-font artifact a GraphCompose line expects.
  *
  * Lifted from scripts/scaffold-runner.mjs, where it was written for the
@@ -147,7 +159,7 @@ export function generatePom(manifest, options = {}) {
     `  <artifactId>${artifactId}</artifactId>`,
     `  <version>${version}</version>`,
     "  <properties>",
-    "    <maven.compiler.release>21</maven.compiler.release>",
+    `    <maven.compiler.release>${JAVA_RELEASE}</maven.compiler.release>`,
     "    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>",
     "  </properties>",
     "  <dependencies>",
@@ -167,17 +179,21 @@ export function generatePom(manifest, options = {}) {
  * so a project staged here and a manifest read there cannot disagree about
  * where the class lives.
  *
+ * `projectDir` gets the Maven layout appended, which is right for a project
+ * being generated. An existing project may keep its sources anywhere, so
+ * `javaRoot` names the source root outright.
+ *
  * @returns {{package: string|null, javaDir: string, files: string[]}}
  */
-export function stageSources(bundleDir, projectDir, { className = null } = {}) {
+export function stageSources(bundleDir, projectDir, { className = null, javaRoot = null } = {}) {
   const srcDir = path.join(bundleDir, "src");
   const files = fs.existsSync(srcDir)
     ? fs.readdirSync(srcDir).filter((f) => f.endsWith(".java")).sort()
     : [];
 
   const pkg = bundlePackage(bundleDir, className);
-  const javaRoot = path.join(projectDir, "src", "main", "java");
-  const javaDir = pkg ? path.join(javaRoot, ...pkg.split(".")) : javaRoot;
+  const root = javaRoot ?? path.join(projectDir, "src", "main", "java");
+  const javaDir = pkg ? path.join(root, ...pkg.split(".")) : root;
 
   fs.mkdirSync(javaDir, { recursive: true });
   for (const file of files) {
@@ -290,10 +306,13 @@ export function generateConsumerReadme(manifest, options = {}) {
   const { templateDir = "template", outputFile = `output/${manifest?.docKind ?? "document"}.pdf` } = options;
   const dependencies = resolveDependencies(manifest);
 
+  const kind = manifest?.docKind ?? "document";
+  const article = /^[aeiou]/i.test(kind) ? "An" : "A";
+
   const lines = [
     `# ${manifest?.displayName ?? manifest?.id}`,
     "",
-    `A ${manifest?.docKind ?? "document"} starter generated from the published template ` +
+    `${article} ${kind} starter generated from the published template ` +
       `\`${manifest?.id}\`${manifest?.version ? ` (${manifest.version})` : ""}. ` +
       "No part of it needs the GraphCompose harness at runtime: it is a plain Maven " +
       "project against GraphCompose.",

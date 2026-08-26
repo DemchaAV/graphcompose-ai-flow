@@ -94,6 +94,34 @@ rebuild it instead of reusing it.
 - `--json` on both, for agents. Neither path calls a model, and a corrupt
   manifest in one bundle is reported rather than suppressing the rest.
 
+**`use-template` closes the lifecycle.** After APPROVE there was no consumer
+workflow at all: a published bundle could be verified and could not be used.
+
+- `node scripts/use-template.mjs <id> --new-project <dir>` writes a complete
+  runnable project — pom with the runner wired to `exec:java`, `Main.java`, the
+  bundle's classes at their own package, the data file under its runtime name,
+  the assets, a README — then compiles it before reporting success. All three
+  published bundles produce a project that runs and renders a PDF byte-identical
+  to the verifier's: 3173, 22172 and 50015 bytes.
+- `node scripts/use-template.mjs <id> --target <project>` copies into a project
+  that already exists and **reports** what its build file is missing, with the
+  snippet in that build file's own syntax. It does not patch the build file:
+  editing someone's pom by pattern is how a working build becomes a broken one.
+- The report states the Java release too. The first real `--target` run reported
+  one missing dependency, it was added exactly as printed, and the build failed
+  anyway — the target pom set no compiler release, so Maven defaulted to
+  `-source 8` and the template's records would not parse. A report that is
+  followed and still does not compile is worse than no report.
+- A dependency the project already declares is not reported missing; a version
+  that differs from the one the bundle was published against is a note rather
+  than a demand.
+- Nothing is overwritten without `--force`, and a clash is refused **before**
+  anything is written — a half-finished copy leaves a project that neither has
+  the template nor is as it was. A directory that is not a Java project is
+  refused rather than turned into one.
+- Resources land under `template/<template-id>/` in an existing project, so
+  installing a second template cannot silently overwrite the first one's data.
+
 ## v0.12.0 — 2026-08-26
 
 **The verdict stopped being a self-report.** The loop's exit condition was the
