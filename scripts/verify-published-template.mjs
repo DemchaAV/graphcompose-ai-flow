@@ -36,6 +36,7 @@ import { fileURLToPath } from "node:url";
 
 import { describeWorkspaceLine, installRoot, resolveWorkspace } from "./lib/workspace.mjs";
 import { readManifest } from "./lib/template-bundle.mjs";
+import { blocking, formatFinding, known, scanPortability } from "./lib/bundle-portability.mjs";
 import { generatePom, maven, stageResources, stageSources } from "./lib/bundle-project.mjs";
 
 const repoRoot = installRoot();
@@ -204,6 +205,24 @@ for (const file of sources) {
 
 if (!fs.existsSync(path.join(bundleDir, "README.md"))) {
   problem("README.md is missing");
+}
+
+// Would this work on someone else's machine? Publishing runs the same scan, so
+// anything found here got in before that gate existed — but the bundle is what
+// a consumer receives, and it is the consumer who discovers a path that only
+// resolves where it was published.
+const portability = scanPortability(bundleDir);
+for (const finding of blocking(portability)) {
+  problem(formatFinding(finding));
+}
+const knownLeaks = known(portability);
+if (knownLeaks.length > 0) {
+  // Counted rather than listed: it is the same scheduled leak on every line,
+  // and repeating it seven times buries the findings that need acting on.
+  const rules = [...new Set(knownLeaks.map((f) => f.rule))].join(", ");
+  ok(`portable, apart from ${knownLeaks.length} known leak(s) (${rules})`);
+} else if (blocking(portability).length === 0) {
+  ok("portable — no path that resolves only where it was published");
 }
 
 // ----------------------------------------------------------------- build ---

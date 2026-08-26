@@ -21,9 +21,12 @@ import com.demcha.compose.document.templates.data.invoice.InvoiceSummaryRow;
 import com.demcha.compose.document.theme.BusinessTheme;
 
 /**
- * Invoice Classic — published bundle distilled from the
- * {@code invoice-reference} example chain (revision-003 APPROVED on
- * 2026-06-01; supersedes revision-002 and revision-001).
+ * Invoice Classic — a published GraphCompose invoice template.
+ *
+ * <p>Where it came from is recorded in {@code template.json}
+ * ({@code sourceProject}, {@code sourceRevision}, {@code sourceCommit}),
+ * which is the one place that belongs: it is metadata a rendering service
+ * can log, not something this class should know about.</p>
  *
  * <p>Single-page invoice layout: header band, hero metadata strip
  * (invoice / issued / due / status), bill-from + bill-to two-column
@@ -86,8 +89,8 @@ public final class InvoiceClassicTemplate implements InvoiceTemplate {
 
     @Override
     public String getDescription() {
-        return "Companion-repo example of the canonical invoice template flow "
-                + "(revision-003 - Page margin added around the invoice content).";
+        return "Single-page invoice: header band, metadata strip, bill-from and "
+                + "bill-to columns, line-items table and a right-aligned summary.";
     }
 
     @Override
@@ -196,9 +199,10 @@ public final class InvoiceClassicTemplate implements InvoiceTemplate {
                                  DocumentTableStyle headerStyle,
                                  DocumentColor zebraOdd,
                                  DocumentColor zebraEven) {
-        // revision-002: the line-items table holds ONLY the data rows.
-        // The trailing totals/summary rows have moved to the dedicated
-        // "Summary" section composed after this table in the page flow.
+        // The line-items table holds ONLY the data rows. The totals live in the
+        // dedicated "Summary" section composed after this table in the page
+        // flow, so that its columns can right-align to the Amount column above
+        // without the table's own row model getting in the way.
         table.name("LineItems")
                 .columns(
                         DocumentTableColumn.auto(),

@@ -122,6 +122,37 @@ workflow at all: a published bundle could be verified and could not be used.
 - Resources land under `template/<template-id>/` in an existing project, so
   installing a second template cannot silently overwrite the first one's data.
 
+**A bundle that only works here no longer publishes.** The failure mode was
+quiet: `templates/<id>/` looks complete, compiles, its manifest parses, and the
+first consumer to run it gets a missing file whose path names a computer they
+have never used.
+
+- `scripts/lib/bundle-portability.mjs` scans every text file for absolute paths,
+  paths into a `graphcompose-flow` workspace, paths into a `revisions/`
+  directory, and revision vocabulary. Publishing fails on any of them; the
+  verifier runs the same scan, so a bundle cannot pass publishing and then fail
+  the consumer gate for a reason publishing could have caught.
+- The line is between a path and a word. `revision-009` inside `template.json`
+  or the README is traceability the consumer contract deliberately keeps — it is
+  how a rendering service logs which template produced a document. The same word
+  in a `.java` file is code that knows about a revision, and a *path* through
+  `revisions/` is blocked everywhere, including the README.
+- `graphcompose.revision.dir` is reported as a **known** leak rather than a
+  blocking one: it is real and scheduled, and every bundle published so far
+  reads it, so failing over it would stop the harness rather than improve a
+  bundle. It prints on every publish so it cannot be forgotten.
+- It found live defects in the two bundles this repository ships. Both READMEs
+  linked to `../../examples/.../revisions/…`, which resolves only inside a clone
+  of the harness — a broken link for every consumer. `InvoiceClassicTemplate`
+  went further and returned `"(revision-003 - Page margin added…)"` from
+  `getDescription()`: harness vocabulary in a value callers can render. Both
+  bundles now state their provenance the way the contract intends, by pointing
+  at `template.json`. Neither was republished — their Javadoc has been curated
+  by hand since publication, and regenerating from the revision would have
+  destroyed that and reintroduced more revision vocabulary than it removed.
+- `npm run verify` now extends its untracked-files caveat to the published-bundle
+  step too, since both walk the working tree rather than the index.
+
 ## v0.12.0 — 2026-08-26
 
 **The verdict stopped being a self-report.** The loop's exit condition was the

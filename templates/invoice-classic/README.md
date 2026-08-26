@@ -138,13 +138,16 @@ polish a downstream user or the Template Publisher Agent could land:
   payment-term boilerplate). The upstream `InvoiceDocumentSpec`
   already satisfies the canonical contract; this is convenience only.
 
-## Source revision audit trail
+## Provenance
 
-- [Source revision folder](../../examples/invoice-reference/revisions/revision-003/)
-  carries the full audit log: `user-request.md`, `architecture-plan.md`,
-  `visual-review.md`, `revision.json` (APPROVED), and the original
-  `generated-template.java`.
-- Source commit: `209d5ea0bcba7e37a110b881d399d9e649426617`.
+`template.json` records where this bundle came from — `sourceProject`,
+`sourceRevision` and `sourceCommit` — so a service that renders with it can
+log which template produced a document.
+
+The audit log behind that revision (`user-request.md`, `architecture-plan.md`,
+`visual-review.md`) lives in the workspace this bundle was published from, not
+in the bundle. It is not needed to use the template, and a link to it from here
+would resolve on exactly one machine.
 
 ## License
 

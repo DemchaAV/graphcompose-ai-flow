@@ -164,11 +164,18 @@ if (skipped > 0) {
     `\n  ${skipped} step(s) skipped — a green run with skips is not the same as a green CI.`,
   );
 }
-if (results.some((r) => r.status === "FAILED" && r.step.name === "schema validation")) {
+// Both of these walk the working tree rather than the index, and this
+// repository's own `examples/` and `templates/` double as a live workspace — so
+// a local failure can come entirely from work in progress that CI never sees.
+// Saying so is not an excuse for a red step; it is the difference between
+// "someone broke the build" and "your scratch project is mid-flight".
+const TREE_WALKERS = new Set(["schema validation", "published bundles"]);
+const treeWalkerFailures = results.filter((r) => r.status === "FAILED" && TREE_WALKERS.has(r.step.name));
+if (treeWalkerFailures.length > 0) {
   console.log(
-    "\n  Note: schema validation walks the whole working tree, including files git\n" +
-      "  does not track. If the violations are all under an uncommitted example,\n" +
-      "  CI will not see them — check with:\n" +
+    `\n  Note: ${treeWalkerFailures.map((r) => r.step.name).join(" and ")} walk the whole working\n` +
+      "  tree, including files git does not track. If the violations are all under an\n" +
+      "  uncommitted example or bundle, CI will not see them — check with:\n" +
       "      git ls-files --error-unmatch <the reported file>",
   );
 }

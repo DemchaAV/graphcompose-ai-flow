@@ -56,6 +56,7 @@ import {
   packageOf,
   previewPageCount,
 } from "./lib/template-bundle.mjs";
+import { blocking, formatFinding, known, scanPortability } from "./lib/bundle-portability.mjs";
 
 /**
  * Every path this run wrote into the bundle.
@@ -396,11 +397,24 @@ for (const stale of pruned) {
 // on the publishing machine. Both are cheap to detect and expensive to meet as
 // a consumer, so they fail the publish rather than being reported afterwards.
 const scanFindings = scanBundle(targetDir, { sourceClassName, className, revisionId });
-if (scanFindings.length > 0) {
-  for (const finding of scanFindings) {
+
+// Portability is checked by the same scanner the verifier runs, so a bundle
+// cannot pass publishing and then fail the consumer gate for a reason
+// publishing could have caught. A `known` finding is a leak that is real and
+// scheduled: it prints on every publish so it cannot be forgotten, and does not
+// stop a publish that would otherwise be correct.
+const portability = scanPortability(targetDir);
+for (const finding of known(portability)) {
+  console.warn(`[publish-template] known leak: ${formatFinding(finding)}`);
+}
+const blockers = blocking(portability).map(formatFinding);
+
+const problems = [...scanFindings, ...blockers];
+if (problems.length > 0) {
+  for (const finding of problems) {
     console.error(`[publish-template] ${finding}`);
   }
-  abort(`${scanFindings.length} problem(s) in the published bundle; not leaving it in this state`);
+  abort(`${problems.length} problem(s) in the published bundle; not leaving it in this state`);
 }
 
 console.log(`[publish-template] done. Verify it builds and renders on its own:`);

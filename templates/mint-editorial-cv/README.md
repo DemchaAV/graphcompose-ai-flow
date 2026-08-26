@@ -68,10 +68,9 @@ mint-editorial-cv/
 
 3. Copy `data/cv-data.example.json` into your project. Rename to
    `cv-data.json` and edit the fields — name, contact, experience,
-   skills, social URLs, awards, references. The schema is mirrored
-   in `MintEditorialCvSpec` and documented in the original
-   revision's
-   [`data-schema.md`](../../examples/cv-reference/revisions/revision-006/data-schema.md).
+   skills, social URLs, awards, references. `MintEditorialCvSpec` is
+   the schema: it is a typed record, so the fields it declares are the
+   fields the data file may carry.
 
 4. Copy the entire `assets/` folder. The icon PNGs are
    pre-rasterized at the resolution and color the template expects;
@@ -160,14 +159,19 @@ All tuning knobs live in `MintEditorialCvTemplate.java` as
 | `ICONS` (map)                       | Per-icon point sizes (mirror of `asset-request.json#pointSize`) |
 
 For more invasive changes (new section, different page layout,
-swapping templates entirely), open a new revision in
-`examples/cv-reference/revisions/`. The publish step regenerates
-this bundle when that revision is APPROVED.
+swapping templates entirely), go back to the project this was
+published from and open a new revision there. Publishing regenerates
+this bundle when that revision is APPROVED — which is also why the
+bundle is not the place to make the change: an edit here diverges
+from the approval history and is overwritten by the next publish.
 
-## Reference
+## Provenance
 
-- Source flow: [`examples/cv-reference/revisions/revision-006/`](../../examples/cv-reference/revisions/revision-006)
-- Original visual reference: [`reference-page-1.png`](../../examples/cv-reference/reference/reference-page-1.png)
-  and [`reference-page-2.png`](../../examples/cv-reference/reference/reference-page-2.png)
-- Asset-resolver: [`tools/asset-resolver/`](../../tools/asset-resolver)
-- Schema doc: [`data-schema.md`](../../examples/cv-reference/revisions/revision-006/data-schema.md)
+`template.json` records `sourceProject`, `sourceRevision` and
+`sourceCommit`, so a service rendering with this bundle can log which
+template produced a document.
+
+The reference image, the visual reviews and the asset-resolver run
+behind that revision live in the workspace this was published from.
+They are not needed to use the template, and a link to them from here
+would resolve on exactly one machine.

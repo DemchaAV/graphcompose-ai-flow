@@ -265,6 +265,37 @@ test("the bundle version is preserved across a republish, and only --version mov
   assert.equal(read().version, "2.1.0");
 });
 
+test("a path into the harness that a consumer does not have fails the publish", () => {
+  const { root, revision } = workspaceWith({ label: "portability" });
+  write(
+    path.join(revision, "generated-template.java"),
+    "package com.demchaav.cv;\n" +
+      "/** See examples/navy-cv/revisions/revision-008/visual-review.md. */\n" +
+      "public final class GeneratedCvTemplate {}\n",
+  );
+
+  const { output } = failing(() => publish(root));
+  assert.match(output, /revisions\/ directory/);
+  assert.match(output, /generated-template\.java|NavySidebarCvTemplate\.java/, "the finding must name the file");
+});
+
+test("the property published providers read is reported on every publish, and stops none of them", () => {
+  // Real, scheduled, and not fixable without breaking every bundle already
+  // published. Silencing it would be how it gets forgotten; failing over it
+  // would stop the harness rather than improve a bundle.
+  const { root, revision } = workspaceWith({ label: "knownleak" });
+  write(
+    path.join(revision, "generated-template.java"),
+    'package com.demchaav.cv;\npublic final class GeneratedCvTemplate {\n' +
+      '  static final String P = "graphcompose.revision.dir";\n}\n',
+  );
+
+  const output = publish(root);
+  assert.match(output, /known leak/);
+  assert.match(output, /graphcompose\.template\.dir/, "the report must say what to read instead");
+  assert.ok(fs.existsSync(path.join(bundleOf(root), "template.json")), "a known leak must not stop the publish");
+});
+
 test("an absolute path in a published source fails the publish", () => {
   const { root, revision } = workspaceWith({ label: "abspath" });
   write(
