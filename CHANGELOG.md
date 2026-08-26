@@ -5,6 +5,241 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.12.0 — 2026-08-26
+
+**The verdict stopped being a self-report.** The loop's exit condition was the
+model's own word, and it reached that state through three steps that each
+looked like a check: the review writes `visual-review.json`; `iterate-status`
+reads its `verdict` and starts from there; `render-and-diff` asks
+`iterate-status` for the loop verdict. A real run ended on
+`"gate": { "passed": false, "metric": "diff: 211583 px (9.734%) - CRITICAL" }`
+next to `"verdict": "READY_FOR_APPROVAL"`, and nothing anywhere noticed —
+the only reader of `gate.passed` in the repository was the markdown renderer
+that prints it back out.
+
+- `scripts/lib/review-claims.mjs` is the missing reader. It forms no verdict;
+  judging a render against a design reference stays with the model. It asks
+  whether the verdict agrees with the evidence in the same folder, and
+  downgrades `READY_FOR_APPROVAL` to `REVISE` on four contradictions:
+  `binary-gate-failed` (`passed: false` under `exact-diff` / `region-diff`,
+  which measure equality), `unresolved-severity` (a `CRITICAL` or `MAJOR` still
+  on the list), `human-report-open` (a `humanReportedMismatch` without
+  `addressed: true`), and `gate-metric-unmeasured` (the pixel count quoted in
+  the review is not the one `visual-diff-stats.json` holds).
+- Only the first is liftable, by a new `gate.override.reason` of at least 60
+  characters naming what was measured instead — the shape observations already
+  use for `retiredNote`. There is no override for the other three: outranking a
+  `CRITICAL` is how a review stops meaning anything.
+- `passed: false` on the `visual-review` gate deliberately does **not** block.
+  That gate compares against a rasterised design image whose anti-aliasing no
+  PDF renderer reproduces, so its page percentage is never zero; blocking on it
+  would make the override a rubber stamp on every reference-built project,
+  which is this defect reintroduced one level up.
+
+**`region-diff` became a tool instead of a paragraph.** `config/pipeline.json`
+has declared the gate since Phase 1 — "AE on the affected regions; every region
+outside that list must be byte-equal" — and no script implemented it. Grep the
+repository and the only hits were the config naming it and the schema mirroring
+its vocabulary.
+
+- `tools/visual-diff/src/regionDiff.ts` + `region-diff` CLI cut every region out
+  of `visual-analysis.json` and compare it. `--changed <ids>` makes it the gate
+  it always claimed to be: exit `2` when a region outside that list carries
+  mismatched pixels.
+- `render-and-diff` runs it every pass and writes `region-diff-stats.json`. The
+  figure that matters is `concentration` — a region's share of the page's
+  difference divided by its share of the page's area. Even wear sits near
+  `1.00x`, which is what anti-aliasing against a soft reference looks like; a
+  region well above it carries damage out of proportion to its size.
+- Why it was needed: a whole-page percentage against a rasterised reference
+  cannot be checked, only explained. A run explained 9.734% as type rendering —
+  correct in outline — while a timeline rail ran through the marker meant to cap
+  it. Regions disagree with each other; a page total cannot. Measured on that
+  run the tool reproduces the stored page figure exactly and ranks
+  `credentials-divider` at 3.3x and `summary` at 2.9x their share of the page.
+  It did **not** by itself surface the 13px rail: at region granularity a defect
+  that small is inside the noise of a region full of text. It localises, it does
+  not replace looking.
+
+**A published bundle is verified by rendering it, not by compiling it.**
+`approve-and-publish --verify` now defaults to `render` rather than `static`.
+The first bundle published from a real run compiled cleanly and could not
+render: `assets-manifest.json` never reached it, so every icon resolved to
+nothing. Static verification passed it, and it would have shipped that way if
+the agent had not chosen `--render` on its own — which made the good outcome a
+matter of who was driving.
+
+**The iteration ceiling stopped charging for work it was not written to
+stop.** `maxIterations` counted every revision in the loop, including the ones
+that were not the agent's decision.
+
+- A pass carrying a `humanReportedMismatch` id new to this loop is not charged:
+  it exists because a person named something. One report buys one free pass, so
+  an unaddressed report cannot become unlimited licence. A real run reported
+  `9/8` for a correction requested one message earlier; it now reads `8/8, +1
+  you asked for`.
+- At the ceiling, a loop whose latest pass strictly reduced the number of
+  `CRITICAL`/`MAJOR` mismatches gets one more pass, capped by a new
+  `limits.maxIterationGrants` (3) and re-earned each time. Circling is already
+  caught by `maxSameMismatchAttempts`, which fires on the third attempt at one
+  cause however many passes have run. A run reached 8/8 holding two `MINOR`
+  fixes whose recipes it had written down, and put them in the bundle's README
+  instead of in the document.
+- Progress is counted on the severity ledger, never on the page pixel count.
+  Capping that timeline rail moved the page total from 211583 px to 211674 —
+  *up* — because it repainted a few glyph edges. A convergence test built on
+  that number calls the fix a regression.
+
+**Found by reviewing the above, and fixed in the same change.** Each of these
+was the same defect the work was about, reintroduced by the work:
+
+- A region declared without `bounds` — which the analysis schema permits, it
+  requires only `id`/`label`/`role` — was dropped from the region list instead
+  of reported unmeasurable, so `region-diff --changed hero` measured nothing in
+  a bounds-less `footer`, found no trespasser, and exited 0 while the footer
+  that moved shipped unnoticed. It was simultaneously unguardable and
+  unnameable: `--changed footer` threw "names region(s) the analysis does not
+  contain". Bounds-less regions now stay on the list as `skipped`, and under
+  `--changed` an unmeasurable region outside the changed set is a refusal
+  (exit 2), because a gate that could not look at part of the page cannot say
+  the page is clean.
+- The iteration exemption for a pass the user asked for was uncapped, and
+  `humanReportedMismatch` is written by the same model whose verdict this change
+  stopped trusting — the schema even sanctions coining a fresh id. An agent
+  coining one per pass would hold `agentIterations` at zero forever: the
+  self-report closed at the verdict, reopened at the budget. Exemptions are now
+  bounded by `maxIterationGrants` as well as deduplicated.
+- `convergence()` compared the last two passes *that carry a review*, so a loop
+  whose newest revision had none could be granted an extension on an older
+  pass's progress while the reason said "the last pass closed N". It now reads
+  the last two revisions, and an absent `mismatches` array counts as
+  unmeasurable rather than as zero blocking mismatches — reading a damaged
+  record as progress would hand out an extension for writing a worse file.
+- `gate-metric-unmeasured` compared the review's quoted pixel count against
+  `visual-diff-stats.json` without checking which comparison that file holds.
+  The file is rewritten by whichever diff ran last, so a revision diffed both
+  ways would have a truthful `AE == 0 vs parent` reported as a fabrication. The
+  stats say which they are — a reference diff scales into the revision folder,
+  a parent diff is handed the parent's `output.png` — and the rule now applies
+  only when they match.
+- `region-diff` exited via `process.exit(2)`, which truncates a piped `--json`
+  payload on exactly the failing runs that matter. `process.exitCode` now, the
+  same fix `import-reference` and `page-size` already carry.
+
+**Two older defects the same review surfaced:**
+
+- The aspect-mismatch warning switched itself off on any second run.
+  `render-and-diff` preferred the persisted `reference-scaled.png`, which
+  already has the render's dimensions, so `--scale-reference` found nothing to
+  scale, skipped the measurement, and rewrote the stats *without*
+  `aspectMismatch`. The distortion stayed in the pixels; only the notice
+  disappeared — and a backstop that turns itself off on retry is worse than
+  none, because the first run taught you to trust it. Verified on
+  `mocha-profile-cv`: the 9.45% warning vanished on the second run and now
+  survives it. The scaler is deterministic by design, so always reading the
+  original reproduces the identical scaled file.
+- `visual-review-classification.md` — the artifact the review skill tells a
+  reader to paste into `visual-review.md` — printed `0.3% — MINOR` with no
+  hint the reference had been stretched to produce it. The distortion now
+  leads the file, above the numbers it invalidates.
+- `page-size --use` settled an `inconsistent` measurement. That verdict means
+  the pages disagree with each other, so there is no one page size to confirm;
+  recording one exited 0 and silenced the question permanently for every later
+  revision. It is refused now, and says to re-import.
+
+**The intermittent full-suite failure is root-caused.** v0.11.2 recorded it as
+unexplained; the assertion added there — check the import succeeded before
+reading what it wrote — is what made it legible. Caught in a loop of full-suite
+runs, it says:
+
+    java.lang.NoClassDefFoundError: org/apache/pdfbox/Loader
+
+`runRender` rebuilds the preview renderer with `mvn package` whenever its
+sources are present, which they are in a dev checkout, and
+`tools/preview-renderer/pom.xml` gives maven-shade
+`<finalName>preview-renderer</finalName>` — so the build **rewrites
+`target/preview-renderer.jar` in place**. Six test files can trigger a render,
+Node runs test files in parallel, and a JVM that starts from that path while
+shade is writing it loads a jar with no PDFBox in it. Nothing to do with
+fixtures, which is why checking them found nothing.
+
+It is not a defect in anything released: the shipped jar is prebuilt, an
+installed harness has no sources so it never rebuilds, and CI skips these
+tests for want of a renderer. It IS a real hazard in a dev checkout — two
+harness commands run at once do this to each other. Recorded here and not
+fixed in this release, because it was found while cutting it.
+
+**Still open, recorded rather than fixed:** nothing relabels a `CRITICAL` for
+you, but nothing stops a review reclassifying one as `ACCEPTED_LIMITATION`
+either — the schema says that classification "requires a human note" and no
+code enforces one. `unresolved-severity` is only as strong as the honesty of
+the severity column.
+
+**The page size is measured now, and asked about when measuring is not
+enough.** Nothing in the chain ever looked at how big the reference was. The
+design stage had nothing to measure against and wrote "A4", which is what gets
+written when nobody made it look — and the gate could not catch it, because
+`visual-diff --scale-reference` resamples the reference to the render's exact
+width *and* height. A page built at the wrong proportions was stretched to fit
+immediately before the pixels were compared. The diff reported parity, the
+review read a stretched reference, and the accuracy contract's "page size
+matches the reference" was checked against the distortion.
+
+Three projects on disk shipped that way. `mocha-profile-cv` was built at A4
+from a reference whose nearest standard is LETTER, 9.5% out; `cv-reference`
+4.9%; `navy-executive-cv` 4.2%. Every gate green, and every element placed
+against page height in the wrong place on every page.
+
+- `scripts/import-reference.mjs` measures the page at import — the dimensions
+  are in the PNG header it just wrote, so it needs no ImageMagick and no build
+  output — ranks the standards, and records `referenceGeometry` in
+  `template-project.json`. Exit `0` when a standard matches within 1%; **exit
+  `5` when the page size is unsettled** — nothing matched, the pages disagree,
+  or the header could not be read at all. On a question it carries the whole
+  question: the measured size, the nearest standard, what building at it costs
+  in percent, and the exact `DocumentPageSize.of(w, h)` that keeps the
+  reference's proportions. A measurement that could not be taken is in the same
+  bucket on purpose: exit 0 there would make "this is a known standard" and
+  "nobody could tell what this is" the same answer to a script.
+- Exit 5 is a question, not a failure. The files are imported; what is missing
+  is a decision, and it is the user's: a cropped screenshot of a standard page
+  and a genuinely custom page measure the same and produce visibly different
+  documents. Picking the nearest standard silently would be the same defect
+  with a shorter error bar.
+- `scripts/page-size.mjs` covers the rest of a project's life. A revision does
+  not re-import, so the page size was checked when a project was created and
+  never again — and a project created before the measurement existed carried no
+  page size at all. It answers "is it settled?" for any project (exit `0` yes,
+  `5` no), measures on the spot when nothing was recorded, and `--use` with a
+  `--decision` writes the user's answer down so later revisions inherit it
+  rather than asking again. `revise-template` runs it as step zero: a wrong page
+  size is not in scope for anything. `--decision` is mandatory and length-checked
+  — a nearby standard and the exact measured size are both defensible and the
+  numbers afterwards do not say which was taken.
+- Re-importing a different reference drops a recorded decision. A new reference
+  is a new page, and carrying the old answer across would be a settled page size
+  that nobody settled.
+- Pages that disagree with each other about their own size are their own
+  verdict. A document has one page size, so that is a mixed-dpi import or two
+  sources, and nothing downstream can be right until it is resolved.
+- `visual-analysis.json`'s `page` block now requires the evidence —
+  `referencePx`, `aspect`, `sizePt`, `sizeSource`, and `sizeDecision` when the
+  user was the one who decided. There is deliberately no enum value for "chose
+  without measuring or asking".
+- `visual-diff` reports `aspectMismatch` in its stats and warns on stderr when
+  it scaled a reference into a shape it did not have, saying which way the
+  error runs: a stretched reference makes the mismatch *smaller* than the
+  truth. `render-and-diff` carries it into the per-page report and to the top
+  level of `result.diff`, so a reader who takes `percent` and stops is still
+  told. The rule in `docs/visual-accuracy-contract.md`: a page-size mismatch is
+  never MINOR, whatever the pixel percentage, because relational geometry
+  derives from the page — get the page wrong and every ratio built on it is
+  faithfully wrong.
+
+The tolerance lives in two places, because `visual-diff` builds and ships as
+its own package and importing a harness script into it would be the wrong
+dependency. `scripts/test/contracts.test.mjs` asserts the two never drift.
+
 ## v0.11.2 — 2026-08-25
 
 The v0.11.0 and v0.11.1 tags each point at a commit whose CI is red, so both
