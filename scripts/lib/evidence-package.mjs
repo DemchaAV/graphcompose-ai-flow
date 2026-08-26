@@ -238,7 +238,7 @@ export function displacement(node, rect) {
  *
  * @returns {{cause: string, basis: string, candidates: string[]}}
  */
-export function classifyCause({ pagination = null, displaced = null, tolerance = null, role = null, interiorPercent = null, substitutedFonts = [], regionRect = null }) {
+export function classifyCause({ pagination = null, displaced = null, tolerance = null, role = null, interiorPercent = null, substitutedFonts = [], regionRect = null, typographyReported = false }) {
   if (pagination && pagination.expected != null && pagination.actual != null && pagination.expected !== pagination.actual) {
     return {
       cause: "PAGINATION",
@@ -316,12 +316,18 @@ export function classifyCause({ pagination = null, displaced = null, tolerance =
     };
   }
 
+  // The wording branches on whether this render reported typography at all,
+  // because "we looked and the font is right" and "nothing looked" are different
+  // answers and a reader acts differently on each.
   return {
     cause: "UNKNOWN",
-    basis:
-      "the box is where the reference puts it, so this is not geometry. Separating a font from a colour from " +
-      "different text needs the typography snapshot and a text comparison, neither of which exists yet — " +
-      "so this names the candidates rather than picking one",
+    basis: typographyReported
+      ? "the box is where the reference puts it, so this is not geometry, and the font it was set in is " +
+        "the one the style asked for. What is left — the size, the colour, the words — needs a comparison " +
+        "against the reference's own type, which is scripts/typography.mjs and needs a crop"
+      : "the box is where the reference puts it, so this is not geometry. This render reports no typography " +
+        "(it predates GraphCompose 2.2.2), so a wrong font here would be invisible — re-render before " +
+        "ruling one out. Size, colour and wording need a comparison against the reference's own type",
     candidates: ["TYPOGRAPHY", "PAINT", "CONTENT"],
   };
 }
@@ -536,6 +542,7 @@ export function buildEvidencePackage({
     interiorPercent: regionStats ? regionStats.percent : null,
     substitutedFonts,
     regionRect: pkg.ownership?.referenceRect ?? null,
+    typographyReported: Boolean(pkg.typography?.reported),
   });
   pkg.cause = verdict.cause;
   pkg.causeBasis = verdict.basis;
