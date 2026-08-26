@@ -69,6 +69,31 @@ command whose output a consumer never sees.
   produces byte-identical JSON to the pre-refactor run at both the `--build` and
   `--render` tiers, down to the rendered PDF sizes.
 
+**There is a catalog.** Nothing listed what had been published, and answering
+"how do I use this bundle" meant opening `template.json`, then a source to find
+the package, then `data/` to find the example, then the README for the
+dependencies. Four files and a convention, to learn facts the manifest already
+states — and an agent that has read that much of a bundle is already tempted to
+rebuild it instead of reusing it.
+
+- `node scripts/templates.mjs` lists every published bundle: id, name, kind,
+  page count, GraphCompose version, bundle version, source project and revision.
+- `node scripts/templates.mjs inspect <id>` prints the classes, the data file
+  and the name to copy it to, the assets by extension, the font roles and which
+  need manual registration, the dependencies, the provenance, and the call
+  itself — generated from the bundle's own classes, so it cannot describe an API
+  the bundle does not have.
+- The dependency list is what a build file **needs**, not what the manifest
+  happens to list: a 2.x bundle whose manifest omits `graph-compose-fonts` shows
+  it marked `not in the manifest; this line needs it`.
+- The snippet names the JVM property the bundle's own sources read, found by
+  reading them. Bundles published so far read `graphcompose.revision.dir` and
+  their providers throw when it is unset, so a snippet naming the newer property
+  would look authoritative and not run. Those bundles are flagged as carrying
+  harness vocabulary into published code.
+- `--json` on both, for agents. Neither path calls a model, and a corrupt
+  manifest in one bundle is reported rather than suppressing the rest.
+
 ## v0.12.0 — 2026-08-26
 
 **The verdict stopped being a self-report.** The loop's exit condition was the

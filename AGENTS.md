@@ -106,6 +106,8 @@ PowerShell, cmd and bash.
 | Is the page size settled? | `node scripts/page-size.mjs --project <id>` — exit 0 settled, 5 unanswered; `--use <A4\|LETTER\|LEGAL\|WxH> --decision "..."` records the user's answer once, for every later revision |
 | Approve and publish | `node scripts/approve-and-publish.mjs --project <id>` — one command: approve, publish, README, verify |
 | Verify a published bundle | `node scripts/verify-published-template.mjs --template-id <id> --render` |
+| **What has already been published?** | `node scripts/templates.mjs` (`--json` for an agent) — ask this before rebuilding a layout the user names |
+| How do I use a published bundle? | `node scripts/templates.mjs inspect <template-id>` — classes, data file, assets, dependencies, and the call, from the manifest |
 | Report what a run cost | `node scripts/telemetry/run-metrics.mjs report --project <id>` |
 | Run every gate locally | `npm run verify` (`--quick` skips Java/Maven) |
 
