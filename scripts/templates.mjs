@@ -27,7 +27,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { describeWorkspaceLine, resolveWorkspace } from "./lib/workspace.mjs";
-import { listBundles, readManifest } from "./lib/template-bundle.mjs";
+import { listBundles, readManifest, resourceProperty } from "./lib/template-bundle.mjs";
 import { resolveDependencies } from "./lib/bundle-project.mjs";
 
 function usage(code = 0) {
@@ -294,28 +294,6 @@ function countAssets(bundleDir, assetsRel) {
   };
   walk(root);
   return { total, byExtension };
-}
-
-/**
- * Which JVM property this bundle's own sources read to find their data and
- * assets.
- *
- * Read out of the sources rather than assumed, because the two names are both
- * live: bundles published so far read `graphcompose.revision.dir`, and their
- * providers throw when it is unset rather than defaulting to anything. A
- * snippet naming the name this harness prefers would be a snippet that does not
- * run, which is worse than no snippet — it looks authoritative and is wrong.
- */
-function resourceProperty(bundleDir) {
-  const srcDir = path.join(bundleDir, "src");
-  if (!fs.existsSync(srcDir)) return null;
-  const found = new Set();
-  for (const file of fs.readdirSync(srcDir).filter((f) => f.endsWith(".java"))) {
-    const text = fs.readFileSync(path.join(srcDir, file), "utf8");
-    for (const [, name] of text.matchAll(/"(graphcompose\.[\w.]*dir)"/g)) found.add(name);
-  }
-  if (found.has("graphcompose.template.dir")) return "graphcompose.template.dir";
-  return found.values().next().value ?? null;
 }
 
 /**

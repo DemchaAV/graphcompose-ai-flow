@@ -68,11 +68,17 @@ const MANIFEST = {
 };
 
 /** A workspace holding one bundle. */
-function workspace({ label, manifest = MANIFEST } = {}) {
+function workspace({ label, manifest = MANIFEST, property = "graphcompose.revision.dir" } = {}) {
   const root = path.join(tempDir(label), "graphcompose-flow");
   write(path.join(root, "flow.config.json"), { schemaVersion: 1 });
   const bundle = path.join(root, "templates", manifest.id);
   write(path.join(bundle, "template.json"), manifest);
+  if (property) {
+    write(
+      path.join(bundle, "src", "AcmeInvoiceSpecProvider.java"),
+      `package com.acme.docs;\npublic final class AcmeInvoiceSpecProvider {\n  private static final String P = "${property}";\n}\n`,
+    );
+  }
   write(path.join(bundle, "README.md"), "# bundle\n");
   write(
     path.join(bundle, "src", `${manifest.className}.java`),
@@ -234,6 +240,21 @@ test("target: a project already on 21 is not lectured about it", () => {
 
   const { out } = run(root, ["acme-invoice", "--target", project]);
   assert.ok(!/Java release/.test(out), "a project that is already fine should be told nothing");
+});
+
+test("target: the wire-up names the property this bundle reads, not the one we prefer", () => {
+  // Telling a consumer to set a name their template never looks up produces a
+  // provider that throws with the property already set.
+  const legacy = workspace({ label: "wire-old" });
+  const legacyOut = run(legacy, ["acme-invoice", "--target", mavenProject({ label: "wire-old-app", javaRelease: 21 })]).out;
+  assert.match(legacyOut, /setProperty\("graphcompose\.revision\.dir"/);
+  assert.match(legacyOut, /harness's own name/);
+  assert.ok(!/setProperty\("graphcompose\.template\.dir"/.test(legacyOut));
+
+  const modern = workspace({ label: "wire-new", property: "graphcompose.template.dir" });
+  const modernOut = run(modern, ["acme-invoice", "--target", mavenProject({ label: "wire-new-app", javaRelease: 21 })]).out;
+  assert.match(modernOut, /setProperty\("graphcompose\.template\.dir"/);
+  assert.ok(!/harness's own name/.test(modernOut), "a template on the current rule needs no apology");
 });
 
 test("target: a Gradle build gets Gradle syntax, not a pom fragment", () => {

@@ -322,6 +322,11 @@ export function runRender({
   // 5. Render pass 1 — clean PDF + output.png
   runJava(
     [
+      // Both names while published templates read either. `template.dir` is
+      // what authoring-rules tells new templates to read; `revision.dir` is
+      // what every bundle published before that rule reads, and its provider
+      // throws when the property is unset rather than defaulting.
+      `-Dgraphcompose.template.dir=${revisionDir}`,
       `-Dgraphcompose.revision.dir=${revisionDir}`,
       ...(dataFile ? [`-Dgraphcompose.data.file=${dataFile}`] : []),
       "-jar",
@@ -387,6 +392,11 @@ export function runRender({
   console.log("> rendering debug pass with --guide-lines");
   runJava(
     [
+      // Both names while published templates read either. `template.dir` is
+      // what authoring-rules tells new templates to read; `revision.dir` is
+      // what every bundle published before that rule reads, and its provider
+      // throws when the property is unset rather than defaulting.
+      `-Dgraphcompose.template.dir=${revisionDir}`,
       `-Dgraphcompose.revision.dir=${revisionDir}`,
       ...(dataFile ? [`-Dgraphcompose.data.file=${dataFile}`] : []),
       "-jar",

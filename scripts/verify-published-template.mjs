@@ -308,6 +308,8 @@ function buildAndMaybeRender(dir) {
   const render = spawnSync(
     "java",
     [
+      // Both names: this has to render a bundle written to either contract.
+      `-Dgraphcompose.template.dir=${stage}`,
       `-Dgraphcompose.revision.dir=${stage}`,
       "-jar",
       rendererJar,

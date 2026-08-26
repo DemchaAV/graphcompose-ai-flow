@@ -37,7 +37,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { describeWorkspaceLine, resolveWorkspace } from "./lib/workspace.mjs";
-import { readManifest } from "./lib/template-bundle.mjs";
+import { readManifest, resourceProperty } from "./lib/template-bundle.mjs";
 import {
   JAVA_RELEASE,
   generateConsumerReadme,
@@ -446,14 +446,25 @@ function report(result) {
 
   for (const note of notes) out.push("", `  note: ${note}`);
 
+  // The property this bundle's own sources read, not the one the harness
+  // prefers. Telling a consumer to set a name their template never looks up
+  // produces a provider that throws with the property already set.
+  const property = resourceProperty(result.dir) ?? resourceProperty(bundleDir);
   out.push("", "Wire it up:");
-  out.push(`  System.setProperty("graphcompose.template.dir", "${result.resourceDir}");`);
-  out.push(`  System.setProperty("graphcompose.revision.dir", "${result.resourceDir}");`);
+  if (property) {
+    out.push(`  System.setProperty("${property}", "${result.resourceDir}");`);
+    if (property === "graphcompose.revision.dir") {
+      out.push("");
+      out.push(
+        "  That is the harness's own name, which this bundle was published with.",
+        "  Newer templates read graphcompose.template.dir; setting both is safe.",
+      );
+    }
+  } else {
+    out.push("  Nothing to set — this template takes no data directory.");
+  }
   out.push("");
-  out.push(
-    "  Both, until published bundles read the first name. See the exact call with:",
-    `    node scripts/templates.mjs inspect ${manifest.id}`,
-  );
+  out.push("  See the exact call with:", `    node scripts/templates.mjs inspect ${manifest.id}`);
   out.push("");
   console.log(out.join("\n"));
 }

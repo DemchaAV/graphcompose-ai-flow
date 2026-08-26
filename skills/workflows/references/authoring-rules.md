@@ -70,6 +70,54 @@ The test: if changing someone's email requires editing Java, the
 contract is broken, and what should have been a `data-only` revision
 with a region-aware gate becomes a code change.
 
+## Published code must not know this harness exists
+
+A template outlives the run that produced it. Once published it is
+ordinary Java in someone else's project, and a class that resolves its
+data through a property called `graphcompose.revision.dir` has told that
+project about revisions, workspaces and an approval loop it will never
+have. That name is this harness leaking through the one artifact that
+leaves it.
+
+So every provider offers **two** ways in, and the property-free one is
+the real API:
+
+```java
+/** Production entry point: the caller says where the data is. */
+public static CvSpec load(Path dataFile) { … }
+
+/** Harness entry point: the render runtime sets the directory. */
+public static CvSpec create() {
+    return load(templateDir().resolve("cv-data.json"));
+}
+```
+
+A template that loads assets takes its resource root the same way — a
+`new NorthlineCvTemplate(Path resourcesRoot)` constructor beside the
+no-arg one, so a service rendering a thousand documents shares one set
+of assets instead of a directory per document.
+
+`create()` resolves the directory in this order, and never the reverse:
+
+```java
+private static Path templateDir() {
+    String dir = System.getProperty("graphcompose.template.dir");
+    if (dir == null || dir.isBlank()) {
+        dir = System.getProperty("graphcompose.revision.dir");
+    }
+    return Path.of(dir == null || dir.isBlank() ? "." : dir);
+}
+```
+
+`graphcompose.template.dir` is the name to write. The second lookup is
+there because bundles published before this rule read only the old name,
+and the harness sets both while that is true; the fallback is for reading,
+never for writing. Do not emit `graphcompose.revision.dir` in new code.
+
+`scripts/lib/bundle-portability.mjs` reports the old name on every
+publish, so a template that copies an older one is caught rather than
+shipped.
+
 ## An href in the data is a link in the render
 
 A field carrying a target — `href`, `url`, `link` — is not decoration.

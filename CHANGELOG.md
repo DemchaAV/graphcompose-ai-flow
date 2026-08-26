@@ -153,6 +153,34 @@ have never used.
 - `npm run verify` now extends its untracked-files caveat to the published-bundle
   step too, since both walk the working tree rather than the index.
 
+**Published code stops knowing this harness exists.** A template outlives the
+run that produced it. Once published it is ordinary Java in someone else's
+project — and a class resolving its data through a property called
+`graphcompose.revision.dir` has told that project about revisions, workspaces
+and an approval loop it will never have.
+
+- `skills/workflows/references/authoring-rules.md` now states the contract, and
+  that file is loaded on every authoring pass — which matters because the
+  property was documented **nowhere**. New templates learned it by copying older
+  ones, so the leak reproduced itself with no rule to point at.
+- Every provider gets two ways in, and the property-free one is the real API:
+  `load(Path dataFile)` for production, `create()` for the render runtime. A
+  template that loads assets takes a resource root through a constructor, so a
+  service rendering a thousand documents shares one set of assets instead of a
+  directory per document.
+- `create()` resolves `graphcompose.template.dir`, then
+  `graphcompose.revision.dir`, then `"."` — never the reverse. The fallback is
+  for reading, never for writing; new code does not emit the old name, and the
+  portability scan reports it if it does.
+- The harness sets both names (`render-runtime.mjs`, `verify-published-template.mjs`)
+  while templates on either contract exist.
+- `use-template`'s wire-up instructions now name the property the bundle's own
+  sources read, found by reading them, rather than the one the harness prefers.
+  Telling a consumer to set a name their template never looks up produces a
+  provider that throws with the property already set. `resourceProperty` moved
+  into `template-bundle.mjs` so the catalog and the installer answer this the
+  same way.
+
 ## v0.12.0 — 2026-08-26
 
 **The verdict stopped being a self-report.** The loop's exit condition was the
