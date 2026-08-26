@@ -13,6 +13,13 @@ Use this skill when deciding page margins, the gaps between
 sections, the padding inside primitives, and the alignment grid
 that holds a template together.
 
+> **Who owns a spacing value matters as much as its size.** `margin`
+> positions a component in its surroundings, `padding` positions children
+> inside their owner, and `spacing` sets the repeated gap between them.
+> A value that appears on more than one sibling belongs on the parent
+> instead — see **Layout ownership** in
+> `skills/workflows/references/authoring-rules.md`.
+
 ## Measuring reference page margins
 
 Margins are the first thing to lock down because they constrain

@@ -27,6 +27,47 @@ When the library genuinely cannot do something, that is
 tried. If a skill file disagrees with library behaviour, the skill is
 wrong — fix the skill.
 
+## Semantic primitive before manual composition
+
+Before composing a visual pattern by hand, check whether GraphCompose has
+a primitive that *represents the relationship*. A semantic primitive is
+preferred **even when equivalent output can be assembled from lower-level
+nodes**.
+
+| The pattern | The primitive |
+|---|---|
+| Dated entries on a rail — experience, education, milestones | `addTimeline(Consumer<TimelineBuilder>)` |
+| Rows and columns of data | `addTable(...)` |
+| Something repeating on every page | `DocumentSession.header(DocumentHeaderFooter)` / `footer(...)` |
+| Content that belongs *to* a shape — initials in a disc, a label in a pill | a `ShapeContainer` anchor: `addCircle(size, colour, c -> c.center(...))` |
+| Things that overlap or sit on top of each other | `addLayerStack(...)` |
+| A colour band spanning the page behind the content | `pageBackgrounds(List<PageBackgroundFill>)` |
+| A named vertical group | `addSection(...)` |
+| A named horizontal group | `addRow(...)` with `weights(...)` |
+
+`LineBuilder`, `ShapeBuilder`, canvas drawing, repeated margins and
+negative offsets are **fallback mechanisms, not the default authoring
+model**. They are correct when nothing semantic covers the relationship —
+a decorative rule, a bespoke glyph — and wrong when reached for because
+the primitive was not looked up.
+
+Two reasons this is a rule and not a preference. A hand-assembled
+timeline is a dozen independent constants that a later revision has to
+find and move together, while `TimelineBuilder.spacing(...)` is one. And
+the primitive knows things the assembly does not — `keepTogether()`
+survives a page break; three siblings with matching margins do not.
+
+Look it up rather than remembering:
+
+```bash
+node scripts/api-query.mjs --version 2.2 --query timeline
+```
+
+Absent from the allow-list means it does not exist, and *then* the manual
+construction is right. `scripts/check-knowledge-drift.mjs` fails the
+build when a document still teaches a construction the pinned pack has
+replaced.
+
 ## Relational geometry over pixel constants
 
 Widths and weights are **derived** from a small set of base constants
@@ -58,6 +99,65 @@ the font changes, the offset is silently wrong; an anchor is not.
 The division of labour: the analysis writes the *relationship* ("the
 badge sits at the top-right of the avatar"), the architecture picks the
 *named anchor*, the code reaches for the *primitive*.
+
+## Layout ownership
+
+**A property shared by several children belongs to their nearest common
+semantic parent.**
+
+Three words that are routinely used as if they were interchangeable, and
+are not:
+
+| | Positions |
+|---|---|
+| `margin(...)` | the component itself, relative to its surroundings |
+| `padding(...)` | the children *inside* their owner |
+| `spacing(...)` | each child relative to the previous one |
+
+All three are on `AbstractFlowBuilder`, so a section, a row and a page
+flow each have them. Which one you reach for says who owns the geometry.
+
+```java
+// Wrong. The inset is a fact about the group, stated three times.
+languages.addParagraph(p -> p.text("English").margin(0, 0, 0, 18));
+languages.addParagraph(p -> p.text("Ukrainian").margin(0, 0, 0, 18));
+languages.addParagraph(p -> p.text("German").margin(0, 0, 0, 18));
+
+// Right. One property, on the thing the inset is true of — and the group
+// is named, so a region diff can address it.
+languages.addSection("LanguagesContent", content -> content
+        .padding(0, 0, 0, 18)
+        .spacing(5)
+        .addParagraph(p -> p.text("English"))
+        .addParagraph(p -> p.text("Ukrainian"))
+        .addParagraph(p -> p.text("German")));
+```
+
+The test is a revision request. "Move the language list 6pt left" should
+be **one** property change. If it is three, the geometry is in the wrong
+place — and the next request will be four, because a fourth language got
+added and nobody moved its margin with the others.
+
+**A child margin is for a local exception**: this one item, unlike its
+siblings, sits differently. The moment the same value appears on more
+than one sibling it has stopped being an exception and become a fact
+about the parent. `scripts/check-structural-smells.mjs` reports the
+repetition; the rule is here so it does not have to.
+
+## Change the smallest owning property
+
+A visual mismatch is fixed at its owner, not wherever a number can be
+adjusted to compensate.
+
+If the whole Languages group sits 6pt too far right, change
+`Languages.padding`. Not the three child margins — that is the same fix
+written three times, and it drifts apart on the next edit. And not the
+sidebar width — that moves everything else to fix one thing, and the
+diff will show it.
+
+Widening the search until something moves is how a template accumulates
+constants that no longer mean anything: each was true for one pass, and
+together they describe no layout at all.
 
 ## Data-spec contract
 

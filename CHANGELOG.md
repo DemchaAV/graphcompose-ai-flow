@@ -240,6 +240,40 @@ hides.
   wolf is a check somebody turns off, so the passages that must stay silent are
   now pinned by tests as hard as the one that must fire.
 
+**Semantic primitive first, and geometry belongs to whoever owns it.** Two
+rules in `authoring-rules.md`, which every authoring pass loads.
+
+- **Semantic primitive before manual composition.** A primitive that represents
+  the *relationship* is preferred even when equivalent output can be assembled
+  from lower-level nodes, with a mapping table from pattern to primitive —
+  timeline, table, page header/footer, shape-owned content, overlap, page
+  background band, named vertical and horizontal groups. `LineBuilder`,
+  `ShapeBuilder` and canvas drawing are fallbacks, not the default authoring
+  model. Every name in the table was checked against the generated allow-list
+  before it was written down.
+- Two reasons it is a rule and not a preference: a hand-assembled timeline is a
+  dozen constants a later revision has to find and move together, and the
+  primitive knows things the assembly does not — `keepTogether()` survives a
+  page break, three siblings with matching margins do not.
+- **Layout ownership.** A property shared by several children belongs to their
+  nearest common semantic parent. `margin` positions a component in its
+  surroundings, `padding` positions children inside their owner, `spacing` sets
+  the repeated gap between them — all three on `AbstractFlowBuilder`, so which
+  one you reach for says who owns the geometry. The test is a revision request:
+  "move the language list 6pt left" should be one property change, not three.
+- **Change the smallest owning property.** Fix a mismatch at its owner, not at
+  whatever number can be adjusted to compensate. Widening the search until
+  something moves is how a template accumulates constants that each described
+  one pass and together describe no layout.
+
+The corpus was censused for the pattern rather than assumed to have it: 862
+`margin`/`padding` calls across 35 generated and published templates yield **7
+distinct repeated-sibling instances**, five of them trailing-gap margins that
+belong on the parent as `spacing(...)`. Worth knowing for the lint that
+follows — 21 further groups repeat `DocumentInsets.zero()` three or more times,
+which is neutralising a default, not a shared inset, and flagging it would make
+the check noise.
+
 ## v0.12.0 — 2026-08-26
 
 **The verdict stopped being a self-report.** The loop's exit condition was the

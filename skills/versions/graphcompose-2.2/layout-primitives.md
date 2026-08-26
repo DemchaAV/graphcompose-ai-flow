@@ -80,7 +80,9 @@ CanvasLayer must not become coordinate soup.
 When the reference shows a vertical sequence where each entry pairs a
 marker with content along a continuous rail — work history, project
 milestones, numbered process steps — use the timeline primitive rather
-than hand-placing bullets with margins. `addTimeline(timeline -> ...)`
+than hand-placing bullets with margins — the general form of that choice
+is **Semantic primitive before manual composition** in
+`skills/workflows/references/authoring-rules.md`. `addTimeline(timeline -> ...)`
 is available on every flow, section, and module, with `TimelineBuilder`,
 `TimelineMarker`, and `TimelineEntryBuilder`
 (`com.demcha.compose.document.dsl`):
