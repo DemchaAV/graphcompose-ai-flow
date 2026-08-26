@@ -7,6 +7,46 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+**`layout doctor` reads the resolved tree for the maintainability defects a
+render cannot show.** Five paragraphs that each carry a trailing gap look
+identical on the page to one parent with `spacing(...)` — the pixel diff between
+them is zero — but the first is five numbers a later revision has to find and
+move together, and the sixth paragraph somebody adds will not have the gap.
+
+- `node scripts/layout.mjs doctor` reports geometry stated on children that one
+  value on the parent would state once, and clusters of negative insets. Each
+  finding names the parent, the children, the value and what to put it on
+  instead. Evidence, exit 0 either way — the same contract
+  `check-structural-smells.mjs` has.
+- **It is not a second front-end on the source check, and cannot be.** That
+  check's central discriminator is literal-versus-named-constant, and in a
+  snapshot both are just a number. So the two overlap and neither contains the
+  other: the source sees what one method wrote, the snapshot sees siblings
+  spread across several methods and geometry that arrived from a theme or a
+  preset. The wording never claims you typed a value twice — only that it is
+  stated N times.
+- **Calibrated against a real 248-node CV before the thresholds were written,**
+  then read finding by finding as the plan requires. That manual pass produced
+  the two corrections that made the output worth reading:
+  - `spacing(...)` is suggested only when the sharers are effectively all the
+    children. It applies to *every* gap in the parent, so recommending it for
+    four of six alternating item/rule children would have told an author to make
+    a change that moves the page. Those get "one named constant" instead.
+  - One component instantiated six times is one finding. Six of the thirteen raw
+    groups were the same shape repeated across `AchievementText_0/1/2` and
+    `CertificationText_0/1/2`; a reader scrolling past five restatements of a
+    finding they have already read has been handed noise.
+
+  Thirteen raw groups became seven, and a manual read of all seven finds no
+  false positive. A third candidate rule — three or more distinct inset values
+  among a parent's children — was measured, found to fire on a two-column row
+  whose columns simply have different paddings, and **dropped**.
+- `node scripts/layout.mjs impact <node>` reports what a property change there
+  reaches: its children, deeper descendants, and the siblings stacked after it,
+  each separately because the reason and the fix differ. Structural reach only —
+  it refuses to predict the resulting page, which would be inventing the
+  geometry this whole track exists to measure.
+
 **A wrong font is now a fact, not a suspicion.** GraphCompose 2.2.2 reports what
 each run of text actually became — the font the style *declared* beside the font
 the document was *set in* — and the harness reads it.

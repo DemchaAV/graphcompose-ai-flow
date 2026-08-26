@@ -64,6 +64,7 @@ import {
   resolveNode,
 } from "./lib/layout-inspector.mjs";
 import { diffSnapshots } from "./lib/layout-diff.mjs";
+import { diagnose, impact } from "./lib/layout-doctor.mjs";
 
 const SNAPSHOT = "layout-snapshot.json";
 
@@ -73,7 +74,9 @@ function usage(code = 0) {
       "  inspect <node>              where the node is: placement box, content box, insets, page\n" +
       "  explain <node> <coord>      why that coordinate is the number it is, as an additive chain\n" +
       `                              coord is one of: ${COORDINATES.join(", ")}\n` +
-      "  diff <revA> <revB>          what moved between two renders, and what no edit explains\n\n" +
+      "  diff <revA> <revB>          what moved between two renders, and what no edit explains\n" +
+      "  doctor                      geometry that sits on children when it belongs on their parent\n" +
+      "  impact <node>               which nodes a change to this one reaches, structurally\n\n" +
       "  <node> is the name you would say — `Languages` — or a path suffix, or the full node path.\n" +
       "  An ambiguous name lists the candidates instead of guessing.\n\n" +
       "  --project <id>              project holding the revision\n" +
@@ -128,7 +131,7 @@ function parseArgs(argv) {
       usage(2);
     } else positional.push(a);
   }
-  const COMMANDS = ["inspect", "explain", "diff"];
+  const COMMANDS = ["inspect", "explain", "diff", "doctor", "impact"];
   [out.command] = positional;
   if (!COMMANDS.includes(out.command)) {
     process.stderr.write(out.command ? `[layout] unknown command: ${out.command}\n` : "[layout] no command given\n");
@@ -153,9 +156,22 @@ function parseArgs(argv) {
     return out;
   }
 
+  // `doctor` walks the whole document, so it is the one command that names no node.
+  if (out.command === "doctor") {
+    if (positional.length > 1) {
+      process.stderr.write(`[layout] unexpected argument: ${positional[1]}\n`);
+      usage(2);
+    }
+    return out;
+  }
+
   [, out.node, out.coordinate] = positional;
   if (!out.node) {
     process.stderr.write(`[layout] ${out.command} needs a node\n`);
+    usage(2);
+  }
+  if (out.command === "impact" && positional.length > 2) {
+    process.stderr.write(`[layout] unexpected argument: ${positional[2]}\n`);
     usage(2);
   }
   if (out.command === "explain" && !out.coordinate) {
@@ -394,12 +410,72 @@ function runDiff(args) {
   process.exit(0);
 }
 
+function renderDoctor(result) {
+  const lines = [];
+  lines.push(`layout doctor  ${result.examined} parent(s) examined${result.scope ? ` under ${result.scope}` : ""}`);
+  lines.push("");
+  if (result.findings.length === 0) {
+    lines.push("  Nothing to report. Every shared value already sits on a parent.");
+    return lines.join("\n");
+  }
+  for (const finding of result.findings) {
+    lines.push(`  ${finding.parent.label}  —  ${finding.kind}`);
+    lines.push(
+      finding.property
+        ? `    ${finding.count} of ${finding.siblings} children carry ${finding.property} = ${finding.value}`
+        : `    ${finding.count} negative inset(s) among ${finding.siblings} children`,
+    );
+    for (const child of finding.children.slice(0, 4)) {
+      lines.push(`      ${child.name ?? child.path}${child.property ? `  ${child.property} = ${child.value}` : ""}`);
+    }
+    if (finding.children.length > 4) lines.push(`      … and ${finding.children.length - 4} more`);
+    lines.push(`    → ${finding.suggestion}`);
+    lines.push(`      ${finding.parent.path}`);
+    lines.push("");
+  }
+  lines.push("  Maintainability findings, not rendering defects: the page looks the same either way.");
+  lines.push("  They say what a later revision will have to move, and in how many places.");
+  lines.push("  `check-structural-smells.mjs` asks the same question of the source. A snapshot cannot");
+  lines.push("  tell a repeated literal from one shared constant, so the two disagree by design.");
+  return lines.join("\n");
+}
+
+function renderImpact(result) {
+  const lines = [];
+  lines.push(`${result.node.name ?? result.node.path}  —  what a property change here reaches`);
+  lines.push("");
+  const list = (label, items) => {
+    lines.push(`  ${label} (${items.length})`);
+    for (const item of items.slice(0, 8)) lines.push(`    ${item.name ?? item.path}`);
+    if (items.length > 8) lines.push(`    … and ${items.length - 8} more`);
+  };
+  list("directly — its own children", result.directly);
+  list("transitively — deeper descendants", result.transitively);
+  list("stacked after it — siblings that follow in the flow", result.siblingsAfter);
+  lines.push("");
+  lines.push(`  ${result.unaffectedCount} node(s) are not reachable from this one.`);
+  lines.push("");
+  lines.push("  Structural reach only. What the page then looks like needs a re-render — predicting");
+  lines.push("  it from here would be inventing the geometry this tool exists to measure.");
+  return lines.join("\n");
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.command === "diff") runDiff(args);
 
   const { file, workspaceLine } = locateSnapshot(args);
   const model = readModel(file);
+
+  if (args.command === "doctor") {
+    const result = diagnose(model);
+    if (args.json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    else {
+      if (workspaceLine) process.stdout.write(`${workspaceLine}\n\n`);
+      process.stdout.write(`${renderDoctor(result)}\n`);
+    }
+    process.exit(0);
+  }
 
   let node;
   try {
@@ -421,6 +497,16 @@ function main() {
     else {
       if (workspaceLine) process.stdout.write(`${workspaceLine}\n\n`);
       process.stdout.write(`${renderInspect(view, model)}\n`);
+    }
+    process.exit(0);
+  }
+
+  if (args.command === "impact") {
+    const result = impact(model, node);
+    if (args.json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    else {
+      if (workspaceLine) process.stdout.write(`${workspaceLine}\n\n`);
+      process.stdout.write(`${renderImpact(result)}\n`);
     }
     process.exit(0);
   }
