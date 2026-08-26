@@ -7,6 +7,42 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+**"Which font is that?" is now measured instead of guessed at.** It used to
+cost revisions: try PT Serif, be wrong, try again; then "the size looks a little
+small, try 10.5", and again. Each one is a render and a comparison out of a
+budget of eight.
+
+- **`node scripts/typography.mjs match`** sets every candidate family in **one**
+  document — one paragraph each — renders it once, and slices the sheet back
+  apart using the layout snapshot that same render produced. Twenty candidates
+  cost one JVM start, not twenty. Ranking uses two independent signals: how wide
+  the string runs, and the letterforms with width normalised away. They are
+  reported separately, because when they disagree that is information — matching
+  shapes at the wrong width is a condensed cut of the same face.
+- **The gap to the runner-up is reported.** A lead inside 0.02 is a coin toss,
+  and a caller reading only the first result would never know.
+- **`node scripts/typography.mjs search` refuses without `--scale`.** A size
+  cannot be recovered from a crop of unknown resolution, and the family metric
+  normalises scale away on purpose. The first implementation scored sizes through
+  that metric anyway and reported "best 28 — a clear minimum" for a crop that was
+  24pt; every number in it was rendering noise.
+- **It returns the curve, not just a winner.** When several sizes score within a
+  tenth of a point, the tool says they are indistinguishable rather than picking
+  one — re-rendering to chase a difference nothing can measure is exactly the
+  waste this replaces. It also reports the size implied by proportion, since type
+  scales linearly and one measurement answers the question outright.
+- Comparison images are blurred before being compared. Sharp, every wrong family
+  scores about the same — misaligned black-on-white text is uncorrelated, so the
+  spread across wrong answers was 0.44–0.47, and the ranking below first place
+  carried no information. Blurred, the same comparison spreads 0.084–0.121.
+- `scripts/test/fixtures/typography-crops/` holds six real renders of the same
+  string. The test feeds each back in as its own reference and asserts that
+  family ranks first, and separately asserts the six are separable by width
+  alone — if that ever collapses, the ranking is leaning on one signal without
+  anybody noticing.
+
+Uses ImageMagick and Maven, both already required. No new npm dependency.
+
 **A review pass no longer has to guess what kind of defect it is looking at.** A
 block in the wrong place and a block in the wrong colour look equally different
 in a diff, and the fixes have nothing in common — one is a layout property on a

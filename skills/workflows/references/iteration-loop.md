@@ -178,6 +178,37 @@ Six steps, in order:
    subtrees is reported. Written afterwards to match the diff it proves nothing,
    which is why it is worth writing first.
 
+### When the cause is typography
+
+`evidence.mjs` will not tell a wrong font from a wrong colour — it says
+`UNKNOWN` and names the candidates. Two of them are measurable rather
+than guessable:
+
+```bash
+node scripts/typography.mjs match --reference <crop.png> --text "<the exact string>"
+node scripts/typography.mjs search --reference <crop.png> --text "<the exact string>" --family <NAME> --from 9 --to 12 --step 0.25 --scale <px-per-pt>
+```
+
+`match` sets every candidate family in **one** render and ranks them by
+two independent signals: how wide the string runs, and — with width
+normalised away — the letterforms. When those disagree, that is
+information: matching shapes at the wrong width is a condensed cut of the
+same face. Read the gap to the runner-up before believing the winner; a
+lead inside 0.02 is a coin toss reported as a result.
+
+`search` needs `--scale`, and refuses without it. A size cannot be
+recovered from a crop of unknown resolution, and the family metric
+deliberately normalises scale away. Take the scale from
+`region-diff-stats.json` as `width ÷ canvas.pageWidth`, or as the dpi the
+crop was rendered at over 72.
+
+**Read the curve, not just the winner.** A flat run of near-equal scores
+means the measurement cannot separate 23 from 24, and the tool says so.
+Re-rendering to find out spends passes on a difference nothing can see.
+
+Get the crop from `crop-region.mjs`, which already pads for context.
+
+
 **Never read `layout-snapshot.json` into context.** It is 227 KB for a
 one-page CV — 248 nodes, of which one is the answer. Loading it spends
 the budget the loop needs and buries the row that matters. That is the

@@ -67,3 +67,25 @@ java -jar tools/preview-renderer/target/preview-renderer.jar render \
 Render once at `PANEL_PADDING_LEFT = 0f`, once at `12f`. Do not edit either
 snapshot by hand — a fixture pair whose difference was typed rather than
 measured cannot prove a diff engine right.
+
+## `typography-crops/`
+
+Six crops of the same string, `Handgloves 0123`, set at 24pt in six
+families and rendered by the real preview-renderer at 200 dpi on
+2026-08-26. They are slices of one specimen sheet, cut by the layout
+snapshot that same render produced — which is what the specimen approach
+buys: no image analysis is needed to find where a candidate landed.
+
+They exist so the matcher's ranking is tested against actual letterforms.
+Rendering candidates needs Maven and a JVM and `npm test` is the pure-Node
+suite, so the crops are committed and the scoring half — normalise,
+measure the ink, compare, rank — runs against them through ImageMagick.
+
+The test feeds each crop back in as its own reference and asserts that
+family ranks first. It also asserts the six are separable **by width
+alone**: the same string runs 1.4x wider in JetBrains Mono than in Barlow
+Condensed, and if that ever collapses the ranking is leaning entirely on
+the shape metric without anybody noticing.
+
+To regenerate, run `scripts/typography.mjs match --keep` and take the
+crops out of the scratch directory it names.
