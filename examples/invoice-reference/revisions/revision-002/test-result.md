@@ -12,7 +12,7 @@ and better checks below come from the project plan (§5.7) and
 | PDF file is generated | PASS | [`./output.pdf`](./output.pdf) was written by `tools/preview-renderer render`. |
 | PDF file is not empty | PASS | The committed PDF has a valid `%PDF-` header and non-zero size. |
 | Preview image is generated | PASS | [`./output.png`](./output.png) was rasterized from the generated PDF at 150 DPI. |
-| Layout snapshot is generated | PRESENT (illustrative) | [`./layout-snapshot.json`](./layout-snapshot.json) is committed with the new `Summary` region inserted between `LineItems` and `Footer`; the bounding boxes are still computed from the textual reference description rather than from a real engine run. The `notes` field at the top of the file makes that explicit. |
+| Layout snapshot is generated | PRESENT (illustrative) | `layout-snapshot.json` is committed with the new `Summary` region inserted between `LineItems` and `Footer`; the bounding boxes are still computed from the textual reference description rather than from a real engine run. The `notes` field at the top of the file makes that explicit. |
 | Render does not throw | PASS | The shared render command completed successfully for this revision. |
 
 The remaining caveat is visual, not render-related: the example still

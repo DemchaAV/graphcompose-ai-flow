@@ -31,7 +31,7 @@ no prior approved or draft revision existed.
 - [`./architecture-plan.md`](./architecture-plan.md)
 - [`./generated-template.java`](./generated-template.java)
 - [`./generated-test.java`](./generated-test.java)
-- [`./layout-snapshot.json`](./layout-snapshot.json)
+- `layout-snapshot.json`
 - [`./output.pdf`](./output.pdf)
 - [`./output.png`](./output.png)
 - [`./visual-review.md`](./visual-review.md)

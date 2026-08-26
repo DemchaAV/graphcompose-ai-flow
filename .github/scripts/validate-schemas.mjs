@@ -68,6 +68,13 @@ const SCHEMA_BINDINGS = [
     filename: 'template.json',
     schemaFile: 'template-manifest.schema.json',
   },
+  // Written by the preview renderer from GraphCompose's own post-layout
+  // measurement, so drift here means the engine changed its shape, not that an
+  // agent wrote the file wrongly.
+  {
+    filename: 'layout-snapshot.json',
+    schemaFile: 'layout-snapshot.schema.json',
+  },
   // Observations are named after what they describe, not after their kind, so
   // this one binds by the directory that holds them.
   {

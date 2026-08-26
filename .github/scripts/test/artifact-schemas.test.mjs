@@ -39,6 +39,7 @@ const validators = {
   'architecture-plan': compile('architecture-plan'),
   'visual-review': compile('visual-review'),
   'template-manifest': compile('template-manifest'),
+  'layout-snapshot': compile('layout-snapshot'),
 };
 
 /**
@@ -84,6 +85,16 @@ const MINIMAL = {
     schemaVersion: 1,
     verdict: 'REVISE',
     mismatches: [{ id: 'header-height', severity: 'MAJOR', reason: 'taller than reference', action: 'reduce padding' }],
+  },
+  // The smallest engine-measured document: a canvas, no pages, no nodes. There
+  // is no `formatVersion` to invent here — it is GraphCompose's own, carried
+  // through verbatim, and "2.0" is what the engine emits today.
+  'layout-snapshot': {
+    formatVersion: '2.0',
+    canvas: { pageWidth: 595.276, pageHeight: 841.89, innerWidth: 595.276, innerHeight: 841.89,
+              margin: { top: 0, right: 0, bottom: 0, left: 0 } },
+    totalPages: 0,
+    nodes: [],
   },
   // A bundle can legitimately ship no data file, no assets and no preview — a
   // template with hard-coded content is a real shape. What it can never omit is
@@ -362,6 +373,7 @@ test('the validator binds every artifact schema to a filename', () => {
     ['architecture-plan.json', 'architecture-plan.schema.json'],
     ['visual-review.json', 'visual-review.schema.json'],
     ['template.json', 'template-manifest.schema.json'],
+    ['layout-snapshot.json', 'layout-snapshot.schema.json'],
   ]) {
     assert.match(source, new RegExp(filename.replace('.', '\\.')), `validate-schemas.mjs does not bind ${filename}`);
     assert.match(source, new RegExp(schemaFile.replace('.', '\\.')), `validate-schemas.mjs does not reference ${schemaFile}`);

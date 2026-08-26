@@ -16,6 +16,25 @@ job.
 | [`visual-review.schema.json`](visual-review.schema.json) | written by Visual Review Agent, read by the iteration loop | `visual-review.json` — verdict, ranked mismatches, gate evidence, and the failure category when the loop is blocked. |
 | [`flow-config.schema.json`](flow-config.schema.json) | written by `scripts/lib/workspace.mjs`, read by every script that resolves a workspace | `graphcompose-flow/flow.config.json` in the user's Java project — the manifest whose presence marks a workspace, plus any version or skill-pack pin. |
 | [`template-manifest.schema.json`](template-manifest.schema.json) | written by `scripts/publish-template.mjs`, read through `scripts/lib/template-bundle.mjs` | `templates/<template-id>/template.json` — the published bundle's consumer contract: which class to call, which provider loads the spec, which data file to copy and rename, where the assets are, and which dependencies a build file must declare. |
+| [`layout-snapshot.schema.json`](layout-snapshot.schema.json) | written by `tools/preview-renderer` from GraphCompose's own measurement | `layout-snapshot.json` in a revision folder — where every node actually ended up: measured bounds, content box, insets, hierarchy and page span. |
+
+### The layout snapshot is measured, not described
+
+Every other schema here pins something the harness or an agent *writes*.
+This one pins something GraphCompose *measured*: the projection of
+`DocumentSession.layoutSnapshot()`, which the engine produces after
+layout and pagination and before any backend renders bytes.
+
+That difference decides how to react when it fails to validate. A
+`visual-analysis.json` that violates its schema is an agent that wrote
+the wrong shape. A `layout-snapshot.json` that violates this one is the
+**engine** having changed its shape — check `formatVersion`, which is
+GraphCompose's own contract version carried through verbatim, before
+touching anything here.
+
+The field names mirror the engine's records exactly, on purpose: a
+projection that renamed anything would have to be kept in step with an
+upstream release by hand, and nothing would notice when it was not.
 
 ### The published manifest has two shapes on disk
 
@@ -73,7 +92,7 @@ The validator is zero-config: it walks the repo from the root, picks
 up any file whose name matches a known contract — `revision.json`,
 `assets-manifest.json`, `orchestration-decision.json`,
 `visual-analysis.json`, `architecture-plan.json`,
-`visual-review.json`, `template.json` — (excluding
+`visual-review.json`, `template.json`, `layout-snapshot.json` — (excluding
 `.git`, `node_modules`, `target`, `dist`, `build`, `out`, `.mvn`,
 `.gradle`, `.idea`, `.vscode`, and `docs/private`), and validates
 each one against its matching schema.

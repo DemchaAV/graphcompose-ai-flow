@@ -151,7 +151,7 @@ Tasks:
 [x] Add generated-test.java
 [x] Add output.pdf
 [x] Add output.png
-[x] Add layout-snapshot.json               (illustrative, not engine-produced)
+[x] Add layout-snapshot.json               (was illustrative; now engine-produced — see below)
 [x] Add visual-review.md                   (provisional; waits on reference.png for visual-diff)
 [x] Add test-result.md                     (refreshed with real render output)
 [x] Add revision-002 with a small user-request patch
@@ -293,6 +293,30 @@ The first public version is ready when:
 [ ] Limitations are honest.
 [ ] Main GraphCompose repo can link to it.
 ```
+
+## The layout snapshot is no longer illustrative
+
+`layout-snapshot.json` was a placeholder for most of this project's life: a
+description of the layout an agent *intended*, written by hand, with a `notes`
+field admitting as much. Every one of those files has been removed — a
+fabricated measurement is worse than none, because the tools that read it cannot
+tell the difference.
+
+What a revision folder holds now is GraphCompose's own measurement.
+`tools/preview-renderer` calls `DocumentSession.layoutSnapshot()`, which the
+engine produces after layout and pagination and before any backend renders
+bytes, and writes it beside the PDF. Every node carries its resolved path,
+measured placement and content boxes, insets, hierarchy and page span, pinned by
+[`schemas/layout-snapshot.schema.json`](../schemas/layout-snapshot.schema.json).
+
+Two things follow that are easy to miss:
+
+- **It is version-dependent.** The call arrived in GraphCompose 1.6.0. A project
+  pinned below that renders exactly as before and produces no snapshot; the
+  render log records why rather than failing.
+- **A node spanning pages reports a page *range*, not a box per page.** The
+  engine's layout model carries no per-fragment geometry, so `startPage` and
+  `endPage` are the whole story for a split section.
 
 ## Note on future tooling
 

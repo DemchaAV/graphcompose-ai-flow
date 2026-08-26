@@ -40,7 +40,7 @@ The orchestrator runs a reduced pipeline for this revision:
    against the parent template.
 3. Test + Render Agent &mdash; would compile, render, and capture
    a fresh layout snapshot. In Phase 3 the renderer is not yet
-   wired, so it writes [`./layout-snapshot.json`](./layout-snapshot.json)
+   wired, so it writes `layout-snapshot.json`
    reflecting the new `Summary` region and reports the render and
    preview steps as pending in
    [`./test-result.md`](./test-result.md).

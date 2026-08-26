@@ -335,6 +335,39 @@ down what things looked like first, with a date on it.
   state of a project someone just created. A test had pinned the incomplete
   shape.
 
+**The layout snapshot stopped being fiction.** `layout-snapshot.json` was a
+placeholder for most of this project's life: a description of the layout an
+agent *intended*, written by hand, with a `notes` field admitting as much. The
+tools about to read it cannot tell a fabricated measurement from a real one,
+which makes a fake one worse than none.
+
+- `tools/preview-renderer` now writes GraphCompose's own measurement. It calls
+  `DocumentSession.layoutSnapshot()` — which the engine produces after layout
+  and pagination and before any backend renders bytes — and writes it beside the
+  PDF. A real CV comes out as 248 nodes, 247 of them named, with resolved paths,
+  measured placement and content boxes, insets, hierarchy and page spans.
+- **This needed no engine work.** The spike behind it found the API already
+  public and already in the pinned 2.2 allow-list. What was missing was on our
+  side: `extract-api.mjs` did not index `com.demcha.compose.document.snapshot`,
+  so the pack listed the methods that *return* a snapshot and none of the
+  accessors that read one — leaving an agent, under the closed-set rule, unable
+  to read a single field. One package prefix and a regenerate.
+- `schemas/layout-snapshot.schema.json` pins the shape, and mirrors the engine's
+  record field-for-field: a projection that renamed anything would have to be
+  kept in step with an upstream release by hand. `formatVersion` is
+  GraphCompose's own contract version, carried through verbatim.
+- The writer is reflective and driven by `Class.getRecordComponents()`, so a
+  component the engine adds later appears without a code change here. A GraphCompose
+  older than 1.6.0 yields no snapshot and still renders; the render log records
+  which of the two happened.
+- **Ten illustrative snapshots were deleted**, along with the artifact
+  declarations and prose links that pointed at them. Their own `notes` field
+  said they would go when a real renderer shipped. Keeping them would have fed
+  invented numbers to an inspector whose entire value is that it measures.
+- One limit worth knowing before relying on it: a node spanning pages reports a
+  page **range**, not a box per page. The engine's layout model carries no
+  per-fragment geometry.
+
 ## v0.12.0 — 2026-08-26
 
 **The verdict stopped being a self-report.** The loop's exit condition was the
