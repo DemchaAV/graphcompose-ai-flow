@@ -118,7 +118,7 @@ export function fqcn(pkg, simpleName) {
  * resolve to a file — a broken bundle, which verify-published-template.mjs
  * reports separately; guessing here would let it read as intact.
  */
-function bundlePackage(bundleDir, className) {
+export function bundlePackage(bundleDir, className) {
   const srcDir = path.join(bundleDir, "src");
   if (!fs.existsSync(srcDir)) return null;
   const named = className ? path.join(srcDir, `${className}.java`) : null;

@@ -41,6 +41,34 @@ is where a zero-token step quietly needs a model again.
 - `validate-schemas.mjs` binds `template.json`, so the contract is enforced in
   CI like every other on-disk artifact.
 
+**The consumer generator became reachable.** `verify-published-template.mjs` has
+been synthesising a Maven project from `template.json` alone and compiling the
+bundle against it since the `--build` tier landed — the one piece of code that
+could turn a published bundle into a working project was locked inside the one
+command whose output a consumer never sees.
+
+- `scripts/lib/bundle-project.mjs` is that code, extracted: `generatePom`,
+  `stageSources`, `stageResources`, `generateMainClass`,
+  `generateConsumerReadme`, `resolveDependencies`, `copyTree`, `maven`. The
+  verifier now imports it, so a bundle that verifies is a bundle that
+  instantiates — there is one implementation, and it cannot drift from itself.
+- `scripts/lib/consumer-main.java.tpl` is the runner: a static Java file with
+  five names substituted by plain `${…}` replacement. No model decides anything
+  in the consumer lane.
+- It sets **both** `graphcompose.template.dir` and `graphcompose.revision.dir`.
+  Every bundle published so far reads the second, and its provider throws when
+  the property is unset rather than defaulting, so setting only the new name
+  would break every existing bundle at startup. The old line goes away when the
+  published providers read the new one.
+- `resolveDependencies` backfills `graph-compose-fonts` for a bundle on 1.8.0 or
+  later whose manifest omits it — the mapping `scaffold-runner.mjs` already had,
+  now shared with it rather than copied. Without the artifact a template asking
+  for `FontName.LATO` fails at render with "Bundled font resource not found",
+  which reads like a template bug and is not one.
+- Behaviour-neutral, and measured: `verify-published-template --template-id all`
+  produces byte-identical JSON to the pre-refactor run at both the `--build` and
+  `--render` tiers, down to the rendered PDF sizes.
+
 ## v0.12.0 — 2026-08-26
 
 **The verdict stopped being a self-report.** The loop's exit condition was the

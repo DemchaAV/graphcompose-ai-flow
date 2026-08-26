@@ -33,6 +33,10 @@ import {
   projectDir as workspaceProjectDir,
   resolveWorkspace,
 } from "./lib/workspace.mjs";
+// The same mapping the consumer generator uses. It was written here first, for
+// the authoring runner; a second copy over there would be two answers to "does
+// this line need graph-compose-fonts", and the wrong one fails at render.
+import { fontsVersionFor } from "./lib/bundle-project.mjs";
 
 function usage(code = 0) {
   process.stdout.write(
@@ -64,21 +68,6 @@ function parseArgs(argv) {
     else usage(2);
   }
   return out;
-}
-
-/**
- * Which bundled-font artifact a GraphCompose line expects.
- *
- * The fonts left the core artifact at 1.8.0 and are versioned independently, so
- * there is no 1.1.0-shaped mapping to guess: 2.2.0 pins fonts 1.1.0. A template
- * that asks for `FontName.LATO` without this on the classpath fails at render
- * with "Bundled font resource not found", which reads like a template bug.
- */
-function fontsVersionFor(graphComposeVersion) {
-  const [major, minor] = graphComposeVersion.split(".").map(Number);
-  if (Number.isNaN(major)) return null;
-  if (major > 1 || (major === 1 && minor >= 8)) return "1.1.0";
-  return null; // before 1.8 the fonts are inside the core artifact
 }
 
 const TITLE_CASE = (s) => s.charAt(0).toUpperCase() + s.slice(1);
