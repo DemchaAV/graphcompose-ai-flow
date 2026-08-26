@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "layered-row-survives-a-row-cell",
+  "graphComposeVersion": "2.2.1",
+  "api": [
+    "AbstractFlowBuilder.addRow",
+    "AbstractFlowBuilder.addLayerStack",
+    "LayerStackBuilder.layer"
+  ],
+  "observedBehaviour": "Inside the main column of a two-column row - where every horizontal pair of a sidebar CV lives - a bare nested row is still refused on 2.2.1, but a row wrapped in a LayerStack layer lays out horizontally there: the two children come back at different x and the same y. row-cannot-nest-in-row-cell measured the LayerStack escape at page level only, one level shallower than the case that matters, and its retirement note inferred the nested case rather than measuring it. This measures it, and measures it twice over: nesting the escape inside itself - a layered row whose own cells hold layered rows - still lays the innermost pair out horizontally, which is what a credentials block of icon-and-text entries inside two side-by-side columns needs. A table and a timeline both BUILD in a row cell, but neither republishes its children's names into the layout snapshot, so their internal arrangement is not observable this way - absence of evidence, not a negative.",
+  "minimalReproduction": {
+    "probe": "column-nesting",
+    "command": "node scripts/probe.mjs column-nesting --version 2.2 --json",
+    "arrangement": "Five arrangements, each in the main cell of the same 0.32/0.68 row, each in its own document: a bare row, a row inside a LayerStack layer, a two-column table, a single-entry timeline inside a LayerStack layer, and a layered row whose own cell holds a second layered row."
+  },
+  "probeResult": {
+    "bareRowHorizontal": null,
+    "layeredRowHorizontal": true,
+    "tableHorizontal": null,
+    "layeredTimelineBuilt": true,
+    "layeredRowTwiceHorizontal": true
+  },
+  "workaround": "Build every horizontal pair inside a column through one helper: a SectionBuilder holding the row, built and handed to addLayerStack(stack -> stack.layer(section.build(), LayerAlign.TOP_LEFT, 0)). addTimeline builds a row internally and is refused directly in a cell for the same reason, so it needs the same wrapper.",
+  "confidence": "confirmed",
+  "sourceRun": {
+    "project": "charcoal-gold-cv",
+    "revision": "revision-001",
+    "date": "2026-08-26",
+    "note": "Asked before the template was written rather than after the first render came out stacked - the whole page structure of a sidebar CV depends on the answer."
+  },
+  "promotedTo": null
+}
