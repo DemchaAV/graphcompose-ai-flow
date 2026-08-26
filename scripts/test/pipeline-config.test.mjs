@@ -264,13 +264,37 @@ test("every scope is reachable from some workflow, and every link in a skill res
     const dir = path.dirname(file);
     const source = fs.readFileSync(file, "utf8");
     for (const [, target] of source.matchAll(/\]\((\.\.?\/[^)]+)\)/g)) {
-      assert.ok(
-        fs.existsSync(path.resolve(dir, target)),
-        `${workflow.skill} links to a missing file: ${target}`,
-      );
+      // The fragment is not part of the filename. Checking it as one reported a
+      // perfectly good anchor link as a missing file.
+      const [relPath, fragment] = target.split("#");
+      const resolved = path.resolve(dir, relPath);
+      assert.ok(fs.existsSync(resolved), `${workflow.skill} links to a missing file: ${relPath}`);
+
+      // And an anchor that no longer names a heading is the same broken link
+      // one edit later, so it is checked rather than skipped.
+      if (fragment) {
+        const headings = fs
+          .readFileSync(resolved, "utf8")
+          .split(/\r?\n/)
+          .filter((line) => line.startsWith("#"))
+          .map((line) => slugify(line.replace(/^#+\s*/, "")));
+        assert.ok(
+          headings.includes(fragment),
+          `${workflow.skill} links to #${fragment}, which ${relPath} has no heading for`,
+        );
+      }
     }
   }
 });
+
+/** GitHub's heading slug: lower-cased, punctuation dropped, spaces hyphenated. */
+function slugify(heading) {
+  return heading
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .trim()
+    .replace(/\s/g, "-");
+}
 
 test("the active pack has a loading map, and everything it names exists", () => {
   const manifest = readJson("skills/skill-manifest.json");

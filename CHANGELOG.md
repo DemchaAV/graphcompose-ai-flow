@@ -181,6 +181,34 @@ and an approval loop it will never have.
   into `template-bundle.mjs` so the catalog and the installer answer this the
   same way.
 
+**Template Reuse First.** With a catalog and an installer in place, the
+remaining way to waste the expensive half of the lifecycle is to run it on
+purpose: rebuild an approved layout because the user described it. Reuse is a
+file copy; reconstruction is analysis, authoring, render, compare, iterate — and
+it lands *near* the approved layout rather than on it.
+
+- `scope-routing.md` gains the rule above the scope table, because a scope is a
+  question about a revision and this one asks whether a revision is needed at
+  all. `create-template` now runs `node scripts/templates.mjs --json` before
+  analysing anything, and `/create` says so too — a rule only in a reference
+  nobody opens is a rule that does not exist.
+- The discriminator is **what changes**, not whether a template is named. New
+  content is a use; new layout is a revise. "In Northline, make the header
+  taller" names a published template and is still a revision.
+- A revision on a published template belongs in the project `template.json`
+  names as `sourceProject`. `publish-template` rewrites a bundle's sources from
+  its revision on every publish, so an edit in the bundle is reverted the next
+  time anyone publishes — and until then the bundle no longer matches the
+  revision it claims to come from.
+- Four routing fixtures pin it, including the two that make the rule
+  non-obvious: naming a template while asking for a layout change, and asking
+  for "something like X but different". `reuse` is a fixture answer that is not
+  a scope, alongside `ambiguous`.
+- Fixed while proving the rule was reachable: the skill link checker resolved
+  `#anchor` as part of the filename, so a valid anchor link failed as a missing
+  file. It now splits the fragment and checks that the target file really has a
+  heading for it — a stale anchor is the same broken link one edit later.
+
 ## v0.12.0 — 2026-08-26
 
 **The verdict stopped being a self-report.** The loop's exit condition was the

@@ -40,6 +40,7 @@ does not use GraphCompose, so this is not your task.
 
 | The user wants | Skill |
 |---|---|
+| **To use a template that already exists** | no skill — `node scripts/templates.mjs`, then `use-template`. Check this **first**: reuse is a file copy, reconstruction is the whole loop. See [Template Reuse First](skills/workflows/references/scope-routing.md#template-reuse-first--before-any-scope) |
 | A template from a reference they supplied | [`create-template`](skills/workflows/create-template/SKILL.md) |
 | An existing template changed | [`revise-template`](skills/workflows/revise-template/SKILL.md) |
 | To know what is still different | [`review-template`](skills/workflows/review-template/SKILL.md) |

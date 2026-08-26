@@ -16,6 +16,34 @@ The user supplies a reference image or PDF and wants it as a template.
 If a template already exists and they want it changed, use
 `revise-template`.
 
+## First, check nothing already does this
+
+```bash
+node scripts/templates.mjs --json
+```
+
+One command, no model, and it can end the task before it starts. If the
+user named a published template — "use Northline", "another one like the
+mint CV" — or if a bundle's `docKind` and preview match what they are
+asking for, offer that instead of rebuilding it:
+
+```bash
+node scripts/templates.mjs inspect <template-id>
+node scripts/use-template.mjs <template-id> --target <their-project>
+```
+
+Reuse is a file copy. Reconstruction is the whole loop, and it lands
+*near* the approved layout rather than on it. Rebuilding something that
+already exists is the most expensive mistake available here, and the
+only warning is this command.
+
+Two things this does **not** mean. A reference the user supplied is
+still a reference: do not talk them out of a new template because
+something in the catalog is roughly similar. And a request to change a
+published template's layout is `revise-template` on its source project,
+not a reuse — see
+[Template Reuse First](../references/scope-routing.md#template-reuse-first--before-any-scope).
+
 ## Before the first stage
 
 **Start with preflight.** One call answers everything deterministic about

@@ -1,8 +1,13 @@
 {
   "$comment": [
-    "What scope a user gesture should route to. The scope decides which stages run",
-    "and what the result is compared against, so getting it wrong means a gate",
-    "checks the wrong baseline and passes work nobody reviewed.",
+    "What a user gesture should route to. Most gestures pick a revision scope, and",
+    "the scope decides which stages run and what the result is compared against, so",
+    "getting it wrong means a gate checks the wrong baseline and passes work nobody",
+    "reviewed.",
+    "",
+    "Two answers are not scopes. `reuse` means no revision is opened at all: the",
+    "user named a template that already exists and wants new content in it, which is",
+    "a file copy. `ambiguous` means one clarifying question comes first.",
     "",
     "These fixtures are checked mechanically for shape only: every scope must exist",
     "in config/pipeline.json, and every gate must be the one that scope declares.",
@@ -96,6 +101,30 @@
       "scope": "ambiguous",
       "why": "No surface named at all. Ask what specifically should change before opening any revision.",
       "expectsClarification": true
+    },
+    {
+      "gesture": "make a new proposal for Acme using northline-proposal",
+      "scope": "reuse",
+      "why": "Names a published template and supplies new content. The layout already exists and was already approved; instantiate the bundle and edit its data file. Reconstructing it would spend the whole loop to land near a layout that is on disk.",
+      "expectsNoRevision": true
+    },
+    {
+      "gesture": "here is my CV content, use mint-editorial-cv for it",
+      "scope": "reuse",
+      "why": "Content is data. Nothing about the template changes, so there is no revision to open and nothing to approve — the approval already happened.",
+      "expectsNoRevision": true
+    },
+    {
+      "gesture": "in northline-proposal, make the header taller and move the logo right",
+      "scope": "visual-change",
+      "why": "Names a published template AND describes a layout change. Naming a template does not make it a reuse; what changes decides. The revision belongs in the project template.json names as sourceProject, never in the bundle — publish rewrites bundle sources from the revision, so an edit there is reverted.",
+      "expectsNoRevision": false
+    },
+    {
+      "gesture": "something like mint-editorial-cv but with two columns",
+      "scope": "visual-change",
+      "why": "The template is a starting point, not the answer. A different column structure is a new layout, so this is a revision (or a new template) rather than a reuse.",
+      "expectsNoRevision": false
     }
   ]
 }
