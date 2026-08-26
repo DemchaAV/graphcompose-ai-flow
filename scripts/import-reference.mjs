@@ -27,8 +27,20 @@
  * Other raster formats go through ImageMagick, which the visual tooling already
  * requires.
  *
+ * It also measures the page. The size of the document used to be decided by the
+ * design stage, which had nothing to measure it against and wrote "A4" — and
+ * because `visual-diff --scale-reference` resamples the reference to the
+ * render's exact width and height, a page built at the wrong proportions was
+ * stretched to fit right before the pixels were compared, so the gate stayed
+ * green while every element placed against page height sat in the wrong place.
+ * The dimensions are in the PNG header the import just wrote, so this is the
+ * cheapest possible moment to look, and the last one before anything depends on
+ * the answer. See scripts/lib/page-geometry.mjs for the verdicts.
+ *
  * Exit: 0 imported · 2 usage · 3 no such project · 4 the source could not be
- *       converted
+ *       converted · 5 imported, but the page size is not settled — either it
+ *       matches no standard and is a question for the user, or it could not be
+ *       measured at all
  */
 
 import fs from "node:fs";
@@ -41,6 +53,7 @@ import {
   projectDir as workspaceProjectDir,
   resolveWorkspace,
 } from "./lib/workspace.mjs";
+import { measureReferenceGeometry } from "./lib/page-geometry.mjs";
 
 const repoRoot = installRoot();
 const DEFAULT_DPI = 150;
@@ -54,7 +67,8 @@ function usage(code = 0) {
       "  --dpi <n>          rasterisation dpi for a PDF (default: " + DEFAULT_DPI + ")\n" +
       "  --root <dir>       workspace override (default: discovered)\n" +
       "  --json             machine-readable result\n\n" +
-      "exit: 0 imported | 2 usage | 3 no such project | 4 conversion failed\n",
+      "exit: 0 imported | 2 usage | 3 no such project | 4 conversion failed\n" +
+      "      5 imported, but the page size is unsettled (a question, or unmeasurable)\n",
   );
   process.exit(code);
 }
@@ -290,6 +304,34 @@ if (extension === ".pdf") {
   written.push("reference.png");
 }
 
+// Measure before the project file is written, so the geometry lands in the same
+// save as the page count and the two can never disagree about how many pages
+// were measured.
+//
+// A failure here does not lose the import. The files are on disk and correct;
+// what is missing is a measurement, and reporting that honestly is better than
+// discarding a two-hundred-page rasterisation because a header would not read.
+let geometry = null;
+let geometryError = null;
+try {
+  geometry = measureReferenceGeometry(
+    written.map((name) => path.join(referenceDir, name)),
+  );
+  // Store paths the way the rest of the project file stores them — relative and
+  // slash-separated — so the record is portable and reads the same on both
+  // hosts.
+  geometry = {
+    ...geometry,
+    measuredAt: new Date().toISOString(),
+    pages: geometry.pages.map((p) => ({
+      ...p,
+      file: path.relative(projectDir, p.file).split(path.sep).join("/"),
+    })),
+  };
+} catch (error) {
+  geometryError = error instanceof Error ? error.message : String(error);
+}
+
 const project = JSON.parse(fs.readFileSync(projectFile, "utf8"));
 project.referenceImage = "reference/reference.png";
 project.referenceSource = `reference/source${extension}`;
@@ -310,6 +352,12 @@ if (project.render || written.length > 1) {
   project.render = { ...(project.render ?? {}), pages: written.length };
 }
 
+// The measured geometry is part of what the project IS, not a note about one
+// import: every later stage that has to know the page size reads it from here
+// rather than deciding again.
+if (geometry) project.referenceGeometry = geometry;
+else delete project.referenceGeometry;
+
 project.updatedAt = new Date().toISOString();
 fs.writeFileSync(projectFile, `${JSON.stringify(project, null, 2)}\n`, "utf8");
 
@@ -320,7 +368,21 @@ const result = {
   referenceImage: "reference/reference.png",
   pages: written.length,
   files: written,
+  geometry,
+  geometryError,
 };
+
+// "ask" and "inconsistent" both mean the same thing to a caller: do not start
+// designing. They get their own exit code rather than a line in the output,
+// because a line in the output is exactly what the old chain had — the accuracy
+// contract has said "page size matches the reference" all along, and saying it
+// louder was never going to be what made someone check.
+//
+// A measurement that could not be taken is in the same bucket, and deliberately
+// so. Exiting 0 there would make "the page is a known standard" and "nobody
+// could tell what the page is" the same answer to a script — the vacuous pass
+// this repository has already had to fix once, in `observations verify`.
+const needsDecision = geometry === null || geometry.verdict !== "standard";
 
 if (args.json) {
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
@@ -328,5 +390,46 @@ if (args.json) {
   console.log(
     `[import-reference] ${args.project}: ${result.source} -> ${written.join(", ")}` +
       ` (${written.length} page${written.length === 1 ? "" : "s"})`,
+  );
+  console.log(formatGeometry(geometry, geometryError));
+}
+
+// `process.exitCode`, not `process.exit()`. stdout is asynchronous when it is a
+// pipe, which is exactly how every caller here runs — and exiting outright can
+// drop a buffered write, so the JSON payload this same block just produced
+// could be truncated by the line that reports its verdict.
+process.exitCode = needsDecision ? 5 : 0;
+
+/**
+ * The measurement, as something a person reads and acts on.
+ *
+ * The ranked candidates are printed even when the verdict is settled: the run
+ * that broke `mocha-profile-cv` built at A4 when the nearest standard was
+ * LETTER, and a table showing both would have made that visible without anyone
+ * having to suspect it first.
+ */
+function formatGeometry(g, error) {
+  if (error) {
+    return `[import-reference] page size NOT measured: ${error}\n` +
+      "  Design cannot assume A4 — establish the page size before the layout depends on it.";
+  }
+  const first = g.pages[0];
+  const head =
+    `[import-reference] page: ${first.widthPx}x${first.heightPx}px, ` +
+    `aspect ${g.aspect} (${g.orientation})`;
+  const table = g.candidates
+    .map((c) => `    ${c.name.padEnd(6)} aspect ${String(c.aspect).padEnd(8)} off by ${c.deviationPercent}%`)
+    .join("\n");
+
+  if (g.verdict === "standard") {
+    return (
+      `${head}\n  page size: ${g.pageSize.format} ${g.pageSize.orientation} ` +
+      `(${g.pageSize.widthPt} x ${g.pageSize.heightPt} pt, within ${g.tolerancePercent}%)\n` +
+      `  nearest standards:\n${table}`
+    );
+  }
+  return (
+    `${head}\n  page size: UNDECIDED — ask the user before designing.\n` +
+    `  nearest standards:\n${table}\n\n  ${g.question}\n`
   );
 }

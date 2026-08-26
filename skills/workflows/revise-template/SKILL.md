@@ -17,6 +17,33 @@ what is different rather than change it, use `review-template`.
 
 ## Steps
 
+**0. Check the page size is settled.** One command, before the scope
+question, on every revision:
+
+```bash
+node scripts/page-size.mjs --project <project-id>
+```
+
+Exit `0` means the page has been measured and answered and you can carry
+on. Exit `5` means it never was — **stop and ask the user**, with the
+question the command prints, then record the answer:
+
+```bash
+node scripts/page-size.mjs --project <project-id> --use <A4|LETTER|LEGAL|WxH> --decision "<what you asked and what they said>"
+```
+
+This is step zero rather than part of the scope work because a wrong page
+size is not in scope for anything. Relational geometry derives from the
+page: get the page wrong and every ratio built on it is faithfully wrong,
+on every page, at a size the pixel diff cannot see — `visual-diff
+--scale-reference` resamples the reference to the render's exact width
+*and* height, so the error is stretched away immediately before the
+pixels are compared. Three projects shipped that way with green gates.
+
+`import-reference` settles this when a project is created, but a revision
+does not re-import, and a project created before the measurement existed
+carries no page size at all. This is where those meet the gate.
+
 **1. Pick the scope.** Read the gesture, then verify it against the
 surface the change would actually touch — the table and the
 verification rule are in

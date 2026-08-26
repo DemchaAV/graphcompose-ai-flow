@@ -507,3 +507,31 @@ test("every command the documentation prints is a command that exists", () => {
 
   assert.deepEqual(problems, [], `documented commands that would fail:\n  ${problems.join("\n  ")}`);
 });
+
+test("the aspect tolerance is one number, wherever it is enforced", () => {
+  // The page size is decided at import (scripts/lib/page-geometry.mjs) and the
+  // diff warns when it was ignored anyway (tools/visual-diff/src/aspect.ts).
+  // visual-diff builds and ships as its own package, so it cannot import a
+  // harness script and carries its own copy of the constant — which is exactly
+  // the shape of drift this file exists to catch.
+  const harness = read("scripts/lib/page-geometry.mjs");
+  const tool = read("tools/visual-diff/src/aspect.ts");
+
+  const of = (text, source) => {
+    const match = text.match(/ASPECT_TOLERANCE_PERCENT\s*(?::\s*number\s*)?=\s*([\d.]+)/);
+    assert.ok(match, `${source} no longer declares ASPECT_TOLERANCE_PERCENT`);
+    return Number(match[1]);
+  };
+
+  assert.equal(
+    of(harness, "scripts/lib/page-geometry.mjs"),
+    of(tool, "tools/visual-diff/src/aspect.ts"),
+    "the import decides the page size and the diff polices it — at two different " +
+      "tolerances they would disagree about the same page",
+  );
+
+  // And each says where the other one is, so the next person to change one is
+  // told about the other rather than having to find it.
+  assert.match(harness, /tools\/visual-diff\/src\/aspect\.ts/);
+  assert.match(tool, /scripts\/lib\/page-geometry\.mjs/);
+});

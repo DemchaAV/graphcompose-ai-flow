@@ -19,21 +19,85 @@
     "page": {
       "type": "object",
       "additionalProperties": false,
+      "description": "The page the document is built on. This used to be one free-text field holding \"A4\", which is what gets written when nothing measures: three projects on disk were built at A4 from references that were not A4 (mocha-profile-cv 9.5% out, cv-reference 4.9%, navy-executive-cv 4.2%), and every gate passed, because visual-diff --scale-reference resamples the reference to the render's exact width AND height and so stretches a wrong page size away immediately before the pixels are compared. The size is now measured by scripts/import-reference.mjs at import and recorded in template-project.json as referenceGeometry; this block carries it forward with the evidence attached, so a later reader can tell a measurement from an assumption.",
       "required": [
-        "format"
+        "format",
+        "orientation",
+        "referencePx",
+        "aspect",
+        "sizePt",
+        "sizeSource"
       ],
       "properties": {
         "format": {
           "type": "string",
           "minLength": 1,
-          "description": "Page format, e.g. \"A4\"."
+          "description": "The GraphCompose page constant this maps to — \"A4\", \"LETTER\", \"LEGAL\" — or \"CUSTOM\" when the page is DocumentPageSize.of(w, h). Note that aspect alone cannot tell A4 from A3 from A5: they share 1:root-2 by construction, so a reference measured as \"A4\" may be an A3 poster, and the content decides that."
         },
         "orientation": {
           "type": "string",
           "enum": [
             "portrait",
             "landscape"
-          ]
+          ],
+          "description": "Taken from the measurement, not from the look of the document. A landscape page is still its constant, turned: DocumentPageSize.A4.landscape()."
+        },
+        "referencePx": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "width",
+            "height"
+          ],
+          "description": "The reference image's own pixel dimensions, copied from the import's measurement. This is the evidence: it is what makes `aspect` checkable by someone who was not there, and it is the field whose absence let the page size be assumed for as long as it was.",
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "aspect": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "height / width of the reference, as measured. Must agree with referencePx."
+        },
+        "sizePt": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "width",
+            "height"
+          ],
+          "description": "The page the template actually builds at, in PDF points, as it will be passed to DocumentPageSize. Stated in points rather than left implicit in `format` because a CUSTOM page has no constant to name, and because a reader comparing this with referencePx can see for themselves how far the built page is from the measured one.",
+          "properties": {
+            "width": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "height": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        "sizeSource": {
+          "type": "string",
+          "enum": [
+            "measured-standard",
+            "user-confirmed-standard",
+            "user-confirmed-custom"
+          ],
+          "description": "How the page size was arrived at. measured-standard: the reference matched a standard within tolerance and nobody had to be asked — import-reference exits 0 and says which. user-confirmed-standard / user-confirmed-custom: the reference matched nothing (import-reference exits 5 with the question), the user was asked, and this is their answer. There is deliberately no fourth value for \"chose a size without measuring or asking\": that is the defect this field exists to make impossible to record silently."
+        },
+        "sizeDecision": {
+          "type": "string",
+          "minLength": 20,
+          "description": "What the user was asked and what they answered, in one or two sentences. Required whenever sizeSource is a user-confirmed value: the choice between a nearby standard and the exact measured size is not recoverable from the numbers afterwards — both are defensible — so the reason is recorded at the moment it is known."
         },
         "pageCount": {
           "type": "integer",
@@ -48,6 +112,24 @@
           "type": "string",
           "minLength": 1
         }
+      },
+      "if": {
+        "properties": {
+          "sizeSource": {
+            "enum": [
+              "user-confirmed-standard",
+              "user-confirmed-custom"
+            ]
+          }
+        },
+        "required": [
+          "sizeSource"
+        ]
+      },
+      "then": {
+        "required": [
+          "sizeDecision"
+        ]
       }
     },
     "regions": {

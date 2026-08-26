@@ -102,7 +102,8 @@ PowerShell, cmd and bash.
 | Are the links in the data live in the render? | `node scripts/check-links.mjs --project <id> --revision <id>` — exit 0 clean, 1 a declared href is missing (also runs inside the two composites) |
 | Is a multi-page document whole? | `node scripts/check-document-integrity.mjs --project <id> --revision <id>` — page count, "Page N of M", content preservation (runs inside render-and-diff) |
 | Do the render and the reference draw the same rules? | `node scripts/check-border-topology.mjs --project <id> --revision <id> --region <id>` — a missing internal divider may be the design; this says which side is missing it |
-| Import the reference (png/jpg/webp/pdf) | `node scripts/import-reference.mjs --project <id> --file <path>` |
+| Import the reference (png/jpg/webp/pdf) | `node scripts/import-reference.mjs --project <id> --file <path>` — also measures the page: exit 0 a standard matched, **5 the page size is a question to put to the user before designing** |
+| Is the page size settled? | `node scripts/page-size.mjs --project <id>` — exit 0 settled, 5 unanswered; `--use <A4\|LETTER\|LEGAL\|WxH> --decision "..."` records the user's answer once, for every later revision |
 | Approve and publish | `node scripts/approve-and-publish.mjs --project <id>` — one command: approve, publish, README, verify |
 | Verify a published bundle | `node scripts/verify-published-template.mjs --template-id <id> --render` |
 | Report what a run cost | `node scripts/telemetry/run-metrics.mjs report --project <id>` |

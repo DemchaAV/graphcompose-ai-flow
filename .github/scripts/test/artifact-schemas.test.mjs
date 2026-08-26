@@ -40,6 +40,25 @@ const validators = {
   'visual-review': compile('visual-review'),
 };
 
+/**
+ * A page as the chain now records it: measured at import, with the evidence
+ * attached.
+ *
+ * `page: { format: 'A4' }` used to be enough, and "A4" is what gets written
+ * when nothing measures — three projects were built at A4 from references that
+ * were not A4 and passed every gate, because the diff resamples the reference
+ * to the render's exact width and height and stretches the error away. The
+ * required fields are the fix, so the fixtures carry them.
+ */
+const MEASURED_A4_PAGE = {
+  format: 'A4',
+  orientation: 'portrait',
+  referencePx: { width: 595, height: 842 },
+  aspect: 1.41513,
+  sizePt: { width: 595.276, height: 841.89 },
+  sizeSource: 'measured-standard',
+};
+
 /** Smallest document each schema accepts — the required-field floor. */
 const MINIMAL = {
   orchestration: {
@@ -51,7 +70,7 @@ const MINIMAL = {
   },
   'visual-analysis': {
     schemaVersion: 1,
-    page: { format: 'A4' },
+    page: MEASURED_A4_PAGE,
     regions: [{ id: 'header', label: 'Header', role: 'page-header' }],
   },
   'architecture-plan': {
@@ -152,7 +171,7 @@ test('a region must state what it is, because that is its build contract', () =>
   // contract all along ("must map to DocumentSession.header/.footer, never be
   // drawn as body content") and nothing required it to be stated or checked it.
   const v = validators['visual-analysis'];
-  const base = { schemaVersion: 1, page: { format: 'A4' } };
+  const base = { schemaVersion: 1, page: MEASURED_A4_PAGE };
   assert.ok(
     !v({ ...base, regions: [{ id: 'footer', label: 'Footer band' }] }),
     'accepted a region that states no role',
@@ -171,7 +190,7 @@ test('a region must state what it is, because that is its build contract', () =>
 
 test('visual-analysis requires named regions and well-formed sub-records', () => {
   const v = validators['visual-analysis'];
-  const base = { schemaVersion: 1, page: { format: 'A4' } };
+  const base = { schemaVersion: 1, page: MEASURED_A4_PAGE };
   assert.ok(!v({ ...base, regions: [] }), 'accepted an analysis with no regions');
   assert.ok(!v({ ...base, regions: [{ id: 'Header', label: 'H', role: 'content' }] }), 'accepted a region id that is not kebab-case');
   assert.ok(
@@ -181,6 +200,83 @@ test('visual-analysis requires named regions and well-formed sub-records', () =>
   assert.ok(
     !v({ ...base, regions: [{ id: 'h', label: 'H' }], unclearParts: [{ item: 'x', reason: 'y' }] }),
     'accepted an unclear part with no proposed assumption',
+  );
+});
+
+test('a page must carry the measurement, not just a format string', () => {
+  // The defect: page.format was a free-text field, "A4" was what got written,
+  // and nothing downstream could tell an assumption from a measurement. These
+  // fields are the difference, so each one is required on its own.
+  const v = validators['visual-analysis'];
+  const regions = [{ id: 'h', label: 'H', role: 'content' }];
+  const withPage = (page) => v({ schemaVersion: 1, page, regions });
+
+  assert.ok(withPage(MEASURED_A4_PAGE), 'rejected a fully measured page');
+  assert.ok(!withPage({ format: 'A4' }), 'accepted a page size that was never measured');
+
+  for (const field of ['orientation', 'referencePx', 'aspect', 'sizePt', 'sizeSource']) {
+    const page = { ...MEASURED_A4_PAGE };
+    delete page[field];
+    assert.ok(!withPage(page), `accepted a page with no ${field}`);
+  }
+});
+
+test('there is no way to record a page size that was neither measured nor asked about', () => {
+  const v = validators['visual-analysis'];
+  const regions = [{ id: 'h', label: 'H', role: 'content' }];
+  const withPage = (page) => v({ schemaVersion: 1, page, regions });
+
+  assert.ok(
+    !withPage({ ...MEASURED_A4_PAGE, sizeSource: 'assumed' }),
+    'accepted "assumed" as a provenance — which is the defect, spelled out',
+  );
+  assert.ok(!withPage({ ...MEASURED_A4_PAGE, sizeSource: 'A4' }), 'accepted a format as a provenance');
+});
+
+test('a page the user decided has to say what they were asked', () => {
+  // A nearby standard and the exact measured size are both defensible answers
+  // and the numbers do not say which was chosen or why. Recorded at the moment
+  // it is known, or not recoverable at all.
+  const v = validators['visual-analysis'];
+  const regions = [{ id: 'h', label: 'H', role: 'content' }];
+  const withPage = (page) => v({ schemaVersion: 1, page, regions });
+
+  for (const sizeSource of ['user-confirmed-standard', 'user-confirmed-custom']) {
+    assert.ok(
+      !withPage({ ...MEASURED_A4_PAGE, sizeSource }),
+      `accepted ${sizeSource} with no record of the decision`,
+    );
+    assert.ok(
+      withPage({
+        ...MEASURED_A4_PAGE,
+        sizeSource,
+        sizeDecision: 'Asked whether the 1.35 aspect was a cropped A4; the user said build at A4.',
+      }),
+      `rejected ${sizeSource} that does record the decision`,
+    );
+  }
+
+  // A measured match needs no decision note, because nobody was asked.
+  assert.ok(withPage(MEASURED_A4_PAGE));
+});
+
+test('a custom page is expressible, because not every reference is a standard', () => {
+  const v = validators['visual-analysis'];
+  assert.ok(
+    v({
+      schemaVersion: 1,
+      page: {
+        format: 'CUSTOM',
+        orientation: 'portrait',
+        referencePx: { width: 589, height: 754 },
+        aspect: 1.28014,
+        sizePt: { width: 612, height: 783.446 },
+        sizeSource: 'user-confirmed-custom',
+        sizeDecision: 'Nearest standard was LETTER at 1.08%; the user chose the measured size.',
+      },
+      regions: [{ id: 'h', label: 'H', role: 'content' }],
+    }),
+    'rejected a custom page size, which DocumentPageSize.of(w, h) supports',
   );
 });
 

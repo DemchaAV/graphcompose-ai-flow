@@ -45,7 +45,13 @@ function writeJson(file, value) {
   fs.writeFileSync(file, JSON.stringify(value, null, 2), "utf8");
 }
 
-function writePng(file, width = 40, height = 30) {
+/**
+ * The default size is A4 proportions on purpose. `import-reference` measures the
+ * page and exits 5 when the aspect matches no standard, so a fixture at an
+ * arbitrary size would make every test here fail for a reason none of them is
+ * about. Tests that care about the measurement pass their own dimensions.
+ */
+function writePng(file, width = 420, height = 594) {
   const png = new PNG({ width, height });
   png.data.fill(180);
   for (let i = 3; i < png.data.length; i += 4) png.data[i] = 255;
@@ -324,4 +330,156 @@ test("a pdf is rasterised through the same PDFBox path the render loop uses", { 
 
   const raster = PNG.sync.read(fs.readFileSync(path.join(ws.project, "reference", "reference.png")));
   assert.ok(raster.width > 0 && raster.height > 0, "the rasterisation produced an empty image");
+});
+
+// --- the page size, measured at import ---------------------------------------
+//
+// Three projects on disk were built at A4 from references that were not A4 —
+// off by 4.2%, 4.9% and 9.5% — and every gate passed, because the diff
+// resamples the reference to the render's exact dimensions before comparing.
+// The measurement belongs here, at the one moment the harness holds the file
+// and nothing has yet been designed against it.
+
+test("an import records what size the page actually is", () => {
+  const ws = workspace("geometry");
+  const { status, parsed } = runCli(ws.root, [
+    "--project",
+    "demo",
+    "--file",
+    writePng(path.join(ws.host, "a4.png"), 595, 842),
+  ]);
+
+  assert.equal(status, 0);
+  assert.equal(parsed.geometry.verdict, "standard");
+  assert.equal(parsed.geometry.pageSize.format, "A4");
+
+  const project = projectOf(ws);
+  assert.equal(project.referenceGeometry.pageSize.format, "A4");
+  assert.equal(project.referenceGeometry.pages[0].widthPx, 595);
+  assert.equal(
+    project.referenceGeometry.pages[0].file,
+    "reference/reference.png",
+    "the record must be project-relative, or it does not survive being moved",
+  );
+});
+
+test("a reference that matches no standard exits 5 rather than passing quietly", () => {
+  const ws = workspace("geometry-ask");
+  // 589x754 is mocha-profile-cv, the reference that was built at A4.
+  const { status, parsed } = runCli(ws.root, [
+    "--project",
+    "demo",
+    "--file",
+    writePng(path.join(ws.host, "odd.png"), 589, 754),
+  ]);
+
+  assert.equal(status, 5, "the import must not report success on an undecided page size");
+  assert.equal(parsed.geometry.verdict, "ask");
+  assert.equal(parsed.geometry.nearestStandard.name, "LETTER");
+  assert.ok(parsed.geometry.question.includes("DocumentPageSize.of("));
+});
+
+test("exit 5 still imports the files — the question is about the page, not the copy", () => {
+  const ws = workspace("geometry-ask-files");
+  const { status } = runCli(ws.root, [
+    "--project",
+    "demo",
+    "--file",
+    writePng(path.join(ws.host, "odd.png"), 589, 754),
+  ]);
+
+  assert.equal(status, 5);
+  assert.ok(fs.existsSync(path.join(ws.project, "reference", "reference.png")));
+  assert.ok(fs.existsSync(path.join(ws.project, "reference", "source.png")));
+  assert.equal(projectOf(ws).referenceImage, "reference/reference.png");
+});
+
+test("the human-readable output ranks the standards, not just the winner", () => {
+  const ws = workspace("geometry-text");
+  const spawned = spawnSync(
+    process.execPath,
+    [
+      CLI,
+      "--root",
+      ws.root,
+      "--project",
+      "demo",
+      "--file",
+      writePng(path.join(ws.host, "a4.png"), 595, 842),
+    ],
+    { encoding: "utf8" },
+  );
+  // The run that broke mocha-profile-cv built at A4 when LETTER was nearer.
+  // Printing the ranking is what would have made that visible unprompted.
+  for (const name of ["A4", "LETTER", "LEGAL"]) {
+    assert.ok(spawned.stdout.includes(name), `${name} missing from the measurement output`);
+  }
+  assert.ok(/aspect/.test(spawned.stdout));
+});
+
+test("re-importing re-measures rather than keeping the old page size", () => {
+  const ws = workspace("geometry-reimport");
+  runCli(ws.root, [
+    "--project",
+    "demo",
+    "--file",
+    writePng(path.join(ws.host, "a4.png"), 595, 842),
+  ]);
+  assert.equal(projectOf(ws).referenceGeometry.pageSize.format, "A4");
+
+  runCli(ws.root, [
+    "--project",
+    "demo",
+    "--file",
+    writePng(path.join(ws.host, "letter.png"), 612, 792),
+  ]);
+  assert.equal(
+    projectOf(ws).referenceGeometry.pageSize.format,
+    "LETTER",
+    "a stale page size is worse than none — it is the old one, stated with confidence",
+  );
+});
+
+test("a page that could not be measured is exit 5, not a quiet success", () => {
+  // A .png source is copied verbatim, so a file that is not really a PNG
+  // reaches the measurement and fails it. The files are imported and correct;
+  // what is missing is a measurement, and reporting that as 0 would make "this
+  // is a known standard" and "nobody could tell what this is" the same answer
+  // to a script — the vacuous pass `observations verify` already had to fix.
+  const ws = workspace("geometry-unmeasurable");
+  const source = path.join(ws.host, "not-really.png");
+  fs.writeFileSync(source, "GIF89a pretending to be a png");
+
+  const { status, parsed } = runCli(ws.root, ["--project", "demo", "--file", source]);
+
+  assert.equal(status, 5);
+  assert.equal(parsed.geometry, null);
+  assert.match(parsed.geometryError, /not a PNG/);
+  // The import itself still happened, which is why this is a verdict and not a
+  // failure: the file is where everything downstream reads it.
+  assert.ok(fs.existsSync(path.join(ws.project, "reference", "reference.png")));
+  assert.equal(
+    projectOf(ws).referenceGeometry,
+    undefined,
+    "an unmeasurable page must leave no geometry behind to be mistaken for one",
+  );
+});
+
+test("the json payload survives the exit code that reports the verdict", () => {
+  // stdout is asynchronous when it is a pipe, and process.exit() drops buffered
+  // writes — so the JSON this command just produced could be truncated by the
+  // line that reports its verdict. The payload is largest on exit 5, where it
+  // carries the ranked candidates and the question.
+  const ws = workspace("geometry-flush");
+  const { status, parsed, output } = runCli(ws.root, [
+    "--project",
+    "demo",
+    "--file",
+    writePng(path.join(ws.host, "odd.png"), 589, 754),
+  ]);
+
+  assert.equal(status, 5);
+  assert.ok(parsed, `stdout did not parse as JSON:\n${output}`);
+  assert.equal(parsed.geometry.candidates.length, 3, "the payload was cut short");
+  assert.ok(parsed.geometry.question.endsWith("?"));
 });

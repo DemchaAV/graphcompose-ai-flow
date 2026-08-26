@@ -20,6 +20,11 @@ import {
   updateRevision,
   type VisualDiffStats,
 } from './artifactUpdater.js';
+import {
+  aspectMismatchOf,
+  formatAspectWarning,
+  type AspectMismatch,
+} from './aspect.js';
 
 interface CliOptions {
   out: string;
@@ -118,11 +123,19 @@ async function runCli(
   // every run used to solve that itself — one shelled out to ImageMagick and
   // left junk files in the user's project. Opt-in, so a deliberate same-size
   // comparison (parent vs child render) can never be silently resampled.
+  //
+  // Scaling to a different SIZE is a resampling. Scaling to a different SHAPE
+  // is a distortion, and the diff cannot tell a reader which one it performed
+  // unless it measures first — so measure first, and carry the answer out with
+  // the stats. This is the step that hid the page-size defect: a reference 5%
+  // shorter than the render was stretched to fit and then reported as matching.
   let scaledReferencePath: string | undefined;
+  let aspectMismatch: AspectMismatch | undefined;
   if (
     options.scaleReference &&
     (reference.width !== output.width || reference.height !== output.height)
   ) {
+    aspectMismatch = aspectMismatchOf(reference, output);
     reference = scaleTo(reference, output.width, output.height);
     if (options.saveScaled !== undefined) {
       scaledReferencePath = resolve(options.saveScaled);
@@ -150,6 +163,7 @@ async function runCli(
     classification: result.classification,
     threshold: result.threshold,
     includeAA: result.includeAA,
+    ...(aspectMismatch ? { aspectMismatch } : {}),
   };
 
   if (options.updateRevision !== undefined) {
@@ -164,6 +178,14 @@ async function runCli(
     process.stdout.write(`${JSON.stringify(stats, null, 2)}\n`);
   } else {
     process.stdout.write(formatSummary(stats, result));
+  }
+
+  // After the numbers, because it is a warning ABOUT the numbers: a reader who
+  // has just been told "0.3% of pixels differ" needs to know in the same breath
+  // that the two images were not the same shape to begin with. On stderr, so
+  // --json stays parseable.
+  if (aspectMismatch) {
+    process.stderr.write(formatAspectWarning(aspectMismatch));
   }
 }
 
