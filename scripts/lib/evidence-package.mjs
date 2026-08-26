@@ -155,6 +155,31 @@ function intersectionOverUnion(node, rect) {
 export const OWNER_MATCH_FLOOR = 0.25;
 
 /**
+ * How far the owner's size may differ from the region's before a difference
+ * between their positions stops meaning anything, as a fraction of the region.
+ *
+ * A displacement is only readable when the two boxes are the *same box in a
+ * different place*. When they are different sizes they are different boxes, and
+ * subtracting their corners measures the disagreement about what the region is —
+ * not the layout.
+ *
+ * This deliberately gates on size rather than on overlap. Overlap drops for both
+ * reasons at once: a node genuinely displaced by 40pt overlaps its region no
+ * better than a node that is simply the wrong shape, so a floor on overlap would
+ * suppress the true positives along with the false one.
+ *
+ * Measured on the reference CV's own review. Six of its seven mismatches sit
+ * within 4.4% on width and correctly come back "not geometry", every delta under
+ * 2.5pt. The seventh, `masthead`, is **45% adrift on width** — the analyst's
+ * region covers a name, a title and a rule, and the `Masthead` node is not that
+ * box. Its 11.5pt "displacement" is an artifact of comparing two rectangles that
+ * are not the same rectangle, and it was the ONLY positive the classifier
+ * produced on real data. A confident wrong cause is the failure this whole track
+ * exists to remove.
+ */
+export const SHAPE_AGREEMENT_TOLERANCE = 0.25;
+
+/**
  * The node that owns a region: the one whose box best coincides with it.
  *
  * Ties break toward the deeper node, since a section and the single child
@@ -213,7 +238,7 @@ export function displacement(node, rect) {
  *
  * @returns {{cause: string, basis: string, candidates: string[]}}
  */
-export function classifyCause({ pagination = null, displaced = null, tolerance = null, role = null, interiorPercent = null, substitutedFonts = [] }) {
+export function classifyCause({ pagination = null, displaced = null, tolerance = null, role = null, interiorPercent = null, substitutedFonts = [], regionRect = null }) {
   if (pagination && pagination.expected != null && pagination.actual != null && pagination.expected !== pagination.actual) {
     return {
       cause: "PAGINATION",
@@ -248,6 +273,26 @@ export function classifyCause({ pagination = null, displaced = null, tolerance =
   }
 
   const worst = Math.max(Math.abs(displaced.deltaX ?? 0), Math.abs(displaced.deltaY ?? 0));
+  // Are the two boxes even the same size? If not, the corners disagree about
+  // what the region *is*, and subtracting them measures that rather than the
+  // layout.
+  const sizeError =
+    regionRect && regionRect.width > 0 && regionRect.height > 0
+      ? Math.max(
+          Math.abs(displaced.deltaWidth ?? 0) / regionRect.width,
+          Math.abs(displaced.deltaHeight ?? 0) / regionRect.height,
+        )
+      : 0;
+  if (tolerance != null && worst > tolerance && sizeError > SHAPE_AGREEMENT_TOLERANCE) {
+    return {
+      cause: "UNKNOWN",
+      basis:
+        `the owning node is ${round(sizeError * 100)}% off the region's own size, so the two are not ` +
+        `the same box — the ${round(worst)}pt between their corners measures that disagreement, not a ` +
+        "displacement. Re-read the region's bounds before treating this as geometry",
+      candidates: ["GEOMETRY", "TYPOGRAPHY", "PAINT", "CONTENT"],
+    };
+  }
   if (tolerance != null && worst > tolerance) {
     return {
       cause: "GEOMETRY",
@@ -490,6 +535,7 @@ export function buildEvidencePackage({
     role: region.role ?? null,
     interiorPercent: regionStats ? regionStats.percent : null,
     substitutedFonts,
+    regionRect: pkg.ownership?.referenceRect ?? null,
   });
   pkg.cause = verdict.cause;
   pkg.causeBasis = verdict.basis;

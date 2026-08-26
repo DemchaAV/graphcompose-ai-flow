@@ -32,6 +32,7 @@ import { fileURLToPath } from "node:url";
 import {
   ASSET_INTERIOR_THRESHOLD_PERCENT,
   GEOMETRY_TOLERANCE_FRACTION,
+  SHAPE_AGREEMENT_TOLERANCE,
   OWNER_MATCH_FLOOR,
   buildEvidencePackage,
   classifyCause,
@@ -190,6 +191,38 @@ test("a correctly-placed image whose pixels are wrong is an ASSET, with the proh
   // wrong picture lines up has made the template worse and the diff better.
   assert.deepEqual(pkg.recommendedProperties, []);
   assert.match(pkg.causeBasis, /Do NOT compensate an asset with margins/);
+});
+
+test("a region that is not the node's shape cannot support a displacement", () => {
+  // The one false positive the classifier produced on real data, pinned. The
+  // reference CV's `masthead` region covers a name, a title and a rule; the
+  // Masthead node is 158pt narrower — 45% off the region's own width. The 11.5pt
+  // between their corners measures that disagreement about what the region is,
+  // not a layout defect, and calling it GEOMETRY sent a reviewer to move a block
+  // that had not moved.
+  const wideRegion = { ...region("masthead", "Masthead"), bounds: null };
+  const node = resolveNode(model, "Masthead");
+  wideRegion.bounds = {
+    x: node.placementX / canvas.pageWidth,
+    y: (canvas.pageHeight - topOf(node) - 12) / canvas.pageHeight,
+    w: (node.placementWidth * 1.8) / canvas.pageWidth,
+    h: node.placementHeight / canvas.pageHeight,
+  };
+
+  const pkg = build({ region: wideRegion, regionStats: { percent: 10 } });
+  assert.equal(pkg.cause, "UNKNOWN");
+  assert.match(pkg.causeBasis, /not the same box/);
+  assert.match(pkg.causeBasis, /Re-read the region's bounds/);
+  assert.ok(pkg.causeCandidates.includes("GEOMETRY"), "geometry is not ruled out — it is unproven");
+});
+
+test("the shape gate does not suppress a genuine displacement", () => {
+  // The gate must key on SIZE, not on overlap. A node displaced by 40pt overlaps
+  // its region no better than one that is simply the wrong shape, so an
+  // overlap-based floor would have silenced the true positives with the false one.
+  assert.equal(SHAPE_AGREEMENT_TOLERANCE, 0.25);
+  const pkg = build({ region: region("skills", "Skills", {}, { dx: 40 }) });
+  assert.equal(pkg.cause, "GEOMETRY", "same size, moved — that is exactly what GEOMETRY means");
 });
 
 test("a displaced image is GEOMETRY, not ASSET — position is checked first", () => {

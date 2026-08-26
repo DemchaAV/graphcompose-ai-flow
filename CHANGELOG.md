@@ -7,6 +7,45 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+**The diagnostics are not proven to have helped, and `docs/benchmarks.md` now
+says so with the numbers.** The pre-diagnostics baseline was written so this
+could be honest; here is the honest version.
+
+- **The corpus has not moved.** `run-metrics baseline` re-run after the tools
+  landed returns the same figures project by project — 53 revisions, 52 renders,
+  5 structural smells, 2 negative insets. No project has been authored with the
+  diagnostics in place, so there is nothing to compare against.
+- **All three headline metrics are still null**, and one of them changed
+  character without changing value: `collateralNodesPerRevision` is no longer
+  un-computable, it is uncomputed, because no project has two consecutive
+  revisions that both carry a snapshot. `collateralComparablePairs: 0` sits
+  beside it so nobody mistakes an average over nothing for an average over
+  something.
+- **Capability is measurable and is recorded separately**, because "the tools
+  answer the question they were built for" and "the loop got better" are
+  different claims: 749 of 988 coordinate queries on a real CV resolve to an
+  exact additive chain; an evidence package is 78× smaller than the snapshot;
+  `doctor` finds 7 things on 248 nodes and nothing on a clean document; the font
+  matcher ranks the right family first 6 times out of 6.
+- **The uncomfortable number is stated rather than buried.** On the reference
+  CV's seven reviewed mismatches the cause classifier returns `UNKNOWN` seven
+  times. Six of those correctly rule out geometry, which is most of a decision —
+  but it rules almost nothing in, and the cause that would convert several of
+  them, `TYPOGRAPHY`, has never fired outside a fixture because **zero renders in
+  the corpus carry typography**.
+
+**Writing that section found a real defect and fixed it.** The classifier's one
+positive verdict on live data was wrong: `masthead` came back `GEOMETRY` off an
+11.5pt displacement that was an artifact of comparing two boxes that were never
+the same box — the analyst's region is 45% wider than the node it named. A
+displacement is now only readable when the owner and the region agree on size
+(`SHAPE_AGREEMENT_TOLERANCE`), and the case is pinned by a test.
+
+The gate is deliberately on **size**, not on overlap: a node genuinely displaced
+by 40pt overlaps its region no better than one that is simply the wrong shape, so
+an overlap floor would have suppressed the true positives along with the false
+one. A second test pins that too.
+
 **`layout doctor` reads the resolved tree for the maintainability defects a
 render cannot show.** Five paragraphs that each carry a trailing gap look
 identical on the page to one parent with `spacing(...)` — the pixel diff between

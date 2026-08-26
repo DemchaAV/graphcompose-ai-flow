@@ -200,6 +200,113 @@ What the authoring rules and the lint are for is the code written next.
 That shows up in the two headline metrics above, once they can be
 measured at all.
 
+## Post-diagnostics measurement — 2026-08-26
+
+The pre-diagnostics baseline above was written so this could be honest.
+Here is the honest version: **the effect the plan set out to prove is not
+measurable yet, and nothing here claims otherwise.**
+
+### The corpus has not moved
+
+```bash
+node scripts/telemetry/run-metrics.mjs baseline
+```
+
+re-run on the same day the diagnostics landed returns the same figures it
+returned before them: 11 projects, 53 revisions, 52 renders, 1 FAILED, 5
+structural smells, 2 negative insets — identical, project by project.
+
+That is expected and it is the whole problem. The measurement the plan
+asks for is *"re-run the metrics over new projects authored with the
+diagnostics in place"*, and no such project exists. Nobody has run the
+loop since the tools were built. A comparison against a corpus that has
+not changed would be comparing a number to itself.
+
+### All three headline metrics are still null
+
+| metric | value | why |
+|---|---|---|
+| `ownerCorrectOnFirstAttempt` | `null` | needs the loop to record which owner each pass tried |
+| `rendersPerGeometryCorrection` | `null` | needs the loop to record what each pass was fixing |
+| `collateralNodesPerRevision` | `null` | computed now, but no project has two consecutive revisions that both carry a snapshot |
+
+The third one changed character without changing value: it is no longer
+un-computable, it is uncomputed. `collateralComparablePairs` is `0` and is
+reported beside it, so nobody can mistake an average over nothing for an
+average over something.
+
+### What *is* measurable: capability, not effect
+
+These are different claims and conflating them would be the dishonesty
+this section exists to avoid. **Effect** is "the loop got better".
+**Capability** is "the tools answer the question they were built for, on
+the corpus that already exists". The second is reproducible today, from
+committed fixtures, on a machine that never saw the work:
+
+```bash
+node --test scripts/test/layout-inspector.test.mjs scripts/test/layout-diff.test.mjs \
+     scripts/test/evidence-package.test.mjs scripts/test/layout-doctor.test.mjs \
+     scripts/test/typography-match.test.mjs
+```
+
+| question | measured on | result |
+|---|---|---|
+| Can a coordinate be traced to its owner? | 247-node approved CV | **749 of 988** coordinate queries resolve to an exact additive chain (75.8%); 223 are leaf sizes no arithmetic recovers; 16 are weighted row columns the snapshot does not record |
+| Does a patch move only what it meant to? | committed before/after pair | 1 edit → 3 descendants followed → **1 collateral** the edit did not explain, 3 nodes untouched |
+| How much smaller is an evidence package? | the CV's 7 real mismatches | 2 901 bytes average against a 227 546-byte snapshot — **78×** |
+| Is the geometry on the right node? | 134 parents of the same CV | 7 findings, 0 on a clean document, 0 false positives on a manual read |
+| Can a font be named from a crop? | 6 committed 200 dpi crops | rank 1 correct **6 of 6**, every winner ahead of the runner-up by > 0.05 |
+
+### The uncomfortable number, stated plainly
+
+On the reference CV's seven reviewed mismatches, the cause classifier
+returns **`UNKNOWN` seven times out of seven.**
+
+It is not useless — six of those seven carry "the box is within 2.5pt of
+where the reference puts it, so this is *not* geometry", which is most of
+a decision and correctly rules out touching the layout. But it rules
+almost nothing *in*, and the single verdict it did produce was **wrong**:
+`masthead` came back `GEOMETRY` off an 11.5pt displacement that turned out
+to be an artifact of comparing two boxes that were never the same box —
+the analyst's region is 45% wider than the node. That false positive was
+found by writing this section, and it is fixed: a displacement is now only
+readable when the owner and the region agree on size, and a test pins the
+case.
+
+So the classifier's real score on live data today is: seven mismatches,
+zero causes assigned, one false positive removed. The cause that would
+have converted several of those `UNKNOWN`s — `TYPOGRAPHY`, now
+deterministic from the engine's declared-versus-resolved font — has never
+fired outside a fixture, because **zero renders in the whole corpus carry
+typography**. Nothing has been rendered against a GraphCompose new enough
+to report it.
+
+### What would make the effect provable
+
+In order, cheapest first:
+
+1. **Re-render one project against GraphCompose 2.2.2.** It unblocks the
+   `TYPOGRAPHY` cause on real data and gives `collateralNodesPerRevision`
+   its first comparable pair. Today every one of those paths is exercised
+   only by a fixture.
+2. **Author one project through the loop with the tools in place**, and
+   recount. That is the comparison this section is a placeholder for.
+3. **Instrument the loop to record what each pass was trying to fix.**
+   Until then the two headline metrics stay null by construction, not by
+   accident — and null is the correct value, because a number that is
+   nearly the thing you wanted gets quoted later as if it were the thing.
+
+### The verdict, for now
+
+**Not proven.** The tools do what they were built to do, measurably, on
+the corpus that exists. Whether that makes the loop better is unmeasured,
+and the plan's own instruction — *"if a diagnostic did not move a number,
+say so and either fix it or remove it"* — cannot be applied yet, because
+no diagnostic has been given the chance to move one. Nothing has been
+removed on that basis, and nothing should be until step 2 above has
+happened.
+
+
 ## What to expect, honestly
 
 The composites remove turns, not thinking: the model's own generation

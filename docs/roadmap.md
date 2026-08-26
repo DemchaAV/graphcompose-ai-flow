@@ -318,6 +318,44 @@ Two things follow that are easy to miss:
   engine's layout model carries no per-fragment geometry, so `startPage` and
   `endPage` are the whole story for a split section.
 
+## The snapshot answers questions now
+
+Five commands read it, and none of them ever returns the file — it is 227 KB
+for a one-page CV, of which one node is ever the answer:
+
+| command | question |
+|---|---|
+| `layout inspect <node>` | where is it — placement box, computed content box, insets, page |
+| `layout explain <node> <coord>` | why is it there, as an additive chain naming every node that contributes |
+| `layout diff <revA> <revB>` | did the patch move only what it meant to |
+| `layout doctor` | is the geometry on the node that owns it |
+| `evidence.mjs --region <id>` | what *kind* of defect is this — geometry, an asset, a font, pagination |
+
+Plus `typography.mjs match` / `search`, which name a font family or a size from
+a reference crop by rendering every candidate in **one** document and slicing the
+sheet apart with the snapshot that render produced.
+
+Three properties are worth knowing before relying on any of them.
+
+- **They refuse.** 223 of a real CV's 988 coordinate queries have no derivation —
+  a paragraph is as wide as its text, and the metrics are not in the file — and
+  16 more come from row weights the snapshot does not record. Those report *not
+  derivable* and say what it would take. A tool that always produces an answer is
+  guessing with extra steps.
+- **`typography` needs GraphCompose 2.2.2.** Older renders carry none, and the
+  evidence package reports `reported: false` rather than a clean bill of health —
+  "no font problem here" and "nothing looked" are different answers.
+- **None of them is a gate.** Every one exits 0 whether or not it finds
+  something. A heuristic that blocked the loop would be worse than the guessing
+  it replaces.
+
+**Whether any of this made the loop better is not yet measured**, and
+[`docs/benchmarks.md`](benchmarks.md) says so in detail rather than implying
+otherwise: no project has been authored with the tools in place, so the corpus is
+unchanged and all three headline metrics are still null. The tools are shown to
+do what they were built to do; that is a different claim from having helped.
+
+
 ## Note on future tooling
 
 The revision commands — `init`, `new-revision`, `approve`, `reject`,
