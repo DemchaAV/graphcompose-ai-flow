@@ -62,8 +62,10 @@ function usage(code = 0) {
       "  --project <id>      the project whose draft is being approved\n" +
       "  --revision <id>     approve this revision (default: the current draft)\n" +
       "  --root <workspace>  workspace override (default: discovered)\n" +
-      "  --verify <tier>     bundle verification after publishing (default: static;\n" +
-      "                      render also compiles and renders the bundle standalone)\n" +
+      "  --verify <tier>     bundle verification after publishing (default: render,\n" +
+      "                      which compiles the bundle AND renders its example data;\n" +
+      "                      static compiles only and cannot see a missing asset\n" +
+      "                      manifest; none skips verification entirely)\n" +
       "  --readme-only       the bundle is already published and only its README is\n" +
       "                      missing; regenerate and verify, skipping approve\n" +
       "  --json              machine-readable result\n",
@@ -72,7 +74,13 @@ function usage(code = 0) {
 }
 
 function parseArgs(argv) {
-  const out = { project: null, revision: null, root: null, verify: "static", json: false, readmeOnly: false };
+  // Default `render`, not `static`. A bundle that compiles is not a bundle
+  // that works: the first template published from a real run compiled cleanly
+  // and could not render, because assets-manifest.json never reached it and
+  // every icon resolved to nothing. Static verification passed it. The only
+  // reason that bundle did not ship broken is that the agent happened to pass
+  // --render, which makes the good outcome a matter of who was driving.
+  const out = { project: null, revision: null, root: null, verify: "render", json: false, readmeOnly: false };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--help" || a === "-h") usage(0);

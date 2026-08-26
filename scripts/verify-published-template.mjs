@@ -275,6 +275,14 @@ function buildAndMaybeRender(dir) {
   }
   const assetsDir = path.join(bundleDir, "assets");
   if (fs.existsSync(assetsDir)) copyTree(assetsDir, path.join(stage, "assets"));
+  // The manifest sits beside the assets in a revision and beside template.json in
+  // a bundle, and a template that draws icons resolves it against this directory.
+  // Stage it too, or the render fails on the first icon for a reason that has
+  // nothing to do with the template being verified.
+  const bundleManifest = path.join(bundleDir, "assets-manifest.json");
+  if (fs.existsSync(bundleManifest)) {
+    fs.copyFileSync(bundleManifest, path.join(stage, "assets-manifest.json"));
+  }
 
   // The renderer patches pendingArtifacts in the revision it renders into, so
   // the stage needs one even though nothing here is a revision. A stub keeps

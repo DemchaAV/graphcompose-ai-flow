@@ -220,6 +220,33 @@ const sourceAssetRequest = path.join(revisionDir, "asset-request.json");
 if (fs.existsSync(sourceAssetRequest)) {
   copyFile(sourceAssetRequest, path.join(targetAssetsDir, "asset-request.json"));
 }
+// The manifest goes to the bundle ROOT, beside template.json, because that is
+// where a template looks for it: the authoring rules make assets-manifest.json
+// the source of truth for what was actually resolved — the file, the format, the
+// point size — so a template reads it rather than hardcoding an extension, and
+// resolves it against graphcompose.revision.dir, which is the bundle root once
+// published. Copying the request but not the manifest published a bundle that
+// compiled and then failed at render with "No icon resolved for token", which is
+// the exact failure the comment below says this step exists to prevent.
+const sourceAssetsManifest = path.join(revisionDir, "assets-manifest.json");
+if (fs.existsSync(sourceAssetsManifest)) {
+  // Rewritten rather than copied. `revisionDir` names the folder the manifest
+  // describes, and in a bundle that is the bundle itself — left as it was, it
+  // points at revisions/<id> on the machine that published, which is both a
+  // dead path for a consumer and something the bundle scan below correctly
+  // refuses to ship. Everything else is carried over untouched: the icon file
+  // paths are already relative to this directory.
+  const published = JSON.parse(fs.readFileSync(sourceAssetsManifest, "utf8"));
+  published.revisionDir = ".";
+  const publishedManifestPath = path.join(targetDir, "assets-manifest.json");
+  fs.writeFileSync(publishedManifestPath, `${JSON.stringify(published, null, 2)}
+`, "utf8");
+  // Recorded, or the stale sweep at the end of this run deletes it again: that
+  // sweep removes whatever this run did not write, and a file written without
+  // record() looks exactly like leftovers from a previous publish.
+  record(publishedManifestPath);
+  console.log(`[publish-template] wrote ${display(publishedManifestPath)}`);
+}
 // Everything under the revision's assets/, not just icons/. The old code
 // copied assets/icons/* and assets/fonts/*, so an image the template actually
 // loads — an avatar, a logo, a signature — was dropped without a word, and the

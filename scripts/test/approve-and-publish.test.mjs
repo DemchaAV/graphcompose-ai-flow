@@ -116,10 +116,21 @@ function scenario({ status = "DRAFT", verdict = "READY_FOR_APPROVAL", priorAppro
   return { root, project, revision, bundle: path.join(root, "templates", "serif-cv") };
 }
 
+/**
+ * Drive the CLI against a scenario.
+ *
+ * The default verification tier is `render`, which puts the published bundle's
+ * own example data through the renderer. These scenarios build a bundle out of
+ * a stub template that was never meant to render, so they ask for the `static`
+ * tier explicitly: what they are about is approve / publish / README, not the
+ * renderer. `the default verification tier renders the bundle` below is what
+ * pins the default itself, so stepping down here cannot hide a change to it.
+ */
 function runCli(root, extra = []) {
+  const tiered = extra.includes("--verify") ? extra : ["--verify", "static", ...extra];
   const spawned = spawnSync(
     process.execPath,
-    [CLI, "--project", "serif-cv", "--root", root, ...extra],
+    [CLI, "--project", "serif-cv", "--root", root, ...tiered],
     { encoding: "utf8" },
   );
   let parsed = null;
@@ -401,4 +412,25 @@ test("a revision unchanged since its review passes the seal step", () => {
   const step = (parsed?.steps ?? []).find((e) => e.name === "does the source match what was reviewed");
   assert.equal(step?.ok, true);
   assert.match(step.detail, /unchanged since the review/);
+});
+
+test("the default verification tier renders the bundle, because compiling is not working", () => {
+  // The first bundle published from a real run compiled cleanly and could not
+  // render: assets-manifest.json never reached it, so every icon resolved to
+  // nothing. Static verification passed it. It did not ship broken only
+  // because the agent chose --render on its own, which is not a guarantee.
+  const s = scenario({ label: "default-tier" });
+  const spawned = spawnSync(
+    process.execPath,
+    [CLI, "--project", "serif-cv", "--root", s.root, "--json"],
+    { encoding: "utf8" },
+  );
+
+  const output = `${spawned.stdout ?? ""}${spawned.stderr ?? ""}`;
+  // The tier is named in the step, so this fails loudly if the default is
+  // stepped back down rather than silently passing on a weaker check.
+  assert.match(output, /verify \(render\)/, output);
+
+  const help = spawnSync(process.execPath, [CLI, "--help"], { encoding: "utf8" });
+  assert.match(help.stdout, /default: render/);
 });

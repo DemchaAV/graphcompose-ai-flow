@@ -56,10 +56,21 @@ What it enforces, so you do not have to:
   Wire it and re-render rather than routing around the refusal — the
   previously published `navy-sidebar-cv` bundle ships every contact
   dead because nothing between the render and the bundle asked.
-- Verification runs on the published bundle (static tier by default;
-  `--verify render` also compiles and renders it standalone). A verify
-  failure exits 1 *after* reporting the completed approve and publish —
-  the state is real, and hiding it would be worse.
+- Verification runs on the published bundle and **renders it** by
+  default: the `render` tier compiles the bundle standalone and puts its
+  own example data through the renderer. `--verify static` compiles
+  only, and `--verify none` skips it. A verify failure exits 1 *after*
+  reporting the completed approve and publish — the state is real, and
+  hiding it would be worse.
+
+  The default is `render` because compiling is not working. The first
+  bundle published from a real run compiled cleanly and could not
+  render: `assets-manifest.json` never reached it, so every icon
+  resolved to nothing — `No icon resolved for token "phone"`. Static
+  verification passed it, and it would have shipped that way if the
+  agent had not chosen `--render` on its own. Do not step down to
+  `static` to get past a failure; a bundle that cannot render is the
+  finding, not the obstacle.
 
 **3. Fill the README's hand-written half, when it is worth it.**
 
