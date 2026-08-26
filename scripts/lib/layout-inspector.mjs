@@ -168,6 +168,7 @@ export function loadSnapshot(data) {
   const byPath = new Map();
   const children = new Map();
   const roots = [];
+  const typographyByPath = new Map();
 
   for (const node of data.nodes) {
     if (!node || typeof node.path !== "string" || node.path === "") {
@@ -198,6 +199,20 @@ export function loadSnapshot(data) {
     siblings.sort((a, b) => (a.childIndex ?? 0) - (b.childIndex ?? 0));
   }
 
+  // Optional, and its absence is ordinary rather than a defect: GraphCompose only
+  // began reporting it in 2.2.2, so every revision rendered before that has none.
+  // Keyed by owning node path — a paragraph split across pages contributes one run
+  // per page, which is why the value is a list.
+  for (const run of Array.isArray(data.typography) ? data.typography : []) {
+    if (!run || typeof run.path !== "string") continue;
+    const runs = typographyByPath.get(run.path);
+    if (runs) runs.push(run);
+    else typographyByPath.set(run.path, [run]);
+  }
+  for (const runs of typographyByPath.values()) {
+    runs.sort((a, b) => (a.fragmentIndex ?? 0) - (b.fragmentIndex ?? 0));
+  }
+
   return {
     formatVersion: data.formatVersion ?? null,
     canvas: data.canvas,
@@ -208,7 +223,35 @@ export function loadSnapshot(data) {
     byPath,
     children,
     roots,
+    typography: Array.isArray(data.typography) ? data.typography : [],
+    typographyByPath,
+    hasTypography: typographyByPath.size > 0,
   };
+}
+
+/**
+ * The text runs this node drew, or an empty list.
+ *
+ * Empty means two different things and the caller has to keep them apart: the node
+ * draws no text, or the render predates GraphCompose 2.2.2 and the snapshot carries
+ * no typography at all. `model.hasTypography` separates them.
+ */
+export const typographyOf = (model, node) => model.typographyByPath.get(node.path) ?? [];
+
+/**
+ * Every text run under a node, itself included.
+ *
+ * A region's owner is usually a section, and the text is in its descendants — so a
+ * question about "the font in this block" is a question about the subtree.
+ */
+export function typographyUnder(model, node) {
+  const found = [];
+  const walk = (current) => {
+    found.push(...typographyOf(model, current));
+    for (const child of childrenOf(model, current)) walk(child);
+  };
+  walk(node);
+  return found;
 }
 
 /** Children of a node, in author order. Never null. */
@@ -360,6 +403,24 @@ export function inspectNode(model, node, { children = false, ancestors = false }
     margin: node.margin,
     padding: node.padding,
     pages: { start: node.startPage, end: node.endPage, spansPages: node.startPage !== node.endPage },
+    // Present only when the render produced it. A node with no entry either draws
+    // no text or predates the engine that reports it; `model.hasTypography` is what
+    // separates those, and a caller that conflates them will read "no font problem"
+    // off a snapshot that never looked.
+    ...(typographyOf(model, node).length
+      ? {
+          typography: typographyOf(model, node).map((run) => ({
+            fragmentIndex: run.fragmentIndex,
+            page: run.page,
+            declaredFont: run.declaredFont,
+            resolvedFont: run.resolvedFont,
+            fontSubstituted: run.fontSubstituted,
+            fontSize: run.fontSize,
+            lineCount: run.lineCount,
+            verticalAlign: run.verticalAlign,
+          })),
+        }
+      : {}),
     ...(children ? { children: kids.map(brief) } : {}),
     ...(ancestors ? { ancestors: ancestorsOf(model, node).map(brief) } : {}),
   };

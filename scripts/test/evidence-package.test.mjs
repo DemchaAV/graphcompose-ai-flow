@@ -42,8 +42,17 @@ import {
 } from "../lib/evidence-package.mjs";
 import { loadSnapshot, resolveNode, topOf } from "../lib/layout-inspector.mjs";
 
+/** A region as a model would have written it, derived from where a node really is. */
+const boundsForNode = (node, canvas) => ({
+  x: node.placementX / canvas.pageWidth,
+  y: (canvas.pageHeight - topOf(node)) / canvas.pageHeight,
+  w: node.placementWidth / canvas.pageWidth,
+  h: node.placementHeight / canvas.pageHeight,
+});
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const FIXTURE = path.join(repoRoot, "scripts", "test", "fixtures", "charcoal-gold-cv", "layout-snapshot.json");
+const TYPOGRAPHY_FIXTURE = path.join(repoRoot, "scripts", "test", "fixtures", "typography-snapshot", "layout-snapshot.json");
 const model = loadSnapshot(JSON.parse(fs.readFileSync(FIXTURE, "utf8")));
 const canvas = model.canvas;
 
@@ -199,9 +208,11 @@ test("a content region with wrong pixels is never called an ASSET", () => {
   assert.equal(pkg.cause, "UNKNOWN");
 });
 
-test("TYPOGRAPHY, PAINT and CONTENT are never assigned automatically", () => {
+test("PAINT and CONTENT are never assigned automatically", () => {
   // The guard against the obvious future "improvement". Nothing deterministic
-  // separates them yet, so anything assigning one would be guessing.
+  // separates them, so anything assigning one would be guessing. TYPOGRAPHY left
+  // this list when the engine began reporting declared-versus-resolved fonts —
+  // but only for a substitution, which is a fact, never for a size or a weight.
   const causes = new Set();
   for (const percent of [0, 5, 30, 60, 99]) {
     for (const role of ["content", "image", "icon", "divider", "background"]) {
@@ -212,10 +223,92 @@ test("TYPOGRAPHY, PAINT and CONTENT are never assigned automatically", () => {
       }
     }
   }
-  assert.ok(!causes.has("TYPOGRAPHY"));
   assert.ok(!causes.has("PAINT"));
   assert.ok(!causes.has("CONTENT"));
+  assert.ok(!causes.has("TYPOGRAPHY"), "the fixture has no substituted font, so nothing may claim one");
   assert.deepEqual([...causes].sort(), ["ASSET", "GEOMETRY", "UNKNOWN"]);
+});
+
+// ------------------------------------------------------------- typography ----
+
+test("a substituted font is TYPOGRAPHY, and it outranks a geometry verdict", () => {
+  // The measurement the engine added for exactly this: the style asked for
+  // Helvetica-Bold and the document is set in Helvetica. It lays out and draws
+  // without error, so no pixel comparison will ever report it. And it is checked
+  // BEFORE geometry on purpose — a substituted font changes every glyph width in
+  // the run, so the box is the wrong size *because* the type is wrong. Calling it
+  // GEOMETRY would send the next pass to move a block whose position is a symptom.
+  const substituted = [{ declaredFont: "Helvetica-Bold", resolvedFont: "Helvetica" }];
+  const verdict = classifyCause({
+    displaced: { deltaX: 400, deltaY: 400 },
+    tolerance: 3,
+    substitutedFonts: substituted,
+  });
+  assert.equal(verdict.cause, "TYPOGRAPHY");
+  assert.match(verdict.basis, /asked for Helvetica-Bold and the document is set in Helvetica/);
+  assert.deepEqual(verdict.candidates, []);
+});
+
+test("pagination still outranks a substituted font", () => {
+  // Ordering matters in both directions: a document that paginated differently
+  // makes every per-node reading meaningless, including which run is where.
+  const verdict = classifyCause({
+    pagination: { expected: 2, actual: 1 },
+    substitutedFonts: [{ declaredFont: "Helvetica-Bold", resolvedFont: "Helvetica" }],
+  });
+  assert.equal(verdict.cause, "PAGINATION");
+});
+
+test("the typography package names the run, and forbids fixing it with geometry", () => {
+  const model = loadSnapshot(JSON.parse(fs.readFileSync(TYPOGRAPHY_FIXTURE, "utf8")));
+  const heading = resolveNode(model, "Heading");
+  const pkg = buildEvidencePackage({
+    model,
+    region: {
+      id: "heading",
+      role: "content",
+      page: 1,
+      bounds: boundsForNode(heading, model.canvas),
+    },
+    regionStats: { percent: 30, classification: "MAJOR" },
+  });
+
+  assert.equal(pkg.cause, "TYPOGRAPHY");
+  assert.deepEqual(pkg.typography.substituted.map((s) => s.declaredFont), ["Helvetica-Bold"]);
+  assert.equal(pkg.typography.reported, true);
+  assert.match(pkg.prohibition, /Do not adjust geometry/);
+  assert.deepEqual(pkg.recommendedProperties, [], "geometry is not the fix here");
+});
+
+test("a region whose text is fine is not called TYPOGRAPHY", () => {
+  const model = loadSnapshot(JSON.parse(fs.readFileSync(TYPOGRAPHY_FIXTURE, "utf8")));
+  const body = resolveNode(model, "Body");
+  const pkg = buildEvidencePackage({
+    model,
+    region: { id: "body", role: "content", page: 1, bounds: boundsForNode(body, model.canvas) },
+    regionStats: { percent: 40, classification: "MAJOR" },
+  });
+
+  assert.equal(pkg.cause, "UNKNOWN");
+  assert.equal(pkg.typography.runs, 1);
+  assert.deepEqual(pkg.typography.substituted, []);
+});
+
+test("a render with no typography at all says so, rather than reporting none", () => {
+  // The distinction a consumer must not collapse: "this region has no font
+  // problem" and "nothing looked" are different answers, and the second one is
+  // what every revision rendered before GraphCompose 2.2.2 gives.
+  const older = loadSnapshot(JSON.parse(fs.readFileSync(FIXTURE, "utf8")));
+  assert.equal(older.hasTypography, false);
+
+  const pkg = buildEvidencePackage({
+    model: older,
+    region: region("skills", "Skills"),
+    regionStats: { percent: 40 },
+  });
+  assert.equal(pkg.typography.reported, false);
+  assert.match(pkg.typography.note, /predates the engine/);
+  assert.equal(pkg.cause, "UNKNOWN", "an unlooked-at font is not a clean bill of health");
 });
 
 test("no snapshot means the geometry half is unanswered, not answered wrongly", () => {

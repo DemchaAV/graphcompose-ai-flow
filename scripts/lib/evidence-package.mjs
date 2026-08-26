@@ -38,15 +38,21 @@
  *   image, and its interior pixels are heavily different. That is the item-23
  *   rule, and it exists mostly to stop the other failure: an agent seeing a
  *   wrong icon and nudging margins until the *wrong* icon lines up.
+ * - `TYPOGRAPHY` — the snapshot says the text was set in a font the style did
+ *   not name. Not a guess from pixels: GraphCompose reports the declared and the
+ *   resolved font side by side, and a mismatch is a fact. It outranks a geometry
+ *   verdict, because a substituted font changes every measurement the geometry
+ *   comparison is made of — the box moved *because* the type did.
  * - `UNKNOWN` — everything else, and it is a real answer.
  *
- * `TYPOGRAPHY`, `PAINT` and `CONTENT` are in the vocabulary and are **not**
- * assigned here. Separating "the font is wrong" from "the colour is wrong" from
- * "the text is wrong" needs the typography snapshot that arrives in Phase 17
- * and a text extraction that does not exist. A classifier that guessed between
- * them would be the pixel-staring it replaces, wearing a JSON hat. So they are
- * returned as **candidates** on an `UNKNOWN` verdict, with the reason the
- * evidence cannot separate them.
+ * `PAINT` and `CONTENT` are in the vocabulary and are still **not** assigned
+ * here, and neither is `TYPOGRAPHY` on anything subtler than a substitution.
+ * Telling a wrong size from a wrong colour from different words needs a
+ * comparison against the reference's own type, which is `typography.mjs`'s job
+ * and needs a crop a human chose. A classifier that guessed between them would
+ * be the pixel-staring it replaces, wearing a JSON hat. So they are returned as
+ * **candidates** on an `UNKNOWN` verdict, with the reason the evidence cannot
+ * separate them.
  *
  * ## Bounded on purpose
  *
@@ -66,6 +72,7 @@ import {
   labelOf,
   parentOf,
   topOf,
+  typographyUnder,
 } from "./layout-inspector.mjs";
 
 /**
@@ -206,11 +213,28 @@ export function displacement(node, rect) {
  *
  * @returns {{cause: string, basis: string, candidates: string[]}}
  */
-export function classifyCause({ pagination = null, displaced = null, tolerance = null, role = null, interiorPercent = null }) {
+export function classifyCause({ pagination = null, displaced = null, tolerance = null, role = null, interiorPercent = null, substitutedFonts = [] }) {
   if (pagination && pagination.expected != null && pagination.actual != null && pagination.expected !== pagination.actual) {
     return {
       cause: "PAGINATION",
       basis: `the render has ${pagination.actual} page(s) and the reference ${pagination.expected} — every per-node comparison is against a different layout until this is resolved`,
+      candidates: [],
+    };
+  }
+
+  // Checked before geometry on purpose. A substituted font changes every glyph
+  // width in the run, so the box is a different size *because* the type is wrong —
+  // reporting GEOMETRY here would send the next pass to move a block whose
+  // position is a symptom.
+  if (substitutedFonts.length > 0) {
+    const [first] = substitutedFonts;
+    return {
+      cause: "TYPOGRAPHY",
+      basis:
+        `the style asked for ${first.declaredFont} and the document is set in ${first.resolvedFont}` +
+        (substitutedFonts.length > 1 ? ` (and ${substitutedFonts.length - 1} more run(s) in this region)` : "") +
+        ". It lays out and draws without error, so nothing else reports it. Fix the style, " +
+        "not the geometry: the box is the size it is because the type is",
       candidates: [],
     };
   }
@@ -386,6 +410,7 @@ export function buildEvidencePackage({
   let displaced = null;
   let tolerance = null;
   let owner = null;
+  let substitutedFonts = [];
 
   if (model && region.bounds) {
     const rect = regionToPageRect(region.bounds, model.canvas);
@@ -432,6 +457,29 @@ export function buildEvidencePackage({
         omitted: Math.max(0, kids.length - CHILDREN_LIMIT),
       };
       pkg.recommendedProperties = recommendedProperties(model, owner, displaced);
+
+      // The whole subtree, not just the owner: a region's owner is a section and
+      // the text is in its children.
+      const runs = typographyUnder(model, owner);
+      substitutedFonts = runs.filter((run) => run.fontSubstituted);
+      if (runs.length) {
+        pkg.typography = {
+          runs: runs.length,
+          fonts: [...new Set(runs.map((run) => run.resolvedFont))],
+          substituted: substitutedFonts.map((run) => ({
+            path: run.path,
+            declaredFont: run.declaredFont,
+            resolvedFont: run.resolvedFont,
+            fontSize: run.fontSize,
+          })),
+          lines: runs.reduce((total, run) => total + (run.lineCount ?? 0), 0),
+          // A snapshot from a render before GraphCompose 2.2.2 has none of this at
+          // all, which is not the same as a region with no text.
+          reported: true,
+        };
+      } else if (!model.hasTypography) {
+        pkg.typography = { reported: false, note: "this render predates the engine that reports typography, so a font substitution here would be invisible" };
+      }
     }
   }
 
@@ -441,6 +489,7 @@ export function buildEvidencePackage({
     tolerance,
     role: region.role ?? null,
     interiorPercent: regionStats ? regionStats.percent : null,
+    substitutedFonts,
   });
   pkg.cause = verdict.cause;
   pkg.causeBasis = verdict.basis;
@@ -455,6 +504,11 @@ export function buildEvidencePackage({
   }
   if (verdict.cause === "PAGINATION") {
     pkg.prohibition = "Do not act on any per-node measurement in this package until the page count matches.";
+  }
+  if (verdict.cause === "TYPOGRAPHY") {
+    pkg.recommendedProperties = [];
+    pkg.prohibition = "Do not adjust geometry for this mismatch. Name the font family the style meant, "
+      + "and set the weight through the text style's decoration rather than by naming a face.";
   }
   if (owner && verdict.cause !== "GEOMETRY") {
     // Keeping the numbers is useful; presenting them as the fix is not.

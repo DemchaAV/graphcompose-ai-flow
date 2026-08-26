@@ -189,6 +189,25 @@ node scripts/typography.mjs match --reference <crop.png> --text "<the exact stri
 node scripts/typography.mjs search --reference <crop.png> --text "<the exact string>" --family <NAME> --from 9 --to 12 --step 0.25 --scale <px-per-pt>
 ```
 
+   `evidence.mjs` answers the **substitution** case on its own, with no crop and
+   no judgement: GraphCompose reports the font a style declared beside the font
+   the document was actually set in, so a mismatch is a fact and the cause comes
+   back `TYPOGRAPHY` rather than `UNKNOWN`. It arrives with a prohibition —
+   **do not adjust geometry** — because a substituted font changes every glyph
+   width in the run, so the box is the wrong size *because* the type is.
+
+   The trap it catches: a standard-14 *face* such as `Helvetica-Bold` is an
+   alias of its family, and the face is chosen from the style's decoration. A
+   style that names the bold face and sets no decoration renders **regular**,
+   lays out, draws, and fails nothing. Name the family and set the weight
+   through the decoration.
+
+   That needs a render against GraphCompose 2.2.2 or newer. Older renders carry
+   no typography at all, and the package says `reported: false` rather than
+   reporting a clean bill of health — "no font problem here" and "nothing
+   looked" are different answers.
+
+
 `match` sets every candidate family in **one** render and ranks them by
 two independent signals: how wide the string runs, and — with width
 normalised away — the letterforms. When those disagree, that is

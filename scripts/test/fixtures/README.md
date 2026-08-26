@@ -89,3 +89,29 @@ the shape metric without anybody noticing.
 
 To regenerate, run `scripts/typography.mjs match --keep` and take the
 crops out of the scratch directory it names.
+
+## `typography-snapshot/`
+
+One engine snapshot from a render against **GraphCompose 2.2.2-SNAPSHOT**, the
+first version that reports typography. Three paragraphs, chosen so the fixture
+carries every case the harness has to handle:
+
+- `Heading` declares `HELVETICA_BOLD` and is set in `Helvetica`. That is the
+  substitution the whole feature exists for — a standard-14 *face* is an alias of
+  its family, the face comes from the style's decoration, so the heading renders
+  regular. It lays out, it draws, nothing fails, and no pixel comparison will ever
+  say so. `fontSubstituted: true` is the only thing that does.
+- `Body` wraps onto two lines in a font it actually got, so the per-line bounds and
+  baselines have something to be right about.
+- `RightNote` is right-aligned in Courier, so the line's `x` is not the content
+  box's `x` and a mistake there cannot hide.
+
+`TypographyFixtureDocument.java.txt` is the source, kept as `.txt` so no build
+picks it up. Regenerate the way `layout-diff-pair/` documents, with the pom's
+`graphcompose.version` set to a build that reports typography.
+
+**The `charcoal-gold-cv/` and `layout-diff-pair/` fixtures are deliberately left
+on format 2.0**, without typography. Every revision rendered before 2.2.2 looks
+like that, and the tests need a snapshot that proves the difference between "this
+region has no font problem" and "nothing looked" — two answers a consumer must
+never collapse into one.

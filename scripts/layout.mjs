@@ -254,6 +254,17 @@ function renderInspect(view, model) {
   lines.push(`  placement x ${view.placement.x}  y ${view.placement.y}  w ${view.placement.width}  h ${view.placement.height}   (top ${view.placement.top}, right ${view.placement.right})`);
   lines.push(`  content   x ${view.content.x}  y ${view.content.y}  w ${view.content.width}  h ${view.content.height}   (top ${view.content.top}) — computed from placement and padding`);
   lines.push(`  margin    ${insets(view.margin)}      padding   ${insets(view.padding)}    (top right bottom left)`);
+  for (const run of view.typography ?? []) {
+    const font = run.fontSubstituted
+      ? `${run.declaredFont} → ${run.resolvedFont}  ⚠ substituted`
+      : run.resolvedFont;
+    lines.push(`  type      ${font}  ${run.fontSize}pt · ${run.lineCount} line(s)` +
+      (run.verticalAlign && run.verticalAlign !== "DEFAULT" ? ` · seated ${run.verticalAlign}` : ""));
+  }
+  if (view.typography?.some((run) => run.fontSubstituted)) {
+    lines.push("            The style named a font the document is not set in. It renders without");
+    lines.push("            error, so nothing else will tell you — see `fontSubstituted`.");
+  }
   if (view.children) {
     lines.push("", `  children (${view.children.length}):`);
     for (const c of view.children) lines.push(`    ${String(c.name ?? c.kind).padEnd(24)} x ${c.x}  y ${c.y}  w ${c.width}  h ${c.height}`);

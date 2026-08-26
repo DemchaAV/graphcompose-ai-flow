@@ -151,7 +151,7 @@ forbids loading the snapshot instead.
 
 ### It assigns only what two measurements can settle
 
-Four of the seven values are assigned automatically:
+Five of the seven values are assigned automatically:
 
 - **`PAGINATION`** — the page counts differ. Checked first, because it
   invalidates everything after it.
@@ -162,12 +162,20 @@ Four of the seven values are assigned automatically:
 - **`ASSET`** — the box is within tolerance, the region's role carries a file
   (`image`, `icon`, `logo`), and a quarter or more of its interior pixels
   differ.
+- **`TYPOGRAPHY`** — the snapshot reports that the text was set in a font the
+  style did not name. Not inferred from pixels: GraphCompose gives the declared
+  and the resolved font side by side, and a mismatch is a fact. Checked *before*
+  geometry, because a substituted font changes every glyph width — the box is
+  the wrong size because the type is. Needs a render against GraphCompose 2.2.2
+  or newer; older renders carry no typography and report `reported: false`
+  rather than a clean bill of health.
 - **`UNKNOWN`** — everything else.
 
-`TYPOGRAPHY`, `PAINT` and `CONTENT` are **never** assigned automatically today.
-Separating a wrong font from a wrong colour from different text needs a
-typography snapshot and a text comparison, and neither exists yet. They come
-back as *candidates* on an `UNKNOWN` verdict instead. A classifier that picked
+`PAINT` and `CONTENT` are **never** assigned automatically, and neither is
+`TYPOGRAPHY` on anything subtler than a substitution. Telling a wrong size from
+a wrong colour from different words needs a comparison against the reference's
+own type — that is `scripts/typography.mjs`, and it needs a crop a human chose.
+They come back as *candidates* on an `UNKNOWN` verdict instead. A classifier that picked
 between them would be the pixel-staring this replaces, in a JSON wrapper — and a
 confident wrong cause is worse than an honest unresolved one, because it sends
 the next pass to edit the wrong kind of thing.

@@ -7,6 +7,34 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+**A wrong font is now a fact, not a suspicion.** GraphCompose 2.2.2 reports what
+each run of text actually became — the font the style *declared* beside the font
+the document was *set in* — and the harness reads it.
+
+- `schemas/layout-snapshot.schema.json` accepts the engine's new `typography`
+  list (additive and optional: every render before 2.2.2 has none, which is an
+  ordinary state, not a defect).
+- `layout inspect <node>` prints the font, size and line count, and flags
+  `declaredFont → resolvedFont ⚠ substituted` when they differ.
+- **`evidence.mjs` assigns the `TYPOGRAPHY` cause** for a substitution, and
+  checks it **before** geometry. A substituted font changes every glyph width in
+  the run, so the box is the wrong size *because* the type is — calling it
+  `GEOMETRY` would send the next pass to move a block whose position is only a
+  symptom. The verdict arrives with a prohibition: do not adjust geometry; name
+  the family and set the weight through the style's decoration.
+- The trap this catches is real and quiet. A standard-14 **face** such as
+  `Helvetica-Bold` is an alias of its family, and the face is chosen from the
+  decoration — so a style that names the bold face and sets none renders
+  *regular*. It lays out, it draws, it fails nothing, and no pixel comparison
+  will ever report it.
+- **"No font problem" and "nothing looked" are kept apart.** A render older than
+  2.2.2 reports `typography.reported: false` with the reason, rather than an
+  empty result that reads as a clean bill of health. The `charcoal-gold-cv` and
+  `layout-diff-pair` fixtures stay on format 2.0 so a test proves the difference.
+- A wrong *size* or a wrong colour is still `UNKNOWN`. Separating those needs a
+  comparison against the reference's own type — that is `typography.mjs`, and it
+  needs a crop a human chose.
+
 **"Which font is that?" is now measured instead of guessed at.** It used to
 cost revisions: try PT Serif, be wrong, try again; then "the size looks a little
 small, try 10.5", and again. Each one is a render and a comparison out of a
