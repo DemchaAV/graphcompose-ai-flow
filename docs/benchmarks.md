@@ -102,6 +102,90 @@ property of the harness and belongs in the measurement — but it is why a
 single v2 number should not be read as "the harness is N% faster at
 everything".
 
+## Pre-diagnostics corpus baseline — 2026-08-26
+
+A second kind of baseline, for a different question. The v1/v2 pair above
+prices one *run*; this counts the *corpus*. The layout-diagnostics work —
+a real layout snapshot out of the engine, an inspector, a diff, evidence
+packages — is an investment, and the only honest way to find out
+afterwards whether any of it helped is to have written down what things
+looked like first, with a date on it.
+
+Recount it at any time:
+
+```bash
+node scripts/telemetry/run-metrics.mjs baseline
+```
+
+It needs no session, which is the point: a run report can only be
+produced while the hooks are running, so it cannot be re-derived later.
+This can, by anyone, on a machine that never saw the work.
+
+**The reproducible figures** — the six projects this repository tracks,
+so a clone can check them:
+
+```text
+projects                  6
+revisions                19
+renders                  18
+FAILED revisions          1
+revisions editing Java   15
+inset churn / revision    5.42   (mean of per-project means)
+structural smells         2
+negative insets           1
+```
+
+Per project, where there is anything to count:
+
+| project | revisions | renders | Java edits | churn | smells |
+|---|---|---|---|---|---|
+| `cv-reference` | 9 | 9 | 7 | 3.25 | 1 |
+| `invoice-reference` | 3 | 3 | 2 | 0.5 | 1 |
+| `noir-corporate-cv` | 7 | 6 | 6 | 12.5 | 0 |
+
+`cover-letter-reference`, `proposal-reference` and `skill-fixtures` hold
+no revisions and contribute nothing but their names.
+
+**The local corpus is larger and is not reproducible.** This machine also
+carries five untracked projects — `charcoal-gold-cv`, `mocha-profile-cv`,
+`navy-executive-cv`, `olive-curve-invoice`, `wilma-flintstone-cv` —
+which take the same counts to 11 projects, 53 revisions, 52 renders, 44
+Java edits, 5 structural smells and 2 negative insets. Quote the tracked
+figures when comparing across machines; quote the local ones only against
+another measurement on this machine.
+
+### The two headline metrics are not in there, and that is deliberate
+
+The point of the diagnostics work is that a mismatch should be traced to
+its owner rather than guessed at. The two numbers that would show it:
+
+- **visual mismatch → correct owner identified on first attempt**
+- **average renders per geometry correction**
+
+Neither is derivable from what a revision leaves on disk. Both need the
+loop to record, per pass, which region it was trying to fix and which
+property it changed — instrumentation that arrives with the layout diff
+and the evidence packages. `baseline` reports them as `null` rather than
+approximating them, because a number that is nearly the thing you wanted
+gets quoted later as if it were the thing.
+
+`collateralNodesPerRevision` is null for the same reason: it needs a real
+layout snapshot to diff.
+
+### One metric to stop expecting anything from
+
+**Repeated geometry literals will not improve, and should not be the
+headline.** The whole tracked corpus contains two, and the whole local
+corpus five. Most of them sit in APPROVED revisions, which are immutable,
+and in two published bundles that are rewritten from those revisions on
+every publish. There is almost no room to move, so a flat number here
+means nothing either way — it is recorded to catch a *regression*, not to
+demonstrate a win.
+
+What the authoring rules and the lint are for is the code written next.
+That shows up in the two headline metrics above, once they can be
+measured at all.
+
 ## What to expect, honestly
 
 The composites remove turns, not thinking: the model's own generation

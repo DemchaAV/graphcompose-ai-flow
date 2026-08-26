@@ -114,6 +114,7 @@ PowerShell, cmd and bash.
 | Put a published template into a project | `node scripts/use-template.mjs <template-id> --target <java-project>` — copies the sources, assets and data, then reports what the build file is missing. It never edits the build file |
 | A runnable project from a published template | `node scripts/use-template.mjs <template-id> --new-project <dir>` — pom, runner, sources, data, README; compiles it before reporting success |
 | Report what a run cost | `node scripts/telemetry/run-metrics.mjs report --project <id>` |
+| Recount the corpus, for a before/after | `node scripts/telemetry/run-metrics.mjs baseline` — needs no session, so anyone can re-derive it later; the recorded numbers are in [`docs/benchmarks.md`](docs/benchmarks.md) |
 | Run every gate locally | `npm run verify` (`--quick` skips Java/Maven) |
 
 Exit 69 from `graphcompose-flow` or `visual-diff` means the tools are

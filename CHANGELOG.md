@@ -305,6 +305,36 @@ of them reads the source.
 - Run over the corpus it reports exactly the five sites the census found, and
   nothing else.
 
+**A baseline anyone can recount.** The layout-diagnostics work is an investment,
+and the only honest way to find out afterwards whether it helped is to write
+down what things looked like first, with a date on it.
+
+- `node scripts/telemetry/run-metrics.mjs baseline` counts the corpus:
+  revisions, renders, FAILED revisions, revisions that edited Java, how much
+  geometry moved between revisions, structural smells and negative insets. The
+  numbers are in `docs/benchmarks.md`, dated.
+- It needs **no session**, which is the whole point. `report` prices one live
+  run from the host's hooks, so it cannot be re-derived later; this reads what
+  is on disk, so a comparison a year from now can recompute the "before" on a
+  machine that never saw the work.
+- **Two figures are recorded as `null`, not approximated**: renders per geometry
+  correction, and whether the mismatch owner was right first time. Neither is
+  derivable from a revision folder — both need the loop to record what a pass
+  was trying to fix. A number that is nearly the thing you wanted gets quoted
+  later as if it were the thing.
+- The document separates the six tracked projects (19 revisions, reproducible
+  from a clone) from the eleven on this machine (53 revisions, not). Comparing
+  the second set across machines would silently measure a different corpus.
+- And it says which metric to stop expecting anything from: repeated geometry
+  literals number two across the tracked corpus, mostly inside immutable
+  APPROVED revisions. That figure is there to catch a regression, not to
+  demonstrate a win.
+- Fixed on the way: `projectCounters` omitted `failedRevisions` on its
+  no-revisions branch while the populated branch returned it, so summing across
+  projects produced `NaN` as soon as one project had no revisions — the ordinary
+  state of a project someone just created. A test had pinned the incomplete
+  shape.
+
 ## v0.12.0 — 2026-08-26
 
 **The verdict stopped being a self-report.** The loop's exit condition was the

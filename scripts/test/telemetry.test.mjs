@@ -166,10 +166,15 @@ test("a FAILED revision is the one build-failure figure that can be counted hone
 });
 
 test("counters on a project with no revisions are zero, not an error", () => {
+  // Every field, including `failedRevisions`. This case used to omit it while
+  // the populated branch returned it, so a caller summing across projects got
+  // NaN the moment one project had no revisions yet — which is the ordinary
+  // state of a project someone just created.
   assert.deepEqual(projectCounters(tempDir("empty")), {
     revisions: 0,
     renders: 0,
     visualReviews: 0,
+    failedRevisions: 0,
   });
 });
 

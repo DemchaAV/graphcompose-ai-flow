@@ -48,7 +48,7 @@ import { methodBody } from "./region-primitives.mjs";
  *
  * @returns {Array<{kind: string, args: string}>}
  */
-function insetCalls(body) {
+export function insetCalls(body) {
   const out = [];
   const start = /\.(margin|padding)\s*\(/g;
   let hit;
