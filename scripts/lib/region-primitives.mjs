@@ -69,16 +69,25 @@ export const ROLE_CONTRACT = Object.freeze({
     instead: "AbstractFlowBuilder.addTable(Consumer<TableBuilder>)",
   },
   image: {
+    // ImageBuilder is here because addImage cannot reach every place an image
+    // belongs. A photograph clipped to a circle is the shape container's child,
+    // handed to .center(DocumentNode) — there is no addImage overload that
+    // returns a node, so the only route is `new ImageBuilder()...build()`. That
+    // is the same ImageNode addImage would have produced, and refusing it would
+    // push a real picture back towards a coloured disc, which is the failure
+    // this rule exists to prevent.
     forbidden: [],
-    requiresAnyOf: ["addImage"],
+    requiresAnyOf: ["addImage", "ImageBuilder"],
     because: "a filled rectangle standing in for a picture matches its box and nothing inside it",
-    instead: "addImage(...)",
+    instead: "addImage(...) — or new ImageBuilder()…build() where the image is a shape's child",
   },
   icon: {
     forbidden: [],
-    requiresAnyOf: ["addSvgIcon", "addImage"],
+    requiresAnyOf: ["addSvgIcon", "inlineSvgIcon", "addImage", "ImageBuilder"],
     because: "a disc standing in for an icon is the right colour in the right place and empty",
-    instead: "addSvgIcon(SvgIcon, double) — or addImage for a raster fallback",
+    instead:
+      "addSvgIcon(SvgIcon, double), or inlineSvgIcon(...) where the icon rides a text " +
+      "baseline — or addImage for a raster fallback",
   },
 });
 

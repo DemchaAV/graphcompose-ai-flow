@@ -85,14 +85,48 @@ export function resolveWorkspace({
   cwd = process.cwd(),
   install = DEFAULT_INSTALL_ROOT,
 } = {}) {
-  if (explicitRoot) return describeWorkspace(path.resolve(explicitRoot), "explicit");
+  if (explicitRoot) {
+    return namedOrInstall(path.resolve(explicitRoot), "explicit", install);
+  }
 
   const fromEnv = env?.[ENV_ROOT];
-  if (fromEnv && fromEnv.trim() !== "") return describeWorkspace(path.resolve(fromEnv), "env");
+  if (fromEnv && fromEnv.trim() !== "") {
+    return namedOrInstall(path.resolve(fromEnv), "env", install);
+  }
 
   const discovered = discoverWorkspaceRoot(cwd);
   if (discovered) return describeWorkspace(discovered, "discovered");
 
+  return installWorkspace(install);
+}
+
+/**
+ * A root someone named — on the command line or in the environment — described
+ * as a workspace.
+ *
+ * <p>With one exception, and it is the one every development-mode run hits.
+ * Naming the install root when it holds no manifest is not a request for a
+ * workspace at `<install>/projects`: it is development mode, whose projects live
+ * in `<install>/examples`. Commands forward the workspace they resolved to their
+ * own sub-commands as `--root`, so without this a chain that started in
+ * development mode would lose it at the first hop and report the project
+ * missing — which is exactly what `render-and-diff` did.</p>
+ *
+ * @param {string} root resolved root
+ * @param {string} mode how it was named
+ * @param {string} install the harness's own root
+ */
+function namedOrInstall(root, mode, install) {
+  const isInstallRoot = path.resolve(root) === path.resolve(install);
+  const hasManifest = fs.existsSync(
+    path.join(root, WORKSPACE_DIR_NAME, WORKSPACE_MANIFEST),
+  );
+  if (isInstallRoot && !hasManifest) return installWorkspace(install);
+  return describeWorkspace(root, mode);
+}
+
+/** Development mode: the harness's own examples/ and templates/. */
+function installWorkspace(install) {
   return {
     root: install,
     projectsDir: path.join(install, "examples"),
