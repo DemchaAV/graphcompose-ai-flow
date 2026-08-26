@@ -87,6 +87,7 @@ PowerShell, cmd and bash.
 | Does this API exist? | `node scripts/api-query.mjs --exists <Type>.<method>` — exit 0 yes, 3 no |
 | What is there for a topic? | `node scripts/api-query.mjs --version 2.2 --query footer` |
 | Regenerate the allow-list from the pinned jar | `node tools/api-surface/extract-api.mjs --version <x.y.z>` (`--check` to compare) |
+| Does any skill still teach a superseded construction? | `node scripts/check-knowledge-drift.mjs` — exit 1 names the passage and the primitive that replaced it (also runs inside `npm run verify`) |
 | Resolve version and skill pack | `node scripts/resolve-version.mjs --project-dir <dir> --json` |
 | Create the workspace (first thing in a new project) | `node scripts/init-workspace.mjs --project-dir <dir> --project <id>` |
 | Print the chain for a project | `node scripts/run-pipeline.mjs <project-id>` |

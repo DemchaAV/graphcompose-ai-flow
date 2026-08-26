@@ -209,6 +209,37 @@ it lands *near* the approved layout rather than on it.
   file. It now splits the fragment and checks that the target file really has a
   heading for it — a stale anchor is the same broken link one edit later.
 
+**Stale knowledge is an instruction, not an inaccuracy.** An agent that reads
+"work-experience timelines currently require bullets plus
+`LineBuilder.vertical(...)` and margin tuning" believes it, and hand-assembles a
+timeline with repeated sibling margins — against a library that has shipped
+`addTimeline` for two minor versions. The generated code then reads as the
+agent's judgement rather than as stale documentation, which is where the cost
+hides.
+
+- The audit found the active 2.2 pack **clean**: every "workaround" in it is
+  retrospective, and `layout-primitives.md` already documents the timeline
+  primitive positively. The one stale document was
+  `docs/engine-feedback-noir-corporate-cv.md`, and it was an orphan — nothing
+  linked to it, and it was not in the documentation map. It has been retired to
+  `docs/private/`, annotated with what the allow-list actually says. An
+  unreferenced document that greps well is a trap.
+- Two of its seven items were provably resolved, checked against the generated
+  allow-list rather than from memory: **item 5**, `addTimeline` with a full
+  `TimelineBuilder`; **item 2**, `pageBackgrounds(List<PageBackgroundFill>)` —
+  which is exactly the declarative background-band API it asked for. Item 6
+  (`headingBar`) is genuinely still absent, so it stands.
+- `scripts/check-knowledge-drift.mjs` stops it recurring, and runs inside
+  `npm run verify`. It is deliberately narrow: a curated list of semantic
+  primitives paired with the hand-built construction each replaced, and a pair
+  is inert unless the pinned pack actually declares the primitive.
+- The first version scanned prose generally — any absence phrase near any
+  allow-listed symbol — and was unusable. Its loudest false positives were the
+  sentences *teaching the closed-set rule itself*: "if it is not listed there,
+  it does not exist" names builders while denying nothing. A check that cries
+  wolf is a check somebody turns off, so the passages that must stay silent are
+  now pinned by tests as hard as the one that must fire.
+
 ## v0.12.0 — 2026-08-26
 
 **The verdict stopped being a self-report.** The loop's exit condition was the

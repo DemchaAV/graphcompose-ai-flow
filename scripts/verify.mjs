@@ -38,6 +38,13 @@ const STEPS = [
     args: [".github/scripts/repository-contract.mjs"],
   },
   {
+    name: "knowledge drift",
+    kind: "fast",
+    why: "no live skill teaches a construction the pinned pack has replaced",
+    cmd: process.execPath,
+    args: ["scripts/check-knowledge-drift.mjs"],
+  },
+  {
     name: "schema validation",
     kind: "fast",
     why: "every on-disk artifact validates",
