@@ -609,6 +609,36 @@ step("region roles", (entry) => {
     (!contract.length && !unroled.length ? " — each built the way its role says" : "");
 });
 
+step("structural smells", (entry) => {
+  // The fourth blind spot, and the only one that is invisible even to a perfect
+  // render. Three siblings each carrying the same margin look exactly like one
+  // parent carrying the equivalent spacing — the diff is zero — but the first
+  // is three numbers the next revision has to find and move together.
+  const checked = run(path.join(repoRoot, "scripts", "check-structural-smells.mjs"), [
+    "--project",
+    args.project,
+    "--revision",
+    args.revision,
+    "--root",
+    workspace.root,
+    "--json",
+  ]);
+  let smells;
+  try {
+    smells = JSON.parse(checked.stdout);
+  } catch {
+    // No generated template yet is the ordinary state early in a loop.
+    entry.detail = "not checked";
+    return;
+  }
+  result.structure = { template: smells.template, findings: smells.findings };
+  const byKind = new Map();
+  for (const f of smells.findings) byKind.set(f.kind, (byKind.get(f.kind) ?? 0) + 1);
+  entry.detail = smells.findings.length
+    ? [...byKind].map(([kind, n]) => `${n} ${kind}`).join(", ")
+    : "geometry sits where it is owned";
+});
+
 step("loop verdict", (entry) => {
   const status = run(path.join(repoRoot, "scripts", "iterate-status.mjs"), [
     args.project,

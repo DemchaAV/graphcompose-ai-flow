@@ -274,6 +274,37 @@ follows — 21 further groups repeat `DocumentInsets.zero()` three or more times
 which is neutralising a default, not a shared inset, and flagging it would make
 the check noise.
 
+**A template can be pixel-perfect and built wrong.** Three siblings each
+carrying `margin(0, 0, 5, 0)` render exactly like one parent carrying
+`spacing(5)` — the diff between them is zero — but the first is three numbers a
+later revision has to find and move together, and the fourth item somebody adds
+will not have the margin. Every gate the loop had was blind to it, because none
+of them reads the source.
+
+- `scripts/check-structural-smells.mjs` does, and `render-and-diff` folds its
+  findings into the loop verdict beside the region-role check. Evidence, not a
+  build failure: exit 0 either way, so a reviewer sees the whole list.
+- Four rules — `repeated-sibling-offset`, `negative-margin-cluster`,
+  `manual-semantic-pattern`, `independent-geometry-cluster`. The last is a count
+  of *distinct* literals, so the same derived constant used twenty times is
+  fine and twelve unrelated numbers are not.
+- The thresholds came from the census rather than from the rule that motivated
+  them. Repeated insets fire at **two**, because nothing in the repository
+  repeats one three times and a stricter rule would have found nothing at all.
+- Three exclusions, each of which would otherwise have made the check noise on
+  its first run: a repeated `DocumentInsets.zero()` neutralises a default rather
+  than stating shared geometry (21 groups); an inset built from a named constant
+  is the relational-geometry rule *working*, not a smell; and the manual-timeline
+  rule is gated on the pinned pack actually declaring `addTimeline`, since
+  before it existed that construction was the correct answer.
+- It reported `skillBar()` as a hand-built timeline while being written — a
+  gauge, one rail and one marker, matched because the rule counted the local
+  `markerLeft` identifier instead of call sites. Fixed to count real construct
+  calls and require three. A rule that misreads one construct as another is
+  worse than no rule, because the next real finding is not believed either.
+- Run over the corpus it reports exactly the five sites the census found, and
+  nothing else.
+
 ## v0.12.0 — 2026-08-26
 
 **The verdict stopped being a self-report.** The loop's exit condition was the
