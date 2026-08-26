@@ -5,6 +5,42 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## Unreleased
+
+**A published bundle now states its own consumer contract.** Everything after
+APPROVE was supposed to be deterministic tooling — read the manifest, substitute
+a few names, copy the files, build. But `template.json` only said `className`,
+`specClass` and `specProviderClass`, and a generator still had to infer the
+package from a source file, the data file from a naming convention, the runtime
+rename from nowhere at all, and the assets from a directory listing. Inference
+is where a zero-token step quietly needs a model again.
+
+- `schemas/template-manifest.schema.json` pins the manifest, at
+  `schemaVersion` `1.1.0`. New: `entrypoint` (the three fully-qualified names a
+  runner substitutes), `data` (`example` **and** the `runtimeName` a consumer
+  renames it to — the half `dataFile` never stated), `resources`,
+  `graphComposeVersion`, `pageCount`, and a bundle `version`.
+- The bundle `version` is preserved across a republish and moved only by
+  `--version`. Whether consumers must re-integrate is a judgement about what
+  changed in the layout; a publish step cannot make it, and resetting it every
+  time would tell every consumer they were already up to date.
+- `scripts/lib/template-bundle.mjs` is the one place a manifest is expanded.
+  `readManifest` back-fills the contract from disk for the three `1.0.0`
+  bundles already published, so no caller branches on `schemaVersion`, and
+  `normaliseDependencies` expands the pre-1.1.0 shorthand keys once.
+- That consolidation fixed a live defect. `generatePom` in
+  `verify-published-template.mjs` expanded `"jackson"` to
+  `com.fasterxml.jackson.core:jackson-databind`; the README generator in
+  `approve-and-publish.mjs` expanded the same key to `io.github.demchaav:jackson`
+  and printed it as the coordinate a consumer should declare — a dependency that
+  does not exist, in the one document a consumer reads before writing their
+  build file. Both read the same manifest; only one was right.
+- An unknown shorthand key is now flagged (`assumedGroupId`) rather than
+  silently resolving to `graph-compose`, which is what the old expansion did to
+  any key it did not recognise.
+- `validate-schemas.mjs` binds `template.json`, so the contract is enforced in
+  CI like every other on-disk artifact.
+
 ## v0.12.0 — 2026-08-26
 
 **The verdict stopped being a self-report.** The loop's exit condition was the

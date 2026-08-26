@@ -38,6 +38,7 @@ const validators = {
   'visual-analysis': compile('visual-analysis'),
   'architecture-plan': compile('architecture-plan'),
   'visual-review': compile('visual-review'),
+  'template-manifest': compile('template-manifest'),
 };
 
 /**
@@ -83,6 +84,16 @@ const MINIMAL = {
     schemaVersion: 1,
     verdict: 'REVISE',
     mismatches: [{ id: 'header-height', severity: 'MAJOR', reason: 'taller than reference', action: 'reduce padding' }],
+  },
+  // A bundle can legitimately ship no data file, no assets and no preview — a
+  // template with hard-coded content is a real shape. What it can never omit is
+  // the identity a consumer command addresses it by.
+  'template-manifest': {
+    schemaVersion: '1.1.0',
+    id: 'northline-proposal',
+    displayName: 'Northline Proposal',
+    className: 'NorthlineProposalTemplate',
+    docKind: 'proposal',
   },
 };
 
@@ -280,6 +291,69 @@ test('a custom page is expressible, because not every reference is a standard', 
   );
 });
 
+test('the template manifest accepts both shapes that exist on disk', () => {
+  const validate = validators['template-manifest'];
+
+  // Pre-contract: flat class triple, the deprecated dataFile, shorthand
+  // dependency keys, and null where a field never resolved. Three bundles in
+  // this repository look exactly like this, and they must keep validating —
+  // a schema that only accepts what the current publisher writes would fail
+  // the very bundles a consumer command has to read.
+  const legacy = {
+    id: 'invoice-classic',
+    displayName: 'Invoice Classic',
+    sourceProject: 'invoice-reference',
+    sourceRevision: 'revision-003',
+    sourceCommit: null,
+    className: 'InvoiceClassicTemplate',
+    specClass: 'com.demcha.compose.document.templates.data.invoice.InvoiceDocumentSpec',
+    specProviderClass: 'com.demcha.examples.invoice.InvoiceClassicSpecProvider',
+    dataFile: 'data/invoice-data.example.json',
+    docKind: 'invoice',
+    schemaVersion: '1.0.0',
+    publishedAt: '2026-06-01T12:18:00.000Z',
+    fonts: [{ role: 'body', family: 'Inter', fontName: 'INTER', source: 'graphcompose-bundled', status: 'ok', registration: 'default-fonts', notes: null }],
+    dependencies: { graphcompose: '1.6.7', jackson: '2.17.2' },
+  };
+  assert.ok(validate(legacy), `1.0.0 shape rejected: ${JSON.stringify(validate.errors)}`);
+
+  const current = {
+    ...legacy,
+    schemaVersion: '1.1.0',
+    version: '1.2.0',
+    dataFile: undefined,
+    entrypoint: {
+      templateClass: 'com.demcha.examples.invoice.InvoiceClassicTemplate',
+      specClass: null,
+      providerClass: 'com.demcha.examples.invoice.InvoiceClassicSpecProvider',
+    },
+    data: { example: 'data/invoice-data.example.json', runtimeName: 'invoice-data.json' },
+    resources: { assets: 'assets', manifest: 'assets-manifest.json' },
+    graphComposeVersion: '2.2.1',
+    pageCount: 2,
+    dependencies: { 'io.github.demchaav:graph-compose': '2.2.1' },
+  };
+  delete current.dataFile;
+  assert.ok(validate(current), `1.1.0 shape rejected: ${JSON.stringify(validate.errors)}`);
+});
+
+test('the template manifest refuses the shapes a consumer cannot act on', () => {
+  const validate = validators['template-manifest'];
+  const base = MINIMAL['template-manifest'];
+
+  assert.ok(!validate({ ...base, id: 'Northline Proposal' }), 'an id that is not a directory name was accepted');
+  assert.ok(!validate({ ...base, schemaVersion: 1 }), 'the manifest version is a semver string, not an integer');
+  assert.ok(!validate({ ...base, schemaVersion: '2.0.0' }), 'an unknown contract version was accepted silently');
+  assert.ok(!validate({ ...base, version: 'latest' }), 'a bundle version that is not semver was accepted');
+  assert.ok(!validate({ ...base, entrypoint: { specClass: 'X' } }), 'an entrypoint without a template class is not an entrypoint');
+  assert.ok(
+    !validate({ ...base, data: { example: 'data/x.json' } }),
+    'data that names the example but not the runtime name is the gap dataFile already left',
+  );
+  assert.ok(!validate({ ...base, pageCount: 0 }), 'a rendered document has at least one page');
+  assert.ok(!validate({ ...base, templateClass: 'com.acme.X' }), 'an unknown top-level field was accepted');
+});
+
 test('the validator binds every artifact schema to a filename', () => {
   const source = fs.readFileSync(path.join(HERE, '..', 'validate-schemas.mjs'), 'utf8');
   for (const [filename, schemaFile] of [
@@ -287,6 +361,7 @@ test('the validator binds every artifact schema to a filename', () => {
     ['visual-analysis.json', 'visual-analysis.schema.json'],
     ['architecture-plan.json', 'architecture-plan.schema.json'],
     ['visual-review.json', 'visual-review.schema.json'],
+    ['template.json', 'template-manifest.schema.json'],
   ]) {
     assert.match(source, new RegExp(filename.replace('.', '\\.')), `validate-schemas.mjs does not bind ${filename}`);
     assert.match(source, new RegExp(schemaFile.replace('.', '\\.')), `validate-schemas.mjs does not reference ${schemaFile}`);

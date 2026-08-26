@@ -225,6 +225,46 @@ test("dependencies come from the runner, so the manifest cannot know less than t
   assert.equal(manifest.dependencies["io.github.demchaav:graph-compose-fonts"], "1.1.0");
 });
 
+test("the manifest carries the consumer contract, so a generator substitutes rather than infers", () => {
+  const { root } = workspaceWith({ label: "contract" });
+  publish(root);
+
+  const manifest = JSON.parse(fs.readFileSync(path.join(bundleOf(root), "template.json"), "utf8"));
+
+  assert.equal(manifest.schemaVersion, "1.1.0");
+  // The published class is renamed from the revision's, and the package comes
+  // from the file as copied — not from the revision, and not from a convention.
+  assert.deepEqual(manifest.entrypoint, {
+    templateClass: "com.demchaav.cv.NavySidebarCvTemplate",
+    specClass: "com.demchaav.cv.NavyCvSpec",
+    providerClass: "com.demchaav.cv.NavyCvSpecProvider",
+  });
+  // Both halves. The example is what the bundle ships; runtimeName is what a
+  // consumer must rename it to, which is the half `dataFile` never stated.
+  assert.deepEqual(manifest.data, {
+    example: "data/cv-data.example.json",
+    runtimeName: "cv-data.json",
+  });
+  assert.deepEqual(manifest.resources, { assets: "assets", manifest: null });
+  assert.equal(manifest.graphComposeVersion, "2.2.0", "lifted out of dependencies for a catalog to print");
+  assert.equal(manifest.version, "1.0.0");
+  assert.ok(!("dataFile" in manifest), "dataFile is the deprecated half-answer; writers no longer emit it");
+});
+
+test("the bundle version is preserved across a republish, and only --version moves it", () => {
+  const { root } = workspaceWith({ label: "version" });
+  const read = () => JSON.parse(fs.readFileSync(path.join(bundleOf(root), "template.json"), "utf8"));
+
+  publish(root, ["--version", "2.1.0"]);
+  assert.equal(read().version, "2.1.0");
+
+  // A republish is a new render of the same template, not a new release of it.
+  // Resetting the version here would silently tell every consumer they are
+  // already up to date.
+  publish(root);
+  assert.equal(read().version, "2.1.0");
+});
+
 test("an absolute path in a published source fails the publish", () => {
   const { root, revision } = workspaceWith({ label: "abspath" });
   write(

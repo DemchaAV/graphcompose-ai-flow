@@ -15,6 +15,25 @@ job.
 | [`architecture-plan.schema.json`](architecture-plan.schema.json) | written by Architecture Mapper Agent, read by Template Coder | `architecture-plan.json` — region → render method → primitives, base constants, theme tokens, lane and document kind. |
 | [`visual-review.schema.json`](visual-review.schema.json) | written by Visual Review Agent, read by the iteration loop | `visual-review.json` — verdict, ranked mismatches, gate evidence, and the failure category when the loop is blocked. |
 | [`flow-config.schema.json`](flow-config.schema.json) | written by `scripts/lib/workspace.mjs`, read by every script that resolves a workspace | `graphcompose-flow/flow.config.json` in the user's Java project — the manifest whose presence marks a workspace, plus any version or skill-pack pin. |
+| [`template-manifest.schema.json`](template-manifest.schema.json) | written by `scripts/publish-template.mjs`, read through `scripts/lib/template-bundle.mjs` | `templates/<template-id>/template.json` — the published bundle's consumer contract: which class to call, which provider loads the spec, which data file to copy and rename, where the assets are, and which dependencies a build file must declare. |
+
+### The published manifest has two shapes on disk
+
+`template.json` is the one contract that outlives the harness: a
+consumer builds against a bundle long after the run that produced it.
+Three bundles were published before the consumer contract existed, so
+the schema accepts both `schemaVersion` values — `1.0.0` carries a flat
+`className` / `specClass` / `specProviderClass` triple, a deprecated
+`dataFile` and dependency keys in a shorthand that is not a Maven
+coordinate; `1.1.0` adds `entrypoint`, `data`, `resources`,
+`graphComposeVersion`, `pageCount` and `version`.
+
+Readers must not branch on that. `scripts/lib/template-bundle.mjs`
+back-fills the contract from what is on disk, so a caller cannot tell
+which shape it received. Expanding a manifest anywhere else is how the
+bundle README came to print `io.github.demchaav:jackson` as a
+dependency a consumer should declare, while the pom generator reading
+the same file expanded it correctly.
 
 ## Structured artifacts and their Markdown siblings
 
@@ -54,7 +73,7 @@ The validator is zero-config: it walks the repo from the root, picks
 up any file whose name matches a known contract — `revision.json`,
 `assets-manifest.json`, `orchestration-decision.json`,
 `visual-analysis.json`, `architecture-plan.json`,
-`visual-review.json` — (excluding
+`visual-review.json`, `template.json` — (excluding
 `.git`, `node_modules`, `target`, `dist`, `build`, `out`, `.mvn`,
 `.gradle`, `.idea`, `.vscode`, and `docs/private`), and validates
 each one against its matching schema.

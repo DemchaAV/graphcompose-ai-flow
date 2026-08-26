@@ -26,8 +26,16 @@
  *     [--template-id mint-editorial-cv]  (default: kebab(displayName))
  *     [--class-name MintEditorialCvTemplate] (default: pascal(displayName) + "Template")
  *     [--doc-kind cv]                    (default: derived from currentApprovedRevisionId's data file)
+ *     [--version 1.2.0]                  (default: the bundle's current version, else 1.0.0)
  *     [--allow-unapproved]               (publish a non-APPROVED revision; development only)
  *     [--dry-run]                        (print plan only)
+ *
+ * The manifest it writes is `schemas/template-manifest.schema.json` at
+ * schemaVersion 1.1.0: the flat fields every bundle has always carried, plus the
+ * consumer contract — `entrypoint`, `data`, `resources`, `graphComposeVersion`,
+ * `pageCount` — so a generated runner or pom substitutes names rather than
+ * inferring them. Read a bundle back through `scripts/lib/template-bundle.mjs`,
+ * which back-fills that contract for the 1.0.0 bundles already on disk.
  */
 
 import fs from "node:fs";
@@ -40,6 +48,14 @@ import {
   projectDir as workspaceProjectDir,
   resolveWorkspace,
 } from "./lib/workspace.mjs";
+import {
+  deriveData,
+  deriveResources,
+  fqcn,
+  normaliseDependencies,
+  packageOf,
+  previewPageCount,
+} from "./lib/template-bundle.mjs";
 
 /**
  * Every path this run wrote into the bundle.
@@ -309,23 +325,57 @@ const fontRoles = assetsManifest && assetsManifest.fonts
     }))
   : null;
 
+const dependencies = readRunnerDependencies(
+  path.join(projectDir, "render-runner", "pom.xml"),
+  projectMeta.targetGraphComposeVersion ?? null,
+);
+
+// The consumer contract. Everything below this comment answers a question a
+// generated runner or build file would otherwise have to guess at, and every
+// one of them is knowable here: the publisher just wrote the files.
+//
+// It is derived from the bundle rather than from the revision on purpose. What
+// a consumer receives is this directory — if the data file was skipped because
+// the template ships hard-coded content, the manifest has to say so, and the
+// only witness to that is the bundle itself.
+const publishedPackage = packageOf(targetClassFile);
+const entrypoint = {
+  templateClass: fqcn(publishedPackage, className),
+  specClass: specClassFqcn ?? null,
+  providerClass: specProviderFqcn ?? null,
+};
+
+// Preserved, not incremented. Whether consumers must re-integrate is an
+// editorial judgement about what changed in the layout, and a publish step
+// cannot make it; --version is how it is made deliberately.
+const previousManifest = readJsonIfExists(path.join(targetDir, "template.json"));
+const bundleVersion =
+  (typeof args.version === "string" ? args.version : null)
+  ?? previousManifest?.version
+  ?? "1.0.0";
+
 const manifest = {
   id: templateId,
   displayName,
+  version: bundleVersion,
   sourceProject: project,
   sourceRevision: revisionId,
   sourceCommit: tryGitHead(),
   className,
   specClass: specClassFqcn ?? null,
   specProviderClass: specProviderFqcn ?? null,
+  entrypoint,
+  data: deriveData(targetDir, docKind),
+  resources: deriveResources(targetDir),
   docKind,
-  schemaVersion: "1.0.0",
+  graphComposeVersion:
+    normaliseDependencies(dependencies)
+      .find((d) => d.coordinate === "io.github.demchaav:graph-compose")?.version ?? null,
+  pageCount: previewPageCount(targetDir),
+  schemaVersion: "1.1.0",
   publishedAt: new Date().toISOString(),
   fonts: fontRoles,
-  dependencies: readRunnerDependencies(
-    path.join(projectDir, "render-runner", "pom.xml"),
-    projectMeta.targetGraphComposeVersion ?? null,
-  ),
+  dependencies,
 };
 const manifestPath = path.join(targetDir, "template.json");
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
