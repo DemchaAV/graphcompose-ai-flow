@@ -205,6 +205,23 @@ Starting fresh: `node scripts/preflight.mjs --project-dir <dir> --project
 in one call. Do not re-read the create conversation's artifacts wholesale;
 load the revision being corrected and what its scope requires.
 
+**Work from symbols, not files.** A template is a thousand lines and a
+correction touches one method. Ask for that method:
+
+```bash
+node scripts/source.mjs outline --project <id> --revision <id>
+node scripts/source.mjs symbol renderExperience --project <id> --revision <id>
+node scripts/source.mjs constants --project <id> --revision <id>
+```
+
+The outline is every method with its line range and size — about a
+fortieth of the file — and `symbol` returns one with its Javadoc, which is
+where this harness records *why* a value is what it is. `constants` lists
+what a correction actually edits. Measured over one run, `sed` and `cat`
+returned 48k tokens across 35 calls, more than twice everything the nine
+deterministic tools returned across ninety, and all of it was hunting for
+one method in a file.
+
 **Work from crops, not pages.** For a localized correction, cut both
 images down to the region in question:
 

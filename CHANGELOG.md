@@ -56,6 +56,28 @@ run. Both were readable throughout. Nothing put them in a row.
   This is where a version stops being a string and becomes the code that gets
   compiled, so it is the last place the disagreement is cheap.
 
+### Reading the template
+
+- **`scripts/source.mjs`** — new. `outline` lists every method with its line
+  range and size; `symbol <name>` cuts one out with its Javadoc; `constants`
+  lists the named values a correction actually edits. On the largest template in
+  `examples/`: outline 1.2 KB and one method 3.8 KB, against a 51.9 KB file.
+- **Why, measured rather than assumed.** Attributing every byte of one create
+  run's tool output to the command that produced it: `sed` **30.3k tokens across
+  17 calls**, `cat` **17.7k across 18**, `grep` 6.5k across 16 — together more
+  than half of everything the model read back, and more than twice what all nine
+  of the harness's deterministic tools returned across ninety calls
+  (`reference` 4.6k, `render-and-diff` 4.1k, `layout` 3.5k, `magick` 3.3k,
+  `typography` 3.1k). The expensive reading was never the diffing or the
+  measuring. It was slicing a 1,233-line Java file to find one method, because
+  the only way to ask for one was to guess its line range.
+- **`scripts/lib/java-outline.mjs`** — new. Not a Java parser: it finds
+  declarations by brace balance from a signature line, which is what cutting one
+  method out of a file this harness generated needs. Braces inside strings and
+  line comments are not structure; a record's component list is not a method; an
+  unclosed declaration comes back `balanced: false` rather than as a cut that
+  reads complete and is not.
+
 ### Measuring the reference
 
 - **`scripts/reference.mjs analyze`** — new. Page size and margins, palette by
