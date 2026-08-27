@@ -29,18 +29,30 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { installRoot } from "./lib/workspace.mjs";
+import { resolveVersion } from "./lib/version-resolver.mjs";
 
 const repoRoot = installRoot();
 const ROOT = path.join(repoRoot, "observations");
+
+/**
+ * `show` printed a record that could not be trusted here. Distinct from 1 ("no
+ * longer holds"), which is a measured verdict — this one means nobody has
+ * measured it against this version at all. Matches preflight's 5.
+ */
+const EXIT_UNVERIFIED = 5;
 
 function usage(code = 0) {
   process.stdout.write(
     "usage: node scripts/observations.mjs <command> [options]\n\n" +
       "  list [--version <line>] [--json]   what is on record\n" +
       "  show <id>                          one observation in full\n" +
+      "                                     exit: 0 trustworthy here | 1 no such id\n" +
+      "                                           5 printed, but retired or from another line\n" +
       "  verify [--id <id>]                 re-run the probes and compare\n" +
       "                                     exit: 0 held | 1 changed | 4 not measurable here\n" +
-      "  promote <id> --into <file>         fold a confirmed observation into a skill pack\n",
+      "  promote <id> --into <file>         fold a confirmed observation into a skill pack\n\n" +
+      "  --version <line>                   the GraphCompose line to judge against\n" +
+      "                                     (default: resolved from the current directory)\n",
   );
   process.exit(code);
 }
@@ -61,6 +73,94 @@ for (let i = 1; i < argv.length; i += 1) {
     process.stderr.write(`[observations] unknown argument: ${a}\n`);
     usage(2);
   } else args.positional = a;
+}
+
+/**
+ * Whether this record can be trusted as an answer *here*, or only as history.
+ *
+ * ## The failure this exists to stop
+ *
+ * `row-cannot-nest-in-row-cell` is marked `retired`, with a note reading "Lifted
+ * in 2.2.1". A run pinned to **2.2.1-SNAPSHOT** read that, believed the
+ * restriction was gone, authored nested rows, and the layout compiler refused.
+ * The retirement cost an authoring pass and a recovery edit — and the note names
+ * the very probe (`row-nesting`) that would have settled it in thirty seconds.
+ *
+ * A snapshot is not its release. `2.2.1-SNAPSHOT` is the line *before* 2.2.1
+ * ships, so a fix "in 2.2.1" may or may not be in the jar on this machine. That
+ * is the one distinction the reader most needs and is least likely to make.
+ *
+ * ## Why retirement is gated in both directions
+ *
+ * A retirement is a claim that behaviour *changed* — strictly stronger than the
+ * observation it replaces, and made against one version at one moment. It can be
+ * stale (the fix slipped) or premature (measured on a build that never shipped).
+ * Either way it is the one confidence level that should never be read as settled
+ * without a probe, so `retired` always gates regardless of version.
+ *
+ * ## Why a same-line version difference does not gate
+ *
+ * Observations are filed by line for a reason: a 2.2.0 finding is presumptively
+ * about 2.2.x. Gating every patch-level difference would fire on seven of the
+ * eight records on disk, and a check that cries wolf is a check somebody turns
+ * off. Only a *different line* is a mismatch.
+ *
+ * @returns {{headline: string, detail: string}|null} null when it can be trusted
+ */
+function unverifiedHere(body, line) {
+  const target = resolveTargetVersion();
+  const probe = body.minimalReproduction?.probe ?? null;
+  const howToSettle = probe
+    ? `Settle it here:\n  node scripts/probe.mjs ${probe}${target.line ? ` --version ${target.line}` : ""}\n` +
+      `  node scripts/observations.mjs verify --id ${body.id}`
+    : `This record names no probe, so it cannot be re-measured automatically.\n` +
+      `Confirm it by hand before relying on it, or treat it as history.`;
+
+  if (body.confidence === "retired") {
+    const claimed = body.retiredNote?.match(/\b(\d+\.\d+\.\d+)\b/)?.[1] ?? null;
+    // The exact trap: the retirement names a release, and this machine is on a
+    // pre-release of it.
+    const snapshotCaveat =
+      claimed && target.version && target.version.startsWith(`${claimed}-`)
+        ? `\n\nThis matters here. The note says the behaviour changed in ${claimed}, and this project is ` +
+          `pinned to ${target.version} — a snapshot precedes its release, so the change may not be in ` +
+          `the jar on this machine.`
+        : "";
+    return {
+      headline: `"${body.id}" is retired, and a retirement is a claim about a change — not a settled fact.`,
+      detail:
+        `Recorded against GraphCompose ${body.graphComposeVersion}` +
+        (target.version ? `; this project resolves to ${target.version}` : "; this project's version did not resolve") +
+        `.${snapshotCaveat}\n\n${howToSettle}`,
+    };
+  }
+
+  if (target.line && line && target.line !== line) {
+    return {
+      headline: `"${body.id}" was recorded on the ${line} line, and this project is on ${target.line}.`,
+      detail:
+        `Behaviour is filed by line because that is the granularity at which it holds. ` +
+        `Across lines it is history, not an answer.\n\n${howToSettle}`,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * The GraphCompose this call is about, resolved the same way preflight resolves
+ * it. Unresolved is reported as unresolved: a version check that invents a
+ * target would gate on a guess, which is the failure mode inverted rather than
+ * fixed.
+ */
+function resolveTargetVersion() {
+  if (args.version) return { line: args.version, version: null };
+  try {
+    const resolved = resolveVersion({ projectDir: process.cwd(), install: repoRoot });
+    return { line: resolved.line ?? null, version: resolved.version ?? null };
+  } catch {
+    return { line: null, version: null };
+  }
 }
 
 /** Every observation on disk, newest line first. */
@@ -153,7 +253,14 @@ if (command === "show") {
     process.exit(1);
   }
   process.stdout.write(`${JSON.stringify(found.body, null, 2)}\n`);
-  process.exit(0);
+
+  // The record is printed either way — this is a signal, not a refusal. A reader
+  // who wants the text still gets the text; what changes is that a caller
+  // branching on the exit code cannot mistake "recorded once" for "true here".
+  const doubt = unverifiedHere(found.body, found.line);
+  if (!doubt) process.exit(0);
+  process.stderr.write(`\n${"-".repeat(64)}\n[observations] ${doubt.headline}\n\n${doubt.detail}\n`);
+  process.exit(EXIT_UNVERIFIED);
 }
 
 if (command === "verify") {

@@ -121,7 +121,10 @@ test("list prints every record", () => {
 });
 
 test("show returns one record in full, and refuses an unknown id", () => {
-  const [first] = records();
+  // Explicitly a confirmed one: `show` exits 5 on a retired record, so picking
+  // whatever readdir happens to return first would make this test's subject
+  // depend on filename order.
+  const first = records().find((r) => r.body.confidence === "confirmed");
   const found = run(["show", first.body.id]);
   assert.equal(found.status, 0);
   assert.equal(JSON.parse(found.stdout).id, first.body.id);
@@ -270,4 +273,112 @@ test("verify tells a caller apart: measured and held, changed, or not measurable
     /checked === 0 \? 4 : 0/,
     "nothing distinguishes a run that measured nothing from one that measured and passed",
   );
+});
+
+// ------------------------------------------- trusting a record where you are ---
+
+/** A throwaway Java project pinned to `version`, to resolve `show` against. */
+function pinnedProject(version, label) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `gcobs-${label}-`));
+  process.on("exit", () => {
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+    } catch {
+      /* best effort */
+    }
+  });
+  fs.writeFileSync(
+    path.join(dir, "pom.xml"),
+    "<project><dependencies><dependency><groupId>io.github.demchaav</groupId>" +
+      `<artifactId>graph-compose</artifactId><version>${version}</version>` +
+      "</dependency></dependencies></project>",
+    "utf8",
+  );
+  return dir;
+}
+
+test("show prints a retired record and still refuses to call it settled", () => {
+  const retired = records().find((r) => r.body.confidence === "retired");
+  if (!retired) return; // nothing retired on disk right now
+  const result = run(["show", retired.body.id]);
+
+  // Printed in full: this is a signal, not a refusal. A reader who wants the
+  // text gets the text; what changes is that a caller branching on the exit code
+  // cannot mistake "recorded once" for "true here".
+  assert.equal(JSON.parse(result.stdout).id, retired.body.id);
+  assert.equal(result.status, 5, "a retired record was reported as trustworthy");
+  assert.match(result.stderr, /retired/);
+});
+
+test("a retirement points at the probe that would settle it", () => {
+  const retired = records().find((r) => r.body.confidence === "retired" && r.body.minimalReproduction?.probe);
+  if (!retired) return;
+  const result = run(["show", retired.body.id]);
+
+  // The whole cost of the failure this gate exists for was that the note named
+  // the probe in prose and nothing ever ran it.
+  assert.match(result.stderr, new RegExp(`probe\.mjs ${retired.body.minimalReproduction.probe}`));
+  assert.match(result.stderr, new RegExp(`verify --id ${retired.body.id}`));
+});
+
+test("a snapshot is not its release, and the warning says so", () => {
+  // The exact trap: `row-cannot-nest-in-row-cell` retires with "Lifted in 2.2.1"
+  // while the project is pinned to 2.2.1-SNAPSHOT — the line *before* 2.2.1
+  // ships, where the fix may not be present.
+  const subject = records().find(
+    (r) => r.body.confidence === "retired" && /\b\d+\.\d+\.\d+\b/.test(r.body.retiredNote ?? ""),
+  );
+  if (!subject) return;
+  const claimed = subject.body.retiredNote.match(/\b(\d+\.\d+\.\d+)\b/)[1];
+  const cwd = pinnedProject(`${claimed}-SNAPSHOT`, "snap");
+
+  const result = run(["show", subject.body.id], { cwd });
+  assert.equal(result.status, 5);
+  assert.match(result.stderr, /snapshot precedes its release/);
+  assert.match(result.stderr, new RegExp(`${claimed.replace(/\./g, "\.")}-SNAPSHOT`));
+});
+
+test("the release itself carries no snapshot caveat", () => {
+  const subject = records().find(
+    (r) => r.body.confidence === "retired" && /\b\d+\.\d+\.\d+\b/.test(r.body.retiredNote ?? ""),
+  );
+  if (!subject) return;
+  const claimed = subject.body.retiredNote.match(/\b(\d+\.\d+\.\d+)\b/)[1];
+  const cwd = pinnedProject(claimed, "release");
+
+  const result = run(["show", subject.body.id], { cwd });
+  // Still gated — a retirement is a claim either way — but without the caveat
+  // that only applies to a pre-release.
+  assert.equal(result.status, 5);
+  assert.doesNotMatch(result.stderr, /snapshot precedes its release/);
+});
+
+test("a same-line version difference is not treated as a mismatch", () => {
+  // Observations are filed by line because that is the granularity at which they
+  // hold. Gating every patch-level difference would fire on nearly every record
+  // on disk, and a check that cries wolf is a check somebody turns off.
+  const subject = records().find((r) => r.body.confidence === "confirmed" && r.line === "2.2");
+  if (!subject) return;
+  const cwd = pinnedProject("2.2.2", "sameline");
+
+  const result = run(["show", subject.body.id], { cwd });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test("a record from another line is history, not an answer", () => {
+  const subject = records().find((r) => r.body.confidence === "confirmed" && r.line === "2.2");
+  if (!subject) return;
+  const cwd = pinnedProject("2.1.0", "otherline");
+
+  const result = run(["show", subject.body.id], { cwd });
+  assert.equal(result.status, 5, "a cross-line record was reported as trustworthy");
+  assert.match(result.stderr, /2\.2 line/);
+});
+
+test("--version judges against the line the caller names", () => {
+  const subject = records().find((r) => r.body.confidence === "confirmed" && r.line === "2.2");
+  if (!subject) return;
+
+  assert.equal(run(["show", subject.body.id, "--version", "2.2"]).status, 0);
+  assert.equal(run(["show", subject.body.id, "--version", "2.1"]).status, 5);
 });
