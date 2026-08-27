@@ -37,8 +37,12 @@ records one in a form that could be counted honestly.
 
 ```text
 hooks/hooks.json          SessionStart · UserPromptSubmit · Stop · SubagentStop · SessionEnd
+                          (Gemini: SessionStart · BeforeAgent · AfterAgent · SessionEnd)
    ↓
-claude-hook.mjs           writes checkpoints. Decides nothing, calls no model, always exits 0.
+claude-hook.mjs           the host's entry point; gemini-hook.mjs is the same, with
+gemini-hook.mjs           Gemini's event names translated
+   ↓
+checkpoint.mjs            writes checkpoints. Decides nothing, calls no model, always exits 0.
    ↓
 ~/.graphcompose-flow/telemetry/<session>.json
    ↓
@@ -78,8 +82,19 @@ so rather than presenting a partial figure as final.
 
 ## Other hosts
 
-`core.mjs` is host-independent — clocks, counters, formatting. Only token
-accounting is host-specific, because only the host knows where its transcript
-is. `providers/codex.mjs` is a named seam and says plainly that it is not
+`core.mjs` is host-independent — clocks, counters, formatting, and the fold
+that turns parsed usage events into one window's totals. Only *parsing* is
+host-specific, because only the host knows where its transcript is and what is
+in it. Which provider runs is not guessed at: the checkpoint writer records
+`host` in the session state, and `run-metrics` reads it.
+
+`providers/gemini.mjs` is implemented. Gemini writes one JSON document per
+session with a `tokens` block on every model message, and three of its
+conventions differ from Anthropic's — `cached` is part of `input` rather than
+additional to it, `thoughts` is billed as output but reported separately, and
+there is no cache-write figure at all. The provider maps all three explicitly;
+the file says why each way round.
+
+`providers/codex.mjs` is a named seam and says plainly that it is not
 implemented; it returns nulls rather than zeros, because a run that looks
 free invites the wrong conclusion.

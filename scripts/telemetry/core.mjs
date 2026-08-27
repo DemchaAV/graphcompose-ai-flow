@@ -145,6 +145,47 @@ export function addUsage(a, b) {
 }
 
 /**
+ * Fold already-parsed usage events into one window's totals.
+ *
+ * Host-independent on purpose: a provider's job is to turn its host's
+ * transcript into `{at, atMs, isSidechain, usage}` events, and every provider
+ * folds them the same way. Windowing is what makes the three clocks possible,
+ * and parsing once per window is what made a 37 MB transcript get read three
+ * times for a single report.
+ *
+ * @param {Array<{at: string|null, atMs: number|null, isSidechain: boolean, usage: object}>} events
+ * @param {{ since?: string|null, until?: string|null, includeSidechains?: boolean }} [options]
+ */
+export function foldEvents(events, options = {}) {
+  const { since = null, until = null, includeSidechains = true } = options;
+  const sinceMs = since ? Date.parse(since) : null;
+  const untilMs = until ? Date.parse(until) : null;
+
+  let main = emptyUsage();
+  let sidechain = emptyUsage();
+  let firstAt = null;
+  let lastAt = null;
+
+  for (const event of events) {
+    if (event.atMs !== null) {
+      if (sinceMs !== null && event.atMs < sinceMs) continue;
+      if (untilMs !== null && event.atMs > untilMs) continue;
+      if (firstAt === null || event.atMs < Date.parse(firstAt)) firstAt = event.at;
+      if (lastAt === null || event.atMs > Date.parse(lastAt)) lastAt = event.at;
+    }
+
+    if (event.isSidechain) {
+      sidechain = addUsage(sidechain, event.usage);
+      if (includeSidechains) main = addUsage(main, event.usage);
+    } else {
+      main = addUsage(main, event.usage);
+    }
+  }
+
+  return { usage: main, sidechainUsage: sidechain, firstAt, lastAt };
+}
+
+/**
  * Everything the model read or wrote. Reported alongside the parts, never
  * instead of them: cache reads dominate this figure by an order of magnitude,
  * so on its own it hides every change worth seeing.

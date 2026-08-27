@@ -26,7 +26,12 @@
 
 import fs from "node:fs";
 
-import { addUsage, emptyUsage } from "../core.mjs";
+import { foldEvents } from "../core.mjs";
+
+// Folding is the same arithmetic for every host, so it lives in core.mjs and is
+// re-exported here: `provider.foldEvents` is part of the interface run-metrics
+// calls, and a provider that only parsed would be half an interface.
+export { foldEvents };
 
 /**
  * Every usage-bearing message in a transcript, deduplicated, in file order.
@@ -82,41 +87,6 @@ export function readEvents(transcriptPath) {
     });
   }
   return events;
-}
-
-/**
- * Fold already-parsed events into one window's totals.
- *
- * @param {Array} events from readEvents
- * @param {{ since?: string|null, until?: string|null, includeSidechains?: boolean }} [options]
- */
-export function foldEvents(events, options = {}) {
-  const { since = null, until = null, includeSidechains = true } = options;
-  const sinceMs = since ? Date.parse(since) : null;
-  const untilMs = until ? Date.parse(until) : null;
-
-  let main = emptyUsage();
-  let sidechain = emptyUsage();
-  let firstAt = null;
-  let lastAt = null;
-
-  for (const event of events) {
-    if (event.atMs !== null) {
-      if (sinceMs !== null && event.atMs < sinceMs) continue;
-      if (untilMs !== null && event.atMs > untilMs) continue;
-      if (firstAt === null || event.atMs < Date.parse(firstAt)) firstAt = event.at;
-      if (lastAt === null || event.atMs > Date.parse(lastAt)) lastAt = event.at;
-    }
-
-    if (event.isSidechain) {
-      sidechain = addUsage(sidechain, event.usage);
-      if (includeSidechains) main = addUsage(main, event.usage);
-    } else {
-      main = addUsage(main, event.usage);
-    }
-  }
-
-  return { usage: main, sidechainUsage: sidechain, firstAt, lastAt };
 }
 
 /**

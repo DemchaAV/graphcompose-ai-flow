@@ -342,8 +342,9 @@ graphcompose-ai-flow/
 │   └── versions/              GraphCompose API knowledge, per version
 │
 ├── adapters/
-│   ├── claude/
-│   └── codex/
+│   ├── lib/runtime.mjs        what an installed harness consists of
+│   ├── codex/                 flat ~/.codex/skills stubs
+│   └── gemini/                a ~/.gemini extension
 │
 ├── .claude-plugin/
 │   ├── plugin.json            Claude Code packaging
@@ -362,8 +363,11 @@ graphcompose-ai-flow/
 
 The workflow, skills, schemas and tools are shared. The adapters are
 thin: packaging differences between hosts must never fork the workflow.
+What an installed harness *consists of* is declared once, in
+[`adapters/lib/runtime.mjs`](../adapters/lib/runtime.mjs), so a second
+adapter cannot ship a different subset than the first.
 
-Concretely, the two hosts want different shapes. Claude Code takes a
+Concretely, the three hosts want different shapes. Claude Code takes a
 manifest that can point at a nested skills directory, so
 `.claude-plugin/plugin.json` declares `skills/workflows/` and nothing
 moves. Codex wants `~/.codex/skills/<name>/SKILL.md` — flat, no manifest
@@ -373,6 +377,18 @@ the description is the trigger surface, and a pointer to the canonical
 file instead of a copy of it. Copying the bodies would have put four
 duplicates of one contract in a second place, which is the failure this
 migration exists to remove.
+
+Gemini CLI has no plugins at all: it has extensions, one directory with
+a `gemini-extension.json` manifest plus `commands/` (TOML), `hooks/` and
+`skills/`. [`adapters/gemini/install.mjs`](../adapters/gemini/install.mjs)
+generates that, and its one structural difference is forced rather than
+chosen. A Gemini tool may only read inside the workspace, and activating
+a skill adds exactly one directory to it — the one holding its
+`SKILL.md`. A stub pointing at a runtime stored elsewhere would install,
+list and activate cleanly, then have every file it named refused. So the
+runtime *is* the skill directory, and the skill is a router into the same
+four canonical workflow files. One skill rather than four is what keeps
+the packs from being copied four times.
 
 ## Deliberately out of scope
 

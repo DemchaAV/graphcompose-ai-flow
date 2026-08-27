@@ -37,8 +37,8 @@ layout snapshots and feed visual-diff against committed baselines.
 The seven phases above built a workflow kit: a human reads the docs,
 an agent interprets eleven prompt files, and the work happens inside
 a clone of this repository. The second arc turns that into an
-installable harness — an Agent Skill package for Claude Code and
-Codex that works inside the user's own Java project. The reasoning,
+installable harness — an Agent Skill package for Claude Code, Codex
+and Gemini CLI that works inside the user's own Java project. The reasoning,
 the layer split and what is deliberately excluded are in
 [architecture.md](architecture.md).
 
@@ -56,11 +56,12 @@ the layer split and what is deliberately excluded are in
 | 9 — Codex adapter | Same skills and tools, adapter only, no workflow fork | adapter done; acceptance pending |
 | 10 — Harness tests and CI | Contract tests, routing fixtures, plugin package validation | done |
 | 11 — Finalization | Short AGENTS.md, new README, demo, release | done — v0.5.0 tagged; Codex live acceptance tracked in phase 9 |
+| 12 — Gemini CLI adapter | The same runtime as a Gemini extension: TOML commands, extension hooks, one skill rooted at the runtime | adapter done, validated by `gemini extensions validate` on 0.36.0; no run recorded yet |
 
 Post-MVP, each needing its own plan: the `graphcompose-verify` GitHub
 Action, marketplace distribution, an MCP server (only once remote
-services exist), and a standalone runtime (only if running outside
-Codex/Claude ever becomes necessary).
+services exist), and a standalone runtime (only if running outside a
+host agent ever becomes necessary).
 
 The step-by-step execution plan behind this table — actions,
 verification and resume points per phase — is kept locally under

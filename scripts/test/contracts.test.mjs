@@ -137,6 +137,7 @@ test("no live document still claims the old agent-chain figures", () => {
     "skills/workflows/approve-template/SKILL.md",
     "docs/plugin-installation.md",
     "adapters/codex/README.md",
+    "adapters/gemini/README.md",
   ];
   for (const file of live) {
     const source = read(file);

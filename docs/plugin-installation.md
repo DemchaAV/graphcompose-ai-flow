@@ -4,6 +4,14 @@ Install the harness into your coding agent, open your own Java project,
 drop in a document reference, and ask for it back as a GraphCompose
 template.
 
+> **This page is the Claude Code plugin.** On another host the harness is
+> the same and the packaging is not:
+> [`adapters/codex/README.md`](../adapters/codex/README.md) installs flat
+> skills into `~/.codex`, and
+> [`adapters/gemini/README.md`](../adapters/gemini/README.md) installs a
+> Gemini CLI extension. Everything below about requirements, the
+> workspace and keeping the document open applies to all three.
+
 > **Status.** The plugin packaging is new. The install commands below
 > are filled in from the current Claude Code plugin documentation; if
 > your Claude Code version disagrees, trust `/help` in your session and

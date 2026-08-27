@@ -22,78 +22,28 @@
  *
  * Contributors who want the skills to track their working tree can pass
  * --link, which keeps the old behaviour of pointing at this checkout.
+ *
+ * *What* is copied is not decided here: the payload, the copy and the
+ * dependency install live in adapters/lib/runtime.mjs, so the Gemini adapter
+ * installs the same runtime rather than a second opinion of it.
  */
 
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const WORKFLOWS_DIR = path.join(repoRoot, "skills", "workflows");
-
-/**
- * What the workflow skills actually reach for at run time. Everything else in
- * the repository — examples, published templates, the site, the superseded
- * prompt chain — is not part of the runtime and is deliberately absent.
- */
-const RUNTIME = [
-  { from: "config" },
-  { from: "schemas" },
-  { from: "scripts" },
-  { from: "skills" },
-  { from: "AGENTS.md" },
-  { from: "package.json" },
-  // What previous runs learned, and the probes that re-confirm it. Without
-  // these an installed agent rediscovers the same library behaviours the hard
-  // way, which is the cost this layer exists to remove.
-  { from: "observations" },
-  { from: "tools/diagnostics", skip: ["target"] },
-  // The bundled template seed, and only the files the seeder actually reads.
-  // Copying examples/invoice-reference wholesale would bring 1.5 MB of revision
-  // artifacts for 52 KB of use. Without these, `init --template` fails in an
-  // installed copy while working in the plugin — which is a full clone — and
-  // the two packagings quietly stop behaving the same.
-  { from: "examples/invoice-reference/template-project.json" },
-  { from: "examples/invoice-reference/reference/reference.md" },
-  { from: "examples/invoice-reference/revisions/revision-001/revision.json" },
-  { from: "examples/invoice-reference/revisions/revision-001/generated-template.java" },
-  { from: "examples/invoice-reference/revisions/revision-001/generated-test.java" },
-  { from: "examples/invoice-reference/revisions/revision-001/user-request.md" },
-  { from: "examples/invoice-reference/render-runner", skip: ["target"] },
-  { from: "tools/asset-resolver", skip: ["node_modules"] },
-  // The TypeScript CLIs ship as their build output plus the manifests needed to
-  // install runtime dependencies; their source and dev toolchain stay behind.
-  { from: "tools/revision-manager/bin" },
-  { from: "tools/revision-manager/dist" },
-  { from: "tools/revision-manager/package.json" },
-  { from: "tools/revision-manager/package-lock.json", optional: true },
-  { from: "tools/visual-diff/bin" },
-  { from: "tools/visual-diff/dist" },
-  { from: "tools/visual-diff/package.json" },
-  { from: "tools/visual-diff/package-lock.json", optional: true },
-  { from: "tools/preview-renderer/pom.xml" },
-  { from: "tools/preview-renderer/target/preview-renderer.jar" },
-];
-
-/** Packages whose runtime dependencies are installed inside the copy. */
-const NPM_PACKAGES = ["tools/revision-manager", "tools/visual-diff"];
-
-/** Built outputs the source tree must already have. */
-const REQUIRED_BUILDS = [
-  "tools/revision-manager/dist/cli.js",
-  "tools/visual-diff/dist/cli.js",
-  "tools/preview-renderer/target/preview-renderer.jar",
-];
-
-/** Invariants worth restating in a stub, because they are cheap and load-bearing. */
-const ALWAYS = [
-  "Never invent GraphCompose API — the pinned pack's `00-api-surface.md` is a closed set.",
-  "Every change opens a new revision; never overwrite an APPROVED one.",
-  "Resolve the GraphCompose version from the user's build file, never by asking.",
-  "Work goes in the user's workspace (`graphcompose-flow/`), not in the harness install.",
-];
+import {
+  ALWAYS,
+  RUNTIME,
+  copyRuntime,
+  directorySizeKb,
+  discoverSkills,
+  harnessVersion,
+  installRuntimeDeps,
+  missingBuilds,
+  repoRoot,
+  WORKFLOWS_DIR,
+} from "../lib/runtime.mjs";
 
 function usage(code = 0) {
   process.stdout.write(
@@ -145,33 +95,6 @@ function parseArgs(argv) {
   return out;
 }
 
-function readJson(file) {
-  return JSON.parse(fs.readFileSync(file, "utf8"));
-}
-
-/** Frontmatter of a source SKILL.md — the description is the trigger surface. */
-function readSkill(dir) {
-  const file = path.join(WORKFLOWS_DIR, dir, "SKILL.md");
-  const match = /^---\r?\n([\s\S]*?)\r?\n---/.exec(fs.readFileSync(file, "utf8"));
-  if (!match) throw new Error(`${file} has no frontmatter`);
-  const field = (name) => {
-    const hit = new RegExp(`^${name}:\\s*(.+)$`, "m").exec(match[1]);
-    return hit ? hit[1].trim() : null;
-  };
-  const description = field("description");
-  if (!description) throw new Error(`${file} has no description`);
-  return { dir, name: field("name") ?? dir, description };
-}
-
-function discoverSkills() {
-  return fs
-    .readdirSync(WORKFLOWS_DIR, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .filter((entry) => fs.existsSync(path.join(WORKFLOWS_DIR, entry.name, "SKILL.md")))
-    .map((entry) => readSkill(entry.name))
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
-
 function stubFor(skill, installedName, runtimeRoot, linked) {
   const skillPath = path.join(runtimeRoot, "skills", "workflows", skill.dir, "SKILL.md");
   return `---
@@ -209,38 +132,8 @@ it runs unchanged in PowerShell, cmd and bash. Do not "translate" them.
 `;
 }
 
-/** Copy a file or directory, skipping named children. */
-function copyInto(source, target, skip = []) {
-  const stat = fs.statSync(source);
-  if (stat.isFile()) {
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.copyFileSync(source, target);
-    return 1;
-  }
-  let copied = 0;
-  fs.mkdirSync(target, { recursive: true });
-  for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
-    if (skip.includes(entry.name)) continue;
-    copied += copyInto(path.join(source, entry.name), path.join(target, entry.name), skip);
-  }
-  return copied;
-}
-
-function directorySizeKb(dir) {
-  let bytes = 0;
-  const walk = (d) => {
-    for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
-      const full = path.join(d, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else bytes += fs.statSync(full).size;
-    }
-  };
-  if (fs.existsSync(dir)) walk(dir);
-  return Math.round(bytes / 1024);
-}
-
 const args = parseArgs(process.argv.slice(2));
-const version = readJson(path.join(repoRoot, "package.json")).version;
+const version = harnessVersion();
 const skills = discoverSkills();
 if (skills.length === 0) {
   process.stderr.write(`[codex-install] no skills found under ${WORKFLOWS_DIR}\n`);
@@ -269,7 +162,7 @@ if (args.uninstall) {
 const runtimeRoot = args.link ? repoRoot : path.join(args.home, version);
 
 if (!args.link && !args.skipBuildCheck) {
-  const unbuilt = REQUIRED_BUILDS.filter((rel) => !fs.existsSync(path.join(repoRoot, rel)));
+  const unbuilt = missingBuilds();
   if (unbuilt.length > 0) {
     process.stderr.write(
       "[codex-install] the harness is not built, so there is nothing to install:\n" +
@@ -289,46 +182,23 @@ if (!args.link) {
   if (args.dryRun) {
     console.log(`would copy ${RUNTIME.length} path(s) into ${runtimeRoot}`);
   } else {
-    // A half-copied version is worse than none: replace it wholesale.
-    fs.rmSync(runtimeRoot, { recursive: true, force: true });
-    let files = 0;
-    for (const item of RUNTIME) {
-      const source = path.join(repoRoot, item.from);
-      if (!fs.existsSync(source)) {
-        // With --skip-build-check the build outputs are legitimately absent.
-        if (item.optional || args.skipBuildCheck) continue;
-        process.stderr.write(`[codex-install] missing ${item.from}\n`);
-        process.exit(1);
-      }
-      files += copyInto(source, path.join(runtimeRoot, item.from), item.skip ?? []);
+    let files;
+    try {
+      // With --skip-build-check the build outputs are legitimately absent.
+      files = copyRuntime(runtimeRoot, { tolerateMissing: args.skipBuildCheck });
+    } catch (err) {
+      process.stderr.write(`[codex-install] ${err.message}\n`);
+      process.exit(1);
     }
     console.log(`copied ${files} file(s), ${directorySizeKb(runtimeRoot)} KB`);
 
     if (!args.skipDeps) {
-      for (const pkg of NPM_PACKAGES) {
-        const cwd = path.join(runtimeRoot, pkg);
-        const lock = fs.existsSync(path.join(cwd, "package-lock.json"));
-        process.stdout.write(`installing runtime dependencies in ${pkg} … `);
-        try {
-          // Windows: Node refuses to spawn .cmd without a shell (CVE-2024-27980)
-          // and warns when args go through shell:true unescaped, so go through
-          // cmd.exe explicitly — the same idiom scripts/validate-skills.mjs uses
-          // for mvn.
-          const npmArgs = [lock ? "ci" : "install", "--omit=dev", "--no-audit", "--no-fund"];
-          const [command, commandArgs] =
-            process.platform === "win32"
-              ? ["cmd.exe", ["/d", "/s", "/c", "npm", ...npmArgs]]
-              : ["npm", npmArgs];
-          execFileSync(command, commandArgs, { cwd, stdio: "pipe" });
-          console.log("ok");
-        } catch (err) {
-          console.log("failed");
-          process.stderr.write(
-            `[codex-install] npm failed in ${pkg}. The install is otherwise complete; ` +
-              `run npm ci --omit=dev there yourself, or re-run with --skip-deps.\n` +
-              `${(err.stderr ?? "").toString().split("\n").slice(0, 3).join("\n")}\n`,
-          );
-        }
+      for (const failure of installRuntimeDeps(runtimeRoot, (line) => process.stdout.write(line))) {
+        process.stderr.write(
+          `[codex-install] npm failed in ${failure.pkg}. The install is otherwise complete; ` +
+            `run npm ci --omit=dev there yourself, or re-run with --skip-deps.\n` +
+            `${failure.error}\n`,
+        );
       }
     }
   }

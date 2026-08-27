@@ -3,9 +3,9 @@
 [![ci](https://github.com/DemchaAV/graphcompose-ai-flow/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DemchaAV/graphcompose-ai-flow/actions/workflows/ci.yml)
 
 Install a GraphCompose harness into your coding agent. Drop in a
-document reference. Ask Codex or Claude Code to recreate it. The agent
-generates, renders, compares and iterates until the template is ready
-for your approval.
+document reference. Ask Claude Code, Codex or Gemini CLI to recreate it.
+The agent generates, renders, compares and iterates until the template is
+ready for your approval.
 
 ```text
 Create a GraphCompose CV template from resume.png
@@ -46,6 +46,22 @@ That copies the runtime to `~/.codex/graphcompose-flow/<version>/` and
 installs four skills pointing into it, so **the clone is not needed
 afterwards** — move it, rename it or delete it and the skills keep
 working. See [`adapters/codex/README.md`](adapters/codex/README.md).
+
+### Gemini CLI
+
+```bash
+git clone https://github.com/DemchaAV/graphcompose-ai-flow
+cd graphcompose-ai-flow
+npm run setup
+node adapters/gemini/install.mjs
+```
+
+Gemini has extensions rather than plugins, so that writes one to
+`~/.gemini/extensions/graphcompose-flow/` — four slash commands, the
+workflow skill, the telemetry hooks and the runtime inside it — and the
+clone is not needed afterwards either. Restart Gemini CLI, then
+`gemini extensions list`. See
+[`adapters/gemini/README.md`](adapters/gemini/README.md).
 
 You need Node 20+, Java 21+, Maven and ImageMagick, plus a Java project
 that pins GraphCompose — the version in *your* build file decides which
@@ -257,6 +273,14 @@ integration, no MCP server, no standalone runtime.
   deleted. What is **not** recorded there is a full run carried through to
   an approved published bundle; until it is, host parity rests on the
   contract test rather than on a second measured run.
+- **Gemini CLI is packaged, and no run has been recorded there.** The
+  extension installs, `gemini extensions validate` accepts it on 0.36.0,
+  and the contract tests hold — the manifest, the four commands, the
+  hooks on Gemini's event names, and the runtime sitting inside the skill
+  directory because that is the only thing activation grants read access
+  to. What is missing is use: no activation from a plain sentence
+  observed, and no template carried to an approved bundle. It is the
+  newest packaging, proven structurally and not yet in anger.
 - The GraphCompose **2.2 pack ships** and its five fixtures compile,
   test and render against 2.2.0 with every render identical to its
   baseline. The conceptual skills stay `needs-validation` on coverage —

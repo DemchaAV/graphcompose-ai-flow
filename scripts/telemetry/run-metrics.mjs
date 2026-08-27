@@ -35,7 +35,8 @@ import {
   writeState,
 } from "./core.mjs";
 import { workspaceBaseline } from "./baseline.mjs";
-import { provider } from "./providers/claude-code.mjs";
+import { provider as claudeCode } from "./providers/claude-code.mjs";
+import { provider as gemini } from "./providers/gemini.mjs";
 import { describeWorkspaceLine, projectDir as workspaceProjectDir, resolveWorkspace } from "../lib/workspace.mjs";
 
 function usage(code = 0) {
@@ -107,6 +108,16 @@ if (!state) {
   process.stdout.write(`[telemetry] no state for session ${sessionId}\n`);
   process.exit(0);
 }
+
+/**
+ * Which host's transcript this is. The checkpoint writer records it, because
+ * only the host knows; state files written before it did are Claude Code's,
+ * which is the only host that had hooks then. Parsing a Gemini transcript with
+ * Claude's reader would report zeros — a run that looks free invites exactly
+ * the wrong conclusion, so the host is read rather than assumed.
+ */
+const PROVIDERS = { "claude-code": claudeCode, gemini };
+const provider = PROVIDERS[state.host] ?? claudeCode;
 
 if (command === "start") {
   if (!args.project) usage(2);

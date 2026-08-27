@@ -1,12 +1,13 @@
 # The canonical workspace
 
-One layout, whichever host is running. Claude Code and Codex may be packaged
-differently; where files go is not a packaging question.
+One layout, whichever host is running. The hosts may be packaged differently;
+where files go is not a packaging question.
 
 ## The install is not the workspace
 
 The harness lives wherever it was installed — a plugin cache, a versioned
-runtime copy under `~/.codex/`, or a clone. **Nothing generated is ever written
+runtime copy under `~/.codex/`, an extension under `~/.gemini/extensions/`, or
+a clone. **Nothing generated is ever written
 there.** The work goes in the user's Java project, in a `graphcompose-flow/`
 directory beside their build file:
 

@@ -5,6 +5,100 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## Unreleased
+
+**Gemini CLI has no plugins, and the difference is not only the manifest
+format.** It has extensions — one directory with `gemini-extension.json`, plus
+`commands/` (TOML), `hooks/hooks.json` and `skills/<name>/SKILL.md` — so
+everything the Claude plugin declares has somewhere to land. What decides the
+shape is a rule underneath all of that: **a Gemini tool may only read inside
+the workspace, and activating a skill adds exactly one directory to it — the
+one holding its `SKILL.md`.**
+
+The Codex adapter installs four stubs pointing at a runtime stored elsewhere.
+The same trick here installs cleanly, lists cleanly, activates cleanly, and
+then has every path the skill names refused when the agent opens it. And the
+harness is not a page of instructions: a run reads the loading map, four to six
+pack files, the API allow-list and the shared references, out of the install.
+
+So the runtime **is** the skill directory. `skills/graphcompose-flow/` is the
+harness, its generated `SKILL.md` is a router to `AGENTS.md` and the four
+canonical workflow skills beside it, and one activation makes all of it
+readable. One skill rather than four is what keeps the packs from being copied
+four times.
+
+### Public API
+
+- **`adapters/gemini/install.mjs`** — installs the extension into
+  `~/.gemini/extensions/graphcompose-flow/`: the manifest, a deliberately tiny
+  `GEMINI.md`, four TOML commands generated from `commands/*.md` with their
+  descriptions copied verbatim, the telemetry hooks, and the runtime as the
+  skill directory. Flags mirror the Codex installer — `--dest`, `--name`,
+  `--link`, `--skip-deps`, `--dry-run`, `--uninstall`. `gemini extensions
+  validate` accepts the result on 0.36.0.
+- **`adapters/lib/runtime.mjs`** — what an installed harness consists of, now
+  declared once. The payload list, the copy, the dependency install and the
+  skill discovery were inside the Codex installer, which left a second adapter
+  choosing between importing a CLI that acts when it loads and restating the
+  list. A restated list is a fork of the payload that drifts the first time a
+  script is added.
+- **Commands are rewritten, not translated.** `$ARGUMENTS` becomes `{{args}}`,
+  every harness path becomes absolute — quoted, because a home directory with a
+  space in it is otherwise two arguments — and each prompt opens by activating
+  the skill. The working directory stays in the user's project, because that is
+  how every command resolves the workspace.
+
+### Telemetry
+
+- **`scripts/telemetry/checkpoint.mjs`** — what a hook records, independent of
+  which host fired it. `claude-hook.mjs` is now a two-line entry point over it
+  and behaves exactly as before.
+- **`scripts/telemetry/gemini-hook.mjs`** — the same checkpoints on Gemini's
+  event names: `BeforeAgent` where Claude fires `UserPromptSubmit`,
+  `AfterAgent` where it fires `Stop`. It writes one inert JSON object to
+  stdout, because Gemini parses stdout and shows anything else to the user.
+  `SubagentStop` has no counterpart, so sub-agent usage is unattributed rather
+  than guessed at.
+- **`scripts/telemetry/providers/gemini.mjs`** — implemented, not a seam.
+  Gemini's transcript carries a `tokens` block per model message, and three of
+  its conventions differ from Anthropic's: `cached` is part of `input` rather
+  than additional to it, `thoughts` is billed as output but reported
+  separately, and there is no cache-write figure. Mapped explicitly, the parts
+  still sum to Gemini's own total; copied across as-is they would have
+  double-counted the cached share.
+- **`run-metrics` reads the host rather than assuming it.** The checkpoint
+  writer records which host wrote the state, and the provider is selected from
+  it. Parsing a Gemini transcript with Claude's reader reports zeros, and a run
+  that looks free invites exactly the wrong conclusion.
+- `foldEvents` moved to `core.mjs`, where the other host-independent arithmetic
+  lives, and is re-exported by both providers.
+
+### Documentation
+
+- **[`adapters/gemini/README.md`](adapters/gemini/README.md)** — install, the
+  flags, what you get, and a section on why one skill rather than four, because
+  that is the decision someone will otherwise try to "fix".
+- README gains a Gemini install section and an honest status bullet: the
+  packaging is proven structurally and no run has been recorded there — no
+  activation from a plain sentence observed, no template carried to an approved
+  bundle.
+- `docs/architecture.md`, `docs/quickstart.md`, `AGENTS.md`,
+  `scripts/telemetry/README.md` and the workspace-layout reference all name the
+  third host.
+
+### Tests
+
+- 888 in the harness suite, thirteen of them new. Twelve cover the extension:
+  the layout Gemini loads, the manifest matching its directory, the runtime
+  sitting inside the skill directory, discovery finding exactly one skill,
+  descriptions verbatim from source, every command absolute and quoted, the
+  hooks carrying Gemini's event names on a millisecond clock and calling a
+  script that exists, and the `--dry-run` / `--uninstall` / `--link` / `--name`
+  lifecycles.
+- The thirteenth fails if either installer ever declares a payload of its own.
+- `host-parity.test.mjs` imports the shared payload instead of scraping the
+  Codex installer's source, and now speaks of three packagings rather than two.
+
 ## v0.16.0 — 2026-08-27
 
 **A branch that says "use the built jar" is worthless if the condition never

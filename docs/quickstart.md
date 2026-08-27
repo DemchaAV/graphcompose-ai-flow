@@ -4,8 +4,9 @@
 > page. Install it into your agent —
 > [`docs/plugin-installation.md`](plugin-installation.md) for Claude
 > Code, [`adapters/codex/README.md`](../adapters/codex/README.md) for
-> Codex — then open your own Java project and ask. Your work lands in
-> that project, not here.
+> Codex, [`adapters/gemini/README.md`](../adapters/gemini/README.md) for
+> Gemini CLI — then open your own Java project and ask. Your work lands
+> in that project, not here.
 
 This page is the contributor path: running the harness from a clone, in
 what the tools call **development mode**, where the workspace is this

@@ -17,8 +17,8 @@ render never matches, and the value is in the measured comparison and
 the one-fix-per-pass cycle that follows.
 
 The harness supplies workflow, GraphCompose knowledge and gates. The
-host agent (Claude Code, Codex) supplies the model, the reasoning and
-the shell. Deterministic work — version resolution, asset fetching,
+host agent (Claude Code, Codex, Gemini CLI) supplies the model, the
+reasoning and the shell. Deterministic work — version resolution, asset fetching,
 rendering, diffing, revision bookkeeping, publishing — is done by CLIs,
 not by prose. See [`docs/architecture.md`](docs/architecture.md).
 
@@ -182,6 +182,7 @@ Before committing: `npm run verify`.
 - [`docs/architecture.md`](docs/architecture.md) — the layer split, the loop, the contracts, what is deliberately excluded
 - [`docs/plugin-installation.md`](docs/plugin-installation.md) — installing into Claude Code
 - [`adapters/codex/README.md`](adapters/codex/README.md) — installing into Codex
+- [`adapters/gemini/README.md`](adapters/gemini/README.md) — installing into Gemini CLI, which takes an extension rather than a plugin
 - [`docs/workflow.md`](docs/workflow.md) — the sixteen steps in full
 - [`docs/revision-model.md`](docs/revision-model.md) · [`docs/rollback.md`](docs/rollback.md) — statuses, undo, selective rollback
 - [`docs/visual-accuracy-contract.md`](docs/visual-accuracy-contract.md) — mismatch classification
