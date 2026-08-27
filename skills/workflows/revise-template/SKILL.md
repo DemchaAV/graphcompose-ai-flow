@@ -222,6 +222,28 @@ returned 48k tokens across 35 calls, more than twice everything the nine
 deterministic tools returned across ninety, and all of it was hunting for
 one method in a file.
 
+**Patch the method; never regenerate the file.** A write that fails
+because the file changed under you is a signal to re-read that method
+and edit it — not to delete the template and write it again. One pass
+did the second thing and produced 1,103 fresh lines, which on disk looks
+identical to a one-line correction: same revision, same parent, one file
+written. Everything the Javadoc recorded about *why* a constant has its
+value went with it.
+
+Every pass now measures what it replaced:
+
+```bash
+node scripts/source.mjs diff --project <id> --revision <id>
+```
+
+`render-and-diff` runs it and puts the share on its `source change` line.
+Under 20% of the methods touched is a correction. Most of them is a
+different construction, and a different construction is **its own
+revision** — opened deliberately, with the change named in the request,
+so the chain shows where the architecture moved. One run replaced nested
+rows and a timeline with tables and an accent border inside a revision
+recorded as another visual change; nothing in the record disagreed.
+
 **Work from crops, not pages.** For a localized correction, cut both
 images down to the region in question:
 

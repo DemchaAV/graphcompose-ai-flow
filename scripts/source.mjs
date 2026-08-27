@@ -36,9 +36,9 @@ import {
   projectDir as workspaceProjectDir,
   resolveWorkspace,
 } from "./lib/workspace.mjs";
-import { constants, declaredType, extract, methods } from "./lib/java-outline.mjs";
+import { constants, declaredType, extract, methodDiff, methods } from "./lib/java-outline.mjs";
 
-const COMMANDS = new Set(["outline", "symbol", "constants"]);
+const COMMANDS = new Set(["outline", "symbol", "constants", "diff"]);
 
 function usage(code = 0) {
   process.stdout.write(
@@ -46,6 +46,8 @@ function usage(code = 0) {
       "  outline            every method, its line range and its size\n" +
       "  symbol <name>      one method with its Javadoc\n" +
       "  constants          the named constants the geometry derives from\n" +
+      "  diff               what this revision changed, method by method, against its parent\n" +
+      "  --against <id>     the revision to diff against (default: this one's parent)\n" +
       "  --context <n>      extra lines either side of a symbol (default 0)\n" +
       "  --file <path>      a Java file to read instead of the revision's template\n" +
       "  --root <dir>       workspace override\n" +
@@ -69,6 +71,7 @@ function parseArgs(argv) {
     file: null,
     root: null,
     context: 0,
+    against: null,
     json: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
@@ -80,6 +83,7 @@ function parseArgs(argv) {
     else if (a === "--file") out.file = argv[++i];
     else if (a === "--root") out.root = argv[++i];
     else if (a === "--context") out.context = Number.parseInt(argv[++i], 10) || 0;
+    else if (a === "--against") out.against = argv[++i];
     else if (a.startsWith("--")) {
       process.stderr.write(`[source] unknown argument: ${a}\n`);
       usage(2);
@@ -107,11 +111,11 @@ const args = parseArgs(process.argv.slice(2));
  * uses: a revision can hold a spec and a provider beside the template, and the
  * template is the one with the rendering in it.</p>
  */
-function templatePath() {
-  if (args.file) return path.resolve(args.file);
+function templatePath(revisionId = args.revision) {
+  if (args.file && revisionId === args.revision) return path.resolve(args.file);
 
   const workspace = resolveWorkspace({ explicitRoot: args.root ?? null });
-  const revisionDir = path.join(workspaceProjectDir(workspace, args.project), "revisions", args.revision);
+  const revisionDir = path.join(workspaceProjectDir(workspace, args.project), "revisions", revisionId);
   if (!fs.existsSync(revisionDir)) fail(3, `no such revision: ${revisionDir}`);
 
   const candidates = fs
@@ -122,6 +126,28 @@ function templatePath() {
 
   if (candidates.length === 0) fail(1, `no generated template (.java) in ${revisionDir}`);
   return path.join(revisionDir, candidates[0].name);
+}
+
+/**
+ * The revision this one came from, unless the caller named another.
+ *
+ * <p>Read off `revision.json` rather than inferred from the numbering: a
+ * revision's parent is recorded, and a chain can skip, branch or be restored.</p>
+ */
+function parentRevision() {
+  if (args.against) return args.against;
+  const workspace = resolveWorkspace({ explicitRoot: args.root ?? null });
+  const file = path.join(
+    workspaceProjectDir(workspace, args.project), "revisions", args.revision, "revision.json",
+  );
+  try {
+    const parent = JSON.parse(fs.readFileSync(file, "utf8")).parentRevisionId;
+    if (!parent) fail(1, `${args.revision} has no parent to diff against — pass --against <id>`);
+    return parent;
+  } catch (error) {
+    fail(1, `cannot read ${file}: ${error.message}`);
+    return null;
+  }
 }
 
 const file = templatePath();
@@ -151,6 +177,21 @@ if (args.command === "outline") {
     type: declaredType(source),
     lines: totalLines,
     constants: constants(source),
+  };
+} else if (args.command === "diff") {
+  const against = parentRevision();
+  const before = fs.readFileSync(templatePath(against), "utf8");
+  const changes = methodDiff(before, source);
+  result = {
+    file: path.basename(file),
+    revision: args.revision,
+    against,
+    lines: totalLines,
+    ...changes,
+    // A share, not a verdict. What counts as a rewrite is a judgement about
+    // intent; what this can say is how much of the template stopped being the
+    // one that was reviewed.
+    rewroteMostOfIt: changes.touchedShare >= 0.5,
   };
 } else {
   const cut = extract(source, args.name, { context: args.context });
@@ -188,6 +229,26 @@ if (args.command === "outline") {
   for (const constant of result.constants) {
     process.stdout.write(
       `  ${String(constant.line).padStart(5)}  ${constant.name} = ${constant.value}\n`,
+    );
+  }
+} else if (args.command === "diff") {
+  process.stdout.write(
+    `${result.revision} against ${result.against} — ` +
+      `${Math.round(result.touchedShare * 100)}% of the methods touched\n\n`,
+  );
+  const say = (label, names) => {
+    if (names.length === 0) return;
+    process.stdout.write(`  ${label.padEnd(10)} ${names.join(", ")}\n`);
+  };
+  say("changed", result.changed);
+  say("added", result.added);
+  say("removed", result.removed);
+  process.stdout.write(`  ${"unchanged".padEnd(10)} ${result.unchanged.length}\n`);
+  if (result.rewroteMostOfIt) {
+    process.stdout.write(
+      "\n  Most of the template is not the one that was reviewed. If that was the intent — a " +
+        "different construction rather than a correction — it belongs in a revision of its own, " +
+        "said out loud, so the chain shows where the architecture changed.\n",
     );
   }
 } else {

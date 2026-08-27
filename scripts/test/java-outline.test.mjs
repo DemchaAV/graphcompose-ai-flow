@@ -19,7 +19,7 @@ import test from "node:test";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { constants, declaredType, extract, methods } from "../lib/java-outline.mjs";
+import { constants, declaredType, extract, methodDiff, methods } from "../lib/java-outline.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CLI = path.join(repoRoot, "scripts", "source.mjs");
@@ -111,6 +111,44 @@ test("an unknown symbol names what there is instead of failing blankly", () => {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("an edit and a rewrite are told apart by how much stopped being the same", () => {
+  // Two failures share this missing fact: a pass that hit a write conflict and
+  // regenerated 1,103 lines, and a revision that replaced the page's whole
+  // construction and was recorded as another visual change. On disk both look
+  // like any other pass.
+  const edited = SAMPLE.replace('p.text("body")', 'p.text("body text")');
+  const oneMethod = methodDiff(SAMPLE, edited);
+
+  assert.deepEqual(oneMethod.changed, ["renderBody"]);
+  assert.deepEqual(oneMethod.added, []);
+  assert.deepEqual(oneMethod.removed, []);
+  assert.equal(oneMethod.touchedShare, 0.5, "one of two methods is half of them");
+});
+
+test("a rewrite scores against the union, so dropping methods does not hide it", () => {
+  const rewritten = `package com.example;
+
+public final class DemoTemplate {
+
+    private void renderEverythingDifferently(SectionBuilder section) {
+        section.addTable(t -> t.addRow());
+    }
+}
+`;
+  const diff = methodDiff(SAMPLE, rewritten);
+
+  assert.deepEqual(diff.removed.sort(), ["renderBody", "renderMasthead"]);
+  assert.deepEqual(diff.added, ["renderEverythingDifferently"]);
+  assert.deepEqual(diff.unchanged, []);
+  assert.equal(diff.touchedShare, 1, "a template with nothing in common scored under 100%");
+});
+
+test("a pass that changed nothing says so, rather than reporting a small number", () => {
+  const diff = methodDiff(SAMPLE, SAMPLE);
+  assert.equal(diff.touchedShare, 0);
+  assert.equal(diff.unchanged.length, 2);
 });
 
 test("outline costs a fraction of the file it describes", () => {

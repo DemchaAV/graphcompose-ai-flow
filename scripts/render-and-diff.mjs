@@ -547,6 +547,56 @@ step("regions", (entry) => {
     : `${regions.regions.length} regions measured — none carries a difference`;
 });
 
+step("source change", (entry) => {
+  // How much of the template stopped being the one that was reviewed.
+  //
+  // Two failures share this missing fact. A pass hit a write conflict, deleted
+  // the template and regenerated 1,103 lines; and a revision replaced the whole
+  // page construction — nested rows and a timeline for tables and an accent
+  // border — and was recorded as another visual change. On disk both look like
+  // any other pass. A share of the methods is the cheapest honest measure, and
+  // it needs no judgement about intent.
+  //
+  // Evidence, never a gate: a rewrite can be exactly the right thing to do. The
+  // point is that it should be visible in the chain rather than discovered
+  // later by reading the diff.
+  const changed = run(path.join(repoRoot, "scripts", "source.mjs"), [
+    "diff",
+    "--project", args.project,
+    "--revision", args.revision,
+    "--root", workspace.root,
+    "--json",
+  ]);
+  if (changed.status !== 0) {
+    entry.detail = (changed.output || "").trim().split("\n")[0] || "not compared";
+    return;
+  }
+
+  let diff;
+  try {
+    diff = JSON.parse(changed.stdout);
+  } catch {
+    entry.detail = "not compared: source diff produced no JSON";
+    return;
+  }
+
+  result.source = {
+    against: diff.against,
+    touchedShare: diff.touchedShare,
+    changed: diff.changed,
+    added: diff.added,
+    removed: diff.removed,
+    unchangedCount: diff.unchanged.length,
+    rewroteMostOfIt: diff.rewroteMostOfIt,
+  };
+  entry.detail =
+    `${Math.round(diff.touchedShare * 100)}% of methods touched vs ${diff.against}` +
+    (diff.rewroteMostOfIt
+      ? " — most of the template is not the one that was reviewed; a different construction " +
+        "belongs in a revision of its own"
+      : "");
+});
+
 step("evidence", (entry) => {
   // What KIND of defect the worst regions are, produced as part of the pass
   // rather than left for someone to remember to ask.

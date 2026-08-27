@@ -98,6 +98,28 @@ run. Both were readable throughout. Nothing put them in a row.
 
 ### Reading the template
 
+- **`scripts/source.mjs diff`** — what a revision replaced, method by method,
+  against its parent: changed, added, removed, and the share of the union
+  touched. `render-and-diff` runs it every pass and puts the share on its
+  `source change` line.
+- **Why.** Two failures share one missing fact. A pass hit a write conflict,
+  deleted the template and regenerated 1,103 lines — and on disk that looks
+  exactly like a one-line correction: same revision, same parent, one file
+  written; everything the Javadoc recorded about *why* a constant had its value
+  went with it. Separately, a revision replaced the page's whole construction —
+  nested rows and a timeline for tables and an accent border — and was recorded
+  as another visual change. An edit and a rewrite are different kinds of change
+  and nothing said which had happened. The share needs no judgement about
+  intent, and it is the same number whoever asks.
+- Measured against this repository's own history: `charcoal-gold-cv`
+  revision-009 touched **6%** of its methods, and `cv-reference` revision-006
+  touched **82%** — a revision whose own request begins "make the template
+  data-driven: every visible string moves out of Java". Evidence, never a gate:
+  a rewrite is often the right thing to do, and the point is that the chain
+  shows where it happened.
+
+### Reading the template
+
 - **`scripts/source.mjs`** — new. `outline` lists every method with its line
   range and size; `symbol <name>` cuts one out with its Javadoc; `constants`
   lists the named values a correction actually edits. On the largest template in

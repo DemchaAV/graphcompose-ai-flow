@@ -129,6 +129,61 @@ export function extract(source, name, options = {}) {
   };
 }
 
+/**
+ * What changed between two versions of a template, method by method.
+ *
+ * ## Why this is worth measuring
+ *
+ * A pass hit a write conflict, deleted the template and regenerated 1,103
+ * lines — and the revision that came out of it looked, on disk, exactly like
+ * the one before it: same id, same parent, one file rewritten. Separately, one
+ * revision replaced the page's whole construction (nested rows and a timeline
+ * for tables and an accent border) and was recorded as another visual change.
+ *
+ * Both are the same missing fact. An edit and a rewrite are different kinds of
+ * change, and nothing said which had happened. A share of the methods is the
+ * cheapest honest measure of it: it needs no judgement, it cannot be argued
+ * with, and it is the same number whoever asks.
+ *
+ * @param {string} before
+ * @param {string} after
+ * @returns {{added:string[], removed:string[], changed:string[], unchanged:string[],
+ *            touchedShare:number}}
+ */
+export function methodDiff(before, after) {
+  const bodies = (source) => {
+    const lines = source.split(/\r?\n/);
+    const out = new Map();
+    for (const method of methods(source)) {
+      out.set(method.name, lines.slice(method.line - 1, method.endLine).join("\n"));
+    }
+    return out;
+  };
+
+  const from = bodies(before);
+  const to = bodies(after);
+
+  const added = [...to.keys()].filter((name) => !from.has(name));
+  const removed = [...from.keys()].filter((name) => !to.has(name));
+  const changed = [...to.keys()].filter((name) => from.has(name) && from.get(name) !== to.get(name));
+  const unchanged = [...to.keys()].filter((name) => from.has(name) && from.get(name) === to.get(name));
+
+  // Against the union, so a rewrite that drops half the methods and adds new
+  // ones does not score lower than one that edits them in place.
+  const total = new Set([...from.keys(), ...to.keys()]).size;
+  return {
+    added,
+    removed,
+    changed,
+    unchanged,
+    touchedShare: total === 0 ? 0 : round((added.length + removed.length + changed.length) / total),
+  };
+}
+
+function round(value) {
+  return Math.round(value * 1000) / 1000;
+}
+
 /** Where the Javadoc above a declaration starts, if it has one. */
 function javadocStart(lines, at) {
   let i = at - 1;
