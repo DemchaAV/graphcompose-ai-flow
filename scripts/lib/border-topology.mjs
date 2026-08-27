@@ -29,7 +29,20 @@ const MAX_RULE_THICKNESS = 0.005;
 /** Beyond tolerance but within this multiple of it, a rule moved rather than vanished. */
 const DISPLACEMENT_FACTOR = 4;
 
-const isDark = (data, index) => data[index] + data[index + 1] + data[index + 2] < 600 && data[index + 3] > 40;
+/**
+ * What counts as ink, for every tool that asks.
+ *
+ * Exported rather than kept private because `reference-metrics.mjs` measures
+ * bands and margins off the same rasters this module measures rules off, and
+ * two definitions of "dark enough" would drift. When they drift, one tool
+ * reports a hairline rule and the other reports blank paper at the same
+ * coordinate, and the disagreement reads as a layout defect.
+ *
+ * @param {Buffer|Uint8Array} data RGBA bytes
+ * @param {number} index offset of the pixel's red byte
+ */
+export const isDark = (data, index) =>
+  data[index] + data[index + 1] + data[index + 2] < 600 && data[index + 3] > 40;
 
 /**
  * Collapse consecutive ink-bearing scan positions into rules.
