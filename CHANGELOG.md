@@ -5,7 +5,7 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
-## Unreleased
+## v0.17.0 — 2026-08-27
 
 **Gemini CLI has no plugins, and the difference is not only the manifest
 format.** It has extensions — one directory with `gemini-extension.json`, plus
