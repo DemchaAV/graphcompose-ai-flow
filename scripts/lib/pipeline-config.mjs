@@ -206,6 +206,18 @@ function validateLimits(limits) {
       );
     }
   }
+
+  // Not an integer and not a bound: a movement threshold in percentage points,
+  // used to report that a cause has stopped moving. Optional, because a config
+  // written before it existed is still a valid config.
+  if (limits.materialMovePercent !== undefined) {
+    const value = limits.materialMovePercent;
+    if (typeof value !== "number" || !(value > 0) || value >= 100) {
+      throw new PipelineConfigError(
+        `limits.materialMovePercent must be a percentage above 0 and below 100, got ${JSON.stringify(value)}`,
+      );
+    }
+  }
 }
 
 function validateFailureCategories(categories) {

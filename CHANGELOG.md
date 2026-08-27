@@ -56,6 +56,26 @@ run. Both were readable throughout. Nothing put them in a row.
   This is where a version stops being a string and becomes the code that gets
   compiled, so it is the last place the disagreement is cheap.
 
+### Converging
+
+- **`iterate-status` now reports what has already been tried.** `attempts[]`
+  lists every pass spent on the cause currently in front, with the lever its
+  review recorded and the page difference it produced. Counting attempts stops a
+  loop circling forever, which the same-cause bound already did; it does not
+  stop a loop *repeating*. A run spent three revisions on one wrapped label —
+  moving a shared constant to 8.5, then 8.65, then reasoning its way back toward
+  8.5, a value it had already rendered and measured. Nothing on disk said so,
+  because the attempts were one per revision and nobody had put them in a row.
+  The same-cause bound's own reason now names them, so the report a user gets
+  when the loop stops cannot propose a value the loop already spent a pass on.
+- **`diminishingReturns`** — whether those passes are still buying anything: two
+  consecutive attempts that each move the page difference by less than
+  `limits.materialMovePercent` (new, 0.25) are reported as stalled. A pass with
+  no measurement is not counted as a move of zero — that would report a loop as
+  stalled on the strength of a comparison that never ran. **Evidence, not a
+  verdict**: it does not end the loop, because a threshold nobody measured
+  should not be the thing that ends one.
+
 ### Reading the template
 
 - **`scripts/source.mjs`** — new. `outline` lists every method with its line

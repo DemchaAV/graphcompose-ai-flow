@@ -118,6 +118,23 @@ if (args.json) {
           ? `   ("${status.largestMismatch}")`
           : ""),
   );
+  // What those attempts were. A count says the loop is circling; the list says
+  // which values have already been rendered and measured, which is what stops
+  // the next pass proposing one of them again.
+  if ((status.attempts ?? []).length > 1) {
+    console.log("\n  already tried, on this cause:");
+    for (const attempt of status.attempts) {
+      const measured = attempt.percent === null ? "" : `  → ${attempt.percent}%`;
+      const moved = attempt.moved === null ? "" : ` (${attempt.moved >= 0 ? "+" : ""}${attempt.moved})`;
+      console.log(`    ${attempt.revision}  ${attempt.action ?? "(no action recorded)"}${measured}${moved}`);
+    }
+    if (status.diminishingReturns?.stalled) {
+      console.log(
+        `    the last two moved under ${status.diminishingReturns.materialPercent}% between them — ` +
+          "the passes have stopped buying anything, so change approach or accept the residual",
+      );
+    }
+  }
   if (status.failureCategory) console.log(`\n  failureCategory: ${status.failureCategory}`);
   for (const reason of status.reasons) console.log(`  - ${reason}`);
   if (verdict === "REVISE") {

@@ -209,7 +209,16 @@
     "maxIterations": 8,
     "maxConsecutiveBuildFailures": 3,
     "maxSameMismatchAttempts": 3,
-    "maxIterationGrants": 3
+    "maxIterationGrants": 3,
+    "$materialMovePercent": [
+      "Page-difference movement, in percentage points, below which a pass bought nothing.",
+      "Two consecutive attempts on one cause that each move less than this are reported as",
+      "stalled by scripts/lib/iteration-status.mjs. Evidence, not a bound: it does not end the",
+      "loop, because a threshold nobody measured should not be the thing that ends one.",
+      "0.25 is a quarter of a percentage point of the page - on an A4 render at 1240x1753,",
+      "about 5,400 pixels, which is a line of text moving by two pixels."
+    ],
+    "materialMovePercent": 0.25
   },
   "mismatchCauses": [
     "GEOMETRY",

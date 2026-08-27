@@ -89,6 +89,10 @@ function loadLoop(projectDir, revisionId) {
       id: cursor,
       revision,
       review: readJsonOr(path.join(dir, "visual-review.json")),
+      // What the pass actually measured, so "is this still moving?" is a
+      // question about pixels rather than about how many mismatches the review
+      // chose to list. A pass can rename its findings and look like progress.
+      stats: readJsonOr(path.join(dir, "visual-diff-stats.json")),
     });
     cursor = revision.parentRevisionId;
   }
@@ -218,6 +222,94 @@ function convergence(chain) {
   return { measurable: true, converging: latest < previous, from: previous, to: latest };
 }
 
+/**
+ * What has already been tried against the mismatch in front, and what it moved.
+ *
+ * ## Why
+ *
+ * `sameMismatchAttempts` counts passes and stops the loop at three. Counting is
+ * enough to prevent circling forever and is not enough to prevent repeating: a
+ * run spent three revisions on one wrapped label, moving a shared constant to
+ * 8.5, then 8.65, then reasoning its way back toward 8.5 — a value it had
+ * already rendered and measured. Nothing on disk said what had been tried,
+ * because the attempts are spread one per revision and nobody had put them in a
+ * row.
+ *
+ * This is that row: for each pass that failed the same way, the action its
+ * review recorded and the page difference it produced.
+ *
+ * @param {Array<object>} chain
+ * @param {string|null} focusKey the cause currently in front
+ * @returns {Array<{revision:string, mismatch:string|null, action:string|null,
+ *                  percent:number|null, moved:number|null}>}
+ */
+export function attemptHistory(chain, focusKey) {
+  if (!focusKey) return [];
+
+  const run = [];
+  for (let i = chain.length - 1; i >= 0; i -= 1) {
+    if (focusKeyOf(chain[i]) !== focusKey) break;
+    run.unshift(chain[i]);
+  }
+
+  return run.map((entry, index) => {
+    const focus = focusOf(entry);
+    const mismatch = (entry.review?.mismatches ?? []).find((m) => m.id === focus.id) ?? null;
+    const percent = typeof entry.stats?.percent === "number" ? round(entry.stats.percent, 3) : null;
+    const before = index > 0 ? run[index - 1] : null;
+    const beforePercent = typeof before?.stats?.percent === "number" ? before.stats.percent : null;
+    return {
+      revision: entry.id,
+      mismatch: focus.id,
+      // Trimmed: the action is a paragraph in the review and a line here. What
+      // a reader needs is which lever was pulled, not the argument for it.
+      action: mismatch?.action ? firstSentence(mismatch.action) : null,
+      percent,
+      moved: percent !== null && beforePercent !== null ? round(percent - beforePercent, 3) : null,
+    };
+  });
+}
+
+/**
+ * Are the passes still buying anything?
+ *
+ * <p>Two attempts that each move the page difference by less than a quarter of
+ * a percentage point are not converging on a fix; they are paying a full pass
+ * for a change nobody can see. The loop's own same-cause bound would still let
+ * a third one run.</p>
+ *
+ * <p>Evidence, not a verdict. It says the movement has stopped and leaves what
+ * to do about it — accept the residual, change approach, ask the user — where
+ * it belongs. A tool that ended the loop on this would end it on a threshold
+ * somebody guessed.</p>
+ *
+ * @param {Array<{moved:number|null}>} history from {@link attemptHistory}
+ * @param {number} materialPercent
+ */
+export function diminishingReturns(history, materialPercent) {
+  const measured = history.filter((attempt) => attempt.moved !== null);
+  if (measured.length < 2) return { measurable: false, stalled: false, moves: [] };
+
+  const recent = measured.slice(-2);
+  return {
+    measurable: true,
+    stalled: recent.every((attempt) => Math.abs(attempt.moved) < materialPercent),
+    moves: recent.map((attempt) => ({ revision: attempt.revision, moved: attempt.moved })),
+    materialPercent,
+  };
+}
+
+function firstSentence(text) {
+  const trimmed = String(text).trim();
+  const stop = trimmed.search(/\.\s/);
+  return stop > 0 ? trimmed.slice(0, stop + 1) : trimmed.slice(0, 160);
+}
+
+function round(value, places) {
+  const factor = 10 ** places;
+  return Math.round(value * factor) / factor;
+}
+
 function isBuildFailure(entry) {
   const { revision } = entry;
   if (revision.failure?.category === "BUILD_FAILED") return true;
@@ -310,6 +402,11 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     : 0;
 
   const limits = config.limits;
+  // What has already been tried against the cause in front, and whether those
+  // attempts are still moving anything. Computed before the bounds so both the
+  // bound's reason and the payload can name them.
+  const history = attemptHistory(chain, focusKey);
+  const stalling = diminishingReturns(history, limits.materialMovePercent ?? 0.25);
   const reasons = [];
   /** Set when the iteration ceiling was lifted for a converging loop. */
   let grantedExtension = null;
@@ -402,6 +499,17 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
           : `"${largestMismatch}" has survived ${sameMismatchAttempts} attempts ` +
             `(limit ${limits.maxSameMismatchAttempts}) — the next attempt would be the same attempt`,
       );
+      // What those attempts were. The bound says "stop"; this says what has
+      // already been spent, so the report to the user names the values that
+      // have been rendered and measured rather than proposing one of them again.
+      if (history.length > 0) {
+        reasons.push(
+          `already tried: ${history
+            .map((attempt) => `${attempt.revision} ${attempt.action ?? "(no action recorded)"}` +
+              (attempt.percent === null ? "" : ` → ${attempt.percent}%`))
+            .join("; ")}`,
+        );
+      }
     } else if (agentIterations >= limits.maxIterations) {
       // A loop still closing blocking mismatches is not the loop this bound was
       // written for. `maxSameMismatchAttempts` above is what catches circling —
@@ -502,6 +610,14 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     chainTruncatedAt: truncatedAt,
     consecutiveBuildFailures,
     sameMismatchAttempts,
+    // The passes already spent on the cause in front, with what each of them
+    // changed and what it measured. Counting them stops a loop from circling
+    // forever; listing them stops the next pass from proposing a value that has
+    // already been rendered.
+    attempts: history,
+    // Whether those passes are still buying anything. Evidence, never a
+    // verdict: a threshold nobody measured should not be what ends a loop.
+    diminishingReturns: stalling,
     limits,
     remaining: {
       iterations: Math.max(0, limits.maxIterations - agentIterations),
