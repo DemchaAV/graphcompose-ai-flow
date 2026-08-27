@@ -60,6 +60,17 @@ const SUFFIX = ".test.mjs";
  * The narrow fix is to give the writer its own pass. Everything else stays
  * parallel, so the suite keeps its speed and stops depending on scheduling.
  *
+ * ## Kept after the root cause was fixed
+ *
+ * `render-runtime.mjs` no longer rebuilds the renderer on every render — it
+ * compares the jar against its sources and builds only when they moved, so
+ * `revision-discipline` does not touch the shared jar any more (verified by
+ * mtime before and after the file runs). This list is therefore belt as well as
+ * braces, and that is deliberate: `RENDER_NO_SKIP=1` still forces a rebuild by
+ * design, a source edit mid-suite would too, and the cost of keeping the entry
+ * is one file's parallelism against a failure mode that took a full
+ * investigation to identify the first time.
+ *
  * **Add to this list only for a proven shared-artifact write.** Slowness is not
  * a reason — a file parked here costs the whole suite its parallelism for that
  * file's duration, and "it failed once" is where flaky-test lists come from.

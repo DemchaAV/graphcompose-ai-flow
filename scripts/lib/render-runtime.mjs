@@ -239,10 +239,38 @@ export function runRender({
     // run died on "Could not find or load main class" for exactly this.
     const rendererSources = path.join(previewRendererDir, "src");
     if (fs.existsSync(rendererSources)) {
-      runMaven(
-        ["-q", "-B", "-f", previewRendererPom, "-DskipTests=true", "package"],
-        repoRoot,
-      );
+      // Only when the sources have actually moved. This jar lives in the
+      // INSTALL, not in the project, so every render rebuilding it makes it
+      // shared mutable state between anything else using the harness at the
+      // same time — a second template session, or the test suite.
+      //
+      // The failure is not a missing file. Maven's shade plugin replaces the
+      // jar atomically, but a JVM loads classes lazily, so swapping it under a
+      // live process invalidates the handle it has not finished reading from:
+      //
+      //     NoClassDefFoundError: org/apache/pdfbox/contentstream/operator/
+      //                           text/SetTextHorizontalScaling
+      //       at PDFRenderer.createPageDrawer(PDFRenderer.java:528)
+      //
+      // A class PDFBox needs only for some content streams, gone from a jar
+      // that was complete when the JVM started. The render that dies is not the
+      // one that rebuilt, so the symptom points at the wrong template entirely.
+      // RENDER_NO_SKIP=1 means skip nothing, and it has to keep meaning that:
+      // it is the escape hatch someone reaches for precisely when they suspect
+      // a stale artifact, which is the one situation where a staleness check
+      // deciding for them is worthless.
+      const stale = forceFullPipeline
+        ? "RENDER_NO_SKIP=1"
+        : jarIsStale(previewRendererJar, [rendererSources, previewRendererPom]);
+      if (stale) {
+        console.log(`> preview-renderer rebuild (${stale})`);
+        runMaven(
+          ["-q", "-B", "-f", previewRendererPom, "-DskipTests=true", "package"],
+          repoRoot,
+        );
+      } else {
+        console.log("> preview-renderer build skipped (jar is newer than its sources)");
+      }
     } else if (fs.existsSync(previewRendererJar)) {
       console.log("> preview-renderer build skipped (installed copy; using the shipped jar)");
     } else {
@@ -431,6 +459,52 @@ export function runRender({
   live.update(path.join(revisionDir, "output-debug.png"), "current-debug.png", "shared");
   live.manifest({ projectId, revisionId, revisionDir, hasDebug: true });
   live.announce();
+}
+
+/**
+ * Whether `jar` needs rebuilding from `inputs`, and if so, why.
+ *
+ * Returns a short reason for the log, or `null` when the jar is current. The
+ * reason is worth carrying: "rebuild" with no cause is the kind of line a
+ * reader stops seeing, and the whole point of this check is that a rebuild
+ * should now be an event rather than the norm.
+ *
+ * Mtime, not content hashing. A hash would be stricter and cost a full walk of
+ * the source tree on every render to answer a question that mtime answers for
+ * free — and the failure mode this guards against is a stale jar, which mtime
+ * catches. A source restored from backup with an older timestamp would fool it;
+ * `npm run setup` and `mvn package` remain the way to force a build.
+ *
+ * @param {string} jar the built artifact
+ * @param {string[]} inputs files or directories it is built from
+ * @returns {string|null}
+ */
+export function jarIsStale(jar, inputs) {
+  if (!fs.existsSync(jar)) return "no jar yet";
+  const jarTime = fs.statSync(jar).mtimeMs;
+
+  let newest = 0;
+  let newestPath = null;
+  const visit = (target) => {
+    let stat;
+    try {
+      stat = fs.statSync(target);
+    } catch {
+      return; // vanished mid-walk; nothing to compare against
+    }
+    if (stat.isDirectory()) {
+      for (const entry of fs.readdirSync(target)) visit(path.join(target, entry));
+      return;
+    }
+    if (stat.mtimeMs > newest) {
+      newest = stat.mtimeMs;
+      newestPath = target;
+    }
+  };
+  for (const input of inputs) visit(input);
+
+  if (newest <= jarTime) return null;
+  return `${path.basename(newestPath ?? "a source")} is newer than the jar`;
 }
 
 function runMaven(args, cwd) {
