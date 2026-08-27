@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "shape-container-clamps-over-wide-child",
+  "graphComposeVersion": "2.2.1",
+  "api": [
+    "ShapeContainerBuilder.position",
+    "ShapeContainerBuilder.rectangle",
+    "LayerAlign.CENTER"
+  ],
+  "observedBehaviour": "A shape container does not centre a child wider than itself: it clamps the child's left edge to its own, so the child's centre lands half the overflow to the RIGHT of where centring would put it. Measured at 2.2.1 with a 60 pt container holding a 140 pt spacer positioned at LayerAlign.CENTER with dx = 0 — container x 0.0 and child x 0.0, container centre 30.0 and child centre 70.0, a drift of 40.0 pt against an overflow of 80.0 pt. This is the horizontal twin of the known vertical top-clamp: the same rule on the other axis, and the reason a masthead built by centring an over-wide mark inside a narrow band drifts right rather than sitting on the band's axis.",
+  "minimalReproduction": {
+    "probe": "anchor-alignment",
+    "command": "node scripts/probe.mjs anchor-alignment --version 2.2 --json",
+    "arrangement": "A 60 pt wide shape container with ClipPolicy.OVERFLOW_VISIBLE holding a 140 pt wide spacer at LayerAlign.CENTER, dx = 0. The same probe's vertical half answers the over-tall case, so one run settles both axes. A spacer is used rather than an empty shape container because ShapeContainerNode is rejected at build time unless it has at least one layer."
+  },
+  "probeResult": {
+    "horizontalArrangement": { "containerWidth": 60.0, "childWidth": 140.0, "overflowHalf": 40.0 },
+    "horizontalMeasurements": {
+      "containerX": 0.0, "containerWidth": 60.0, "containerCentreX": 30.0,
+      "childX": 0.0, "childWidth": 140.0, "childCentreX": 70.0
+    },
+    "horizontalDriftAtZeroOffset": 40.0,
+    "horizontallyClamped": true,
+    "horizontalDriftIsHalfOverflow": true
+  },
+  "workaround": "Offset by minus half the overflow to put the two centres on one axis — for a child of width w in a container of width c, dx = -(w - c) / 2. Better still, size the container to the child rather than correcting after the fact: the clamp only bites when the child is larger than what holds it.",
+  "confidence": "confirmed",
+  "sourceRun": {
+    "project": "teal-clinical-cv",
+    "revision": "revision-001",
+    "date": "2026-08-27",
+    "note": "The brand mark drifted right inside its band. The run measured it from rendered pixels, recorded it in the revision's architecture plan, and had no probe to promote it with; this record is that probe's answer."
+  },
+  "promotedTo": null
+}

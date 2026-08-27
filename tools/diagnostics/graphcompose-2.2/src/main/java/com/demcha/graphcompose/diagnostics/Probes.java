@@ -1,5 +1,7 @@
 package com.demcha.graphcompose.diagnostics;
 
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -22,6 +24,7 @@ public final class Probes {
     private static final Map<String, Supplier<Probe>> REGISTRY = new TreeMap<>(Map.ofEntries(
             Map.entry("anchor-alignment", AnchorAlignmentProbe::new),
             Map.entry("column-nesting", ColumnNestingProbe::new),
+            Map.entry("line-spacing", LineSpacingProbe::new),
             Map.entry("page-enumeration", PageEnumerationProbe::new),
             Map.entry("path-coordinates", PathCoordinateProbe::new),
             Map.entry("row-nesting", RowNestingProbe::new),
@@ -29,6 +32,18 @@ public final class Probes {
             Map.entry("table-borders", TableBorderProbe::new),
             Map.entry("table-cell-node", TableCellNodeProbe::new),
             Map.entry("timeline-nesting", TimelineNestingProbe::new)));
+
+
+    /**
+     * Every probe writes through here rather than {@code System.out}.
+     *
+     * <p>The source is UTF-8 and the pom says so, but {@code System.out} encodes
+     * with the console's codepage, which on a Windows host is cp1252. A finding
+     * containing an em dash reached the caller as a replacement character and the
+     * JSON was corrupt in exactly the field a reader cares about. The stream is
+     * the thing that has to be told, not the compiler.</p>
+     */
+    private static final PrintStream OUT = new PrintStream(System.out, true, StandardCharsets.UTF_8);
 
     private Probes() {
     }
@@ -61,7 +76,7 @@ public final class Probes {
                 probes.add(item);
             }
             listing.put("probes", probes);
-            System.out.println(Json.write(listing));
+            OUT.println(Json.write(listing));
             return;
         }
 
@@ -71,7 +86,7 @@ public final class Probes {
             Map<String, Object> error = Json.object();
             error.put("error", "unknown probe: " + name);
             error.put("available", List.copyOf(REGISTRY.keySet()));
-            System.out.println(Json.write(error));
+            OUT.println(Json.write(error));
             System.exit(2);
             return;
         }
@@ -82,7 +97,7 @@ public final class Probes {
         result.put("graphComposeVersion", version());
         result.put("question", probe.question());
         result.putAll(probe.run());
-        System.out.println(Json.write(result));
+        OUT.println(Json.write(result));
     }
 
     /**
