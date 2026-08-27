@@ -16,12 +16,24 @@
  * ten to twenty shell calls spent establishing facts.
  *
  * Exit codes: 0 ready, 3 the pinned GraphCompose line has no pack (stop), 4
- * not a GraphCompose project, 2 usage. The version codes match
- * resolve-version.mjs so a caller can branch the same way on either.
+ * not a GraphCompose project, 5 the installed skills are newer than these tools,
+ * 2 usage. The version codes match resolve-version.mjs so a caller can branch
+ * the same way on either.
+ *
+ * ## Why 5 exists
+ *
+ * A run once spent seven hours before noticing that its skills had loaded from
+ * an installed pack while its `scripts/` came from an older checkout. Everything
+ * the newer skills told it to run — `layout.mjs`, `evidence.mjs`,
+ * `typography.mjs` — was simply absent, so the loop measured pixels by hand for
+ * the entire session and reached the right answer the expensive way. Nothing was
+ * broken enough to fail; that is precisely what made it costly. `capabilities`
+ * turns that into one line at the start.
  */
 
 import fs from "node:fs";
 import path from "node:path";
+import { homedir } from "node:os";
 import { spawnSync } from "node:child_process";
 
 import {
@@ -38,7 +50,7 @@ import {
 } from "./lib/pipeline-config.mjs";
 
 const repoRoot = installRoot();
-const EXIT = { ready: 0, usage: 2, unsupported: 3, unknown: 4 };
+const EXIT = { ready: 0, usage: 2, unsupported: 3, unknown: 4, mismatch: 5 };
 
 function usage(code = 0) {
   process.stdout.write(
@@ -47,7 +59,9 @@ function usage(code = 0) {
       "  --project <id>        a project in the workspace, when one exists\n" +
       "  --root <workspace>    workspace override\n" +
       "  --json                machine-readable (default)\n" +
-      "  --text                a short human summary instead\n",
+      "  --text                a short human summary instead\n\n" +
+      "exit: 0 ready | 2 usage | 3 no pack for the pinned line | 4 not a GraphCompose project\n" +
+      "      5 installed skills are newer than these tools (diagnostics will be missing)\n",
   );
   process.exit(code);
 }
@@ -76,11 +90,50 @@ const BUILT_TOOLS = Object.freeze(["revisionManager", "visualDiff", "previewRend
 /** The three that have to already be on the machine; no setup step installs them. */
 const EXTERNAL_TOOLS = Object.freeze(["imagemagick", "java", "maven"]);
 
+/**
+ * The measurement and evidence half of the loop. A tree can be a perfectly good
+ * GraphCompose harness and still carry none of these: they arrived over several
+ * releases, and an older install has the workflow skills without the tools the
+ * newer skills tell it to run. That gap is invisible at the point it matters —
+ * the agent reads "run `layout.mjs explain`", finds no such file, and falls back
+ * to measuring pixels by hand for the rest of the run.
+ */
+const DIAGNOSTIC_SCRIPTS = Object.freeze([
+  "layout.mjs",
+  "evidence.mjs",
+  "typography.mjs",
+  "reference.mjs",
+  "probe.mjs",
+]);
+
+/** The gates. Same reasoning as above, and the same failure when one is absent. */
+const CHECK_SCRIPTS = Object.freeze([
+  "check-border-topology.mjs",
+  "check-document-integrity.mjs",
+  "check-knowledge-drift.mjs",
+  "check-links.mjs",
+  "check-region-primitives.mjs",
+  "check-structural-smells.mjs",
+]);
+
+/**
+ * Where an installed skill pack lands. The skills a session loads come from here,
+ * not from the tree whose `scripts/` it then invokes — which is exactly how the
+ * two drift apart without anything noticing.
+ */
+const PLUGIN_CACHE = path.join(
+  process.env.CLAUDE_CONFIG_DIR ?? path.join(homedir(), ".claude"),
+  "plugins", "cache", "graphcompose", "graphcompose-flow",
+);
+
 const project = describeProject();
 const routing = describeRouting(project);
 // Read once: the report publishes it and `nextCommands` branches on it, and a
 // second probe would let the two disagree about the same machine.
 const tools = describeTools();
+// After tools: snapshot support depends on whether preview-renderer is built,
+// and asking twice would let the two answers disagree about the same machine.
+const capabilities = describeCapabilities(version, tools);
 
 const report = {
   workspace: {
@@ -105,6 +158,7 @@ const report = {
   skills: describeSkills(version.line, project?.docKind ?? null),
   knowledge: describeKnowledge(version.line),
   tools,
+  capabilities,
   nextCommands: nextCommands(project, routing, tools),
 };
 
@@ -114,7 +168,12 @@ if (args.text) {
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 }
 
-process.exit(EXIT[version.status] ?? EXIT.ready);
+// A version problem outranks a parity problem: an unsupported line is a reason to
+// stop regardless of which release the skills came from, and reporting the
+// narrower fault would send the reader after the wrong thing.
+const versionExit = EXIT[version.status] ?? EXIT.ready;
+if (versionExit !== EXIT.ready) process.exit(versionExit);
+process.exit(capabilities.parity === "tools-behind" ? EXIT.mismatch : EXIT.ready);
 
 // ------------------------------------------------------------------ project ---
 
@@ -359,6 +418,151 @@ function describeTools() {
   };
 }
 
+// ------------------------------------------------------------- capabilities ---
+
+/**
+ * Which half of the loop this install can actually perform, and whether the
+ * skills driving it came from the same release as the tools they name.
+ *
+ * ## Why the parity check is one-sided
+ *
+ * Skills load from the plugin cache; `scripts/` runs from whichever tree the
+ * command line points at. Nothing forces those to be the same release, and the
+ * two directions are not symmetrical:
+ *
+ * - **tools behind the pack** is the dangerous one. The skill says "run
+ *   `layout.mjs explain`" because its release shipped that file; the tree does
+ *   not have it. Every diagnostic route silently degrades to hand measurement,
+ *   and the run only finds out by not finding out. This fails.
+ * - **tools ahead of the pack** is the ordinary development case — working in a
+ *   checkout newer than anything installed. Informational.
+ *
+ * A missing cache is not a mismatch either: plenty of runs have no plugin
+ * installed at all. Unknown is reported as unknown, never as a failure.
+ *
+ * @returns {object} versions, parity verdict, and per-file presence
+ */
+function describeCapabilities(versionInfo, toolsInfo) {
+  const has = (relative) => fs.existsSync(path.join(repoRoot, "scripts", relative));
+  const diagnostics = Object.fromEntries(DIAGNOSTIC_SCRIPTS.map((f) => [f, has(f)]));
+  const checks = Object.fromEntries(CHECK_SCRIPTS.map((f) => [f, has(f)]));
+  const missing = [
+    ...DIAGNOSTIC_SCRIPTS.filter((f) => !diagnostics[f]),
+    ...CHECK_SCRIPTS.filter((f) => !checks[f]),
+  ];
+
+  const treeVersion = readVersion(path.join(repoRoot, "package.json"));
+  const packVersion = readVersion(path.join(repoRoot, ".claude-plugin", "plugin.json"));
+  const installedPacks = listInstalledPacks();
+  const newestPack = installedPacks.length > 0 ? installedPacks[installedPacks.length - 1] : null;
+
+  let parity = "unknown";
+  if (newestPack && treeVersion) {
+    const delta = compareSemver(treeVersion, newestPack);
+    if (delta === 0) parity = "matched";
+    else if (delta < 0) parity = "tools-behind";
+    else parity = "tools-ahead";
+  } else if (treeVersion && installedPacks.length === 0) {
+    // No pack installed: the skills came from this tree, so they cannot disagree
+    // with it. That is a matched pair by construction, not a missing answer.
+    parity = "matched";
+  }
+
+  return {
+    treeVersion,
+    packVersion,
+    // The newest few, not all of them. A long-lived machine accumulates dozens of
+    // cached packs and the whole list answers nothing the newest does not — this
+    // report is read into a context window, and its size is part of its cost.
+    installedPacks: installedPacks.slice(-5),
+    installedPackCount: installedPacks.length,
+    newestInstalledPack: newestPack,
+    parity,
+    // Only the failing direction carries advice; the rest is reported flat.
+    parityMessage:
+      parity === "tools-behind"
+        ? `skills install at ${newestPack} but these tools are ${treeVersion} — ` +
+          `the newer skills name files this tree does not have` +
+          (missing.length > 0 ? `: ${missing.join(", ")}` : "")
+        : null,
+    diagnostics,
+    checks,
+    missing,
+    layoutSnapshot: describeSnapshotSupport(versionInfo, toolsInfo),
+  };
+}
+
+/**
+ * Whether a render here will write `layout-snapshot.json`, which is what every
+ * `layout.mjs` subcommand reads.
+ *
+ * Three states, because two would lie. The renderer resolves
+ * `DocumentSession.layoutSnapshot()` reflectively and writes
+ * `layoutSnapshot=skipped (...)` when it is absent, so the honest answer before
+ * a render has happened is a prediction, not a fact — and it is wrong to report
+ * "unavailable" when the truth is "nothing has been rendered yet".
+ */
+function describeSnapshotSupport(versionInfo, toolsInfo) {
+  const writer = path.join(
+    repoRoot, "tools", "preview-renderer", "src", "main", "java",
+    "com", "demcha", "graphcompose", "preview", "LayoutSnapshotWriter.java",
+  );
+  if (!fs.existsSync(writer)) {
+    return { state: "unavailable", why: "this preview-renderer has no LayoutSnapshotWriter" };
+  }
+  if (!toolsInfo?.previewRenderer) {
+    return { state: "unknown", why: "preview-renderer is not built yet; run npm run setup" };
+  }
+  if (versionInfo?.status !== "supported") {
+    return { state: "unknown", why: `GraphCompose version is ${versionInfo?.status ?? "unresolved"}` };
+  }
+  // Verified by javap across the 2.2 line: 2.2.1-SNAPSHOT, 2.2.1 and 2.2.2 all
+  // expose the no-arg layoutSnapshot(). 2.2.2 adds the options overload that
+  // carries the typography envelope; the plain snapshot does not need it.
+  return {
+    state: "available",
+    why: `GraphCompose ${versionInfo.version} exposes layoutSnapshot()`,
+    typographyEnvelope: compareSemver(versionInfo.version ?? "0.0.0", "2.2.2") >= 0 ? "available" : "unknown",
+  };
+}
+
+/** Cache directory names are versions. Sorted oldest to newest; unreadable is empty. */
+function listInstalledPacks() {
+  try {
+    return fs
+      .readdirSync(PLUGIN_CACHE, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && /^\d+\.\d+\.\d+/.test(e.name))
+      .map((e) => e.name)
+      .sort(compareSemver);
+  } catch {
+    return [];
+  }
+}
+
+function readVersion(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8")).version ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Compare two versions on the numeric triple alone.
+ *
+ * A prerelease suffix is deliberately ignored: `0.13.0` and `0.13.0-rc.1` are the
+ * same release for the purpose of "do the skills and the tools agree", and
+ * treating the rc as older would fail a pair that is in fact matched.
+ */
+function compareSemver(a, b) {
+  const parse = (v) => String(v).split("-")[0].split(".").map((n) => Number.parseInt(n, 10) || 0);
+  const [x, y] = [parse(a), parse(b)];
+  for (let i = 0; i < 3; i += 1) {
+    if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) < (y[i] ?? 0) ? -1 : 1;
+  }
+  return 0;
+}
+
 function onPath(command, probeArgs) {
   try {
     const run = spawnSync(command, probeArgs, {
@@ -439,5 +643,13 @@ function printText(r) {
   if (r.tools.absent.length > 0) {
     lines.push(`Not on PATH: ${r.tools.absent.join(", ")} — no setup step installs these`);
   }
+  // The gap this exists to make loud. Said before the next-commands list, because
+  // a missing diagnostic changes which of those commands is worth running.
+  if (r.capabilities.parityMessage) {
+    lines.push(`Version mismatch: ${r.capabilities.parityMessage}`);
+  } else if (r.capabilities.missing.length > 0) {
+    lines.push(`Not in this tree: ${r.capabilities.missing.join(", ")}`);
+  }
+  lines.push(`Layout snapshot: ${r.capabilities.layoutSnapshot.state} — ${r.capabilities.layoutSnapshot.why}`);
   process.stdout.write(`${lines.join("\n")}\n`);
 }
