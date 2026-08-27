@@ -191,12 +191,20 @@ if (args.command === "measure") {
   result = {
     project: args.project,
     region: args.region ?? "the whole page",
-    units: "page fractions, and reference pixels alongside",
+    units: "page fractions, with atPixels in REFERENCE pixels on both sides",
     reference: describeRules(referenceRules, reference),
   };
   if (args.revision) {
     const render = read(renderPath());
-    result.render = describeRules(extractRules(render, bounds), render);
+    // The render's own raster is a different size, so its rule positions are
+    // pixels in a different coordinate space. Reported raw they sit beside the
+    // reference's looking comparable and are not — 306 against 360 for the same
+    // rule. `atPixels` is converted to REFERENCE pixels; `at` stays a page
+    // fraction, which was already comparable.
+    result.render = describeRules(
+      extractRules(render, bounds), render, reference.height / render.height,
+    );
+    result.scale = round(render.width / reference.width, 6);
   }
 } else if (args.command === "bands") {
   result = {
@@ -297,11 +305,11 @@ function pixelBounds(bounds, png) {
  * rasters of different sizes and useless for saying "the divider is at y 227".
  * Both are cheap; printing only one guarantees somebody converts by hand.
  */
-function describeRules(extracted, png) {
+function describeRules(extracted, png, toReference = 1) {
   const inPixels = (runs, span) =>
     runs.map((run) => ({
       at: round(run.at, 4),
-      atPixels: Math.round(run.at * span),
+      atPixels: Math.round(run.at * span * toReference),
       thickness: run.thickness,
       extent: round(run.extent, 4),
     }));
@@ -336,9 +344,21 @@ function printText(payload) {
     }
   }
   if (payload.reference?.horizontal) {
+    // Both sides when both were read. Printing only the reference while the
+    // payload carries a render too reads as "the render was not measured",
+    // which is the wrong conclusion to hand someone comparing two documents.
+    const at = (rules) => rules.map((r) => r.atPixels).join(", ") || "none";
     lines.push(`rules in ${payload.region}:`);
-    lines.push(`  horizontal ${payload.reference.horizontal.map((r) => r.atPixels).join(", ") || "none"}`);
-    lines.push(`  vertical   ${payload.reference.vertical.map((r) => r.atPixels).join(", ") || "none"}`);
+    lines.push(`  reference  horizontal ${at(payload.reference.horizontal)}`);
+    lines.push(`             vertical   ${at(payload.reference.vertical)}`);
+    if (payload.render?.horizontal) {
+      lines.push(`  render     horizontal ${at(payload.render.horizontal)}`);
+      lines.push(`             vertical   ${at(payload.render.vertical)}`);
+      lines.push(
+        `  counts     ${payload.reference.horizontal.length} vs ${payload.render.horizontal.length} horizontal, `
+          + `${payload.reference.vertical.length} vs ${payload.render.vertical.length} vertical`,
+      );
+    }
   }
   for (const window of payload.windows ?? []) {
     lines.push(`=== ${window.name}  (x ${window.window.x0}-${window.window.x1})`);

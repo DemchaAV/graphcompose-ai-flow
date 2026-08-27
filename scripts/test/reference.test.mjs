@@ -238,3 +238,30 @@ test("--help exits clean and names every subcommand", () => {
     assert.match(result.stdout, new RegExp(`\\b${command}\\b`));
   }
 });
+
+test("rules reports both sides in ONE coordinate space", () => {
+  // The bug this catches shipped once and was caught by reading the output: the
+  // render's rule positions were pixels in its OWN raster, printed in a column
+  // beside the reference's, looking comparable and differing by the scale — 306
+  // against 360 for the same rule. A number that means a different thing than
+  // the number beside it is the failure this whole module exists to prevent.
+  const { root } = scenario("ruleunits");
+  const { parsed } = run(["rules", "--project", "demo", "--revision", "revision-001", "--json"], root);
+
+  assert.equal(parsed.scale, 1.5, "the render is 1.5x the reference");
+  assert.equal(
+    parsed.reference.horizontal.length,
+    parsed.render.horizontal.length,
+    "the fixture draws the same bands on both sides",
+  );
+  for (const [i, referenceRule] of parsed.reference.horizontal.entries()) {
+    const renderRule = parsed.render.horizontal[i];
+    // Reference pixels on both sides: the same band must land at the same
+    // number, not at that number times the scale.
+    assert.ok(
+      Math.abs(renderRule.atPixels - referenceRule.atPixels) <= 1,
+      `rule ${i}: reference ${referenceRule.atPixels} vs render ${renderRule.atPixels} — `
+        + "the render side is still in its own pixels",
+    );
+  }
+});

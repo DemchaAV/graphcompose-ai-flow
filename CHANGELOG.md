@@ -5,6 +5,95 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.14.0 — in progress
+
+**The diagnostics existed and `create` never mentioned them.** A forensic audit
+of one `graphcompose-flow:create` run established where its 77.6 minutes went,
+and the answer was not what anyone had guessed. Tool execution across the whole
+seven-hour session was **14 minutes 46 seconds**; the model was 85.8% of the
+wall clock. The single largest line item was **76 ad-hoc pixel-measurement
+scripts costing 27.2 minutes of model time — 35% of the run** — to produce 4.7
+minutes of computation, while the rendering that felt expensive cost 0.6
+minutes. Retrieval was not the problem: knowledge reads totalled ~64 KB across
+seven hours, and the `/context` warning about 1.4M "Read tokens" was an
+estimate of image payloads that actually cost 20–25k.
+
+The cause was routing, not tooling. `create-template/SKILL.md` named zero
+diagnostics and zero of the six `check-*.mjs` that ship with it.
+
+### Public API
+
+- **`scripts/reference.mjs`** — new. `measure`, `rules`, `bands`, `colors`,
+  `compare`, each with `--json`. `--window` is `name,x0,x1,y0,y1` and is
+  **repeatable**: one window per call would reproduce the 76-script failure with
+  better syntax. `compare` returns both sides in **reference pixels** whatever
+  the render's raster is, plus the scale, the aspect drift, and an explicit
+  `bandCountMatches`. `rules` reports both sides in one coordinate space.
+- **`scripts/lib/reference-metrics.mjs`** — new. `pageMetrics`, `inkBounds`,
+  `inkBands`, `samplePalette`, `comparableBands`. Takes decoded PNGs and returns
+  plain data, matching `border-topology.mjs`'s contract.
+- **`scripts/lib/border-topology.mjs`** — `isDark` is now exported. It defines
+  what ink is, and two definitions drift.
+- **`scripts/preflight.mjs`** — new `capabilities` block: per-file presence for
+  the five diagnostics and all six `check-*.mjs`, skill-pack parity, and a
+  three-state `layoutSnapshot`. **New exit code 5** when the installed skills are
+  newer than the tools — the audited run hit that split and inferred it seven
+  hours later from behaviour.
+- **`scripts/observations.mjs`** — `show` now exits **5** on a record that cannot
+  be trusted here (retired, or from another GraphCompose line), naming the probe
+  that would settle it. A same-line version difference does not gate. `equal()`
+  can now compare objects; it fell through to `===` and reported two identical
+  grouped measurements as a change.
+- **`probe.mjs line-spacing`** — new. `anchor-alignment` now answers both axes.
+  Probe output is written through an explicit UTF-8 stream; it went through
+  `System.out` and any non-ASCII character in a finding reached the caller
+  corrupted.
+
+### Documentation
+
+- **`create-template/SKILL.md`** gains `## After the first render — diagnose
+  before you measure`, routing four ways: capabilities, `layout.mjs` when the
+  snapshot is there, `reference.mjs compare` when it is not, `typography.mjs`
+  for a font. The run's only user-visible regression is stated as a rule — *a
+  delta does not say which element owns it, and `explain` does*.
+- **`## Reporting back`** now opens the live preview after the first successful
+  render instead of printing its path at the end. Once per project, not per
+  render.
+- **`revise-template/SKILL.md`** is pointed at the same routing rather than
+  given a copy.
+
+### Knowledge
+
+- **A retirement is withdrawn.** `row-cannot-nest-in-row-cell` was retired on
+  the strength of `horizontalInLayerStack` flipping between 2.2.0 and 2.2.1.
+  That is a real change describing a different placement; `builtInRowCell`, the
+  field this record is about, was false then and is false now. Confirmed at
+  2.2.1 with fresh probe output.
+- **Two new observations**, both probe-backed:
+  `shape-container-clamps-over-wide-child` (an over-wide child is left-clamped,
+  landing half its overflow to the right) and
+  `line-spacing-is-additive-between-lines` (1.0 pt per gap per unit at both type
+  sizes; a single-line paragraph has no gap and ignores it).
+
+### Tests
+
+- **761 → 802**, measured against a baseline captured before the first change.
+  New: `reference.test.mjs` (13), `reference-metrics.test.mjs` (12), plus 8 in
+  `preflight.test.mjs` and 8 in `observations.test.mjs`.
+- `reference-metrics` synthesises its rasters rather than committing fixtures,
+  so every expected value is known by construction.
+
+### Not yet proven
+
+**No full `create` run has been made with any of this in place.** What is
+verified is that each tool answers the question it was built for, end to end on
+a rendered example: capability in one call, coordinate ownership from the
+engine's own additive chain, a four-window reference/render comparison in one
+call, and rule topology on both sides in one coordinate space. Whether that
+makes a real create run cheaper is the claim `docs/benchmarks.md` exists to
+test, and it cannot be tested until a project is authored this way. The 27.2
+minutes is a measurement of the old loop, not a promise about the new one.
+
 ## v0.13.0 — 2026-08-27
 
 **The diagnostics are not proven to have helped, and `docs/benchmarks.md` now
