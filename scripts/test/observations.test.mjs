@@ -382,3 +382,26 @@ test("--version judges against the line the caller names", () => {
   assert.equal(run(["show", subject.body.id, "--version", "2.2"]).status, 0);
   assert.equal(run(["show", subject.body.id, "--version", "2.1"]).status, 5);
 });
+
+test("a probe result grouped into an object still verifies", () => {
+  // `equal` special-cased numbers, strings and arrays and let everything else
+  // fall through to `===`, which compares object references. A probe reporting a
+  // grouped measurement — {atSize10: 1.0, atSize20: 1.0} — was recorded
+  // faithfully and then reported as a change on every single run, printing two
+  // identical objects side by side as though they differed. The array branch
+  // carries a comment about exactly this bug; objects had it too.
+  const grouped = records().filter(({ body }) =>
+    Object.values(body.probeResult ?? {}).some(
+      (v) => typeof v === "object" && v !== null && !Array.isArray(v),
+    ),
+  );
+  if (grouped.length === 0) return; // nothing on disk groups its measurements
+
+  const result = run(["verify"]);
+  for (const { body } of grouped) {
+    assert.ok(
+      !new RegExp(`FAIL ${body.id}`).test(result.output),
+      `${body.id} records a grouped measurement and could not verify:\n${result.output}`,
+    );
+  }
+});

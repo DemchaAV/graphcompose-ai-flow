@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "line-spacing-is-additive-between-lines",
+  "graphComposeVersion": "2.2.1",
+  "api": [
+    "ParagraphBuilder.lineSpacing",
+    "DocumentTextStyle.size"
+  ],
+  "observedBehaviour": "lineSpacing is an additive term in POINTS added between lines, not a CSS-style multiple of the type size, and a single-line paragraph ignores it completely. Measured at 2.2.1: one unit of lineSpacing adds 1.0 pt per gap at size 10 and 1.0 pt per gap at size 20 — the same either way, so the value does not scale with the type. A one-line paragraph's height is 12.0 pt at every lineSpacing tested (0, 2, 6, 12), because a paragraph with one line has no gap for the value to land in. Separately, the line height at zero spacing is 1.2x the type size (12.0 at size 10, 24.0 at size 20), so total height is lines * 1.2 * size + (lines - 1) * lineSpacing.",
+  "minimalReproduction": {
+    "probe": "line-spacing",
+    "command": "node scripts/probe.mjs line-spacing --version 2.2 --json",
+    "arrangement": "The same wrapping paragraph at sizes 10 and 20 on a 200 pt page, plus a one-word paragraph at each size, all rendered at lineSpacing 0, 2, 6 and 12; placementHeight read from the layout snapshot. The slope of height against lineSpacing is divided by the GAP count, not the line count, because the same text wraps to 2 lines at size 10 and 5 at size 20 — comparing raw paragraph slopes reads that extra line count as the value scaling with the type, which is the trap this arrangement exists to avoid."
+  },
+  "probeResult": {
+    "wrappedLineCount": { "atSize10": 2, "atSize20": 5 },
+    "lineHeightAtZeroSpacing": { "atSize10": 12.0, "atSize20": 24.0 },
+    "wrappedHeightPerUnitOfLineSpacing": { "atSize10": 1.0, "atSize20": 4.0 },
+    "pointsPerGapPerUnitOfLineSpacing": { "atSize10": 1.0, "atSize20": 1.0 },
+    "singleLineHeightPerUnitOfLineSpacing": 0.0,
+    "singleLineIgnoresLineSpacing": true,
+    "additiveInPoints": true
+  },
+  "workaround": "Treat lineSpacing as points between lines. To set a leading of L points at type size S, pass lineSpacing = L - 1.2 * S rather than a ratio. Do not use it to move a single-line heading — it will not move; use padding or margin there instead.",
+  "confidence": "confirmed",
+  "sourceRun": {
+    "project": "teal-clinical-cv",
+    "revision": "revision-001",
+    "date": "2026-08-27",
+    "note": "The run tuned vertical rhythm assuming the CSS model, found the numbers did not fit, and derived the behaviour from rendered pixels across several passes. It could not promote the finding because no probe existed; this record is that probe's answer."
+  },
+  "promotedTo": null
+}

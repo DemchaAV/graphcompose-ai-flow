@@ -495,7 +495,28 @@ function equal(expected, actual) {
     // difference worth seeing.
     return expected.length === actual.length && expected.every((item, i) => equal(item, actual[i]));
   }
+  if (isPlainObject(expected) && isPlainObject(actual)) {
+    // The same reference-comparison bug the array branch above exists to fix.
+    // A probe reporting a grouped measurement — `{atSize10: 1.0, atSize20: 1.0}`
+    // — recorded it faithfully and then failed verification for ever, printing
+    // two identical objects side by side as though they differed.
+    //
+    // Key ORDER is not a difference here, unlike an array's. These come back
+    // from Java maps through JSON, where the order is the serialiser's business
+    // and not a measurement; treating a reshuffle as a change would make the
+    // check fire on nothing.
+    const expectedKeys = Object.keys(expected).sort();
+    const actualKeys = Object.keys(actual).sort();
+    return expectedKeys.length === actualKeys.length
+      && expectedKeys.every((key, i) => key === actualKeys[i])
+      && expectedKeys.every((key) => equal(expected[key], actual[key]));
+  }
   return expected === actual;
+}
+
+/** An object literal, not an array and not null — the shape a JSON map arrives as. */
+function isPlainObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function renderForSkill(observation) {

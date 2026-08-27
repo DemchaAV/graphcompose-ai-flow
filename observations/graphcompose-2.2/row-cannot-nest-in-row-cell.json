@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "id": "row-cannot-nest-in-row-cell",
-  "graphComposeVersion": "2.2.0",
+  "graphComposeVersion": "2.2.1",
   "api": [
     "AbstractFlowBuilder.addRow",
     "AbstractFlowBuilder.addTimeline",
     "AbstractFlowBuilder.addLayerStack"
   ],
-  "observedBehaviour": "A horizontal row cannot be nested inside another row's cell; the layout compiler refuses with a message naming LayerStack as the alternative. But a row inside a LayerStack layer builds and does NOT lay out horizontally either, so that route does not rescue it. addTimeline is affected because it builds a row internally - which puts it out of reach in the main column of any two-column page.",
+  "observedBehaviour": "A horizontal row cannot be nested inside another row's cell; the layout compiler refuses with a message naming LayerStack as the alternative. Confirmed against 2.2.1, where builtInRowCell is still false. What did change between 2.2.0 and 2.2.1 is a different placement: a row inside a LayerStack layer now lays out horizontally, so that route does rescue the arrangement even though the row cell itself still refuses. addTimeline is affected because it builds a row.",
   "minimalReproduction": {
     "probe": "row-nesting",
     "command": "node scripts/probe.mjs row-nesting --version 2.2 --json",
@@ -15,12 +15,13 @@
   },
   "probeResult": {
     "horizontalInPlainFlow": true,
-    "horizontalInLayerStack": false,
+    "horizontalInLayerStack": true,
+    "horizontalInRowCell": null,
     "builtInRowCell": false,
     "error": "cannot contain a nested horizontal row"
   },
   "workaround": "Place horizontal pairs with anchors on a shape container. For a timeline rail, use an accent on the section holding the entries so its height derives from the entries rather than from a computed number.",
-  "confidence": "retired",
+  "confidence": "confirmed",
   "sourceRun": {
     "project": "navy-sidebar-cv",
     "revision": "revision-001",
@@ -28,5 +29,5 @@
     "note": "The first render stacked every inner row vertically."
   },
   "promotedTo": null,
-  "retiredNote": "Lifted in 2.2.1. Re-running `row-nesting` against 2.2.1 shows horizontalInLayerStack true where 2.2.0 measured false, so a horizontal arrangement inside a row cell now composes through a layer stack. The anchor-on-a-shape-container workaround above still works and is what a project pinned to 2.2.0 needs; on 2.2.1 it is a choice rather than the only route."
+  "retiredNote": "RETIREMENT WITHDRAWN 2026-08-27. This record was marked retired on the strength of `horizontalInLayerStack` flipping false -> true between 2.2.0 and 2.2.1. That is a real change, but it is a different claim: `horizontalInLayerStack` describes a row inside a LayerStack layer, while this observation is about a row inside a row *cell*, which the probe reports as `builtInRowCell`. That field was false in 2.2.0 and is false in 2.2.1. Re-running `row-nesting` against 2.2.1 shows the compiler still refusing. The genuine 2.2.1 improvement is recorded separately as `layered-row-survives-a-row-cell`. A create run pinned to 2.2.1-SNAPSHOT trusted the withdrawn retirement, authored nested rows, and paid an authoring pass plus a recovery edit."
 }
