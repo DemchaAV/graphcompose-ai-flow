@@ -162,6 +162,51 @@ test("READY_FOR_APPROVAL exits 0", () => {
   assert.match(parsed.loop.next, /report to the user/);
 });
 
+test("the pass classifies the worst regions, so nothing has to remember to ask", () => {
+  // `evidence.mjs` shipped a release before this and a create run invoked it
+  // zero times — 43 ImageMagick calls and 26 hand-written patch scripts did the
+  // work instead. The tool was not missing and the skill named it; nothing
+  // produced its output, so nothing read it. Now the pass does.
+  const s = scenario({ label: "evidence" });
+  writeJson(path.join(s.revision, "visual-analysis.json"), {
+    schemaVersion: 1,
+    page: { pageCount: 1, sizePt: { width: 595.276, height: 841.89 } },
+    regions: [
+      { id: "header", label: "Masthead", page: 1, role: "band", bounds: { x: 0, y: 0, w: 1, h: 0.2 } },
+      { id: "body", label: "Body", page: 1, role: "content", bounds: { x: 0, y: 0.2, w: 1, h: 0.6 } },
+    ],
+  });
+  // A render that differs from the reference everywhere, so both regions carry
+  // a measured difference to rank.
+  writePng(path.join(s.revision, "output.png"), 124, 175, 60);
+
+  const { parsed } = runCli(s.root, ["--json"]);
+
+  assert.ok(parsed.evidence, "the pass produced no evidence block");
+  assert.ok(parsed.evidence.packages.length > 0, "no region was classified");
+  for (const pkg of parsed.evidence.packages) {
+    assert.ok(pkg.region, "a package with no region");
+    assert.ok(pkg.cause, `${pkg.region}: classified as nothing at all`);
+  }
+
+  // And on disk, where a later pass and the review can read it.
+  const onDisk = JSON.parse(fs.readFileSync(path.join(s.revision, "evidence.json"), "utf8"));
+  assert.ok(Array.isArray(onDisk), "evidence.json is not an array");
+  assert.equal(onDisk.length, parsed.evidence.packages.length);
+});
+
+test("a pass with no regions to measure still completes, and says why", () => {
+  // Evidence is a view of a comparison that already succeeded. A missing view
+  // is not a reason to fail the pass.
+  const s = scenario({ label: "no-regions" });
+  const { parsed } = runCli(s.root, ["--json"]);
+
+  const step = parsed.steps.find((entry) => entry.name === "evidence");
+  assert.ok(step, "the evidence step did not run");
+  assert.equal(step.ok, true);
+  assert.match(step.detail, /no measured regions/);
+});
+
 test("--against parent uses the parent's render and never resamples it", () => {
   const s = scenario({ withParent: true, label: "parent" });
   const { status, parsed } = runCli(s.root, ["--against", "parent", "--json"]);

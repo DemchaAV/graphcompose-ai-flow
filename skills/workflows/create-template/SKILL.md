@@ -570,6 +570,35 @@ its wall clock — composing 76 one-off measurement scripts**, and the
 rendering it was so careful about cost under a minute. Ask the engine
 first; it already measured everything.
 
+**The pass has already done the first half for you.** `render-and-diff`
+classifies the three regions carrying the most concentrated difference and
+writes `evidence.json` into the revision; the same causes are on the
+`evidence` step's line in its output. Read that before deciding what to
+change. A later run than the one above still measured its way to "the box
+is in the right place, so this is the typeface" by hand, over an hour,
+with the tool that says it sitting unused in the same install.
+
+A cause is not advice, it is a **restriction on the fix**:
+
+| cause | what may change |
+|---|---|
+| `PAGINATION` | nothing else, until the page count matches — every other comparison is invalid while it does not |
+| `GEOMETRY` | the layout property on the **named owner**. `layout.mjs explain` says which one |
+| `TYPOGRAPHY` · `PAINT` · `ASSET` | the face, the colour, the file. **Not** margins, not padding, not size-to-compensate |
+| `UNKNOWN` | nothing yet — the package names the candidates, and one measurement separates them |
+
+The package's `prohibition` field is there for the third row and says it
+outright: compensating a wrong asset with margins moves the wrong picture
+into place. A geometry edit against a typography cause is how a template
+ends up carrying today's font metrics as constants.
+
+```bash
+node scripts/evidence.mjs --project <id> --revision <id> --region <region-id>
+```
+
+— for a region the pass did not rank, or after a review names a mismatch
+the ranking missed.
+
 What this install can answer is in the preflight payload, under
 `capabilities`:
 

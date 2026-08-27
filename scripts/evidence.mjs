@@ -42,6 +42,9 @@ function usage(code = 0) {
       "  --region <id>      build the package for this region of visual-analysis.json\n" +
       "  --mismatch <id>    build it for the region this mismatch names\n" +
       "  --all              one package per mismatch in visual-review.json\n" +
+      "  --worst <n>        the n regions carrying the most measured difference, no review\n" +
+      "                     needed — this is what a loop pass can ask before one exists\n" +
+      "  --out <file>       also write the JSON there\n" +
       "  --root <dir>       workspace override (default: discovered)\n" +
       "  --json             machine-readable output\n\n" +
       "exit: 0 built | 1 unreadable inputs | 2 usage | 3 no such region or mismatch\n",
@@ -55,7 +58,17 @@ function fail(code, message) {
 }
 
 function parseArgs(argv) {
-  const out = { project: null, revision: null, region: null, mismatch: null, all: false, root: null, json: false };
+  const out = {
+    project: null,
+    revision: null,
+    region: null,
+    mismatch: null,
+    all: false,
+    worst: 0,
+    out: null,
+    root: null,
+    json: false,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--help" || a === "-h") usage(0);
@@ -65,6 +78,8 @@ function parseArgs(argv) {
     else if (a === "--revision" || a === "-r") out.revision = argv[++i];
     else if (a === "--region") out.region = argv[++i];
     else if (a === "--mismatch") out.mismatch = argv[++i];
+    else if (a === "--worst") out.worst = Number.parseInt(argv[++i], 10) || 0;
+    else if (a === "--out") out.out = argv[++i];
     else if (a === "--root") out.root = argv[++i];
     else {
       process.stderr.write(`[evidence] unknown argument: ${a}\n`);
@@ -75,8 +90,8 @@ function parseArgs(argv) {
     process.stderr.write("[evidence] --project and --revision are both required\n");
     usage(2);
   }
-  if (!out.region && !out.mismatch && !out.all) {
-    process.stderr.write("[evidence] name a --region, a --mismatch, or pass --all\n");
+  if (!out.region && !out.mismatch && !out.all && !out.worst) {
+    process.stderr.write("[evidence] name a --region, a --mismatch, or pass --all / --worst <n>\n");
     usage(2);
   }
   return out;
@@ -209,7 +224,33 @@ function main() {
 
   /** Region id + the mismatch that named it, for each thing asked for. */
   const targets = [];
-  if (args.all) {
+  if (args.worst) {
+    // The ranking a loop pass can ask for before a review exists. `--all`
+    // needs mismatches, and mismatches are written by the review — which is
+    // the step that was supposed to consult this and did not, because by the
+    // time it could, it had already decided what it was looking at.
+    //
+    // `region-diff` already ranks, and its ranking is the one to use: raw
+    // pixels put the page-background region first every time, because it
+    // covers the page and therefore carries 100% of the difference. What
+    // matters is concentration — a region well above its share of the page.
+    const ranked = Array.isArray(stats?.ranked) && stats.ranked.length
+      ? stats.ranked
+      : (Array.isArray(stats?.regions) ? [...stats.regions] : [])
+          .filter((r) => (r.mismatchPx ?? 0) > 0)
+          .sort((a, b) => (b.concentration ?? 0) - (a.concentration ?? 0))
+          .map((r) => r.id);
+    for (const id of ranked) {
+      const region = regions.find((r) => r.id === id);
+      if (!region) continue;
+      const mismatch = (review?.mismatches ?? []).find((m) => m.region === region.id) ?? null;
+      targets.push({ region, mismatch });
+      if (targets.length >= args.worst) break;
+    }
+    if (targets.length === 0) {
+      fail(3, "no measured region difference to rank — run render-and-diff first");
+    }
+  } else if (args.all) {
     for (const mismatch of review?.mismatches ?? []) {
       const region = regions.find((r) => r.id === mismatch.region);
       if (region) targets.push({ region, mismatch });
@@ -240,6 +281,13 @@ function main() {
       crops: (mismatch?.evidence ?? []).slice(0, 2),
     }),
   );
+
+  if (args.out) {
+    // Written as an array whatever the count: a caller reading the file should
+    // not have to branch on how many regions happened to be asked for.
+    fs.mkdirSync(path.dirname(args.out), { recursive: true });
+    fs.writeFileSync(args.out, `${JSON.stringify(packages, null, 2)}\n`, "utf8");
+  }
 
   if (args.json) {
     process.stdout.write(`${JSON.stringify(packages.length === 1 ? packages[0] : packages, null, 2)}\n`);

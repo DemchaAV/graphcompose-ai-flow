@@ -56,6 +56,30 @@ run. Both were readable throughout. Nothing put them in a row.
   This is where a version stops being a string and becomes the code that gets
   compiled, so it is the last place the disagreement is cheap.
 
+### The loop
+
+- **`scripts/render-and-diff.mjs`** — new `evidence` step. Every pass now
+  classifies the three regions carrying the most *concentrated* difference and
+  writes `evidence.json` into the revision; the causes are on the step's line in
+  the pass output. `evidence.mjs` shipped in v0.14.0 to answer exactly this
+  question and the create run afterwards invoked it **zero times** — 43 raw
+  ImageMagick calls, 26 hand-written patch scripts and 21 typography
+  measurements did the work instead, arriving at "the box is in the right place,
+  so this is the typeface" by hand, over an hour. The tool was not missing and
+  the skill named it. Nothing produced its output, so nothing read it. It is
+  evidence and never a gate: a classification that cannot be built is a missing
+  view of a comparison that already succeeded.
+- **`scripts/evidence.mjs`** — new `--worst <n>`, which ranks by the measured
+  region difference and needs no review to exist yet; that ordering was the
+  reason a loop pass could not ask. Ranking comes from `region-diff`'s own
+  concentration order, because raw pixels put the page-background region first
+  every time. New `--out <file>`.
+- **`create-template/SKILL.md`** — the cause is now a restriction on the fix,
+  in a table: `PAGINATION` blocks everything else, `GEOMETRY` allows a property
+  on the named owner, `TYPOGRAPHY`/`PAINT`/`ASSET` allow the face, the colour or
+  the file and **not** compensating margins, `UNKNOWN` allows nothing until one
+  measurement separates the candidates.
+
 ### Probes
 
 - **`scripts/probe.mjs`** — new `--build <x.y.z>`, `--pinned` and `--root`. A

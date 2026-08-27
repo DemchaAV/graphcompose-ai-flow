@@ -89,6 +89,13 @@ function parseArgs(argv) {
   return out;
 }
 
+/**
+ * How many regions the pass classifies. Three, because the ranking is by
+ * concentration and the tail is where even wear lives: a fourth package costs
+ * context to say "this region differs about as much as the page does".
+ */
+const EVIDENCE_REGIONS = 3;
+
 const args = parseArgs(process.argv.slice(2));
 const workspace = resolveWorkspace({ explicitRoot: args.root ?? null });
 const banner = describeWorkspaceLine(workspace);
@@ -537,6 +544,69 @@ step("regions", (entry) => {
       `${worst.concentration.toFixed(2)}x its share of the page ` +
       `(${worst.mismatchPx} px, ${worst.percent.toFixed(2)}% of the region)`
     : `${regions.regions.length} regions measured — none carries a difference`;
+});
+
+step("evidence", (entry) => {
+  // What KIND of defect the worst regions are, produced as part of the pass
+  // rather than left for someone to remember to ask.
+  //
+  // `evidence.mjs` shipped a release ago to answer exactly this, and a create
+  // run afterwards invoked it zero times: 43 raw ImageMagick calls, 26
+  // hand-written patch scripts and 21 typography measurements did the work
+  // instead, arriving at "the box is in the right place, so this is the
+  // typeface" by hand, over an hour. The tool was not missing and the skill
+  // named it. Nothing produced it, so nothing read it.
+  //
+  // Evidence, never a gate: a classification that cannot be built is a missing
+  // view of a comparison that already succeeded.
+  if (!result.regions) {
+    entry.detail = "no measured regions to classify";
+    return;
+  }
+  // A render that matches is not a classification failure, and reporting it as
+  // one would teach a reader to skim this line.
+  if ((result.regions.ranked ?? []).length === 0) {
+    entry.detail = "no region carries a difference";
+    return;
+  }
+
+  const built = run(path.join(repoRoot, "scripts", "evidence.mjs"), [
+    "--project", args.project,
+    "--revision", args.revision,
+    "--root", workspace.root,
+    "--worst", String(EVIDENCE_REGIONS),
+    "--out", path.join(revisionDir, "evidence.json"),
+    "--json",
+  ]);
+  if (built.status !== 0) {
+    entry.detail = `not classified: ${(built.output || "").trim().split("\n")[0] || "failed"}`;
+    return;
+  }
+
+  let packages;
+  try {
+    packages = JSON.parse(built.stdout);
+  } catch {
+    entry.detail = "not classified: evidence produced no JSON";
+    return;
+  }
+  const list = Array.isArray(packages) ? packages : [packages];
+
+  result.evidence = {
+    file: "evidence.json",
+    packages: list.map((pkg) => ({
+      region: pkg.region?.id ?? null,
+      cause: pkg.cause ?? null,
+      candidates: pkg.causeCandidates ?? [],
+      owner: pkg.layout?.name ?? null,
+    })),
+  };
+
+  // The line that routes: a cause per region, in the pass output the loop
+  // already reads, before anything decides what to change.
+  entry.detail = list
+    .map((pkg) => `${pkg.region?.id ?? "?"}: ${pkg.cause ?? "?"}`)
+    .join(" · ");
 });
 
 step("links", (entry) => {
