@@ -5,7 +5,7 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
-## v0.15.0 — in progress
+## v0.15.0 — 2026-08-27
 
 **A version string is not a build.** A `create` run pinned `2.2.1-SNAPSHOT`,
 compiled and measured the engine against whatever jar carried that name, found
