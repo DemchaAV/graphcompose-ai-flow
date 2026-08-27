@@ -13,10 +13,22 @@
     "arrangement": "The same wrapping paragraph at sizes 10 and 20 on a 200 pt page, plus a one-word paragraph at each size, all rendered at lineSpacing 0, 2, 6 and 12; placementHeight read from the layout snapshot. The slope of height against lineSpacing is divided by the GAP count, not the line count, because the same text wraps to 2 lines at size 10 and 5 at size 20 — comparing raw paragraph slopes reads that extra line count as the value scaling with the type, which is the trap this arrangement exists to avoid."
   },
   "probeResult": {
-    "wrappedLineCount": { "atSize10": 2, "atSize20": 5 },
-    "lineHeightAtZeroSpacing": { "atSize10": 12.0, "atSize20": 24.0 },
-    "wrappedHeightPerUnitOfLineSpacing": { "atSize10": 1.0, "atSize20": 4.0 },
-    "pointsPerGapPerUnitOfLineSpacing": { "atSize10": 1.0, "atSize20": 1.0 },
+    "wrappedLineCount": {
+      "atSize10": 2,
+      "atSize20": 5
+    },
+    "lineHeightAtZeroSpacing": {
+      "atSize10": 12.0,
+      "atSize20": 24.0
+    },
+    "wrappedHeightPerUnitOfLineSpacing": {
+      "atSize10": 1.0,
+      "atSize20": 4.0
+    },
+    "pointsPerGapPerUnitOfLineSpacing": {
+      "atSize10": 1.0,
+      "atSize20": 1.0
+    },
     "singleLineHeightPerUnitOfLineSpacing": 0.0,
     "singleLineIgnoresLineSpacing": true,
     "additiveInPoints": true
@@ -29,5 +41,12 @@
     "date": "2026-08-27",
     "note": "The run tuned vertical rhythm assuming the CSS model, found the numbers did not fit, and derived the behaviour from rendered pixels across several passes. It could not promote the finding because no probe existed; this record is that probe's answer."
   },
-  "promotedTo": null
+  "promotedTo": null,
+  "verifiedAgainst": [
+    {
+      "version": "2.2.1",
+      "on": "2026-08-27",
+      "verdict": "held"
+    }
+  ]
 }

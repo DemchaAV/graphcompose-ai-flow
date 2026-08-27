@@ -29,5 +29,13 @@
     "note": "The first render stacked every inner row vertically."
   },
   "promotedTo": null,
-  "retiredNote": "RETIREMENT WITHDRAWN 2026-08-27. This record was marked retired on the strength of `horizontalInLayerStack` flipping false -> true between 2.2.0 and 2.2.1. That is a real change, but it is a different claim: `horizontalInLayerStack` describes a row inside a LayerStack layer, while this observation is about a row inside a row *cell*, which the probe reports as `builtInRowCell`. That field was false in 2.2.0 and is false in 2.2.1. Re-running `row-nesting` against 2.2.1 shows the compiler still refusing. The genuine 2.2.1 improvement is recorded separately as `layered-row-survives-a-row-cell`. A create run pinned to 2.2.1-SNAPSHOT trusted the withdrawn retirement, authored nested rows, and paid an authoring pass plus a recovery edit."
+  "retiredNote": "RETIREMENT WITHDRAWN 2026-08-27. This record was marked retired on the strength of `horizontalInLayerStack` flipping false -> true between 2.2.0 and 2.2.1. That is a real change, but it is a different claim: `horizontalInLayerStack` describes a row inside a LayerStack layer, while this observation is about a row inside a row *cell*, which the probe reports as `builtInRowCell`. That field was false in 2.2.0 and is false in 2.2.1. Re-running `row-nesting` against 2.2.1 shows the compiler still refusing. The genuine 2.2.1 improvement is recorded separately as `layered-row-survives-a-row-cell`. A create run pinned to 2.2.1-SNAPSHOT trusted the withdrawn retirement, authored nested rows, and paid an authoring pass plus a recovery edit.",
+  "verifiedAgainst": [
+    {
+      "version": "2.2.1",
+      "on": "2026-08-27",
+      "verdict": "held",
+      "note": "builtInRowCell false on 2.2.1, as recorded; the 2.2.1 retirement was withdrawn"
+    }
+  ]
 }

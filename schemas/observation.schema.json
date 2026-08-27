@@ -135,6 +135,41 @@
       "type": "string",
       "minLength": 40,
       "description": "Why this stopped holding, and what was measured instead. `confidence: retired` records that an observation is no longer true and, on its own, records nothing about why — which is the drift this whole system exists to prevent. Name the version that changed it and quote the probe values that moved, so a reader on the older line can still tell whether the workaround applies to them."
+    },
+    "verifiedAgainst": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "on",
+          "verdict"
+        ],
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "The exact GraphCompose build the probe ran against, including any -SNAPSHOT suffix. A snapshot is not its release and must be recorded as itself."
+          },
+          "on": {
+            "type": "string",
+            "description": "ISO date the probe was re-run."
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "held",
+              "changed"
+            ],
+            "description": "held: the probe reproduced what this record claims. changed: it did not, which is what retiring an observation should rest on."
+          },
+          "note": {
+            "type": "string",
+            "description": "What moved, when the verdict is `changed`."
+          }
+        }
+      },
+      "description": "Every build this record has actually been measured against, newest last. `graphComposeVersion` says where it was FIRST seen and `sourceRun` says who paid for it; neither answers \"is it true on the build in front of me\", which is the only question a reader has. A record retired against 2.2.1 was believed by a project pinned to 2.2.1-SNAPSHOT — the line before 2.2.1 ships — and the restriction it described was still live. Listing the builds explicitly makes an unmeasured version visibly unmeasured instead of silently covered."
     }
   },
   "allOf": [

@@ -25,5 +25,12 @@
     "date": "2026-08-24",
     "note": "Surfaced when shrinking a band to fix a timeline rail moved the job title inside it."
   },
-  "promotedTo": null
+  "promotedTo": null,
+  "verifiedAgainst": [
+    {
+      "version": "2.2.1",
+      "on": "2026-08-27",
+      "verdict": "held"
+    }
+  ]
 }
