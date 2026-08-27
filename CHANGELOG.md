@@ -5,7 +5,7 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
-## Unreleased
+## v0.13.0 — 2026-08-27
 
 **The diagnostics are not proven to have helped, and `docs/benchmarks.md` now
 says so with the numbers.** The pre-diagnostics baseline was written so this
