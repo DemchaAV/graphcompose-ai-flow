@@ -189,13 +189,56 @@ function run(command, runArgs) {
   };
 }
 
+/** Lines that say what went wrong, as opposed to what was happening at the time. */
+const ERROR_SHAPED =
+  /(\berror\b|\bexception\b|\bcannot\b|\brequired\b|\bfailed\b|\bmissing\b|BUILD FAILURE|Caused by|^\s+at\s)/i;
+
+/**
+ * The part of a failed command's output that explains the failure.
+ *
+ * ## Why this is not just the tail
+ *
+ * A create run hit a compile error and was shown this and nothing else:
+ *
+ *     FAIL render
+ *          render failed:
+ *          [asset-resolver] cache HIT mdi:heart (svg) -> cf1179b29151
+ *          [asset-resolver] icon "heart": mdi:heart (explicit) -> heart.svg
+ *
+ * Both lines are progress chatter. The compiler's complaint was in the output
+ * and never reached the reader, so the run re-invoked `render.mjs` on its own to
+ * find out what had happened — two extra turns, on every failure.
+ *
+ * Taking the last N lines assumes the error is last. It often is not: resolvers
+ * and caches keep talking after the thing that failed. So error-shaped lines are
+ * preferred, and the tail is what happens when none are found — which is the
+ * right fallback, because an unrecognised failure is exactly when raw output is
+ * worth more than a filter's opinion of it.
+ *
+ * @param {string} output combined stdout and stderr
+ * @param {number} [cap] most lines to return
+ */
+function excerptFailure(output, cap = 15) {
+  const lines = (output ?? "").trim().split("\n");
+  const signal = lines.filter((line) => ERROR_SHAPED.test(line));
+  // `[workspace] …` is printed by every script on every run, and it matches
+  // "required" often enough through paths to crowd out the real line.
+  const meaningful = signal.filter((line) => !/^\s*\[workspace\]/.test(line));
+  const chosen = meaningful.length > 0 ? meaningful : signal.length > 0 ? signal : lines;
+  return chosen.slice(-cap).join("\n");
+}
+
 function finish(code) {
   if (args.json) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } else {
     for (const entry of result.steps) {
       console.log(`  ${entry.ok ? "ok  " : "FAIL"} ${entry.name}${entry.detail ? `  ${entry.detail}` : ""}`);
-      if (entry.error) console.log(`       ${entry.error.split("\n").slice(0, 3).join("\n       ")}`);
+      // The whole explanation, not the first three lines of it. A failed step is
+      // the reason this command has anything to say, and trimming its account to
+      // keep the summary tidy is what sent one run off to re-render by hand just
+      // to read an error it had already been handed.
+      if (entry.error) console.log(`       ${entry.error.split("\n").join("\n       ")}`);
     }
     if (result.diff) {
       console.log(
@@ -233,10 +276,7 @@ if (!args.skipRender) {
       workspace.root,
     ]);
     if (rendered.status !== 0) {
-      // The tail, not the whole build log: a compile error's useful lines are
-      // its last ones, and the agent reads this error inside one turn.
-      const tail = rendered.output.trim().split("\n").slice(-15).join("\n");
-      throw new Error(`render failed:\n${tail}`);
+      throw new Error(`render failed:\n${excerptFailure(rendered.output, 15)}`);
     }
     entry.detail = "output.pdf + output.png (clean + debug)";
   });
@@ -262,8 +302,7 @@ if (!args.skipRender) {
       "-overflow",
     ]);
     if (rendered.status !== 0) {
-      const tail = rendered.output.trim().split("\n").slice(-12).join("\n");
-      throw new Error(`the overflow fixture did not render:\n${tail}`);
+      throw new Error(`the overflow fixture did not render:\n${excerptFailure(rendered.output, 12)}`);
     }
     entry.detail = `${fixture} -> output-overflow.pdf`;
   });
