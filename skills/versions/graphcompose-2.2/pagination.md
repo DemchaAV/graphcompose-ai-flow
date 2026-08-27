@@ -107,6 +107,93 @@ Do not declare entire sections atomic just to avoid thinking about
 page flow — that produces giant ragged page bottoms. Atomicity is for
 blocks whose meaning depends on visual cohesion.
 
+## Atomicity has a granularity, and the section is the wrong one
+
+"Do not declare entire sections atomic" says what not to do. This is what
+to do instead, and the difference is which node carries the rule.
+
+Take a CV's experience section. The section is a list; an entry is the
+unit whose meaning depends on cohesion. Declaring the section atomic asks
+the engine to keep six entries together on a page that holds four —
+a request it cannot honour, so it either ignores it or moves the whole
+block and leaves a page half empty. Declaring the *entry* atomic asks for
+something the engine can always do.
+
+Inside an entry, atomicity is still too blunt: a role with eight bullets
+may legitimately continue onto the next page, and only its opening lines
+must not be orphaned from each other. That is `keepWithNext`, which
+exists on `SectionBuilder` and on `LineBuilder`:
+
+```java
+section.addSection("ExperienceEntry", entry -> {
+    // Role and period sit above the employer; splitting between them
+    // leaves a date stranded at a page foot.
+    entry.addSection("RoleLine", role -> {
+        role.keepWithNext();
+        …
+    });
+    entry.addSection("Employer", employer -> {
+        employer.keepWithNext();
+        …
+    });
+    // The first bullet joins the header. The rest may flow.
+    entry.addSection("Bullets", bullets -> { … });
+});
+```
+
+**Call it inside the consumer, not on the result.** `addSection` returns
+the builder you called it on — `T addSection(String, Consumer<SectionBuilder>)`
+— so `entry.addSection("RoleLine", …).keepWithNext()` reads like it
+keeps the role line with what follows and in fact sets the flag on
+`entry`. The child is only in scope inside the lambda, which is where
+the rule belongs.
+
+The rule of thumb, in order of preference:
+
+| what | rule | why |
+|---|---|---|
+| the section holding the entries | nothing | it is a list, and a list may flow |
+| one entry, when it is short | `keepTogether()` | it fits, so the engine can honour it |
+| role → employer → first bullet | `keepWithNext()` on each but the last | the opening must not be orphaned |
+| remaining bullets | nothing | a long entry is allowed to continue |
+
+`keepTogether` on a block taller than the printable area is not a
+stronger version of the same request — it is a request with no satisfying
+answer, and the engine's choice of how to fail is not something a
+template should depend on.
+
+### Group the heading with what it introduces
+
+`keepWithNext` needs a node to attach to, which is why a flat section
+cannot express it. A heading, its rule and its body as three siblings
+have no name for "the heading and its rule": you can keep the heading
+with the rule, and the rule with the body, but the intent — *this header
+belongs to this body* — is spread across two calls that a later edit can
+separate.
+
+Nest it instead:
+
+```text
+Profile
+├─ ProfileHeader        keepWithNext()
+│  ├─ Heading
+│  └─ Rule
+└─ Body
+```
+
+One node carries the rule, the snapshot has a box for the header as a
+unit, and `layout.mjs inspect ProfileHeader` answers about the thing the
+designer drew. The flat version gives three boxes and no name for the
+one that matters.
+
+**What nothing here can check.** The layout snapshot records where every
+node ended up — bounds, insets, pages — and does **not** record whether a
+node asked to be kept together. So no gate in this harness can tell a
+template that put atomicity at the section level from one that put it at
+the entry level; the difference only shows when real content overflows,
+which a one-page reference never does. Until the snapshot carries those
+flags, this is a rule you follow rather than one you are caught breaking.
+
 ## Timelines across pages (1.7.0)
 
 The 1.7.0 timeline primitive (`addTimeline(...)`, see

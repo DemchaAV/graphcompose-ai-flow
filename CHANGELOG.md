@@ -56,6 +56,35 @@ run. Both were readable throughout. Nothing put them in a row.
   This is where a version stops being a string and becomes the code that gets
   compiled, so it is the last place the disagreement is cheap.
 
+### Knowledge
+
+- **`graphcompose-2.2/pagination.md`** — the pack said "do not declare entire
+  sections atomic" and never showed what to do instead. It does now: atomicity
+  has a granularity, and the section is the wrong one. A CV's experience section
+  is a list and may flow; the entry is the unit whose meaning depends on
+  cohesion; inside an entry, `keepWithNext()` on the role line and the employer
+  keeps the opening from being orphaned while the remaining bullets stay free to
+  continue. With the table of what carries which rule, and why `keepTogether` on
+  a block taller than the printable area is not a stronger request but an
+  unanswerable one.
+- **Heading grouping** — `keepWithNext` needs a node to attach to, which is why
+  a flat `Heading` + `Rule` + `Body` cannot express "this header belongs to this
+  body": the intent ends up spread across two calls a later edit can separate.
+  Nesting a `ProfileHeader` gives one node to carry the rule and one box in the
+  snapshot for the thing the designer drew.
+- **The call goes inside the consumer.** `addSection` returns the builder you
+  called it *on* — `T addSection(String, Consumer<SectionBuilder>)` — so
+  `entry.addSection("RoleLine", …).keepWithNext()` reads as keeping the role
+  line with what follows and in fact sets the flag on `entry`. The first draft
+  of this guidance had exactly that bug; the allow-list caught it before it
+  shipped, which is what the allow-list is for.
+- **Said plainly: nothing checks this.** `LayoutNodeSnapshot` records where a
+  node ended up and not whether it asked to be kept together, so no gate here
+  can tell section-level atomicity from entry-level. The difference shows only
+  when real content overflows, which a one-page reference never does. Until the
+  snapshot carries those flags it is a rule you follow, not one you are caught
+  breaking.
+
 ### Converging
 
 - **New verdict `CONVERGENCE_LIMIT_REACHED`, and `BLOCKED` means one thing
