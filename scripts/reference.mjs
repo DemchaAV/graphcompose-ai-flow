@@ -3,6 +3,7 @@
  * scripts/reference.mjs — what the reference measures, without writing a script
  * to find out.
  *
+ *   node scripts/reference.mjs analyze  --project <id> [--json]
  *   node scripts/reference.mjs measure  --project <id> [--revision <id>]
  *   node scripts/reference.mjs rules    --project <id> [--revision <id>] [--region <id>]
  *   node scripts/reference.mjs bands    --project <id> --window <name>,<x0>,<x1>,<y0>,<y1> …
@@ -56,6 +57,7 @@ import { extractRules } from "./lib/border-topology.mjs";
 import {
   comparableBands,
   inkBands,
+  inkColumns,
   pageMetrics,
   samplePalette,
 } from "./lib/reference-metrics.mjs";
@@ -65,7 +67,7 @@ const repoRoot = installRoot();
 // carry their own node_modules and the harness root has none of its own.
 const require = createRequire(path.join(repoRoot, "tools", "visual-diff", "package.json"));
 
-const COMMANDS = new Set(["measure", "rules", "bands", "colors", "compare"]);
+const COMMANDS = new Set(["analyze", "measure", "rules", "bands", "colors", "compare"]);
 
 function usage(code = 0) {
   process.stdout.write(
@@ -169,7 +171,69 @@ const reference = read(referencePath);
 const bandOptions = { gap: args.gap, minInk: args.minInk };
 let result;
 
-if (args.command === "measure") {
+if (args.command === "analyze") {
+  // Everything a first pass asks about a reference, in one call.
+  //
+  // The five commands beside this one each answer a question the model has
+  // already framed — this one answers the questions it always has before it can
+  // frame anything. A run reached authoring after about ninety measuring calls,
+  // and the first dozen were invariably these: how big is the page, where does
+  // the ink start, what colours are in it, where are the rules, is it one column
+  // or two, and what is the vertical rhythm.
+  //
+  // Windows stay out of it deliberately. `bands` and `compare` take a window
+  // because choosing one is judgement about a document you have already read;
+  // this runs before that and measures the whole page, so the answer is the same
+  // whoever asks.
+  const columns = inkColumns(reference, undefined, { minInk: args.minInk ?? 0 });
+  const rules = describeRules(extractRules(reference, null), reference);
+
+  result = {
+    project: args.project,
+    units: "reference pixels, except rules.at which is a page fraction",
+    page: pageMetrics(reference),
+    palette: samplePalette(reference),
+    rules,
+    columns: columns.map((column) => ({
+      ...column,
+      // The share a template's weights(...) will have to reproduce.
+      share: round(column.width / reference.width, 4),
+    })),
+    gutters: columns.slice(1).map((column, index) => ({
+      after: index,
+      x0: columns[index].x1,
+      x1: column.x0,
+      width: column.x0 - columns[index].x1,
+    })),
+    // Bands per column, not per page. Scanning the whole page merges a heading
+    // with the rule under it and both columns of a two-column body into one run
+    // per line — on a CV with a full-bleed sidebar it merges into exactly one
+    // band, which is true and says nothing. The columns above are what makes
+    // the windows choosable without asking anyone.
+    bands: columns.map((column, index) => {
+      const window = { x0: column.x0, y0: 0, x1: column.x1, y1: reference.height };
+      const bands = inkBands(reference, window, bandOptions);
+      const filled = bands.length === 1 && bands[0].height >= reference.height - 1;
+      return {
+        column: index,
+        window,
+        // A column that is one solid band from top to bottom is a filled panel,
+        // not a paragraph: its text is light on dark and darkness cannot
+        // separate it. Saying so beats reporting one band as if it were content.
+        separable: !filled,
+        ...(filled
+          ? {
+              why:
+                "the column is inked edge to edge, so it is a filled panel and its type is " +
+                "lighter than its background — measure it with `bands --window` against an " +
+                "inverted floor, or read it from the crop",
+            }
+          : {}),
+        bands,
+      };
+    }),
+  };
+} else if (args.command === "measure") {
   result = { project: args.project, reference: pageMetrics(reference) };
   if (args.revision) {
     const render = read(renderPath());

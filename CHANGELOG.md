@@ -56,6 +56,26 @@ run. Both were readable throughout. Nothing put them in a row.
   This is where a version stops being a string and becomes the code that gets
   compiled, so it is the last place the disagreement is cheap.
 
+### Measuring the reference
+
+- **`scripts/reference.mjs analyze`** — new. Page size and margins, palette by
+  coverage, every rule, the columns with their gutters and their share of the
+  page, and the text bands **per column**, in one call and about 5 KB. The five
+  commands beside it each answer a question the model has already framed; this
+  answers the ones it always has before it can frame anything, which is why they
+  collapse into one call — no window, no judgement. A run reached authoring
+  after about ninety measuring calls and the first dozen were invariably these.
+- Bands are cut **per column**, using the columns measured in the same pass.
+  Scanning a whole page merges both columns into one run per line, and on a CV
+  with a full-bleed sidebar into exactly one band covering the page: true, and
+  no answer. A column inked edge to edge comes back `separable: false` with the
+  reason — it is a filled panel whose type is lighter than its ground, so
+  darkness cannot separate its lines — rather than as one band pretending to be
+  a paragraph.
+- **`scripts/lib/reference-metrics.mjs`** — new `inkColumns()`, the mirror of
+  `inkBands` along the other axis. `gap` is the narrowest blank run that counts
+  as a gutter, so word spacing is not a column boundary.
+
 ### The loop
 
 - **`scripts/render-and-diff.mjs`** — new `evidence` step. Every pass now

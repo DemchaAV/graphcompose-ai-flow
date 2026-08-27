@@ -333,3 +333,65 @@ const round = (value, places) => {
   const factor = 10 ** places;
   return Math.round(value * factor) / factor;
 };
+
+/**
+ * The vertical gutters of a page, and therefore its columns.
+ *
+ * <p>The mirror of {@link inkBands} along the other axis, and the measurement a
+ * two-column layout starts from. A run measuring one by hand sampled column
+ * ink density in a throwaway script, twice, once per column, and then had to
+ * decide from two numbers where the boundary was; the boundary is a run of
+ * blank pixels and is directly measurable.</p>
+ *
+ * <p>`minInk` is per column of pixels rather than per row, so it is not the same
+ * knob as the band floor even where the number matches: a page's tallest column
+ * of ink is its full text height, and a sidebar's is shorter.</p>
+ *
+ * @param {{width:number,height:number,data:Buffer|Uint8Array}} png
+ * @param {{x0:number,y0:number,x1:number,y1:number}} [window]
+ * @param {{minInk?:number,gap?:number}} [options] `gap` is the narrowest blank
+ *   run that still counts as a gutter — word spacing is not a column boundary
+ * @returns {Array<{x0:number,x1:number,width:number,inkPeak:number}>}
+ */
+export function inkColumns(png, window, options = {}) {
+  const minInk = options.minInk ?? 0;
+  // Wide enough that inter-word and inter-letter space never reads as a gutter;
+  // narrow enough to keep a tight two-column split. Measured against the CV
+  // references in examples/: their gutters run 28-60px at 1240 wide.
+  const gap = options.gap ?? 12;
+  const box = clampWindow(png, window ?? { x0: 0, y0: 0, x1: png.width, y1: png.height });
+
+  const counts = [];
+  for (let x = box.x0; x < box.x1; x += 1) {
+    let count = 0;
+    for (let y = box.y0; y < box.y1; y += 1) {
+      if (isDark(png.data, (y * png.width + x) * 4)) count += 1;
+    }
+    counts.push(count);
+  }
+
+  const runs = [];
+  let start = -1;
+  let blank = 0;
+  for (let i = 0; i < counts.length; i += 1) {
+    if (counts[i] > minInk) {
+      if (start === -1) start = i;
+      blank = 0;
+    } else if (start !== -1) {
+      blank += 1;
+      if (blank > gap) {
+        runs.push([start, i - blank]);
+        start = -1;
+        blank = 0;
+      }
+    }
+  }
+  if (start !== -1) runs.push([start, counts.length - 1 - blank]);
+
+  return runs.map(([a, b]) => ({
+    x0: box.x0 + a,
+    x1: box.x0 + b + 1,
+    width: b + 1 - a,
+    inkPeak: Math.max(...counts.slice(a, b + 1)),
+  }));
+}

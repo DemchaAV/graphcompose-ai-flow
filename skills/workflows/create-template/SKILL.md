@@ -224,8 +224,23 @@ of re-reading, next to 550k of actual content. Its reference-analysis stage
 alone was 61 calls, most of them a single measurement each.
 
 So when the next thing to learn does not depend on the last thing learned,
-learn them together. `reference.mjs` takes `--window` repeatedly for exactly
-this reason; `probe.mjs`, `javap` and a `grep` over the API surface can be
+learn them together. **Open with one call:**
+
+```bash
+node scripts/reference.mjs analyze --project <id> --json
+```
+
+Page size and margins, the palette by coverage, every rule, the columns with
+their gutters and their share of the page, and the text bands **per column** —
+about 5 KB, no window, no judgement. It is deliberately the questions you have
+before you have read the document, which is why they can all be answered at
+once. Bands are cut per column because a whole-page scan merges both columns
+into one run per line, and on a CV with a full-bleed sidebar into exactly one
+band; a column inked edge to edge comes back marked `separable: false` rather
+than as one meaningless band.
+
+After that, `reference.mjs` takes `--window` repeatedly for exactly this
+reason; `probe.mjs`, `javap` and a `grep` over the API surface can be
 one command with `;` between them. Anything whose *result changes what you
 would ask next* stays its own call — batching a decision point is how you
 end up acting on a stale answer.
