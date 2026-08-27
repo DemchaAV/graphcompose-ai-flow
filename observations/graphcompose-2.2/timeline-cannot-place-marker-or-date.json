@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "id": "timeline-cannot-place-marker-or-date",
+  "graphComposeVersion": "2.2.0",
+  "api": [
+    "AbstractFlowBuilder.addTimeline",
+    "TimelineBuilder.gutter",
+    "TimelineBuilder.markerGap",
+    "TimelineBuilder.markerColumnWeight",
+    "TimelineBuilder.spacing",
+    "TimelineEntryBuilder.title",
+    "TimelineEntryBuilder.meta",
+    "TimelineEntryBuilder.add"
+  ],
+  "observedBehaviour": "addTimeline builds the right mechanism and a fixed content model. buildInto gives the outer section spacing(entrySpacing) and one child section per entry; each entry section carries accentLeft(connectorColor, connectorWidth) as the rail and padding(0, 0, entrySpacing, gutter), so the inter-entry gap is bottom padding INSIDE the border and consecutive rails meet as one unbroken line — that part is worth copying. Inside the entry it adds a row of weights(markerColumnWeight, 1) with the marker in cell one and title and meta STACKED in cell two, then body, then the add(...) consumer as siblings of the row. Four consequences, none of them reachable from the builder: (1) the marker can never sit ON the rail, because its column starts at the entry section's left padding and gutter(double) is `if (v < 0) skip` — a negative gutter is silently discarded and the 8pt default stands; (2) there is no slot on the far side of the rail, so a dated timeline has nowhere to put the date; (3) title and meta are Strings on two lines, so a two-colour header on one line cannot be expressed; (4) body and add(...) start at gutter while the title starts at gutter + markerWidth + markerGap, so entry content cannot line up under its own header. markerGap and spacing clamp negatives the same way; markerColumnWeight clamps at <= 0.",
+  "minimalReproduction": {
+    "probe": "timeline-anatomy",
+    "command": "node scripts/probe.mjs timeline-anatomy --version 2.2 --json",
+    "arrangement": "Four two-entry timelines in four documents, differing in one setting each: default, gutter(-24), gutter(40), markerColumnWeight(0.45). Each entry carries a title, a meta, a body and one named paragraph added through add(...) - the only part of an entry a caller can name, and therefore the only one whose position can be followed across builds. A setting that moves that paragraph is honoured; one that does not is discarded. The entry boxes come from the layout snapshot: the children of the timeline's own section, whose adjacency says whether the rail is drawn as one line or as one segment per entry. What the builders accept is read by reflection over the classes this build ships, not from the pack's allow-list, which is generated from one jar and may not be the jar under test."
+  },
+  "probeResult": {
+    "gutterAcceptsNegative": false,
+    "markerCanCentreOnRail": false,
+    "hasLeadingColumn": false,
+    "headerAcceptsNodeOrRichText": false,
+    "extraOwnedByContentColumn": false,
+    "railContinuousAcrossEntries": true
+  },
+  "workaround": "For a plain timeline — marker beside the rail, title over meta, body full width — use addTimeline; it is correct and it paginates. For a dated timeline, or one whose marker sits on the rail, or whose header is one line in two colours, build the same construction directly: a row of [dates | body], the body section carrying accentLeft as the rail and the inter-entry gap as its own bottom padding, and the marker in a LayerStack over the body's first line at -(indent + diameter/2). Do NOT reach for one timeline per entry to get the date column back: every entry is then both first and last, so spacing() never applies. Do NOT reach for a negative gutter; it is discarded.",
+  "confidence": "confirmed",
+  "sourceRun": {
+    "project": "alex-demidov-cv",
+    "revision": "revision-002",
+    "date": "2026-08-26",
+    "note": "Raised by the maintainer as 'the engine already has a timeline, use it'. It does, and for this reference it cannot - established from the bytecode after a render built on it came out worse. The bytecode read was correct and was not a measurement: nothing could re-run it, so the record could never be re-confirmed or retired, and it sat outside the repository for that reason until timeline-anatomy replaced javap with a probe."
+  },
+  "promotedTo": null,
+  "verifiedAgainst": [
+    {
+      "version": "2.2.2",
+      "on": "2026-08-27",
+      "verdict": "held",
+      "build": {
+        "sha1": "61585d2d93d195b6b297ec26d5ff7e6a60f141a8",
+        "bytes": 4085,
+        "modified": "2026-08-26T23:43:50.104Z",
+        "origin": "downloaded"
+      }
+    }
+  ]
+}

@@ -31,6 +31,7 @@ public final class Probes {
             Map.entry("shape-paint", ShapePaintProbe::new),
             Map.entry("table-borders", TableBorderProbe::new),
             Map.entry("table-cell-node", TableCellNodeProbe::new),
+            Map.entry("timeline-anatomy", TimelineAnatomyProbe::new),
             Map.entry("timeline-nesting", TimelineNestingProbe::new)));
 
 

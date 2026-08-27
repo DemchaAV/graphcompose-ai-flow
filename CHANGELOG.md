@@ -97,6 +97,19 @@ run. Both were readable throughout. Nothing put them in a row.
   build from another line is dropped with a warning rather than answered about.
 - **`scripts/observations.mjs verify --build <x.y.z>`** — forwards to the probe,
   so "re-measure this record against 2.2.2" is one command.
+- **`timeline-anatomy`** — new probe, and with it
+  `timeline-cannot-place-marker-or-date` is finally in the repository. That
+  record was written from a `javap` read of the core jar: correct, and not a
+  measurement — nothing could re-run it, so it could never be re-confirmed or
+  retired, and importing it would have made `verify` report "no probe, so
+  nothing can re-confirm it" forever. It sat orphaned in the 0.12.0 plugin cache
+  for that reason. The probe replaces the disassembly with four two-entry
+  timelines differing in one setting each: a setting that moves the one
+  paragraph a caller can name is honoured, one that does not is discarded. All
+  six recorded claims reproduce on 2.2.2 — a negative gutter is discarded while
+  a positive one applies, there is no slot beside the rail for a date, title and
+  meta take Strings only, `add(...)` content does not follow the marker column,
+  and consecutive entry boxes touch so the rails meet as one line.
 - **Measured with it, and it settles a disputed claim.** `column-nesting` on
   released **2.2.2**: the LayerStack row escape holds, children side by side.
   The same probe on the local **2.2.1-SNAPSHOT**: `layeredRowHorizontal` false,
