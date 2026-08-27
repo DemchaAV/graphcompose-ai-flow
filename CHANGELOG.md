@@ -5,7 +5,7 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
-## v0.14.0 — in progress
+## v0.14.0 — 2026-08-27
 
 **The diagnostics existed and `create` never mentioned them.** A forensic audit
 of one `graphcompose-flow:create` run established where its 77.6 minutes went,
