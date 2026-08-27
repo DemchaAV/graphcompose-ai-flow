@@ -99,6 +99,18 @@ function parseArgs(argv) {
     process.stderr.write("[source] --project and --revision are required without --file\n");
     usage(2);
   }
+  // `diff` is the exception to --file standing in for a revision: it has to
+  // find the parent, and a parent is a revision in a project. Without this it
+  // reached the workspace resolver with a null project id and came back as a
+  // stack trace, which reads like a crash rather than a wrong invocation.
+  if (out.command === "diff" && (!out.project || !out.revision)) {
+    process.stderr.write(
+      "[source] diff needs --project and --revision even with --file: the parent revision it " +
+        "compares against is looked up in the project. Name the pair with --revision <id> " +
+        "--against <id>.\n",
+    );
+    usage(2);
+  }
   return out;
 }
 

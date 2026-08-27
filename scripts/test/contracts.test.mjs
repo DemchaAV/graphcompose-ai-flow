@@ -582,3 +582,26 @@ test("the aspect tolerance is one number, wherever it is enforced", () => {
   assert.match(harness, /tools\/visual-diff\/src\/aspect\.ts/);
   assert.match(tool, /scripts\/lib\/page-geometry\.mjs/);
 });
+
+test("every schema is bound to the file it pins, or it validates nothing", () => {
+  // A schema is enforced by `.github/scripts/validate-schemas.mjs`, which
+  // matches artifacts to schemas by name. Adding one to schemas/ without adding
+  // its binding produces a file that reads like a contract, is documented in
+  // schemas/README.md as enforced in CI, and is never matched against anything.
+  // resolved-version.schema.json shipped that way and nothing noticed.
+  const validator = fs.readFileSync(
+    path.join(repoRoot, ".github", "scripts", "validate-schemas.mjs"),
+    "utf8",
+  );
+  const schemas = fs
+    .readdirSync(path.join(repoRoot, "schemas"))
+    .filter((name) => name.endsWith(".schema.json"));
+
+  assert.ok(schemas.length > 0, "no schemas found");
+  const unbound = schemas.filter((name) => !validator.includes(name));
+  assert.deepEqual(
+    unbound,
+    [],
+    `schemas with no binding in validate-schemas.mjs: ${unbound.join(", ")}`,
+  );
+});

@@ -196,7 +196,15 @@ if (versionExit !== EXIT.ready) process.exit(versionExit);
 // Outranks the tools-parity code: a missing diagnostic makes the run expensive,
 // an unidentified build makes its findings unattributable, and the second is
 // the one that survives the run in an observation.
-if (!build.identified && !build.accepted) process.exit(EXIT.unidentifiedBuild);
+//
+// Only where the question can be answered. `--accept-build` records the
+// decision in the workspace, so before one exists there is nowhere to put it —
+// and this is the documented first command of a new run, which is exactly when
+// no workspace exists yet. Stopping there would print a remedy that refuses to
+// run. The finding is still reported; what waits is the stop.
+if (!build.identified && !build.accepted && build.answerable) {
+  process.exit(EXIT.unidentifiedBuild);
+}
 process.exit(capabilities.parity === "tools-behind" ? EXIT.mismatch : EXIT.ready);
 
 // ------------------------------------------------------------------ version ---
@@ -232,18 +240,29 @@ function describeBuild(resolved, record) {
   const accepted = record?.accepted ?? null;
   const identity = buildIdentity(resolved, accepted);
   const settled = identity.identified || identity.accepted;
+  // Whether the question this would stop for can be answered yet. The decision
+  // lives in the workspace, so before one exists `--accept-build` has nowhere
+  // to write and refuses — and preflight is the command a run makes *before*
+  // init-workspace. A stop whose remedy cannot run is not a gate.
+  const answerable = Boolean(record);
 
   return {
     identified: identity.identified,
     accepted: identity.accepted,
+    answerable,
     decision: identity.accepted ? accepted.decision : null,
     reason: identity.reason,
     message: settled
       ? null
       : `${identity.reason}. Nothing measured against it — a probe verdict, an observation, a ` +
         "rendered comparison — can be attributed to a release, and the record outlives the run " +
-        "that made it. Say which build this is and why it is the one to measure against: " +
-        'node scripts/resolve-version.mjs --accept-build --decision "..."',
+        "that made it. " +
+        (answerable
+          ? "Say which build this is and why it is the one to measure against: " +
+            'node scripts/resolve-version.mjs --accept-build --decision "..."'
+          : "There is no workspace yet to record that in, so this does not stop the run — " +
+            "create one with init-workspace, then answer it once: " +
+            'node scripts/resolve-version.mjs --accept-build --decision "..."'),
   };
 }
 

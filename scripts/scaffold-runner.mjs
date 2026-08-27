@@ -47,7 +47,8 @@ function usage(code = 0) {
       "  --class <Name>      generated template class (default: Generated<DocKind>Template)\n" +
       "  --doc-kind <kind>   invoice | cv | proposal | coverletter | report (default: from the project)\n" +
       "  --root <dir>        workspace override\n" +
-      "  --force             overwrite an existing render-runner/pom.xml\n" +
+      "  --force             overwrite an existing render-runner/pom.xml, and build against this\n" +
+      "                      project's pinned version even when the workspace resolved another\n" +
       "  --json              machine-readable result\n\n" +
       "exit: 0 written | 1 refused | 2 usage | 3 no such project\n",
   );
@@ -229,13 +230,31 @@ if (!graphComposeVersion) {
 // measurement afterwards belonged to a build nobody had named.
 const resolvedRecord = readResolvedVersion(workspace);
 if (resolvedRecord && resolvedRecord.version !== graphComposeVersion) {
-  process.stderr.write(
+  // Not fatal on its own: a workspace whose host project has been upgraded
+  // resolves the new version while every project created before it still
+  // records the old one, and those projects are not wrong — they are older.
+  // What must not happen quietly is compiling against one and reporting the
+  // other, so the disagreement is named, the exact edit is named, and --force
+  // is the way past it for someone who has read both.
+  const settle =
     `[scaffold-runner] ${args.project} pins ${graphComposeVersion}, but the workspace resolved ` +
-      `${resolvedRecord.version} (${resolvedRecord.buildFile ?? "no build file"}). Settle which ` +
-      "one this project is against — re-run preflight after fixing the build file, or correct " +
-      "targetGraphComposeVersion — rather than compiling against one and reporting the other.\n",
-  );
-  process.exit(1);
+    `${resolvedRecord.version} (${resolvedRecord.buildFile ?? "no build file"}).\n` +
+    `  To build this project against ${resolvedRecord.version}, set ` +
+    `"targetGraphComposeVersion": "${resolvedRecord.version}" in ` +
+    `${path.relative(workspace.root, projectFile) || projectFile}.\n` +
+    `  To keep it on ${graphComposeVersion} — an older project in an upgraded workspace is not ` +
+    "wrong — pass --force.\n";
+
+  if (!args.force) {
+    process.stderr.write(settle);
+    process.exit(1);
+  }
+  if (!args.json) {
+    console.log(
+      `[scaffold-runner] building against ${graphComposeVersion} while the workspace resolved ` +
+        `${resolvedRecord.version} (--force)`,
+    );
+  }
 }
 
 const docKind = args.docKind ?? project.docKind ?? "doc";

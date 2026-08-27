@@ -78,7 +78,41 @@ test("a project pinned against one build and a workspace resolved to another is 
   assert.equal(status, 1);
   assert.match(output, /2\.2\.1-SNAPSHOT/);
   assert.match(output, /2\.2\.2/);
-  assert.match(output, /compiling against one and reporting the other/);
+  // Both versions named, and the pom not written: what must not happen is
+  // compiling against one and reporting the other.
+  assert.match(output, /pins 2\.2\.1-SNAPSHOT, but the workspace resolved 2\.2\.2/);
+});
+
+test("--force builds the project's own version, and says it is doing so", () => {
+  // An older project in an upgraded workspace is not wrong, it is older. The
+  // refusal exists so nobody compiles against one version and reports another,
+  // not to make the older project unbuildable.
+  const { root, project } = scenario(
+    { projectVersion: "2.2.1-SNAPSHOT", resolvedVersion: "2.2.2" },
+    "forced",
+  );
+  const result = spawnSync(
+    process.execPath,
+    [CLI, "--project", "demo", "--root", root, "--force"],
+    { encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0, `${result.stdout ?? ""}${result.stderr ?? ""}`);
+  assert.match(result.stdout, /--force/);
+  const pom = fs.readFileSync(path.join(project, "render-runner", "pom.xml"), "utf8");
+  assert.match(pom, /<graphcompose\.version>2\.2\.1-SNAPSHOT<\/graphcompose\.version>/);
+});
+
+test("the refusal names the edit that would settle it", () => {
+  const { root } = scenario(
+    { projectVersion: "2.2.1-SNAPSHOT", resolvedVersion: "2.2.2" },
+    "names-the-edit",
+  );
+  const { output } = run(root);
+
+  assert.match(output, /"targetGraphComposeVersion": "2\.2\.2"/);
+  assert.match(output, /template-project\.json/);
+  assert.match(output, /pass --force/);
 });
 
 test("agreement scaffolds the runner at that version", () => {

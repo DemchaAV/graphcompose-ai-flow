@@ -23,6 +23,29 @@ Preflight also carried the disagreement in plain sight: the workspace manifest
 said `2.2.0` while the project said `2.2.1-SNAPSHOT`, for the whole 95-minute
 run. Both were readable throughout. Nothing put them in a row.
 
+### Fixed in review
+
+Four findings from a review of this release's own branch.
+
+- **`preflight` no longer stops where the stop cannot be answered.** Exit 6 asks
+  for `--accept-build`, which records the decision in the workspace — and
+  preflight is the command a run makes *before* `init-workspace`, so on a
+  SNAPSHOT-pinned project the first documented step exited 6 and printed a
+  remedy that refused to run. The finding is still reported; the stop now waits
+  until there is a workspace to record the answer in.
+- **`source.mjs diff --file` without `--project`** came back as an unhandled
+  `WorkspaceError` stack trace: `diff` has to find the parent revision, which is
+  looked up in the project, so `--file` cannot stand in for it. It is now a
+  usage error that says so.
+- **`resolved-version.schema.json` was never bound** in
+  `.github/scripts/validate-schemas.mjs` — eleven schemas, ten bindings — so the
+  contract `schemas/README.md` describes as enforced in CI validated nothing.
+  Bound, and `contracts.test.mjs` now fails when any schema has no binding.
+- **`scaffold-runner`'s version refusal honours `--force`** and names the exact
+  edit. An older project in an upgraded workspace is not wrong, it is older, and
+  the refusal existed to stop compiling against one version while reporting
+  another — not to make that project unbuildable.
+
 ### Public API
 
 - **`scripts/lib/version-resolver.mjs`** — new `describeArtifact()`: which jar

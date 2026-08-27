@@ -75,6 +75,13 @@ const SCHEMA_BINDINGS = [
     filename: 'layout-snapshot.json',
     schemaFile: 'layout-snapshot.schema.json',
   },
+  // Which GraphCompose build a workspace's work is against. Written by
+  // preflight at the workspace root; bound here because a schema nothing is
+  // matched against is documentation with a validator's costume on.
+  {
+    filename: 'resolved-version.json',
+    schemaFile: 'resolved-version.schema.json',
+  },
   // Observations are named after what they describe, not after their kind, so
   // this one binds by the directory that holds them.
   {
