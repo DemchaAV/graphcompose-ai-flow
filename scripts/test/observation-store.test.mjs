@@ -215,6 +215,41 @@ test("verifying a shipped record copies it into the workspace rather than editin
   assert.equal(original.verifiedAgainst, undefined);
 });
 
+test("an install tree that is a checkout is the canonical store, and writable", () => {
+  // The harness's own clone: observations/ there is tracked in git and shipped
+  // to everyone, so the maintainer recording into it is the point. A plugin
+  // cache has no .git, and nothing else on disk tells the two apart.
+  const install = tempTree("checkout");
+  fs.mkdirSync(path.join(install, ".git"), { recursive: true });
+
+  const written = recordObservation({
+    workspace: { root: install, manifestPath: null },
+    install,
+    body: observation(),
+  });
+
+  assert.ok(written.file.startsWith(install));
+  assert.equal(observationRoots({ workspace: null, install })[0].writable, true);
+});
+
+test("verifying a record in a checkout updates it in place, and says so", () => {
+  const install = tempTree("checkout-verify");
+  fs.mkdirSync(path.join(install, ".git"), { recursive: true });
+  writeInto(install, "2.2", observation());
+
+  const workspace = { root: install, manifestPath: null };
+  const subject = loadObservations({ workspace, install })[0];
+  const written = recordVerification({
+    workspace,
+    install,
+    subject,
+    entry: { version: "2.2.2", on: "2026-08-27", verdict: "held" },
+  });
+
+  assert.equal(written.copied, false, "an in-place update was reported as a copy");
+  assert.equal(path.resolve(written.file), path.resolve(subject.file));
+});
+
 test("an id that is not kebab-case is refused before it reaches a filename", () => {
   const host = tempTree("id");
   const install = tempTree("id-install");

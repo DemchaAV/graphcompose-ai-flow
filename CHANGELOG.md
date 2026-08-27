@@ -56,6 +56,44 @@ run. Both were readable throughout. Nothing put them in a row.
   This is where a version stops being a string and becomes the code that gets
   compiled, so it is the last place the disagreement is cheap.
 
+### Probes
+
+- **`scripts/probe.mjs`** — new `--build <x.y.z>`, `--pinned` and `--root`. A
+  probe is written against a *line* and run against a *build*, and until now
+  those were the same thing: the diagnostics pom pinned a release and every
+  probe measured that release, whatever the project under test was compiled
+  from. So a run pinned to `2.2.1-SNAPSHOT` asked "does the engine still do
+  this?" and was answered about `2.2.1`. The default build is now the one the
+  workspace resolved; the override reaches `mvn compile`, `dependency:build-classpath`
+  and the probe's own reported version, the classpath is cached per build, and a
+  changed build forces a rebuild rather than reusing classes resolved against
+  different jars.
+- **`scripts/lib/probe-build.mjs`** — new. `selectBuild()`, kept out of the CLI
+  so the decision is testable without Maven, a JDK and a resolved artifact. A
+  build from another line is dropped with a warning rather than answered about.
+- **`scripts/observations.mjs verify --build <x.y.z>`** — forwards to the probe,
+  so "re-measure this record against 2.2.2" is one command.
+- **Measured with it, and it settles a disputed claim.** `column-nesting` on
+  released **2.2.2**: the LayerStack row escape holds, children side by side.
+  The same probe on the local **2.2.1-SNAPSHOT**: `layeredRowHorizontal` false,
+  `layeredRowTwiceHorizontal` false. Both verdicts are now in
+  `layered-row-survives-a-row-cell`, each carrying the sha1, size, mtime and
+  origin of the jar it ran on. The behaviour is not a regression in the released
+  line — 2.2.2 is newer than 2.2.1 and holds. It is one local build, and until
+  this change nothing could have asked the question.
+- **`schemas/observation.schema.json`** — `verifiedAgainst[].build`: sha1, size,
+  mtime and origin of the jar a verdict was measured on. No path: that would be
+  one developer's disk. For a release it is decoration; for a SNAPSHOT it is the
+  difference between a measurement and a rumour.
+- **`observations show`** — a record measured as `changed` on a **release** now
+  gates every build not explicitly measured as holding: a behaviour that differs
+  between two builds of one line is a property of the build, not of the line. A
+  change measured on a **SNAPSHOT** deliberately gates only that exact build,
+  because the same name is different code on another machine. The two tests that
+  hunted for "a record with a changed verdict" were vacuous until this release —
+  nothing had ever written one — and one of them encoded an assumption that the
+  record would also be retired; it now says which of the two cases it means.
+
 ### Observations
 
 - **`scripts/lib/observation-store.mjs`** — new. Two tiers:

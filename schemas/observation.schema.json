@@ -166,6 +166,21 @@
           "note": {
             "type": "string",
             "description": "What moved, when the verdict is `changed`."
+          },
+          "build": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Which build the version string actually named on the machine that measured it. Required in spirit for a -SNAPSHOT, where the string names a moving target: a verdict filed against `2.2.1-SNAPSHOT` with no build is a claim about whatever that name meant on one machine on one day. No path is recorded - it would be one developer's disk.",
+            "properties": {
+              "sha1": { "type": ["string", "null"] },
+              "bytes": { "type": ["number", "null"] },
+              "modified": { "type": ["string", "null"] },
+              "origin": {
+                "type": ["string", "null"],
+                "enum": ["local-install", "downloaded", null],
+                "description": "local-install: it came from someone's `mvn install` and exists on no other machine."
+              }
+            }
           }
         }
       },

@@ -34,8 +34,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
-import { installRoot } from "./lib/workspace.mjs";
+import { installRoot, resolveWorkspace } from "./lib/workspace.mjs";
 import { classpathIsUsable, needsCompile, stampClasspath } from "./lib/probe-cache.mjs";
+import { readResolvedVersion } from "./lib/resolved-version.mjs";
+import { selectBuild } from "./lib/probe-build.mjs";
 
 const repoRoot = installRoot();
 const DIAGNOSTICS = path.join(repoRoot, "tools", "diagnostics");
@@ -47,6 +49,10 @@ function usage(code = 0) {
       "       node scripts/probe.mjs --list [--version <line>]\n\n" +
       "  <probe-name>       a probe from --list, e.g. anchor-alignment\n" +
       "  --version <line>   GraphCompose line, e.g. 2.2 (default: the newest with probes)\n" +
+      "  --build <x.y.z>    the exact build to measure (default: the workspace's resolved one,\n" +
+      "                     then the diagnostics pom's pin). A SNAPSHOT is measured as itself\n" +
+      "  --pinned           measure the pom's pinned release, whatever this workspace resolves\n" +
+      "  --root <workspace> workspace override, for the default build\n" +
       "  --json             print the probe's JSON verbatim rather than a summary\n" +
       "  --refresh          rebuild and re-resolve, ignoring the cached build\n",
   );
@@ -54,7 +60,16 @@ function usage(code = 0) {
 }
 
 function parseArgs(argv) {
-  const out = { probe: null, version: null, json: false, list: false, refresh: false };
+  const out = {
+    probe: null,
+    version: null,
+    build: null,
+    pinned: false,
+    json: false,
+    list: false,
+    refresh: false,
+    root: null,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--help" || a === "-h") usage(0);
@@ -62,6 +77,9 @@ function parseArgs(argv) {
     else if (a === "--refresh") out.refresh = true;
     else if (a === "--json") out.json = true;
     else if (a === "--version" || a === "-v") out.version = argv[++i];
+    else if (a === "--build") out.build = argv[++i];
+    else if (a === "--pinned") out.pinned = true;
+    else if (a === "--root") out.root = argv[++i];
     else if (a.startsWith("--")) {
       process.stderr.write(`[probe] unknown argument: ${a}\n`);
       usage(2);
@@ -98,7 +116,41 @@ if (lines.length === 0) {
   process.exit(1);
 }
 
-const version = args.version ?? lines[0];
+/**
+ * Which BUILD the probe should measure, as opposed to which line it is written
+ * against.
+ *
+ * <p>These were the same thing until a run needed them not to be. The
+ * diagnostics pom pins a release, and every probe ran against that release
+ * whatever the project under test was compiled from — so a run pinned to
+ * `2.2.1-SNAPSHOT` asked "does the engine still do this?" and was answered
+ * about `2.2.1`. It rewrote a page architecture on the strength of it, and the
+ * observation it filed named a version nobody had measured.</p>
+ *
+ * <p>So the default is the build the workspace resolved, and the pom's pin is
+ * the fallback for a run with no workspace. `--build` forces one, `--pinned`
+ * asks for the pom's own — which is the right answer when the question is
+ * "what does the released line do?" rather than "what does mine do?".</p>
+ */
+function resolveBuild() {
+  if (args.pinned) return null;
+  if (args.build) return { version: args.build, source: "--build" };
+
+  const workspace = resolveWorkspace({ explicitRoot: args.root ?? null });
+  const record = readResolvedVersion(workspace);
+  if (!record?.version) return null;
+  return { version: record.version, source: path.basename(workspace.root) };
+}
+
+const selected = selectBuild({
+  requested: resolveBuild(),
+  requestedLine: args.version ?? null,
+  availableLines: lines,
+});
+const version = selected.line;
+const build = selected.build;
+if (selected.warning) process.stderr.write(`[probe] ${selected.warning}\n`);
+
 const projectDir = path.join(DIAGNOSTICS, `graphcompose-${version}`);
 if (!fs.existsSync(projectDir)) {
   process.stderr.write(
@@ -135,8 +187,32 @@ function run(probeArgs) {
   const maven = process.platform === "win32" ? "mvn.cmd" : "mvn";
   const shell = process.platform === "win32";
   const classesDir = path.join(projectDir, "target", "classes");
-  const classpathFile = path.join(projectDir, "target", "probe-classpath.txt");
   const pomFile = path.join(projectDir, "pom.xml");
+  const pinned = fs
+    .readFileSync(pomFile, "utf8")
+    .match(/<graphcompose\.version>([^<]+)<\/graphcompose\.version>/)?.[1]
+    ?.trim();
+
+  // What this run will actually measure, and the override Maven needs to make
+  // that true. Without the -D the pom's pin wins and the answer describes a
+  // build the caller never asked about.
+  const measuring = build?.version ?? pinned ?? null;
+  const override =
+    measuring && measuring !== pinned ? [`-Dgraphcompose.version=${measuring}`] : [];
+
+  // One classpath per build: they resolve to different jars, and reusing the
+  // cached one across a version change is the same substitution by another
+  // route. The marker covers the compiled classes, which share a target/.
+  const classpathFile = path.join(
+    projectDir,
+    "target",
+    `probe-classpath${measuring ? `-${measuring.replace(/[^A-Za-z0-9.-]/g, "_")}` : ""}.txt`,
+  );
+  const markerFile = path.join(projectDir, "target", "probe-build-version.txt");
+  const previous = fs.existsSync(markerFile)
+    ? fs.readFileSync(markerFile, "utf8").trim()
+    : null;
+  const buildChanged = Boolean(measuring) && previous !== measuring;
 
   // Two Maven invocations dominate a probe: on a warm machine, compile takes
   // about 3 s and resolving the classpath about 3.6 s, against 0.7 s for the
@@ -145,27 +221,29 @@ function run(probeArgs) {
   //
   // A stale cache running old code would be worse than a slow probe, so both
   // are invalidated on evidence rather than on a timestamp file.
-  if (args.refresh || needsCompile(path.join(projectDir, "src"), classesDir)) {
+  if (args.refresh || buildChanged || needsCompile(path.join(projectDir, "src"), classesDir)) {
     // Compile separately, so a build failure is reported as one rather than
     // surfacing later as unparseable probe output.
-    const compile = spawnSync(maven, ["-q", "-B", "compile"], {
+    const compile = spawnSync(maven, ["-q", "-B", ...override, "compile"], {
       cwd: projectDir,
       encoding: "utf8",
       shell,
     });
     if (compile.status !== 0) {
       process.stderr.write(
-        `[probe] the diagnostics project for ${version} does not compile against its pinned GraphCompose.\n` +
+        `[probe] the diagnostics project for ${version} does not compile against ` +
+          `GraphCompose ${measuring ?? "its pinned version"}.\n` +
           `${compile.stdout ?? ""}${compile.stderr ?? ""}`,
       );
       process.exit(1);
     }
+    if (measuring) fs.writeFileSync(markerFile, `${measuring}\n`, "utf8");
   }
 
-  if (args.refresh || !classpathIsUsable(classpathFile, pomFile)) {
+  if (args.refresh || buildChanged || !classpathIsUsable(classpathFile, pomFile)) {
     const classpath = spawnSync(
       maven,
-      ["-q", "-B", "dependency:build-classpath", `-Dmdep.outputFile=${classpathFile}`],
+      ["-q", "-B", ...override, "dependency:build-classpath", `-Dmdep.outputFile=${classpathFile}`],
       { cwd: projectDir, encoding: "utf8", shell },
     );
     if (classpath.status !== 0 || !fs.existsSync(classpathFile)) {
@@ -177,15 +255,13 @@ function run(probeArgs) {
 
   const full = `${classesDir}${path.delimiter}${fs.readFileSync(classpathFile, "utf8").trim()}`;
 
-  // The jar carries no Implementation-Version, so the pinned version is passed
-  // in. A probe's answer is only true of the build that produced it, so the
-  // output has to name one.
-  const pom = fs.readFileSync(path.join(projectDir, "pom.xml"), "utf8");
-  const pinned = pom.match(/<graphcompose\.version>([^<]+)<\/graphcompose\.version>/)?.[1]?.trim();
-
+  // The jar carries no Implementation-Version, so the version is passed in. A
+  // probe's answer is only true of the build that produced it, so the output
+  // has to name the build actually on the classpath — not the pom's pin, which
+  // is what it named while the two could differ without anyone noticing.
   const java = spawnSync(
     "java",
-    [...(pinned ? [`-Dgraphcompose.version=${pinned}`] : []), "-cp", full, MAIN_CLASS, ...probeArgs],
+    [...(measuring ? [`-Dgraphcompose.version=${measuring}`] : []), "-cp", full, MAIN_CLASS, ...probeArgs],
     { cwd: projectDir, encoding: "utf8" },
   );
   const raw = (java.stdout ?? "").trim();

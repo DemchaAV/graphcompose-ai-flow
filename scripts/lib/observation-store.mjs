@@ -58,6 +58,23 @@ export class ObservationStoreError extends Error {
  * @param {{ workspace?: { root: string, manifestPath: string|null }|null, install: string }} options
  * @returns {Array<{ origin: "workspace"|"install", root: string, writable: boolean }>}
  */
+/**
+ * Is this install tree a checkout of the harness, or a plugin's payload?
+ *
+ * <p>The distinction the write guard turns on. In a clone, `observations/` is
+ * the canonical store — tracked in git, shipped to everyone — and the
+ * maintainer recording there is the whole point. In
+ * `~/.claude/plugins/cache/graphcompose/graphcompose-flow/0.14.0/` the same
+ * directory is one version's payload, replaced wholesale on upgrade, and a
+ * record written there is gone at the next release. A `.git` directory tells
+ * them apart; nothing else on disk does.</p>
+ *
+ * @param {string} install
+ */
+export function installIsCheckout(install) {
+  return fs.existsSync(path.join(install, ".git"));
+}
+
 export function observationRoots({ workspace = null, install }) {
   const roots = [];
   const installRootDir = path.join(install, OBSERVATIONS_DIR);
@@ -70,7 +87,7 @@ export function observationRoots({ workspace = null, install }) {
       roots.push({ origin: "workspace", root: workspaceRoot, writable: true });
     }
   }
-  roots.push({ origin: "install", root: installRootDir, writable: false });
+  roots.push({ origin: "install", root: installRootDir, writable: installIsCheckout(install) });
   return roots;
 }
 
@@ -146,7 +163,10 @@ export function recordObservation({ workspace, install, body, force = false }) {
     );
   }
 
-  if (!workspace?.manifestPath) {
+  // Working on the harness itself: the install tree is a checkout, its
+  // observations/ is the canonical store, and recording there is the point.
+  const checkout = installIsCheckout(install);
+  if (!workspace?.manifestPath && !checkout) {
     throw new ObservationStoreError(
       "there is no workspace to record this in. Do not fall back to the install tree: it is one " +
         "plugin version's payload, replaced wholesale on upgrade, and a finding written there is " +
@@ -154,9 +174,10 @@ export function recordObservation({ workspace, install, body, force = false }) {
     );
   }
 
-  const dir = path.join(workspace.root, OBSERVATIONS_DIR, `graphcompose-${line}`);
+  const base = workspace?.manifestPath ? workspace.root : install;
+  const dir = path.join(base, OBSERVATIONS_DIR, `graphcompose-${line}`);
   const resolvedInstall = path.resolve(install);
-  if (path.resolve(dir).startsWith(`${resolvedInstall}${path.sep}`)) {
+  if (!checkout && path.resolve(dir).startsWith(`${resolvedInstall}${path.sep}`)) {
     throw new ObservationStoreError(
       `refusing to write into the install tree (${resolvedInstall}). That tree ships with the ` +
         "plugin and is replaced on upgrade; observations written there do not survive it.",
@@ -210,5 +231,11 @@ export function recordVerification({ workspace, install, subject, entry }) {
   }
 
   const written = recordObservation({ workspace, install, body, force: true });
-  return { file: written.file, copied: true };
+  // In a checkout the shipped record IS the canonical one and is updated in
+  // place; only a real second location is a copy, and saying "copied" for both
+  // would misreport which file a reader should now go and look at.
+  return {
+    file: written.file,
+    copied: path.resolve(written.file) !== path.resolve(subject.file),
+  };
 }

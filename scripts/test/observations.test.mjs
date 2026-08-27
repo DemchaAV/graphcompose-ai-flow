@@ -437,11 +437,19 @@ test("verifiedAgainst matches a build exactly — a snapshot is not its release"
   // The distinction the whole list exists for. A record measured on 2.2.1 says
   // nothing about 2.2.1-SNAPSHOT, which is the line BEFORE 2.2.1 ships, and
   // treating them as one is the exact mistake that cost a run an authoring pass.
+  //
+  // Scoped to a release verdict: a change measured on a SNAPSHOT is a property
+  // of one machine's build and deliberately does not gate anyone else, so it
+  // cannot carry this assertion. That case is its own test below.
   const changed = records().find(({ body }) =>
-    (body.verifiedAgainst ?? []).some((v) => v.verdict === "changed"),
+    (body.verifiedAgainst ?? []).some(
+      (v) => v.verdict === "changed" && !/-SNAPSHOT$/i.test(v.version),
+    ),
   );
   if (!changed) return;
-  const version = changed.body.verifiedAgainst.find((v) => v.verdict === "changed").version;
+  const version = changed.body.verifiedAgainst.find(
+    (v) => v.verdict === "changed" && !/-SNAPSHOT$/i.test(v.version),
+  ).version;
 
   const onSnapshot = run(["show", changed.body.id], {
     cwd: pinnedProject(`${version}-SNAPSHOT`, "notmatched"),
@@ -450,6 +458,51 @@ test("verifiedAgainst matches a build exactly — a snapshot is not its release"
   // — the "did NOT hold" wording belongs only to the build actually measured.
   assert.equal(onSnapshot.status, 5);
   assert.doesNotMatch(onSnapshot.stderr, /did NOT hold/, "a snapshot matched its release");
+});
+
+test("a change measured on a SNAPSHOT warns that build and nobody else", () => {
+  // `layered-row-survives-a-row-cell` holds on released 2.2.2 and does not on
+  // one machine's local 2.2.1-SNAPSHOT. The name `2.2.1-SNAPSHOT` is different
+  // code on another machine, so filing it as a property of the line would
+  // repeat, one level down, the substitution that produced it.
+  const snapshotChanged = records().find(({ body }) =>
+    (body.verifiedAgainst ?? []).some(
+      (v) => v.verdict === "changed" && /-SNAPSHOT$/i.test(v.version),
+    ),
+  );
+  if (!snapshotChanged) return;
+  const entry = snapshotChanged.body.verifiedAgainst.find(
+    (v) => v.verdict === "changed" && /-SNAPSHOT$/i.test(v.version),
+  );
+
+  // On that build: a measurement, in its own words.
+  const onThatBuild = run(["show", snapshotChanged.body.id], {
+    cwd: pinnedProject(entry.version, "snapshot-changed"),
+  });
+  assert.equal(onThatBuild.status, 5);
+  assert.match(onThatBuild.output, /did NOT hold/);
+
+  // On the release the record was written against: nothing to warn about.
+  const onRelease = run(["show", snapshotChanged.body.id], {
+    cwd: pinnedProject(snapshotChanged.body.graphComposeVersion, "snapshot-unrelated"),
+  });
+  assert.equal(onRelease.status, 0, onRelease.output);
+});
+
+test("a verdict carries the build it was measured on, not just a version string", () => {
+  // A version string is not a build. For a SNAPSHOT the two come apart, and a
+  // verdict filed without the jar's identity is a claim about whatever that
+  // name meant on one machine on one day.
+  for (const { body, file } of records()) {
+    for (const entry of body.verifiedAgainst ?? []) {
+      if (!/-SNAPSHOT$/i.test(entry.version)) continue;
+      assert.ok(entry.build, `${file}: ${entry.version} verdict with no build identity`);
+      assert.ok(
+        entry.build.sha1 || (entry.build.bytes && entry.build.modified),
+        `${file}: ${entry.version} build names nothing that identifies it`,
+      );
+    }
+  }
 });
 
 test("every verifiedAgainst entry names a build, a date and a verdict", () => {

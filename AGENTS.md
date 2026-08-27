@@ -95,7 +95,7 @@ PowerShell, cmd and bash.
 | One loop pass: render + diff + verdict | `node scripts/render-and-diff.mjs --project <id> --revision <id>` — exit 0 ready, 2 revise, 3 blocked |
 | Render only | `node scripts/render.mjs <project-id> <revision-id> [--root <workspace>]` |
 | Generate an artifact's reading copy | `node scripts/render-artifact-md.mjs --revision <revision-dir>` |
-| Ask how the library behaves | `node scripts/probe.mjs --list` · `node scripts/probe.mjs <name>` — how *GraphCompose* behaves, by running it. For how *this template* laid out, use `layout.mjs` below |
+| Ask how the library behaves | `node scripts/probe.mjs --list` · `node scripts/probe.mjs <name>` — how *GraphCompose* behaves, by running it. It measures the build **this workspace resolved**, not the diagnostics pom's pin; `--build <x.y.z>` asks about another one and `--pinned` about the pom's. For how *this template* laid out, use `layout.mjs` below |
 | What previous runs learned about a call | `node scripts/observations.mjs find <symbol>` — exit 0 with the workaround, 3 if nothing is on record |
 | What previous runs learned | `node scripts/observations.mjs list` · `verify` — each record says whether it was `learned here` or `shipped` |
 | Record what *this* run learned | `node scripts/observations.mjs record <file.json>` — writes into the **workspace**, never the install tree. The install tree is one plugin version's payload and is replaced on upgrade; a finding written there is lost at the next release |

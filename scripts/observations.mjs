@@ -29,7 +29,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { describeWorkspaceLine, installRoot, resolveWorkspace } from "./lib/workspace.mjs";
-import { resolveVersion } from "./lib/version-resolver.mjs";
+import { describeArtifact, resolveVersion } from "./lib/version-resolver.mjs";
 import {
   loadObservations,
   recordObservation,
@@ -79,6 +79,7 @@ const args = {
   root: null,
   force: false,
   record: false,
+  build: null,
 };
 for (let i = 1; i < argv.length; i += 1) {
   const a = argv[i];
@@ -90,6 +91,7 @@ for (let i = 1; i < argv.length; i += 1) {
   else if (a === "--root") args.root = argv[++i];
   else if (a === "--force") args.force = true;
   else if (a === "--record") args.record = true;
+  else if (a === "--build") args.build = argv[++i];
   else if (a.startsWith("--")) {
     process.stderr.write(`[observations] unknown argument: ${a}\n`);
     usage(2);
@@ -175,6 +177,35 @@ function unverifiedHere(body, line) {
         `Recorded against GraphCompose ${body.graphComposeVersion}` +
         (target.version ? `; this project resolves to ${target.version}` : "; this project's version did not resolve") +
         `.${snapshotCaveat}\n\n${howToSettle}`,
+    };
+  }
+
+  // Measured as changed on some OTHER build. Not the same thing as a
+  // measurement here — the "did NOT hold" wording above belongs only to the
+  // build actually measured — but a behaviour that differs between two builds
+  // of one line is exactly what a reader must not take as settled. The case
+  // this covers arrived with the build-aware probe: the LayerStack row escape
+  // holds on released 2.2.2 and does not on a local 2.2.1-SNAPSHOT, and before
+  // that could be measured the record read as a plain confirmed fact.
+  //
+  // Scoped to releases on purpose. A SNAPSHOT verdict is a property of one
+  // machine's build — the same name is different code elsewhere — so it warns
+  // the person who has that build (the exact match above) and nobody else.
+  // A release is immutable and shared, so a change measured on one is a fact
+  // about the line that everyone reading the record needs.
+  const changedElsewhere = (body.verifiedAgainst ?? []).filter(
+    (v) => v.verdict === "changed" && !/-SNAPSHOT$/i.test(String(v.version)),
+  );
+  if (changedElsewhere.length > 0) {
+    const builds = changedElsewhere.map((v) => v.version).join(", ");
+    return {
+      headline: `"${body.id}" does not hold on every build of this line — measured as changed on ${builds}.`,
+      detail:
+        (target.version
+          ? `Nobody has measured it on ${target.version}, which is what this project resolves to. `
+          : "This project's version did not resolve, so nothing here says which build you have. ") +
+        `A behaviour that differs between two builds of one line is a property of the build, not ` +
+        `of the line, and cannot be read off the record.\n\n${howToSettle}`,
     };
   }
 
@@ -349,10 +380,31 @@ if (command === "verify") {
    * `verifiedAgainst[]` shipped a release ago and nothing ever wrote it, so
    * `show`'s gate was reading a field that was empty on every record.
    */
-  const remember = (subject, verdict, note) => {
+  const remember = (subject, verdict, measured, note) => {
     if (!args.record) return;
-    const target = resolveTargetVersion();
-    if (!target.version) return;
+    // The build the probe reported, not one resolved separately here. The probe
+    // is what ran against the classpath; anything else is a second opinion
+    // about which version was on it, and that gap is the whole failure.
+    const target = { version: measured ?? null };
+    if (!target.version) {
+      console.error("         the probe named no build, so there is nothing to file the verdict against");
+      return;
+    }
+    // Which build that version string named here. For a release it is
+    // decoration; for a SNAPSHOT it is the difference between a measurement and
+    // a rumour, because the same name is different code on another machine.
+    const artifact = describeArtifact({ version: target.version, hash: true });
+    const identity = artifact?.jar
+      ? {
+          build: {
+            sha1: artifact.sha1,
+            bytes: artifact.jar.bytes,
+            modified: artifact.jar.modified,
+            origin: artifact.origin,
+          },
+        }
+      : {};
+
     try {
       const written = recordVerification({
         workspace,
@@ -363,6 +415,7 @@ if (command === "verify") {
           on: new Date().toISOString().slice(0, 10),
           verdict,
           ...(note ? { note } : {}),
+          ...identity,
         },
       });
       console.log(
@@ -387,7 +440,14 @@ if (command === "verify") {
     const line = body.graphComposeVersion.split(".").slice(0, 2).join(".");
     const run = spawnSync(
       process.execPath,
-      [path.join(repoRoot, "scripts", "probe.mjs"), probe, "--version", line, "--json"],
+      [
+        path.join(repoRoot, "scripts", "probe.mjs"),
+        probe,
+        "--version",
+        line,
+        ...(args.build ? ["--build", args.build] : []),
+        "--json",
+      ],
       { encoding: "utf8" },
     );
     if (run.status !== 0) {
@@ -431,12 +491,12 @@ if (command === "verify") {
 
     if (differences.length === 0) {
       console.log(`  ok   ${body.id} (${probe})`);
-      remember(subject, "held");
+      remember(subject, "held", result.graphComposeVersion);
     } else {
       stale += 1;
       console.error(`  FAIL ${body.id}: the probe no longer agrees with what was recorded`);
       for (const d of differences) console.error(`         ${d}`);
-      remember(subject, "changed", differences.join("; "));
+      remember(subject, "changed", result.graphComposeVersion, differences.join("; "));
       console.error(`         If the library changed, set confidence to "retired" in ${path.basename(file)}`);
     }
   }
