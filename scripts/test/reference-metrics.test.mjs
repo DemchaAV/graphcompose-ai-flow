@@ -22,6 +22,8 @@ import {
   samplePalette,
 } from "../lib/reference-metrics.mjs";
 
+const round4 = (n) => Math.round(n * 1e4) / 1e4;
+
 /** A white RGBA raster. */
 function blank(width, height) {
   const data = new Uint8Array(width * height * 4).fill(255);
@@ -185,7 +187,9 @@ test("an aspect mismatch is reported rather than absorbed into the scale", () =>
 
   const result = comparableBands(reference, render, []);
   assert.equal(result.scale, 2);
-  assert.equal(result.aspectDrift, 0.5, "300/200 - 100/100");
+  // width/height, the same way pageMetrics reports aspect. The two must not be
+  // each other's reciprocal, or `measure` and `compare` disagree by a sign.
+  assert.equal(result.aspectDrift, round4(200 / 300 - 1), "200/300 - 100/100");
 });
 
 test("mismatched band counts are stated, not left to be inferred from the lists", () => {

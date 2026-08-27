@@ -272,8 +272,12 @@ export function comparableBands(referencePng, renderPng, windows, options = {}) 
   // One scale, from width. Using each axis separately would silently absorb an
   // aspect mismatch that the caller needs to be told about instead.
   const scale = renderPng.width / referencePng.width;
+  // width/height, matching `pageMetrics().aspect`. Two functions in one module
+  // reporting "aspect" as each other's reciprocal is the unit confusion this
+  // file exists to remove, and it would show up as a sign flip between two
+  // commands that are supposed to agree.
   const aspectDrift = round(
-    renderPng.height / renderPng.width - referencePng.height / referencePng.width,
+    renderPng.width / renderPng.height - referencePng.width / referencePng.height,
     4,
   );
 
