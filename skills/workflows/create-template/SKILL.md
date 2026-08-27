@@ -476,14 +476,28 @@ render and several turns.
 
 ## Reporting back
 
-**Name the live file once, on the first handoff.** Every render also
-lands at `<workspace>/projects/<project-id>/current.pdf`, beside
-`template-project.json`, under that name for the life of the project. A
-viewer that reloads on change and does not lock the file — SumatraPDF —
-opened there once will show every later revision in place, so the user
-watches the work progress instead of hunting for the newest revision
-folder. Say it on the first handoff and not again; repeating a path they
-already have open is noise.
+**Open the live file once, after the first successful render.** Every
+render also lands at `<workspace>/projects/<project-id>/current.pdf`,
+beside `template-project.json`, under that name for the life of the
+project. A viewer that reloads on change and does not lock the file —
+SumatraPDF — opened there once shows every later revision in place.
+
+Open it yourself, as soon as there is something to see:
+
+```bash
+node scripts/preview-live.mjs --project <project-id>
+```
+
+**Once per project, not once per render** — it raises a window, and doing
+that on every pass would take the screen away from the user mid-sentence.
+Then name the path on the first handoff and not again, as already open
+rather than as something for them to go and find. Printing a path at the
+end of the run and asking the user to open it wastes the whole point of a
+mirror that refreshes in place: they watch the loop work, or they see one
+finished PDF and none of the passes that got there.
+
+If it reports nothing to open, carry on and name the path instead — a
+missing viewer is not a reason to stop the work.
 
 Every handoff to the user — ready for approval, blocked, or answering a
 correction — ends with the metrics block when it is available:
@@ -520,6 +534,96 @@ Anything the schema cannot carry — a table comparing this revision to
 the previous two, a paragraph explaining *why* something was wrong —
 goes in the JSON's `notes` array. The generator emits it verbatim, so
 the narrative survives without a second source of truth.
+
+## After the first render — diagnose before you measure
+
+The render is the first moment there is something to be wrong about, and
+the first temptation is to open the two images and start counting pixels.
+Do not. A run that did exactly that spent **27 minutes of thinking — 35% of
+its wall clock — composing 76 one-off measurement scripts**, and the
+rendering it was so careful about cost under a minute. Ask the engine
+first; it already measured everything.
+
+What this install can answer is in the preflight payload, under
+`capabilities`:
+
+```bash
+node scripts/preflight.mjs --json --project-dir <java-project>
+```
+
+`capabilities.layoutSnapshot.state` is `available`, `unavailable` or
+`unknown`, and `capabilities.diagnostics` says which of the tools below
+exist here at all. Preflight exits **5** when the installed skills are
+newer than these tools — if that happens, stop and say so, because every
+route in this section will silently degrade.
+
+### When the snapshot is there
+
+`available` on GraphCompose 2.2.1 and up. The engine's own post-layout
+measurement is in the revision, and it answers in points, not pixels:
+
+```bash
+node scripts/layout.mjs inspect <node> --project <id> --revision <id>
+node scripts/layout.mjs explain <node> <x|y|width|height> --project <id> --revision <id>
+node scripts/layout.mjs diff <parent-revision> <this-revision> --project <id>
+node scripts/layout.mjs doctor --project <id> --revision <id>
+```
+
+**A delta does not say which element owns it, and `explain` does.** This is
+the rule, not an optimisation. A run found an icon and its text 7.5 px
+apart, took *both* correction magnitudes from the size of that gap, and
+moved both elements — but the icon had been right all along, within 0.7 px
+of the reference, and only the text was low. Shifting a correct element by
+the full error carried it past the target: the offset crossed zero and all
+four rows broke in the other direction. `explain <node> y` returns the
+additive chain that produces the coordinate, which is exactly the question
+"which of these two is wrong" and the only one a pixel diff cannot answer.
+
+### When it is not there
+
+A project pinned below 2.2.1, or `layoutSnapshot.state` reporting
+`unavailable`. Then measure the rasters — but with a command, not a script
+you write:
+
+```bash
+node scripts/reference.mjs compare --project <id> --revision <id> --window "TOP,20,1080,0,300" --window "COL1,53,530,700,1200"
+```
+
+Both sides come back in **reference pixels** whatever the render's raster
+is, so the numbers are comparable without converting anything. `--window`
+is `name,x0,x1,y0,y1` and is **repeatable — pass every window you need in
+one call**. One window per call is the failure this command was built to
+end. `measure`, `rules`, `bands` and `colors` are the other subcommands;
+`reference.mjs --help` lists them.
+
+Choosing the window is still yours. A whole-page scan merges two columns at
+overlapping heights into one run, and which region owns a rule is a
+judgement no command makes.
+
+### When the cause is typography
+
+Rank the candidates against the reference; do not substitute by eye:
+
+```bash
+node scripts/typography.mjs match --reference <crop.png> --text "<the exact string>"
+node scripts/typography.mjs search --reference <crop.png> --text "<the exact string>" --family <NAME> --from 9 --to 12 --step 0.25
+```
+
+### The structural gates
+
+These read the render rather than your intentions, and each answers
+something a diff reports as a few hundred grey pixels:
+
+```bash
+node scripts/check-border-topology.mjs   --project <id> --revision <id>   # rules present, missing, displaced
+node scripts/check-region-primitives.mjs --project <id> --revision <id>   # regions built from the planned primitives
+node scripts/check-document-integrity.mjs --project <id> --revision <id>  # every string in the data reached the page
+```
+
+`check-border-topology` compares the reference's rules against the
+render's, in both directions: a line missing from **both** is intentional,
+a line missing from one is a defect, and which one it is missing from says
+which kind.
 
 ## Then loop
 

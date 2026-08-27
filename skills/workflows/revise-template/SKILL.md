@@ -238,6 +238,26 @@ turned out to be a rail whose ends followed the band height and an
 over-tall child being top-clamped — neither of which the user could have
 named.
 
+**Diagnose from the layout, not from the gap.** A symptom report points at
+two things that disagree, and the tempting move is to measure how far apart
+they are and split the difference. That is how the one regression in this
+harness's history happened: an icon and its text sat 7.5 px apart, both were
+moved by amounts taken from that gap, and the icon had been correct all
+along — within 0.7 px of the reference. Shifting a right element by the full
+error carried it past the target and broke all four rows the other way.
+
+```bash
+node scripts/layout.mjs explain <node> <x|y|width|height> --project <id> --revision <id>
+```
+
+`explain` returns the additive chain that produces a coordinate, which is
+the question "which of these two is wrong" — the one thing a difference
+between them cannot tell you. When no snapshot is available, `reference.mjs
+compare` gives both sides in reference pixels; the ownership question is
+still yours to settle before you move anything. The full routing, including
+what to do when the snapshot is missing, is in
+[create-template](../create-template/SKILL.md#after-the-first-render--diagnose-before-you-measure).
+
 ## Reporting back
 
 `iterate-status` already prints a one-line cost after every pass, so the
