@@ -44,6 +44,12 @@ diagnostics and zero of the six `check-*.mjs` that ship with it.
   that would settle it. A same-line version difference does not gate. `equal()`
   can now compare objects; it fell through to `===` and reported two identical
   grouped measurements as a change.
+- **`scripts/render-and-diff.mjs`** — a failed step now prints its whole
+  explanation rather than the first three lines of it, and the excerpt prefers
+  error-shaped lines over the plain tail. A run was shown two `[asset-resolver]`
+  progress lines where the compiler's complaint should have been, three times,
+  and re-invoked `render.mjs` by hand each time to find out why. (It exits 1 on
+  failure and always did — the audit's `EXIT=0` was `$?` read after a pipe.)
 - **`probe.mjs line-spacing`** — new. `anchor-alignment` now answers both axes.
   Probe output is written through an explicit UTF-8 stream; it went through
   `System.out` and any non-ASCII character in a finding reached the caller
@@ -77,7 +83,7 @@ diagnostics and zero of the six `check-*.mjs` that ship with it.
 
 ### Tests
 
-- **761 → 802**, measured against a baseline captured before the first change.
+- **761 → 804**, measured against a baseline captured before the first change.
   New: `reference.test.mjs` (13), `reference-metrics.test.mjs` (12), plus 8 in
   `preflight.test.mjs` and 8 in `observations.test.mjs`.
 - `reference-metrics` synthesises its rasters rather than committing fixtures,
