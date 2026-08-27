@@ -14,10 +14,18 @@
     "arrangement": "A 60 pt wide shape container with ClipPolicy.OVERFLOW_VISIBLE holding a 140 pt wide spacer at LayerAlign.CENTER, dx = 0. The same probe's vertical half answers the over-tall case, so one run settles both axes. A spacer is used rather than an empty shape container because ShapeContainerNode is rejected at build time unless it has at least one layer."
   },
   "probeResult": {
-    "horizontalArrangement": { "containerWidth": 60.0, "childWidth": 140.0, "overflowHalf": 40.0 },
+    "horizontalArrangement": {
+      "containerWidth": 60.0,
+      "childWidth": 140.0,
+      "overflowHalf": 40.0
+    },
     "horizontalMeasurements": {
-      "containerX": 0.0, "containerWidth": 60.0, "containerCentreX": 30.0,
-      "childX": 0.0, "childWidth": 140.0, "childCentreX": 70.0
+      "containerX": 0.0,
+      "containerWidth": 60.0,
+      "containerCentreX": 30.0,
+      "childX": 0.0,
+      "childWidth": 140.0,
+      "childCentreX": 70.0
     },
     "horizontalDriftAtZeroOffset": 40.0,
     "horizontallyClamped": true,
@@ -31,5 +39,12 @@
     "date": "2026-08-27",
     "note": "The brand mark drifted right inside its band. The run measured it from rendered pixels, recorded it in the revision's architecture plan, and had no probe to promote it with; this record is that probe's answer."
   },
-  "promotedTo": null
+  "promotedTo": null,
+  "verifiedAgainst": [
+    {
+      "version": "2.2.1",
+      "on": "2026-08-27",
+      "verdict": "held"
+    }
+  ]
 }

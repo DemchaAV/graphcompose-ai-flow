@@ -46,5 +46,13 @@
     "note": "Reported from a real acceptance run and reproduced here independently. The probe found more than was reported: the partial-draw cases (Section, LayerStack) were not in the original account, and they are the ones that mislead, because a half-drawn cell reads as a styling problem rather than a lost-content one."
   },
   "promotedTo": null,
-  "retiredNote": "Fixed in 2.2.1. Re-running `table-cell-node` against 2.2.1 shows all eight node kinds drawing in full: contentDrawnInFull became [ParagraphNode, ListNode, TableNode, SectionNode, RowNode, LayerStackNode, ShapeContainerNode, CanvasLayerNode], with contentPartiallyDrawn and contentLost both empty. On 2.2.0 a RowNode, ShapeContainerNode or CanvasLayerNode in a cell reserved the cell's height and drew none of its child content, and a SectionNode or LayerStackNode drew about 0.4 of the ink. The workaround above is what a project still pinned to 2.2.0 needs; on 2.2.1 a cell takes any node."
+  "retiredNote": "Fixed in 2.2.1. Re-running `table-cell-node` against 2.2.1 shows all eight node kinds drawing in full: contentDrawnInFull became [ParagraphNode, ListNode, TableNode, SectionNode, RowNode, LayerStackNode, ShapeContainerNode, CanvasLayerNode], with contentPartiallyDrawn and contentLost both empty. On 2.2.0 a RowNode, ShapeContainerNode or CanvasLayerNode in a cell reserved the cell's height and drew none of its child content, and a SectionNode or LayerStackNode drew about 0.4 of the ink. The workaround above is what a project still pinned to 2.2.0 needs; on 2.2.1 a cell takes any node.",
+  "verifiedAgainst": [
+    {
+      "version": "2.2.1",
+      "on": "2026-08-27",
+      "verdict": "changed",
+      "note": "all eight node kinds draw in full on 2.2.1; this is what the retirement rests on"
+    }
+  ]
 }

@@ -405,3 +405,64 @@ test("a probe result grouped into an object still verifies", () => {
     );
   }
 });
+
+test("a record re-measured on THIS build is a measurement, not a claim", () => {
+  // `retired` gates because a retirement is a claim made once against one
+  // version. A record actually re-measured on the build in front of you is not a
+  // claim any more, and gating it anyway would teach the reader to ignore the
+  // gate.
+  const held = records().find(({ body }) =>
+    (body.verifiedAgainst ?? []).some((v) => v.verdict === "held"),
+  );
+  if (!held) return;
+  const version = held.body.verifiedAgainst.find((v) => v.verdict === "held").version;
+
+  const result = run(["show", held.body.id], { cwd: pinnedProject(version, "measured") });
+  assert.equal(result.status, 0, `re-measured on ${version} and still gated:\n${result.stderr}`);
+});
+
+test("a record re-measured as changed says so, and does not pass", () => {
+  const changed = records().find(({ body }) =>
+    (body.verifiedAgainst ?? []).some((v) => v.verdict === "changed"),
+  );
+  if (!changed) return;
+  const version = changed.body.verifiedAgainst.find((v) => v.verdict === "changed").version;
+
+  const result = run(["show", changed.body.id], { cwd: pinnedProject(version, "changed") });
+  assert.equal(result.status, 5);
+  assert.match(result.stderr, /did NOT hold/);
+});
+
+test("verifiedAgainst matches a build exactly — a snapshot is not its release", () => {
+  // The distinction the whole list exists for. A record measured on 2.2.1 says
+  // nothing about 2.2.1-SNAPSHOT, which is the line BEFORE 2.2.1 ships, and
+  // treating them as one is the exact mistake that cost a run an authoring pass.
+  const changed = records().find(({ body }) =>
+    (body.verifiedAgainst ?? []).some((v) => v.verdict === "changed"),
+  );
+  if (!changed) return;
+  const version = changed.body.verifiedAgainst.find((v) => v.verdict === "changed").version;
+
+  const onSnapshot = run(["show", changed.body.id], {
+    cwd: pinnedProject(`${version}-SNAPSHOT`, "notmatched"),
+  });
+  // It still gates, but as an unverified retirement rather than as a measurement
+  // — the "did NOT hold" wording belongs only to the build actually measured.
+  assert.equal(onSnapshot.status, 5);
+  assert.doesNotMatch(onSnapshot.stderr, /did NOT hold/, "a snapshot matched its release");
+});
+
+test("every verifiedAgainst entry names a build, a date and a verdict", () => {
+  for (const { body, file } of records()) {
+    for (const entry of body.verifiedAgainst ?? []) {
+      assert.ok(entry.version, `${file}: a verification with no build`);
+      assert.match(entry.on, /^\d{4}-\d{2}-\d{2}$/, `${file}: ${entry.on} is not a date`);
+      assert.ok(["held", "changed"].includes(entry.verdict), `${file}: verdict ${entry.verdict}`);
+      // A `changed` verdict is what a retirement should rest on, so it has to
+      // say what moved rather than leaving the next reader to re-derive it.
+      if (entry.verdict === "changed") {
+        assert.ok(entry.note, `${file}: recorded a change with no account of it`);
+      }
+    }
+  }
+});

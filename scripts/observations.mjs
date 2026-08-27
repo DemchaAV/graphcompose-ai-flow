@@ -110,6 +110,24 @@ for (let i = 1; i < argv.length; i += 1) {
 function unverifiedHere(body, line) {
   const target = resolveTargetVersion();
   const probe = body.minimalReproduction?.probe ?? null;
+
+  // An exact build match settles it, whatever the confidence says. `retired`
+  // gates because a retirement is a claim made once against one version — but a
+  // record that has actually been re-measured on *this* build is not a claim any
+  // more, it is a measurement, and gating it would teach the reader to ignore
+  // the gate. The version must match exactly, suffix included: 2.2.1-SNAPSHOT is
+  // not 2.2.1, and that distinction is the whole reason this list exists.
+  const measuredHere = (body.verifiedAgainst ?? []).find((v) => v.version === target.version);
+  if (measuredHere) {
+    if (measuredHere.verdict === "held") return null;
+    return {
+      headline: `"${body.id}" was re-measured on ${target.version} and did NOT hold.`,
+      detail:
+        `Checked ${measuredHere.on}${measuredHere.note ? `: ${measuredHere.note}` : "."}\n\n` +
+        `This is a measurement, not a stale note — the behaviour changed. Read the record as ` +
+        `history and do not build on it.`,
+    };
+  }
   const howToSettle = probe
     ? `Settle it here:\n  node scripts/probe.mjs ${probe}${target.line ? ` --version ${target.line}` : ""}\n` +
       `  node scripts/observations.mjs verify --id ${body.id}`
