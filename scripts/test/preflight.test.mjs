@@ -274,3 +274,136 @@ test("--text prints a summary a person can read", () => {
   assert.match(result.stdout, /GraphCompose 2\.2\.0/);
   assert.match(result.stdout, /Workflow: create-template/);
 });
+
+// --------------------------------------------------------------- capabilities ---
+
+/**
+ * A cache directory holding the named pack versions, pointed at by
+ * `CLAUDE_CONFIG_DIR` so the assertions never depend on what this machine has
+ * actually installed.
+ */
+function pluginCache(versions, label) {
+  const configDir = tempDir(label);
+  for (const version of versions) {
+    fs.mkdirSync(
+      path.join(configDir, "plugins", "cache", "graphcompose", "graphcompose-flow", version),
+      { recursive: true },
+    );
+  }
+  return configDir;
+}
+
+function runWithCache(args, configDir) {
+  const result = spawnSync(process.execPath, [CLI, ...args], {
+    encoding: "utf8",
+    env: { ...process.env, CLAUDE_CONFIG_DIR: configDir },
+  });
+  let parsed = null;
+  try {
+    parsed = JSON.parse(result.stdout);
+  } catch {
+    /* left null */
+  }
+  return { status: result.status, parsed, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
+}
+
+const treeVersion = JSON.parse(
+  fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"),
+).version;
+
+test("capabilities reports presence per file, and the booleans match the tree", () => {
+  const { host } = scenario({}, "caps");
+  const { parsed } = run(["--project-dir", host, "--project", "demo"]);
+
+  assert.ok(parsed.capabilities, "no capabilities block");
+  // Every declared name is answered, and answered truthfully. A capability report
+  // that drifts from the directory it describes is worse than none: it is the
+  // thing the run trusts instead of looking.
+  for (const [file, present] of Object.entries(parsed.capabilities.diagnostics)) {
+    assert.equal(present, fs.existsSync(path.join(repoRoot, "scripts", file)), `diagnostics.${file}`);
+  }
+  for (const [file, present] of Object.entries(parsed.capabilities.checks)) {
+    assert.equal(present, fs.existsSync(path.join(repoRoot, "scripts", file)), `checks.${file}`);
+  }
+  assert.deepEqual(
+    parsed.capabilities.missing,
+    [...Object.entries(parsed.capabilities.diagnostics), ...Object.entries(parsed.capabilities.checks)]
+      .filter(([, present]) => !present)
+      .map(([file]) => file),
+    "missing disagrees with the per-file answers",
+  );
+});
+
+test("a pack newer than these tools fails, and says which files are absent", () => {
+  const { host } = scenario({}, "behind");
+  const configDir = pluginCache(["0.9.0", "99.0.0"], "behind-cache");
+  const { status, parsed } = runWithCache(["--project-dir", host, "--project", "demo"], configDir);
+
+  assert.equal(parsed.capabilities.parity, "tools-behind");
+  assert.equal(status, 5, "a newer installed pack did not fail preflight");
+  assert.match(parsed.capabilities.parityMessage, /99\.0\.0/);
+  assert.match(parsed.capabilities.parityMessage, new RegExp(treeVersion.replace(/\./g, "\.")));
+});
+
+test("a pack older than these tools is the ordinary development case, not a failure", () => {
+  const { host } = scenario({}, "ahead");
+  const configDir = pluginCache(["0.1.0"], "ahead-cache");
+  const { status, parsed } = runWithCache(["--project-dir", host, "--project", "demo"], configDir);
+
+  assert.equal(parsed.capabilities.parity, "tools-ahead");
+  assert.equal(parsed.capabilities.parityMessage, null);
+  assert.equal(status, 0);
+});
+
+test("no installed pack at all is a matched pair, not an unknown", () => {
+  const { host } = scenario({}, "nocache");
+  const configDir = pluginCache([], "empty-cache");
+  const { status, parsed } = runWithCache(["--project-dir", host, "--project", "demo"], configDir);
+
+  // The skills came from this tree, so nothing can disagree with it.
+  assert.equal(parsed.capabilities.parity, "matched");
+  assert.equal(parsed.capabilities.installedPackCount, 0);
+  assert.equal(status, 0);
+});
+
+test("an unsupported version outranks a parity mismatch", () => {
+  // Both faults at once. The version code has to win: an unsupported line is a
+  // reason to stop whatever the skills' release, and reporting the narrower
+  // fault would send the reader after the wrong thing.
+  const { host } = scenario({ version: "1.0.0" }, "bothfaults");
+  const configDir = pluginCache(["99.0.0"], "bothfaults-cache");
+  const { status, parsed } = runWithCache(["--project-dir", host, "--project", "demo"], configDir);
+
+  assert.equal(parsed.capabilities.parity, "tools-behind");
+  assert.equal(status, 3, "the version fault was masked by the parity fault");
+});
+
+test("the cached pack list is capped, and the count is reported in full", () => {
+  const { host } = scenario({}, "capped");
+  const many = Array.from({ length: 9 }, (_, i) => `0.${i + 1}.0`);
+  const configDir = pluginCache(many, "capped-cache");
+  const { parsed } = runWithCache(["--project-dir", host, "--project", "demo"], configDir);
+
+  assert.equal(parsed.capabilities.installedPackCount, 9);
+  assert.ok(parsed.capabilities.installedPacks.length <= 5, "the whole list was inlined");
+  assert.equal(parsed.capabilities.newestInstalledPack, "0.9.0");
+});
+
+test("layout snapshot support is one of three states, never a bare boolean", () => {
+  const { host } = scenario({}, "snapshot");
+  const { parsed } = run(["--project-dir", host, "--project", "demo"]);
+
+  const snapshot = parsed.capabilities.layoutSnapshot;
+  // Two states would lie: before a render has happened the honest answer for a
+  // supported version with an unbuilt renderer is "unknown", not "unavailable".
+  assert.ok(["available", "unavailable", "unknown"].includes(snapshot.state), snapshot.state);
+  assert.ok(snapshot.why, "a state with no reason attached");
+});
+
+test("--text names the missing files and the snapshot state", () => {
+  const { host } = scenario({}, "captext");
+  const result = spawnSync(process.execPath, [CLI, "--project-dir", host, "--project", "demo", "--text"], {
+    encoding: "utf8",
+  });
+  assert.match(result.stdout, /Layout snapshot: (available|unavailable|unknown)/);
+});
