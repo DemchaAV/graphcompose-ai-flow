@@ -95,6 +95,31 @@ function readJson(file) {
 
 const listRegions = (analysis) => (Array.isArray(analysis?.regions) ? analysis.regions : []);
 
+/**
+ * The visual-analysis governing a revision, walking up when it has none of its
+ * own.
+ *
+ * The narrow scopes — data-only, asset-only, refactor-only, a dependency bump —
+ * deliberately skip the analyser, because the regions did not move and that is
+ * the entire premise of those scopes. Their analysis is the nearest ancestor's.
+ * `render-and-diff` has walked up for exactly this reason since it was written;
+ * this did not, so asking for evidence on a revision that inherited its analysis
+ * failed with "no regions" — a file that was never missing, only one level up.
+ */
+function nearestAnalysis(startDir, revisionsDir) {
+  let dir = startDir;
+  const seen = new Set();
+  while (dir && !seen.has(dir)) {
+    seen.add(dir);
+    const found = readJson(path.join(dir, "visual-analysis.json"));
+    if (found) return found;
+    const revision = readJson(path.join(dir, "revision.json"));
+    if (!revision?.parentRevisionId) return null;
+    dir = path.join(revisionsDir, revision.parentRevisionId);
+  }
+  return null;
+}
+
 function render(pkg) {
   const lines = [];
   lines.push(summarise(pkg));
@@ -156,7 +181,7 @@ function main() {
   const revisionDir = path.join(projectDir(workspace, args.project), "revisions", args.revision);
   if (!fs.existsSync(revisionDir)) fail(1, `no such revision: ${revisionDir}`);
 
-  const analysis = readJson(path.join(revisionDir, "visual-analysis.json"));
+  const analysis = nearestAnalysis(revisionDir, path.join(projectDir(workspace, args.project), "revisions"));
   const review = readJson(path.join(revisionDir, "visual-review.json"));
   const stats = readJson(path.join(revisionDir, "region-diff-stats.json"));
   const snapshotFile = path.join(revisionDir, "layout-snapshot.json");

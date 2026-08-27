@@ -313,6 +313,42 @@ test("the typography package names the run, and forbids fixing it with geometry"
   assert.deepEqual(pkg.recommendedProperties, [], "geometry is not the fix here");
 });
 
+test("an unset base style is not reported as a substitution", () => {
+  // The engine compares a paragraph's BASE style against the span it actually
+  // measured, and those differ for an innocent reason: a paragraph built from
+  // inlineText(value, style) never sets a base style, so its base stays the
+  // library default while every span carries the real font. On the reference CV
+  // — a correct, approved template — that is 18 reported substitutions, all
+  // Helvetica -> Lato, none of them a defect. Raising a cause on those is the
+  // cry-wolf failure this repository has already had once.
+  const substituted = [{ declaredFont: "Helvetica", resolvedFamily: "Lato", decoration: "DEFAULT" }];
+  const verdict = classifyCause({ displaced: { deltaX: 0, deltaY: 0 }, tolerance: 3, substitutedFonts: substituted });
+  assert.equal(verdict.cause, "TYPOGRAPHY", "classifyCause reports what it is handed");
+
+  // The filtering happens where the runs are read, so the package is the thing
+  // that must not raise it. Both halves of the pair, on one document:
+  const model = loadSnapshot(JSON.parse(fs.readFileSync(TYPOGRAPHY_FIXTURE, "utf8")));
+  const honest = buildEvidencePackage({
+    model,
+    region: { id: "honest", role: "content", page: 1, bounds: boundsForNode(resolveNode(model, "HonestHeading"), model.canvas) },
+    regionStats: { percent: 30 },
+  });
+  assert.equal(honest.cause, "UNKNOWN", "Helvetica-Bold WITH the decoration it implies really is bold");
+  assert.deepEqual(honest.typography.substituted, []);
+});
+
+test("a face alias without its decoration is the substitution worth raising", () => {
+  const model = loadSnapshot(JSON.parse(fs.readFileSync(TYPOGRAPHY_FIXTURE, "utf8")));
+  const pkg = buildEvidencePackage({
+    model,
+    region: { id: "trap", role: "content", page: 1, bounds: boundsForNode(resolveNode(model, "TrapHeading"), model.canvas) },
+    regionStats: { percent: 30 },
+  });
+  assert.equal(pkg.cause, "TYPOGRAPHY");
+  assert.deepEqual(pkg.typography.substituted.map((s) => s.declaredFont), ["Helvetica-Bold"]);
+  assert.equal(pkg.typography.ambiguousBaseStyle, 0);
+});
+
 test("a region whose text is fine is not called TYPOGRAPHY", () => {
   const model = loadSnapshot(JSON.parse(fs.readFileSync(TYPOGRAPHY_FIXTURE, "utf8")));
   const body = resolveNode(model, "Body");

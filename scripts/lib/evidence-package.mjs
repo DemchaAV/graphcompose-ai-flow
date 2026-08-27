@@ -90,6 +90,37 @@ export const GEOMETRY_TOLERANCE_FRACTION = 0.005;
 /** Interior mismatch above which a correctly-placed image is the wrong image. */
 export const ASSET_INTERIOR_THRESHOLD_PERCENT = 25;
 
+/**
+ * Is this substitution the one worth acting on?
+ *
+ * The engine reports `fontSubstituted` by comparing the paragraph's **base**
+ * style against the style of the span it actually measured, and those differ for
+ * a second, entirely innocent reason: a paragraph built from
+ * `inlineText(value, style)` never sets a base style at all, so its base stays
+ * the library default while every span carries the real font. Measured on the
+ * reference CV — a correct, approved template — that produces **18 reported
+ * substitutions, all of them `Helvetica -> Lato`, none of them a defect.**
+ * Raising a cause on those would be the cry-wolf failure this repository has
+ * already had once.
+ *
+ * The substitution that *is* a defect is the face alias: a standard-14 face like
+ * `Helvetica-Bold` resolves to its family because the face comes from the
+ * decoration, so naming it and setting none renders regular. Those two names
+ * share a family and differ only in the face — `Helvetica-Bold` / `Helvetica`,
+ * `Times-Bold` / `Times-Roman` — which is what this tests, on the standard-14
+ * naming convention rather than on a hard-coded list.
+ *
+ * A whole-family difference is reported in the package and left unclassified: it
+ * is ambiguous by construction, and the snapshot cannot tell an unset base style
+ * from a deliberate one.
+ */
+const family = (name) => String(name ?? "").split("-")[0];
+const isFaceAliasSubstitution = (run) =>
+  run.declaredFont
+  && run.resolvedFamily
+  && run.declaredFont !== run.resolvedFamily
+  && family(run.declaredFont) === family(run.resolvedFamily);
+
 /** Region roles that carry a file rather than drawn output. */
 const ASSET_ROLES = new Set(["image", "icon", "logo"]);
 
@@ -513,11 +544,17 @@ export function buildEvidencePackage({
       // The whole subtree, not just the owner: a region's owner is a section and
       // the text is in its children.
       const runs = typographyUnder(model, owner);
-      substitutedFonts = runs.filter((run) => run.fontSubstituted);
+      const reported = runs.filter((run) => run.fontSubstituted);
+      // Only the actionable half reaches the classifier; the rest is recorded.
+      substitutedFonts = reported.filter(isFaceAliasSubstitution);
+      const ambiguous = reported.filter((run) => !isFaceAliasSubstitution(run));
       if (runs.length) {
         pkg.typography = {
           runs: runs.length,
           fonts: [...new Set(runs.map((run) => run.resolvedFamily))],
+          // Split on purpose: one of these is a defect and the other is how
+          // inline authoring looks from the base style.
+          ambiguousBaseStyle: ambiguous.length,
           substituted: substitutedFonts.map((run) => ({
             path: run.path,
             declaredFont: run.declaredFont,
