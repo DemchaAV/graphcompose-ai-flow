@@ -159,6 +159,19 @@ Widening the search until something moves is how a template accumulates
 constants that no longer mean anything: each was true for one pass, and
 together they describe no layout at all.
 
+**Apply a small change in a small way.** One run wrote five throwaway
+Python patchers — nearly 30 KB of them — to change a handful of lines in
+its own generated Java. Every one had to be composed before it could run,
+and the composing is the cost: the script is model output, and a 9 KB
+patcher to move one padding value costs more than the edit it performs.
+
+Edit the file directly, by whatever means the host gives you. Reach for a
+script only when the rewrite is genuinely repetitive across many sites — a
+rename through forty call sites is a script; three padding values are three
+edits. If a patcher does earn its place, keep it to the transformation and
+leave the Java in the Java file: a patcher carrying large literal blocks
+has become a second copy of the template, and the two will disagree.
+
 ## Data-spec contract
 
 Variable content — names, contacts, dates, jobs, awards — lives in

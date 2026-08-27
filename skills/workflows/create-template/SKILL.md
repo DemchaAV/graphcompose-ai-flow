@@ -204,6 +204,19 @@ Print the chain you are about to run with
 
 ## The stages
 
+**Independent measurements go in one call.** A run's bill is its turn count
+multiplied by the size of its context, because every turn re-reads the whole
+prompt: 226 turns against a prompt averaging 320k came to 72 million tokens
+of re-reading, next to 550k of actual content. Its reference-analysis stage
+alone was 61 calls, most of them a single measurement each.
+
+So when the next thing to learn does not depend on the last thing learned,
+learn them together. `reference.mjs` takes `--window` repeatedly for exactly
+this reason; `probe.mjs`, `javap` and a `grep` over the API surface can be
+one command with `;` between them. Anything whose *result changes what you
+would ask next* stays its own call — batching a decision point is how you
+end up acting on a stale answer.
+
 **Fan the analysis out, where the host can.** The first three artifacts
 describe the same reference and do not read each other, so they can be
 produced by three parallel subagents (in Claude Code: the Agent tool;

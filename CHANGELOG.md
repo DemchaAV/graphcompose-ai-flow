@@ -55,6 +55,14 @@ diagnostics and zero of the six `check-*.mjs` that ship with it.
   `System.out` and any non-ASCII character in a finding reached the caller
   corrupted.
 
+- **`schemas/observation.schema.json`** — new `verifiedAgainst[]`: every build a
+  record has actually been measured against, with a `held`/`changed` verdict.
+  `graphComposeVersion` says where a behaviour was *first* seen and `sourceRun`
+  says who paid for it; neither answers "is it true on the build in front of me".
+  `observations show` treats an exact-build match as a measurement rather than a
+  claim, and matches **exactly** — a snapshot never inherits its release's
+  result, which is the distinction that cost the audited run an authoring pass.
+
 ### Documentation
 
 - **`create-template/SKILL.md`** gains `## After the first render — diagnose
@@ -67,6 +75,12 @@ diagnostics and zero of the six `check-*.mjs` that ship with it.
   render.
 - **`revise-template/SKILL.md`** is pointed at the same routing rather than
   given a copy.
+- **`## The stages`** states the turn-cost arithmetic — 226 turns against a
+  320k prompt is 72M tokens of re-reading, next to 550k of content — and the
+  boundary: batch what is independent, never batch a decision point.
+- **`authoring-rules.md`** gains guidance on applying small changes in small
+  ways. One run wrote five throwaway Python patchers, nearly 30 KB, to change a
+  handful of lines in its own generated Java; the composing is the cost.
 
 ### Knowledge
 
