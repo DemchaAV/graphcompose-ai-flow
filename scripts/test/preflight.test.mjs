@@ -299,12 +299,41 @@ function runWithCache(args, configDir) {
     env: { ...process.env, CLAUDE_CONFIG_DIR: configDir },
   });
   let parsed = null;
+  let parseError = null;
   try {
     parsed = JSON.parse(result.stdout);
-  } catch {
-    /* left null */
+  } catch (cause) {
+    parseError = cause.message;
   }
-  return { status: result.status, parsed, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
+  return {
+    status: result.status,
+    parsed,
+    parseError,
+    signal: result.signal ?? null,
+    output: `${result.stdout ?? ""}${result.stderr ?? ""}`,
+  };
+}
+
+/**
+ * The parsed payload, or a failure that says what actually happened.
+ *
+ * Without this, a subprocess that dies or prints something unparseable comes
+ * back as `parsed === null` and every assertion below it throws
+ * `TypeError: Cannot read properties of null` — which names the assertion that
+ * tripped and nothing about the cause. This suite saw exactly one such failure
+ * under parallel load and could not reproduce it in eleven further runs, so the
+ * next occurrence has to explain itself rather than be investigated from a test
+ * name.
+ */
+function payload(result, label) {
+  assert.ok(
+    result.parsed,
+    `${label}: preflight produced no JSON payload\n` +
+      `  exit=${result.status} signal=${result.signal}\n` +
+      `  parse error: ${result.parseError}\n` +
+      `  output:\n${result.output || "(empty)"}`,
+  );
+  return result.parsed;
 }
 
 const treeVersion = JSON.parse(
@@ -337,10 +366,11 @@ test("capabilities reports presence per file, and the booleans match the tree", 
 test("a pack newer than these tools fails, and says which files are absent", () => {
   const { host } = scenario({}, "behind");
   const configDir = pluginCache(["0.9.0", "99.0.0"], "behind-cache");
-  const { status, parsed } = runWithCache(["--project-dir", host, "--project", "demo"], configDir);
+  const result = runWithCache(["--project-dir", host, "--project", "demo"], configDir);
+  const parsed = payload(result, "tools-behind");
 
   assert.equal(parsed.capabilities.parity, "tools-behind");
-  assert.equal(status, 5, "a newer installed pack did not fail preflight");
+  assert.equal(result.status, 5, "a newer installed pack did not fail preflight");
   assert.match(parsed.capabilities.parityMessage, /99\.0\.0/);
   assert.match(parsed.capabilities.parityMessage, new RegExp(treeVersion.replace(/\./g, "\.")));
 });
@@ -348,22 +378,24 @@ test("a pack newer than these tools fails, and says which files are absent", () 
 test("a pack older than these tools is the ordinary development case, not a failure", () => {
   const { host } = scenario({}, "ahead");
   const configDir = pluginCache(["0.1.0"], "ahead-cache");
-  const { status, parsed } = runWithCache(["--project-dir", host, "--project", "demo"], configDir);
+  const result = runWithCache(["--project-dir", host, "--project", "demo"], configDir);
+  const parsed = payload(result, "tools-ahead");
 
   assert.equal(parsed.capabilities.parity, "tools-ahead");
   assert.equal(parsed.capabilities.parityMessage, null);
-  assert.equal(status, 0);
+  assert.equal(result.status, 0);
 });
 
 test("no installed pack at all is a matched pair, not an unknown", () => {
   const { host } = scenario({}, "nocache");
   const configDir = pluginCache([], "empty-cache");
-  const { status, parsed } = runWithCache(["--project-dir", host, "--project", "demo"], configDir);
+  const result = runWithCache(["--project-dir", host, "--project", "demo"], configDir);
+  const parsed = payload(result, "no cache");
 
   // The skills came from this tree, so nothing can disagree with it.
   assert.equal(parsed.capabilities.parity, "matched");
   assert.equal(parsed.capabilities.installedPackCount, 0);
-  assert.equal(status, 0);
+  assert.equal(result.status, 0);
 });
 
 test("an unsupported version outranks a parity mismatch", () => {
@@ -372,17 +404,21 @@ test("an unsupported version outranks a parity mismatch", () => {
   // fault would send the reader after the wrong thing.
   const { host } = scenario({ version: "1.0.0" }, "bothfaults");
   const configDir = pluginCache(["99.0.0"], "bothfaults-cache");
-  const { status, parsed } = runWithCache(["--project-dir", host, "--project", "demo"], configDir);
+  const result = runWithCache(["--project-dir", host, "--project", "demo"], configDir);
+  const parsed = payload(result, "both faults");
 
   assert.equal(parsed.capabilities.parity, "tools-behind");
-  assert.equal(status, 3, "the version fault was masked by the parity fault");
+  assert.equal(result.status, 3, "the version fault was masked by the parity fault");
 });
 
 test("the cached pack list is capped, and the count is reported in full", () => {
   const { host } = scenario({}, "capped");
   const many = Array.from({ length: 9 }, (_, i) => `0.${i + 1}.0`);
   const configDir = pluginCache(many, "capped-cache");
-  const { parsed } = runWithCache(["--project-dir", host, "--project", "demo"], configDir);
+  const parsed = payload(
+    runWithCache(["--project-dir", host, "--project", "demo"], configDir),
+    "capped list",
+  );
 
   assert.equal(parsed.capabilities.installedPackCount, 9);
   assert.ok(parsed.capabilities.installedPacks.length <= 5, "the whole list was inlined");
