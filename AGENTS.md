@@ -97,7 +97,8 @@ PowerShell, cmd and bash.
 | Generate an artifact's reading copy | `node scripts/render-artifact-md.mjs --revision <revision-dir>` |
 | Ask how the library behaves | `node scripts/probe.mjs --list` · `node scripts/probe.mjs <name>` — how *GraphCompose* behaves, by running it. For how *this template* laid out, use `layout.mjs` below |
 | What previous runs learned about a call | `node scripts/observations.mjs find <symbol>` — exit 0 with the workaround, 3 if nothing is on record |
-| What previous runs learned | `node scripts/observations.mjs list` · `verify` |
+| What previous runs learned | `node scripts/observations.mjs list` · `verify` — each record says whether it was `learned here` or `shipped` |
+| Record what *this* run learned | `node scripts/observations.mjs record <file.json>` — writes into the **workspace**, never the install tree. The install tree is one plugin version's payload and is replaced on upgrade; a finding written there is lost at the next release |
 | Which build is this pin, really? | `node scripts/resolve-version.mjs --project-dir <dir> --json` → `artifact`. A `-SNAPSHOT` names no single build: `preflight` exits **6** until someone records `--accept-build --decision "..."`, and that acceptance binds to the jar it was given for |
 | Crop both images to one region | `node tools/visual-diff/bin/crop-region.mjs --revision <dir> --region <id>` |
 | Measure a diff | `node tools/visual-diff/bin/visual-diff.mjs <reference.png> <output.png> --json --update-revision <revision>` |

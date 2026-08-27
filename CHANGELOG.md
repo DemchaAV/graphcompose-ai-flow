@@ -56,6 +56,31 @@ run. Both were readable throughout. Nothing put them in a row.
   This is where a version stops being a string and becomes the code that gets
   compiled, so it is the last place the disagreement is cheap.
 
+### Observations
+
+- **`scripts/lib/observation-store.mjs`** — new. Two tiers:
+  `<workspace>/observations/` for what runs here learned, `<install>/observations/`
+  for what the pack shipped. Reads merge both, workspace first, and a shadowed
+  shipped record is named rather than silently replaced. Writes only ever go to
+  the workspace, and the install tree is refused **by path**, because convention
+  is what failed: a run wrote a well-formed observation into
+  `~/.claude/plugins/cache/.../0.14.0/observations/`, which is where the reader
+  looks, so nothing appeared wrong. `timeline-cannot-place-marker-or-date`,
+  recorded during an 0.12.0 run, still exists only in the 0.12.0 cache.
+- **`scripts/observations.mjs`** — new `record <file.json>` command: the first
+  supported way to write one. Validates the record's required fields and its
+  kebab-case id, refuses a duplicate id without `--force` (the second file is
+  how two records start disagreeing), and says so when confidence is not
+  `confirmed`. `list` now reports each record's origin as `learned here` or
+  `shipped`. New `--root` and `--force`.
+- **`observations.mjs verify --record`** — files the verdict in the record's own
+  `verifiedAgainst[]`. That field shipped in v0.14.0 and **nothing ever wrote
+  it**: `show` gated on a list that was empty on every record, so the gate could
+  only ever say "nobody has measured this here". Verifying a shipped record
+  copies it into the workspace with the verdict attached rather than editing the
+  pack, which upgrade replaces. The entry names the build the probe actually ran
+  on — the exact pin, SNAPSHOT suffix included.
+
 ## v0.14.0 — 2026-08-27
 
 **The diagnostics existed and `create` never mentioned them.** A forensic audit

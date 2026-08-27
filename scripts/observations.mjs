@@ -28,11 +28,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
-import { installRoot } from "./lib/workspace.mjs";
+import { describeWorkspaceLine, installRoot, resolveWorkspace } from "./lib/workspace.mjs";
 import { resolveVersion } from "./lib/version-resolver.mjs";
+import {
+  loadObservations,
+  recordObservation,
+  recordVerification,
+} from "./lib/observation-store.mjs";
 
 const repoRoot = installRoot();
-const ROOT = path.join(repoRoot, "observations");
 
 /**
  * `show` printed a record that could not be trusted here. Distinct from 1 ("no
@@ -48,9 +52,14 @@ function usage(code = 0) {
       "  show <id>                          one observation in full\n" +
       "                                     exit: 0 trustworthy here | 1 no such id\n" +
       "                                           5 printed, but retired or from another line\n" +
-      "  verify [--id <id>]                 re-run the probes and compare\n" +
+      "  verify [--id <id>] [--record]      re-run the probes and compare\n" +
       "                                     exit: 0 held | 1 changed | 4 not measurable here\n" +
+      "                                     --record files the verdict in verifiedAgainst[]\n" +
+      "  record <file.json>                 file a new observation in this workspace\n" +
+      "                                     exit: 0 written | 1 not a workspace, or not a record\n" +
       "  promote <id> --into <file>         fold a confirmed observation into a skill pack\n\n" +
+      "  --root <workspace>                 where records are read from and written to\n" +
+      "  --force                            with record: replace an existing id\n" +
       "  --version <line>                   the GraphCompose line to judge against\n" +
       "                                     (default: resolved from the current directory)\n",
   );
@@ -61,7 +70,16 @@ const argv = process.argv.slice(2);
 if (argv.length === 0) usage(2);
 
 const command = argv[0];
-const args = { id: null, version: null, json: false, into: null, positional: null };
+const args = {
+  id: null,
+  version: null,
+  json: false,
+  into: null,
+  positional: null,
+  root: null,
+  force: false,
+  record: false,
+};
 for (let i = 1; i < argv.length; i += 1) {
   const a = argv[i];
   if (a === "--help" || a === "-h") usage(0);
@@ -69,11 +87,18 @@ for (let i = 1; i < argv.length; i += 1) {
   else if (a === "--id") args.id = argv[++i];
   else if (a === "--version" || a === "-v") args.version = argv[++i];
   else if (a === "--into") args.into = argv[++i];
+  else if (a === "--root") args.root = argv[++i];
+  else if (a === "--force") args.force = true;
+  else if (a === "--record") args.record = true;
   else if (a.startsWith("--")) {
     process.stderr.write(`[observations] unknown argument: ${a}\n`);
     usage(2);
   } else args.positional = a;
 }
+
+// Which workspace's learned records to read, and the only place `record` will
+// write. Resolved once so every command sees the same two roots.
+const workspace = resolveWorkspace({ explicitRoot: args.root ?? null });
 
 /**
  * Whether this record can be trusted as an answer *here*, or only as history.
@@ -181,28 +206,50 @@ function resolveTargetVersion() {
   }
 }
 
-/** Every observation on disk, newest line first. */
+/**
+ * Every observation visible from here: what this workspace has learned, then
+ * what the pack shipped. Two roots rather than one because the install tree is
+ * a plugin version's payload — replaced wholesale on upgrade — and a finding
+ * written into it does not survive the next release. One already did not.
+ */
 function load(version = null) {
-  if (!fs.existsSync(ROOT)) return [];
-  const lines = fs
-    .readdirSync(ROOT, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && e.name.startsWith("graphcompose-"))
-    .map((e) => e.name.replace("graphcompose-", ""))
-    .filter((l) => !version || l === version);
-
-  const out = [];
-  for (const line of lines) {
-    const dir = path.join(ROOT, `graphcompose-${line}`);
-    for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".json"))) {
-      try {
-        out.push({ line, file: path.join(dir, file), body: JSON.parse(fs.readFileSync(path.join(dir, file), "utf8")) });
-      } catch (cause) {
-        process.stderr.write(`[observations] ${file} is not valid JSON: ${cause.message}\n`);
-        process.exit(1);
-      }
-    }
+  try {
+    return loadObservations({ workspace, install: repoRoot, version });
+  } catch (error) {
+    process.stderr.write(`${error.message}\n`);
+    process.exit(1);
   }
-  return out.sort((a, b) => a.body.id.localeCompare(b.body.id));
+}
+
+if (command === "record") {
+  const file = args.positional;
+  if (!file) usage(2);
+
+  let body;
+  try {
+    body = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (cause) {
+    process.stderr.write(`[observations] cannot read ${file}: ${cause.message}\n`);
+    process.exit(1);
+  }
+
+  try {
+    const written = recordObservation({ workspace, install: repoRoot, body, force: args.force });
+    const banner = describeWorkspaceLine(workspace);
+    if (banner) process.stdout.write(`${banner}\n`);
+    process.stdout.write(
+      `[observations] ${written.replaced ? "replaced" : "recorded"} ${body.id} ` +
+        `(${body.graphComposeVersion}) -> ${written.file}\n` +
+        (body.confidence === "confirmed"
+          ? ""
+          : `  confidence is ${body.confidence}: a reader will be told so, and \`verify\` is what` +
+            " turns it into a measurement\n"),
+    );
+    process.exit(0);
+  } catch (error) {
+    process.stderr.write(`${error.message}\n`);
+    process.exit(1);
+  }
 }
 
 if (command === "list") {
@@ -215,9 +262,15 @@ if (command === "list") {
     process.stdout.write("[observations] nothing on record\n");
     process.exit(0);
   }
-  for (const { body } of all) {
+  for (const { body, origin, shadows } of all) {
     const state = body.promotedTo ? `promoted -> ${body.promotedTo}` : body.confidence;
-    process.stdout.write(`  ${body.id}\n    ${body.graphComposeVersion} · ${state}\n`);
+    // Where it came from is part of how much it is worth: a record this
+    // workspace measured on this machine's build outranks a shipped one, and a
+    // shipped one outlives the workspace. Saying neither leaves the reader to
+    // guess which of two disagreeing records they are looking at.
+    const source = origin === "workspace" ? "learned here" : "shipped";
+    process.stdout.write(`  ${body.id}\n    ${body.graphComposeVersion} · ${state} · ${source}\n`);
+    if (shadows) process.stdout.write(`    (stands in front of the shipped ${body.id})\n`);
     process.stdout.write(`    ${body.observedBehaviour.split(". ")[0]}.\n\n`);
   }
   process.exit(0);
@@ -291,7 +344,38 @@ if (command === "verify") {
   let stale = 0;
   let returned = 0;
   let unchecked = 0;
-  for (const { body, file } of subjects) {
+  /**
+   * What this machine measured, filed against the build it measured on.
+   * `verifiedAgainst[]` shipped a release ago and nothing ever wrote it, so
+   * `show`'s gate was reading a field that was empty on every record.
+   */
+  const remember = (subject, verdict, note) => {
+    if (!args.record) return;
+    const target = resolveTargetVersion();
+    if (!target.version) return;
+    try {
+      const written = recordVerification({
+        workspace,
+        install: repoRoot,
+        subject,
+        entry: {
+          version: target.version,
+          on: new Date().toISOString().slice(0, 10),
+          verdict,
+          ...(note ? { note } : {}),
+        },
+      });
+      console.log(
+        `         recorded ${verdict} against ${target.version}` +
+          `${written.copied ? " (copied into this workspace)" : ""}`,
+      );
+    } catch (error) {
+      console.error(`         could not record the verdict: ${error.message}`);
+    }
+  };
+
+  for (const subject of subjects) {
+    const { body, file } = subject;
     const probe = body.minimalReproduction?.probe;
     if (!probe) {
       // An observation with no probe cannot be re-confirmed. That is a real
@@ -347,10 +431,12 @@ if (command === "verify") {
 
     if (differences.length === 0) {
       console.log(`  ok   ${body.id} (${probe})`);
+      remember(subject, "held");
     } else {
       stale += 1;
       console.error(`  FAIL ${body.id}: the probe no longer agrees with what was recorded`);
       for (const d of differences) console.error(`         ${d}`);
+      remember(subject, "changed", differences.join("; "));
       console.error(`         If the library changed, set confidence to "retired" in ${path.basename(file)}`);
     }
   }
