@@ -437,3 +437,51 @@ test("the worst page is the one furthest from its reference, not the biggest one
   assert.equal(byPage[3].percent, 0, "page 3 was meant to match");
   assert.equal(parsed.diff.worstPage, 2, "the biggest page won instead of the worst one");
 });
+
+// ----------------------------------------------- what a failed render says ---
+
+/** Like runCli, but WITHOUT --skip-render, so the render step actually runs. */
+function runCliRendering(root, extra = []) {
+  const spawned = spawnSync(
+    process.execPath,
+    [CLI, "--project", "demo", "--revision", "revision-002", "--root", root, ...extra],
+    { encoding: "utf8" },
+  );
+  return { status: spawned.status, output: `${spawned.stdout ?? ""}${spawned.stderr ?? ""}` };
+}
+
+test("a failed render exits non-zero, so the loop can gate on it", () => {
+  // Every other test here passes --skip-render, so until now the render step's
+  // failure path had no coverage at all. The audited run reported this as exiting
+  // 0; it does not, and never did — that reading came from `echo $?` after a pipe,
+  // which reports the pipe's last command. The contract is worth pinning anyway.
+  const s = scenario({ label: "renderfail" });
+  const { status } = runCliRendering(s.root);
+  assert.equal(status, 1, "a failed render must not look like a successful pass");
+});
+
+test("a failed render surfaces the reason, not the chatter around it", () => {
+  // What the audited run was actually shown, in full:
+  //
+  //     FAIL render
+  //          render failed:
+  //          [asset-resolver] cache HIT mdi:heart (svg) -> cf1179b29151
+  //          [asset-resolver] icon "heart": mdi:heart (explicit) -> heart.svg
+  //
+  // Both lines are progress chatter. The compiler's complaint was in the output
+  // and never reached the reader, so the run re-invoked render.mjs by hand to
+  // find out what had happened — two extra turns on every failure.
+  const s = scenario({ label: "renderwhy" });
+  const { output } = runCliRendering(s.root);
+
+  assert.match(output, /FAIL render/);
+  assert.match(
+    output,
+    /templateClass is required/,
+    `the reason did not survive into the summary:\n${output}`,
+  );
+  // `[workspace] …` is printed by every script on every run and matches an
+  // error signature through its own path. It must not crowd out the reason.
+  const reported = output.split("render failed:")[1] ?? "";
+  assert.doesNotMatch(reported, /\[workspace\]/, "workspace chatter reached the excerpt");
+});
