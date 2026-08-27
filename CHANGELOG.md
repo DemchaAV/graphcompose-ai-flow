@@ -5,6 +5,90 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.16.0 — 2026-08-27
+
+**A branch that says "use the built jar" is worthless if the condition never
+holds.** `render-runtime` had one: an installed harness ships the renderer built
+and should reuse it, so the rebuild was guarded by whether the sources are
+present. The installed plugin ships **15 `.java` files** of preview-renderer, so
+the condition was true there too. Every full-pipeline render in every install ran
+`mvn package` on the shared jar — the branch existed, and the path it was written
+for never arrived.
+
+Two costs, and the second is the one that bites. **~5 seconds of Maven per
+render**, which in a ten-pass loop is a minute spent rebuilding something that
+did not change. And `tools/preview-renderer/target/preview-renderer.jar` lives in
+the **install**, not the project, so rebuilding it made it shared mutable state
+between anything else running at that moment: a second template session, or the
+test suite.
+
+The jar is never missing — Maven's shade plugin replaces it atomically, confirmed
+by polling the path 13,533 times through a package with zero misses. A JVM loads
+classes **lazily**, so replacing the file under a live process invalidates the
+handle it has not finished reading from, and PDFBox dies part-way through a
+rasterisation:
+
+```
+NoClassDefFoundError: org/apache/pdfbox/contentstream/operator/text/SetTextHorizontalScaling
+  at PDFRenderer.createPageDrawer(PDFRenderer.java:528)
+```
+
+A class PDFBox needs only for certain content streams, gone from a jar that was
+complete when the JVM started. The render that dies is not the render that
+rebuilt, so the symptom points at the wrong template entirely.
+
+### Public API
+
+- **`scripts/lib/render-runtime.mjs`** — the renderer is rebuilt only when its
+  sources or pom are newer than the jar, and the log says which file moved.
+  Mtime rather than hashing: a hash would walk the source tree on every render to
+  answer what mtime answers for free, and the failure guarded against is a stale
+  jar, which mtime catches. `RENDER_NO_SKIP=1` still forces a rebuild — it is
+  what someone reaches for precisely when they suspect a stale artifact, so a
+  staleness check must not quietly overrule it.
+- **`jarIsStale(jar, inputs)`** is exported for direct testing.
+
+### Concurrency
+
+Two template sessions no longer collide over the renderer. What remains shared is
+`live/current.pdf`, one per install in install-workspace mode: two sessions
+overwrite each other's preview. The write is atomic so nothing corrupts, and a
+project in its own workspace is unaffected.
+
+### Tests
+
+- 880 → 886. Six for `jarIsStale`, including a missing jar, a touched source, a
+  pom-only change, a nested source, and an input that does not exist.
+- `run-tests.mjs` keeps `revision-discipline` in its own pass. The root cause is
+  gone — that file no longer touches the shared jar, verified by mtime — so the
+  entry is now belt as well as braces, kept because `RENDER_NO_SKIP=1` and a
+  mid-suite source edit can still trigger a rebuild.
+
+### One unreproduced failure, recorded as such
+
+A full parallel run failed once in `preflight.test.mjs` — *a pack newer than
+these tools fails* — and did not reproduce in eleven further full runs or in
+isolation, where the file passes 28/28. No assertion text was captured, so
+there is nothing to fix from the evidence available and it is **not** being
+called a flake.
+
+What changed is that the next occurrence has to explain itself: the tests
+parsed preflight's JSON and asserted against it, so a subprocess that died or
+printed something unparseable surfaced as `TypeError: Cannot read properties of
+null` — the assertion that tripped, and nothing about why. A `payload()` helper
+now reports the exit code, the signal, the parse error and the subprocess
+output instead.
+
+### Measured, and not yet acted on
+
+A render is ~19.9 s on the reference project. With the renderer build removed,
+what remains is **`mvn package` for the template at ~5.0 s** and
+**`mvn dependency:build-classpath` at ~2.9 s** — 40% of the render, and the
+classpath is byte-identical between runs because it depends only on a pom that
+does not change. Caching it, and replacing the template build with a direct
+`javac`, is worth about 7 s of the 19.9. Not done here; measured so the next pass
+starts from numbers rather than a guess.
+
 ## v0.15.0 — 2026-08-27
 
 **A version string is not a build.** A `create` run pinned `2.2.1-SNAPSHOT`,
