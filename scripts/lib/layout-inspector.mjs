@@ -149,13 +149,29 @@ function requireInsets(value, where) {
  * with no `nodes` array at all — illustrative material written before the real
  * writer existed — so "it parsed as JSON" is not evidence of anything.
  *
- * @param {unknown} data parsed JSON
+ * @param {unknown} file parsed JSON — the 2.2.2+ envelope or a pre-2.2.2 flat snapshot
  * @returns {object} model with `byPath`, `children` and `roots` indexes
  */
-export function loadSnapshot(data) {
-  if (!data || typeof data !== "object" || Array.isArray(data)) {
+export function loadSnapshot(file) {
+  if (!file || typeof file !== "object" || Array.isArray(file)) {
     throw new LayoutSnapshotError("not a JSON object");
   }
+
+  // Two shapes reach this, and both are legitimate.
+  //
+  // GraphCompose 2.2.2 made the extra diagnostic sections opt-in and returns
+  // them in an ENVELOPE — `{formatVersion, layout, typography}` — so that
+  // `layoutSnapshot()` keeps returning byte-for-byte what it always returned
+  // and nobody's committed baseline moves on a library upgrade. The renderer
+  // asks for the envelope, so that is what a fresh revision folder holds.
+  //
+  // Every revision rendered before that holds the plain snapshot at the top
+  // level. Those are real measurements and stay readable: refusing them would
+  // throw away the only history this repository has.
+  const envelope = file.layout && typeof file.layout === "object" && !Array.isArray(file.layout);
+  const data = envelope ? file.layout : file;
+  const typographyFrom = envelope ? file.typography : file.typography;
+
   if (!Array.isArray(data.nodes)) {
     throw new LayoutSnapshotError(
       "no `nodes` array — this is not an engine-written layout snapshot " +
@@ -203,7 +219,7 @@ export function loadSnapshot(data) {
   // began reporting it in 2.2.2, so every revision rendered before that has none.
   // Keyed by owning node path — a paragraph split across pages contributes one run
   // per page, which is why the value is a list.
-  for (const run of Array.isArray(data.typography) ? data.typography : []) {
+  for (const run of Array.isArray(typographyFrom) ? typographyFrom : []) {
     if (!run || typeof run.path !== "string") continue;
     const runs = typographyByPath.get(run.path);
     if (runs) runs.push(run);
@@ -215,6 +231,10 @@ export function loadSnapshot(data) {
 
   return {
     formatVersion: data.formatVersion ?? null,
+    // The envelope carries its own version, and it moves on a different
+    // schedule from the layout's: a new diagnostic section bumps one and not
+    // the other. Null for a pre-2.2.2 render, which had no envelope.
+    diagnosticFormatVersion: envelope ? file.formatVersion ?? null : null,
     canvas: data.canvas,
     totalPages: data.totalPages ?? null,
     capturedAt: data.capturedAt ?? null,
@@ -223,7 +243,7 @@ export function loadSnapshot(data) {
     byPath,
     children,
     roots,
-    typography: Array.isArray(data.typography) ? data.typography : [],
+    typography: Array.isArray(typographyFrom) ? typographyFrom : [],
     typographyByPath,
     hasTypography: typographyByPath.size > 0,
   };
@@ -413,7 +433,11 @@ export function inspectNode(model, node, { children = false, ancestors = false }
             fragmentIndex: run.fragmentIndex,
             page: run.page,
             declaredFont: run.declaredFont,
-            resolvedFont: run.resolvedFont,
+            // Family and decoration together select the face. Reporting only the
+            // family makes `Helvetica + DEFAULT` and `Helvetica + BOLD` look
+            // identical here while rendering and measuring as different faces.
+            resolvedFamily: run.resolvedFamily,
+            decoration: run.decoration,
             fontSubstituted: run.fontSubstituted,
             fontSize: run.fontSize,
             lineCount: run.lineCount,

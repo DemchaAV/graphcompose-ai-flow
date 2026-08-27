@@ -2,87 +2,50 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/DemchaAV/graphcompose-ai-flow/schemas/layout-snapshot.schema.json",
   "title": "Layout snapshot",
-  "description": "`layout-snapshot.json` in a revision folder: where every node of the rendered document actually ended up, measured by GraphCompose's own layout engine. This is NOT a description written by an agent — it is the projection of `LayoutSnapshot`, which the engine produces after layout and pagination have completed and before any backend renders bytes, obtained through `DocumentSession.layoutSnapshot()`. The distinction is the whole point: an agent looking at a PNG guesses why an element moved, and this says where it is. The shape mirrors GraphCompose's records exactly, field for field, because a projection that renamed anything would have to be kept in step with an upstream release by hand. `formatVersion` is the ENGINE's contract version, carried through verbatim; it is not this schema's version.",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "formatVersion",
-    "canvas",
-    "totalPages",
-    "nodes"
-  ],
-  "properties": {
-    "formatVersion": {
-      "type": "string",
-      "minLength": 1,
-      "description": "GraphCompose's own snapshot contract version, read off `LayoutSnapshot.formatVersion()` and written through unchanged. Read it before assuming a shape: it is how an upstream change announces itself, and it moves on GraphCompose's schedule rather than this repository's."
-    },
-    "canvas": {
+  "description": "`layout-snapshot.json` in a revision folder: where every node of the rendered document actually ended up, measured by GraphCompose's own layout engine. This is NOT a description written by an agent — it is the projection of `LayoutSnapshot`, which the engine produces after layout and pagination have completed and before any backend renders bytes, obtained through `DocumentSession.layoutSnapshot()`. The distinction is the whole point: an agent looking at a PNG guesses why an element moved, and this says where it is. The shape mirrors GraphCompose's records exactly, field for field, because a projection that renamed anything would have to be kept in step with an upstream release by hand. `formatVersion` is the ENGINE's contract version, carried through verbatim; it is not this schema's version.\n\nSince GraphCompose 2.2.2 the file is an ENVELOPE: `{formatVersion, layout, typography}`, where `layout` is the unchanged snapshot and the diagnostic sections sit beside it. That split is what keeps a library upgrade from moving anybody's committed baseline — the extra sections are opt-in, and the renderer opts in. Revisions rendered before 2.2.2 hold the flat snapshot at the top level instead; both are valid here, because those are real measurements and the only history this repository has.",
+  "oneOf": [
+    {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "pageWidth",
-        "pageHeight",
-        "innerWidth",
-        "innerHeight",
-        "margin"
+        "formatVersion",
+        "layout"
       ],
-      "description": "The page every coordinate below is relative to. Without it a bounds figure cannot be judged: 42 is near the left edge of A4 and near the middle of a business card.",
+      "description": "The 2.2.2+ diagnostic envelope.",
       "properties": {
-        "pageWidth": {
-          "type": "number",
-          "exclusiveMinimum": 0
+        "formatVersion": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The ENVELOPE's version, versioned independently of `layout.formatVersion`: a new diagnostic section moves this one and leaves the layout's alone."
         },
-        "pageHeight": {
-          "type": "number",
-          "exclusiveMinimum": 0
+        "layout": {
+          "$ref": "#/$defs/layoutBody"
         },
-        "innerWidth": {
-          "type": "number",
-          "minimum": 0,
-          "description": "Page width less the horizontal margin — the width content is laid out into."
+        "typography": {
+          "type": "array",
+          "description": "What each run of text actually became: the font it was set in, at what size, broken into how many lines, and where those lines sit. Added by GraphCompose 2.2.2 (`formatVersion` 2.1); absent from anything rendered before it, which is an ordinary state and not a defect. Attached to fragments rather than nodes because that is what text is — a paragraph broken across a page boundary emits one entry per page — so join it to `nodes` on `path` rather than assuming one entry per node.",
+          "items": {
+            "$ref": "#/$defs/typographyRun"
+          }
         },
-        "innerHeight": {
-          "type": "number",
-          "minimum": 0
+        "capturedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the harness wrote this file. Added here, not by the engine — a revision folder holds artifacts from more than one pass, and knowing which render a snapshot belongs to is otherwise guesswork."
         },
-        "margin": {
-          "$ref": "#/$defs/insets"
+        "graphComposeVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The GraphCompose the render ran against, so a diff across revisions can tell a layout change from a library upgrade. Null when the version could not be determined."
         }
       }
     },
-    "totalPages": {
-      "type": "integer",
-      "minimum": 0,
-      "description": "Pages the resolved layout touches. Compare against the reference's page count before reading anything else — a document that paginated differently makes every per-node comparison below meaningless."
-    },
-    "nodes": {
-      "type": "array",
-      "description": "Every resolved node, depth-first and deterministic. Flat rather than nested on purpose: the tree is recoverable from `path` and `parentPath`, and a flat list is what makes two snapshots diffable line by line.",
-      "items": {
-        "$ref": "#/$defs/node"
-      }
-    },
-    "capturedAt": {
-      "type": "string",
-      "format": "date-time",
-      "description": "When the harness wrote this file. Added here, not by the engine — a revision folder holds artifacts from more than one pass, and knowing which render a snapshot belongs to is otherwise guesswork."
-    },
-    "graphComposeVersion": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "description": "The GraphCompose the render ran against, so a diff across revisions can tell a layout change from a library upgrade. Null when the version could not be determined."
-    },
-    "typography": {
-      "type": "array",
-      "description": "What each run of text actually became: the font it was set in, at what size, broken into how many lines, and where those lines sit. Added by GraphCompose 2.2.2 (`formatVersion` 2.1); absent from anything rendered before it, which is an ordinary state and not a defect. Attached to fragments rather than nodes because that is what text is — a paragraph broken across a page boundary emits one entry per page — so join it to `nodes` on `path` rather than assuming one entry per node.",
-      "items": {
-        "$ref": "#/$defs/typographyRun"
-      }
+    {
+      "$ref": "#/$defs/layoutBody"
     }
-  },
+  ],
   "$defs": {
     "insets": {
       "type": "object",
@@ -225,7 +188,8 @@
         "fragmentIndex",
         "page",
         "declaredFont",
-        "resolvedFont",
+        "resolvedFamily",
+        "decoration",
         "fontSubstituted",
         "fontSize",
         "lineCount",
@@ -259,14 +223,9 @@
           ],
           "description": "The font name the style asked for."
         },
-        "resolvedFont": {
-          "type": "string",
-          "minLength": 1,
-          "description": "The font family the text is actually laid out in."
-        },
         "fontSubstituted": {
           "type": "boolean",
-          "description": "Whether the declared and resolved names differ. TRUE is the finding: `DEFAULT` resolves to Helvetica, and a standard-14 face such as `Helvetica-Bold` resolves to its family because the face comes from the style's decoration — so a style naming the bold face and setting no decoration renders regular. Both lay out and draw without error, so this flag is the only thing that says the document is set in a font its author did not name."
+          "description": "Whether the declared name and the resolved family+decoration disagree — the engine accounts for both. TRUE is the finding: `DEFAULT` resolves to Helvetica, and a standard-14 face such as `Helvetica-Bold` is an alias of its family whose face comes from the decoration, so naming that face and setting NO decoration renders regular. Naming it AND setting BOLD is not a substitution: the face really is bold. Both cases lay out and draw without error, so this flag is the only thing that reports the first one."
         },
         "fontSize": {
           "type": "number",
@@ -279,19 +238,21 @@
         },
         "textX": {
           "type": "number",
-          "description": "Left edge of the box the ink occupies — not the column it was laid out into, so the box always contains the lines below it."
+          "description": "Left edge of the box the laid-out text LINES occupy — not the column they were laid out into, so the box always contains the lines below it. These are line boxes, not tight glyph outlines: a line's box spans its full advance width and its resolved line height, so ascenders and descenders sit inside it and side bearings are included. Do not read it as glyph ink bounds."
         },
         "textY": {
           "type": "number",
-          "description": "Bottom edge of the ink box. As everywhere in this file, y grows upward from the page bottom."
+          "description": "Bottom edge of the text-line box. As everywhere in this file, y grows upward from the page bottom."
         },
         "textWidth": {
           "type": "number",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Width of the text-line box — the widest line's advance width, not a tight glyph measurement."
         },
         "textHeight": {
           "type": "number",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Height of the text-line box, from the first line's top to the last line's bottom, using resolved line heights."
         },
         "verticalAlign": {
           "type": "string",
@@ -304,6 +265,16 @@
             "$ref": "#/$defs/textLine"
           },
           "description": "The laid-out lines, in reading order. The line's own text is deliberately absent: the snapshot excludes raw text payload, so a line is identified by its index."
+        },
+        "resolvedFamily": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The font FAMILY the text is laid out in. Not the face: a family plus a decoration is what selects the face, which is why `decoration` sits beside this."
+        },
+        "decoration": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The text decoration that, with `resolvedFamily`, selects the actual face — DEFAULT, BOLD, ITALIC, BOLD_ITALIC and so on. Without it `Helvetica + DEFAULT` and `Helvetica + BOLD` are indistinguishable here while rendering and measuring as different faces."
         }
       }
     },
@@ -326,7 +297,7 @@
         },
         "x": {
           "type": "number",
-          "description": "Left edge of the line's ink after alignment."
+          "description": "Left edge of the line box after alignment. Its advance width, not a tight glyph outline."
         },
         "y": {
           "type": "number",
@@ -334,7 +305,8 @@
         },
         "width": {
           "type": "number",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Measured advance width of the line, including side bearings."
         },
         "height": {
           "type": "number",
@@ -348,6 +320,82 @@
         "baselineExact": {
           "type": "boolean",
           "description": "Whether `baseline` accounts for vertical seating. FALSE when the paragraph uses a non-default vertical alignment: that shifts the baseline by a correction read from the backend font's cap height, which a renderer-neutral snapshot cannot compute. Treat a false here as unusable rather than approximate."
+        }
+      }
+    },
+    "layoutBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "formatVersion",
+        "canvas",
+        "totalPages",
+        "nodes"
+      ],
+      "description": "The layout snapshot proper — exactly what `DocumentSession.layoutSnapshot()` returns, and byte-for-byte what it returned before typography existed.",
+      "properties": {
+        "formatVersion": {
+          "type": "string",
+          "minLength": 1,
+          "description": "GraphCompose's own snapshot contract version, read off `LayoutSnapshot.formatVersion()` and written through unchanged. Read it before assuming a shape: it is how an upstream change announces itself, and it moves on GraphCompose's schedule rather than this repository's."
+        },
+        "canvas": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pageWidth",
+            "pageHeight",
+            "innerWidth",
+            "innerHeight",
+            "margin"
+          ],
+          "description": "The page every coordinate below is relative to. Without it a bounds figure cannot be judged: 42 is near the left edge of A4 and near the middle of a business card.",
+          "properties": {
+            "pageWidth": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "pageHeight": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "innerWidth": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Page width less the horizontal margin — the width content is laid out into."
+            },
+            "innerHeight": {
+              "type": "number",
+              "minimum": 0
+            },
+            "margin": {
+              "$ref": "#/$defs/insets"
+            }
+          }
+        },
+        "totalPages": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Pages the resolved layout touches. Compare against the reference's page count before reading anything else — a document that paginated differently makes every per-node comparison below meaningless."
+        },
+        "nodes": {
+          "type": "array",
+          "description": "Every resolved node, depth-first and deterministic. Flat rather than nested on purpose: the tree is recoverable from `path` and `parentPath`, and a flat list is what makes two snapshots diffable line by line.",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "capturedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the harness wrote this file. Added here, not by the engine — a revision folder holds artifacts from more than one pass, and knowing which render a snapshot belongs to is otherwise guesswork."
+        },
+        "graphComposeVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The GraphCompose the render ran against, so a diff across revisions can tell a layout change from a library upgrade. Null when the version could not be determined."
         }
       }
     }

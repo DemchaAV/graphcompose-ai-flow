@@ -271,9 +271,9 @@ function renderInspect(view, model) {
   lines.push(`  content   x ${view.content.x}  y ${view.content.y}  w ${view.content.width}  h ${view.content.height}   (top ${view.content.top}) — computed from placement and padding`);
   lines.push(`  margin    ${insets(view.margin)}      padding   ${insets(view.padding)}    (top right bottom left)`);
   for (const run of view.typography ?? []) {
-    const font = run.fontSubstituted
-      ? `${run.declaredFont} → ${run.resolvedFont}  ⚠ substituted`
-      : run.resolvedFont;
+    const face =
+      run.decoration && run.decoration !== "DEFAULT" ? `${run.resolvedFamily} ${run.decoration}` : run.resolvedFamily;
+    const font = run.fontSubstituted ? `${run.declaredFont} → ${face}  ⚠ substituted` : face;
     lines.push(`  type      ${font}  ${run.fontSize}pt · ${run.lineCount} line(s)` +
       (run.verticalAlign && run.verticalAlign !== "DEFAULT" ? ` · seated ${run.verticalAlign}` : ""));
   }

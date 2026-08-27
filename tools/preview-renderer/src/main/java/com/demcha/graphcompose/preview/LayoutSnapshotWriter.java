@@ -57,13 +57,16 @@ final class LayoutSnapshotWriter {
      */
     static Optional<String> capture(Object documentSession, Class<?> documentSessionType, String capturedAt)
             throws Exception {
-        Method method;
-        try {
-            method = documentSessionType.getMethod("layoutSnapshot");
-        } catch (NoSuchMethodException absent) {
-            return Optional.empty();
+        Object snapshot = takeDiagnosticSnapshot(documentSession, documentSessionType);
+        if (snapshot == null) {
+            Method method;
+            try {
+                method = documentSessionType.getMethod("layoutSnapshot");
+            } catch (NoSuchMethodException absent) {
+                return Optional.empty();
+            }
+            snapshot = method.invoke(documentSession);
         }
-        Object snapshot = method.invoke(documentSession);
         if (snapshot == null) {
             return Optional.empty();
         }
@@ -103,6 +106,49 @@ final class LayoutSnapshotWriter {
         write(versionOf(documentSessionType), json, 1);
         json.append("\n}\n");
         return Optional.of(json.toString());
+    }
+
+    /**
+     * The diagnostic snapshot, when this GraphCompose can produce one.
+     *
+     * <p>From 2.2.2 the typography a document was set in is <strong>opt-in</strong>:
+     * {@code layoutSnapshot()} returns exactly what it always returned, and a
+     * second overload taking {@code LayoutSnapshotOptions} returns a
+     * {@code LayoutDiagnosticSnapshot} — an envelope wrapping that same
+     * unchanged snapshot alongside the extra sections. That split is what lets
+     * a library upgrade leave every consumer's committed baseline byte-stable;
+     * it also means a harness that wants the extra sections has to ask.</p>
+     *
+     * <p>Asked for reflectively, and a miss is not an error. The options class
+     * is absent from every GraphCompose before 2.2.2, and a project pinned
+     * there must still render and still produce the plain snapshot rather than
+     * fail because a newer diagnostic was unavailable.</p>
+     *
+     * @return the envelope, or {@code null} when this version cannot make one
+     */
+    private static Object takeDiagnosticSnapshot(Object documentSession, Class<?> documentSessionType)
+            throws Exception {
+        Class<?> optionsType;
+        try {
+            optionsType = Class.forName(
+                    "com.demcha.compose.document.snapshot.LayoutSnapshotOptions",
+                    false,
+                    documentSessionType.getClassLoader());
+        } catch (ClassNotFoundException beforeTwoTwoTwo) {
+            return null;
+        }
+
+        Method overload;
+        try {
+            overload = documentSessionType.getMethod("layoutSnapshot", optionsType);
+        } catch (NoSuchMethodException absent) {
+            return null;
+        }
+
+        Object builder = optionsType.getMethod("builder").invoke(null);
+        builder.getClass().getMethod("typography", boolean.class).invoke(builder, true);
+        Object options = builder.getClass().getMethod("build").invoke(builder);
+        return overload.invoke(documentSession, options);
     }
 
     /**

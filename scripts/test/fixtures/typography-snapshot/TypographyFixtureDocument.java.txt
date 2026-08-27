@@ -4,6 +4,7 @@ package com.demcha.compose.document.fixtures.typography;
 
 import com.demcha.compose.document.api.DocumentSession;
 import com.demcha.compose.document.node.TextAlign;
+import com.demcha.compose.document.style.DocumentTextDecoration;
 import com.demcha.compose.document.style.DocumentTextStyle;
 import com.demcha.compose.font.FontName;
 
@@ -18,10 +19,20 @@ public final class TypographyFixtureDocument {
         document.pageFlow(page -> page
                 .name("TypographyFixture")
                 .spacing(10)
-                // Names a FACE, not a family: this renders regular Helvetica and
-                // nothing about the page says so. It is the case the fixture exists for.
-                .addParagraph(p -> p.name("Heading").text("Quarterly report")
+                // The trap. HELVETICA_BOLD is an alias of its family and the face comes
+                // from the decoration, so naming the bold face and setting none renders
+                // REGULAR. It lays out, it draws, nothing fails.
+                .addParagraph(p -> p.name("TrapHeading").text("Quarterly report")
                         .textStyle(DocumentTextStyle.builder().fontName(FontName.HELVETICA_BOLD).size(20).build()))
+                // The counter-case, and the reason decoration has to be in the snapshot:
+                // the same alias WITH the decoration it implies really is bold, so this
+                // must not read as a substitution.
+                .addParagraph(p -> p.name("HonestHeading").text("Quarterly report")
+                        .textStyle(DocumentTextStyle.builder()
+                                .fontName(FontName.HELVETICA_BOLD)
+                                .decoration(DocumentTextDecoration.BOLD)
+                                .size(20)
+                                .build()))
                 .addParagraph(p -> p.name("Body").text(BODY)
                         .textStyle(DocumentTextStyle.builder().fontName(FontName.HELVETICA).size(11).build()))
                 .addParagraph(p -> p.name("RightNote").text("Aligned right")

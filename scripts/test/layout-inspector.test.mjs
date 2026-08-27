@@ -71,6 +71,54 @@ test("the fixture is the engine's own measurement, not a description of one", ()
   assert.equal(raw.graphComposeVersion, null);
 });
 
+// -------------------------------------------------------------- envelope ----
+
+const ENVELOPE = path.join(repoRoot, "scripts", "test", "fixtures", "typography-snapshot", "layout-snapshot.json");
+
+test("the 2.2.2 envelope and a pre-2.2.2 flat snapshot both load", () => {
+  // GraphCompose 2.2.2 made the diagnostic sections opt-in and returns them in
+  // an envelope, so `layoutSnapshot()` keeps returning byte-for-byte what it
+  // always did and no consumer's committed baseline moves on an upgrade. Every
+  // revision rendered before that holds the flat snapshot — real measurements,
+  // and the only history this repository has. Refusing either would be a defect.
+  const envelope = loadSnapshot(JSON.parse(fs.readFileSync(ENVELOPE, "utf8")));
+  assert.ok(envelope.nodes.length > 0);
+  assert.equal(envelope.formatVersion, "2.0", "the LAYOUT version is untouched by the envelope");
+  assert.equal(envelope.diagnosticFormatVersion, "1.0", "the envelope carries its own, moving on its own schedule");
+  assert.equal(envelope.hasTypography, true);
+
+  assert.equal(model.formatVersion, "2.0");
+  assert.equal(model.diagnosticFormatVersion, null, "a flat snapshot never had an envelope");
+  assert.equal(model.hasTypography, false);
+});
+
+test("the default snapshot's version did not move, which is the whole point", () => {
+  // If this ever reads 2.1, the opt-in split has been undone and every user's
+  // baseline regenerates on a library upgrade.
+  const raw = JSON.parse(fs.readFileSync(ENVELOPE, "utf8"));
+  assert.equal(raw.layout.formatVersion, "2.0");
+  assert.equal(raw.formatVersion, "1.0");
+  assert.ok(!("typography" in raw.layout), "typography sits beside the layout, never inside it");
+});
+
+test("a family and its decoration are reported separately", () => {
+  // They select the face together. The fixture carries the pair that proves it
+  // matters: the same alias with and without the decoration it implies.
+  const envelope = loadSnapshot(JSON.parse(fs.readFileSync(ENVELOPE, "utf8")));
+  const trap = inspectNode(envelope, resolveNode(envelope, "TrapHeading")).typography[0];
+  const honest = inspectNode(envelope, resolveNode(envelope, "HonestHeading")).typography[0];
+
+  assert.equal(trap.declaredFont, "Helvetica-Bold");
+  assert.equal(trap.resolvedFamily, "Helvetica");
+  assert.equal(trap.decoration, "DEFAULT");
+  assert.equal(trap.fontSubstituted, true, "naming the bold face and setting no decoration renders regular");
+
+  assert.equal(honest.declaredFont, "Helvetica-Bold");
+  assert.equal(honest.resolvedFamily, "Helvetica");
+  assert.equal(honest.decoration, "BOLD");
+  assert.equal(honest.fontSubstituted, false, "the same alias WITH its decoration really is bold — not a substitution");
+});
+
 // ------------------------------------------------------------------ load ----
 
 test("a snapshot with no nodes array is refused, not read as empty", () => {

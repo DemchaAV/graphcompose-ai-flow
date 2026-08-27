@@ -256,7 +256,8 @@ export function classifyCause({ pagination = null, displaced = null, tolerance =
     return {
       cause: "TYPOGRAPHY",
       basis:
-        `the style asked for ${first.declaredFont} and the document is set in ${first.resolvedFont}` +
+        `the style asked for ${first.declaredFont} and the document is set in ${first.resolvedFamily}` +
+        (first.decoration && first.decoration !== "DEFAULT" ? ` ${first.decoration}` : "") +
         (substitutedFonts.length > 1 ? ` (and ${substitutedFonts.length - 1} more run(s) in this region)` : "") +
         ". It lays out and draws without error, so nothing else reports it. Fix the style, " +
         "not the geometry: the box is the size it is because the type is",
@@ -516,11 +517,12 @@ export function buildEvidencePackage({
       if (runs.length) {
         pkg.typography = {
           runs: runs.length,
-          fonts: [...new Set(runs.map((run) => run.resolvedFont))],
+          fonts: [...new Set(runs.map((run) => run.resolvedFamily))],
           substituted: substitutedFonts.map((run) => ({
             path: run.path,
             declaredFont: run.declaredFont,
-            resolvedFont: run.resolvedFont,
+            resolvedFamily: run.resolvedFamily,
+            decoration: run.decoration,
             fontSize: run.fontSize,
           })),
           lines: runs.reduce((total, run) => total + (run.lineCount ?? 0), 0),

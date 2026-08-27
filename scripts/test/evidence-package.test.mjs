@@ -271,7 +271,7 @@ test("a substituted font is TYPOGRAPHY, and it outranks a geometry verdict", () 
   // BEFORE geometry on purpose — a substituted font changes every glyph width in
   // the run, so the box is the wrong size *because* the type is wrong. Calling it
   // GEOMETRY would send the next pass to move a block whose position is a symptom.
-  const substituted = [{ declaredFont: "Helvetica-Bold", resolvedFont: "Helvetica" }];
+  const substituted = [{ declaredFont: "Helvetica-Bold", resolvedFamily: "Helvetica", decoration: "DEFAULT" }];
   const verdict = classifyCause({
     displaced: { deltaX: 400, deltaY: 400 },
     tolerance: 3,
@@ -287,14 +287,14 @@ test("pagination still outranks a substituted font", () => {
   // makes every per-node reading meaningless, including which run is where.
   const verdict = classifyCause({
     pagination: { expected: 2, actual: 1 },
-    substitutedFonts: [{ declaredFont: "Helvetica-Bold", resolvedFont: "Helvetica" }],
+    substitutedFonts: [{ declaredFont: "Helvetica-Bold", resolvedFamily: "Helvetica", decoration: "DEFAULT" }],
   });
   assert.equal(verdict.cause, "PAGINATION");
 });
 
 test("the typography package names the run, and forbids fixing it with geometry", () => {
   const model = loadSnapshot(JSON.parse(fs.readFileSync(TYPOGRAPHY_FIXTURE, "utf8")));
-  const heading = resolveNode(model, "Heading");
+  const heading = resolveNode(model, "TrapHeading");
   const pkg = buildEvidencePackage({
     model,
     region: {
