@@ -623,7 +623,10 @@ node scripts/check-document-integrity.mjs --project <id> --revision <id>  # ever
 `check-border-topology` compares the reference's rules against the
 render's, in both directions: a line missing from **both** is intentional,
 a line missing from one is a defect, and which one it is missing from says
-which kind.
+which kind. It reads `reference-scaled.png`, which only
+`render-and-diff.mjs` writes — after a bare `render.mjs` it exits **3** and
+tells you so. `reference.mjs rules --revision <id>` answers the same
+question off the original reference and needs no diff pass.
 
 ## Then loop
 
