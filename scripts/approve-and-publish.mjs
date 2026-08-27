@@ -294,6 +294,12 @@ step("read the verdict", (entry) => {
   const review = JSON.parse(fs.readFileSync(reviewPath, "utf8"));
   result.verdictAtApproval = review.verdict ?? "UNKNOWN";
   entry.detail = String(result.verdictAtApproval);
+  // CONVERGENCE_LIMIT_REACHED is not this. The loop spent its budget with work
+  // still open, and a document exists — that is precisely the state a person is
+  // meant to decide about, so it goes through here and the verdict lands in the
+  // record. Refusing it was how a real approval left by the one door that does
+  // not write `verdictAtApproval` down, and the record then read as though the
+  // review had been clean.
   if (review.verdict === "BLOCKED") {
     // The skill's one hard line: never quietly approve over BLOCKED. The
     // human can still insist — by approving via the revision manager

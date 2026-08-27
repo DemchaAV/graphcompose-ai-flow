@@ -421,7 +421,7 @@ One call renders, scales the reference to the render's size (persisting
 evidence written into the revision, measures every region from
 `visual-analysis.json` separately, checks that every `href` in the data
 is a live target in the PDF, and answers with the loop verdict as its
-exit code: 0 ready, 2 revise, 3 blocked, 1 a step failed. Do not run
+exit code: 0 ready, 2 revise, 4 convergence limit, 3 blocked, 1 a step failed. Do not run
 render, diff and iterate-status as separate turns — that is three trips
 for one deterministic chain.
 
@@ -712,7 +712,8 @@ node scripts/iterate-status.mjs <project-id> [--root <workspace>]
 |---|---|
 | 0 — `READY_FOR_APPROVAL` | stop and report |
 | 2 — `REVISE` | fix the **one** mismatch it names, render, review, ask again |
-| 3 — `BLOCKED` | stop and report the `failureCategory` |
+| 4 — `CONVERGENCE_LIMIT_REACHED` | stop and put it to the user. There is a document; what is open, and what has already been tried at it, is in the status |
+| 3 — `BLOCKED` | stop and report the `failureCategory` — no usable document can be produced |
 
 Fix one thing per pass and reuse the mismatch id when a problem
 survives — that repetition is how the tool sees a loop going nowhere.

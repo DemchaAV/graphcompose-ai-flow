@@ -252,9 +252,18 @@ JSON's `notes` array, which the generator emits verbatim.
 
 The three fields that carry weight:
 
-- `verdict` — `READY_FOR_APPROVAL` | `REVISE` | `BLOCKED`. Drives the
-  loop. Distinct from `recommendation` (`APPROVE` / `REVISE` /
-  `REJECT`), which advises the human. Never write `APPROVED`.
+- `verdict` — `READY_FOR_APPROVAL` | `REVISE` |
+  `CONVERGENCE_LIMIT_REACHED` | `BLOCKED`. Drives the loop. Distinct
+  from `recommendation` (`APPROVE` / `REVISE` / `REJECT`), which
+  advises the human. Never write `APPROVED`.
+
+  The last two are not the same stop. `BLOCKED` means no usable
+  document can be produced — the build fails, the render fails, the
+  asset is missing. `CONVERGENCE_LIMIT_REACHED` means the loop spent
+  its own budget with work still open, and it is the loop's to write
+  only when a bound says so; the difference matters because `BLOCKED`
+  stops an approval the user may already have given, and the other
+  hands them the decision with the evidence attached.
 - `mismatches[].id` — stable kebab-case, e.g. `header-height`. **Reuse
   the id verbatim** when a problem survives a fix; that repetition is
   how the loop notices it is not converging.

@@ -140,7 +140,7 @@ test("a converging loop keeps its licence to continue, then reports ready", () =
   assert.equal(final.failureCategory, null);
 });
 
-test("the same mismatch three times is BLOCKED, not a fourth attempt", () => {
+test("the same mismatch three times stops the loop, not a fourth attempt", () => {
   const dir = projectWith([
     { verdict: "REVISE", mismatch: "header-height" },
     { verdict: "REVISE", mismatch: "header-height" },
@@ -148,7 +148,7 @@ test("the same mismatch three times is BLOCKED, not a fourth attempt", () => {
   ], "stuck");
 
   const status = statusOf(dir);
-  assert.equal(status.verdict, "BLOCKED");
+  assert.equal(status.verdict, "CONVERGENCE_LIMIT_REACHED");
   assert.equal(status.failureCategory, "VISUAL_MISMATCH");
   assert.equal(status.sameMismatchAttempts, 3);
   assert.match(status.reasons.join(" "), /header-height/);
@@ -203,14 +203,14 @@ test("a build failure that was recovered from does not count against the loop", 
   assert.equal(status.verdict, "REVISE");
 });
 
-test("hitting the iteration limit blocks with ITERATION_LIMIT", () => {
+test("hitting the iteration limit stops the loop with ITERATION_LIMIT", () => {
   const passes = Array.from({ length: config.limits.maxIterations }, (_, i) => ({
     verdict: "REVISE",
     // Distinct ids, so this blocks on the iteration count and nothing else.
     mismatch: `mismatch-${i + 1}`,
   }));
   const status = statusOf(projectWith(passes, "exhausted"));
-  assert.equal(status.verdict, "BLOCKED");
+  assert.equal(status.verdict, "CONVERGENCE_LIMIT_REACHED");
   assert.equal(status.failureCategory, "ITERATION_LIMIT");
   assert.equal(status.remaining.iterations, 0);
 });
@@ -281,7 +281,11 @@ test("a missing project or revision is an error, not a silent zero", () => {
   assert.throws(() => statusOf(dir, "revision-999"), IterationStatusError);
 });
 
-test("the CLI exits 0 / 2 / 3 for ready / revise / blocked", () => {
+test("the CLI exits 0 / 2 / 4 for ready / revise / convergence limit", () => {
+  // 3 is reserved for BLOCKED, which now means only one thing: no usable
+  // document can be produced. A loop that spent its budget on one cause has a
+  // document, so it exits 4 - and approve-and-publish lets that through rather
+  // than sending an approval around the door that records nothing.
   const cli = path.join(repoRoot, "scripts", "iterate-status.mjs");
   const run = (projectDir, projectId) => {
     // The workspace resolver expects <root>/projects/<id>, so lay one out.
@@ -311,11 +315,11 @@ test("the CLI exits 0 / 2 / 3 for ready / revise / blocked", () => {
           { verdict: "REVISE", mismatch: "a" },
           { verdict: "REVISE", mismatch: "a" },
         ],
-        "cli-blocked",
+        "cli-convergence",
       ),
-      "blocked",
+      "convergence",
     ),
-    3,
+    4,
   );
 });
 
@@ -372,7 +376,7 @@ test("three symptoms of one cause count as three attempts at that cause", () => 
   const status = statusOf(dir);
   assert.equal(status.sameMismatchAttempts, 3);
   assert.equal(status.rootCause, "entry-band-height");
-  assert.equal(status.verdict, "BLOCKED");
+  assert.equal(status.verdict, "CONVERGENCE_LIMIT_REACHED");
 });
 
 test("symptoms of different causes are different attempts", () => {
@@ -397,7 +401,7 @@ test("without a rootCause the bound still counts by id, as before", () => {
   assert.equal(status.rootCause, null, "a cause was invented where none was recorded");
 });
 
-test("blocking on a user's report says so, instead of claiming a repeated attempt", () => {
+test("stopping on a user's report says so, instead of claiming a repeated attempt", () => {
   // The passes in between may have worked on other things; what survived is
   // the report. Saying "the next attempt would be the same attempt" there is
   // simply untrue, and it is the sentence a human reads when the loop stops.
@@ -408,7 +412,7 @@ test("blocking on a user's report says so, instead of claiming a repeated attemp
   ], "humanblock");
 
   const status = statusOf(dir);
-  assert.equal(status.verdict, "BLOCKED");
+  assert.equal(status.verdict, "CONVERGENCE_LIMIT_REACHED");
   assert.equal(status.focusSource, "human");
   const reason = status.reasons.join(" ");
   assert.match(reason, /what the user reported/);
@@ -782,11 +786,11 @@ test("a loop still closing mismatches gets a capped extension past the ceiling",
   assert.match(status.reasons.join("\n"), /closed 1 blocking mismatch/);
 });
 
-test("a loop that closed nothing on its last pass is blocked at the ceiling, as before", () => {
+test("a loop that closed nothing on its last pass stops at the ceiling, as before", () => {
   const passes = Array.from({ length: config.limits.maxIterations }, (_, i) => withBlocking(2, i));
 
   const status = statusOf(projectWith(passes, "stalled-at-ceiling"));
-  assert.equal(status.verdict, "BLOCKED");
+  assert.equal(status.verdict, "CONVERGENCE_LIMIT_REACHED");
   assert.equal(status.failureCategory, "ITERATION_LIMIT");
   assert.equal(status.grantedExtension, null);
   assert.match(status.reasons.join("\n"), /closed no blocking mismatch/);
@@ -798,7 +802,7 @@ test("extensions run out, so converging is not a way to iterate forever", () => 
   const passes = Array.from({ length: total }, (_, i) => withBlocking(total - i + 1, i));
 
   const status = statusOf(projectWith(passes, "grants-spent"));
-  assert.equal(status.verdict, "BLOCKED");
+  assert.equal(status.verdict, "CONVERGENCE_LIMIT_REACHED");
   assert.equal(status.failureCategory, "ITERATION_LIMIT");
   assert.equal(status.remaining.iterationGrants, 0);
   assert.match(status.reasons.join("\n"), /extensions are spent/);
@@ -850,7 +854,7 @@ test("coining a fresh report id every pass does not buy an unbounded loop", () =
   );
   assert.ok(status.exemptionsRefused.length > 0, "the refused reports are not reported");
   assert.equal(status.agentIterations, total - config.limits.maxIterationGrants);
-  assert.equal(status.verdict, "BLOCKED");
+  assert.equal(status.verdict, "CONVERGENCE_LIMIT_REACHED");
   assert.match(status.reasons.join("\n"), /nothing on disk\s+proves a person spoke/);
 });
 
@@ -867,7 +871,7 @@ test("a latest pass with no review cannot be granted an extension on an older on
   const status = statusOf(projectWith(passes, "unreviewed-latest"));
   assert.equal(status.convergence.measurable, false);
   assert.equal(status.grantedExtension, null);
-  assert.equal(status.verdict, "BLOCKED");
+  assert.equal(status.verdict, "CONVERGENCE_LIMIT_REACHED");
   assert.equal(status.failureCategory, "ITERATION_LIMIT");
   assert.match(status.reasons.join("\n"), /no second reviewed pass|has no visual-review\.json/);
 });
@@ -884,7 +888,7 @@ test("a review that omits its mismatch list has not closed anything", () => {
   const status = statusOf(projectWith(passes, "no-ledger"));
   assert.equal(status.convergence.measurable, false, "an absent ledger is not a cleared one");
   assert.equal(status.grantedExtension, null);
-  assert.equal(status.verdict, "BLOCKED");
+  assert.equal(status.verdict, "CONVERGENCE_LIMIT_REACHED");
 });
 
 test("a parent-comparison claim is not checked against reference stats, or the other way round", () => {

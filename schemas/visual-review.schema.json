@@ -21,9 +21,10 @@
       "enum": [
         "READY_FOR_APPROVAL",
         "REVISE",
+        "CONVERGENCE_LIMIT_REACHED",
         "BLOCKED"
       ],
-      "description": "Loop control. READY_FOR_APPROVAL stops the loop and hands over to the user; REVISE means iterate on the highest-severity actionable mismatch; BLOCKED means the loop cannot make progress and must report why in failureCategory."
+      "description": "Loop control. READY_FOR_APPROVAL stops the loop and hands over to the user; REVISE means iterate on the highest-severity actionable mismatch; CONVERGENCE_LIMIT_REACHED means the loop spent its own budget with work still open - a document exists and a person decides what to do about the rest; BLOCKED means no usable document can be produced at all, and why is in failureCategory. The last two were one word until a run reached a finished-looking CV, hit its same-cause bound, and was reported as BLOCKED - which then refused the approval the user had already given, and sent it around the fast path that records which verdict was approved over."
     },
     "recommendation": {
       "type": "string",

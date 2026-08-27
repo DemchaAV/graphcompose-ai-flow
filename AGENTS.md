@@ -92,7 +92,7 @@ PowerShell, cmd and bash.
 | Create the workspace (first thing in a new project) | `node scripts/init-workspace.mjs --project-dir <dir> --project <id>` |
 | Print the chain for a project | `node scripts/run-pipeline.mjs <project-id>` |
 | Open a revision | `node tools/revision-manager/bin/graphcompose-flow.mjs new-revision "<gesture>" --project <dir>` |
-| One loop pass: render + diff + verdict | `node scripts/render-and-diff.mjs --project <id> --revision <id>` — exit 0 ready, 2 revise, 3 blocked |
+| One loop pass: render + diff + verdict | `node scripts/render-and-diff.mjs --project <id> --revision <id>` — exit 0 ready, 2 revise, **4 the loop spent its budget with work open**, 3 blocked (no usable document) |
 | Render only | `node scripts/render.mjs <project-id> <revision-id> [--root <workspace>]` |
 | Generate an artifact's reading copy | `node scripts/render-artifact-md.mjs --revision <revision-dir>` |
 | Ask how the library behaves | `node scripts/probe.mjs --list` · `node scripts/probe.mjs <name>` — how *GraphCompose* behaves, by running it. It measures the build **this workspace resolved**, not the diagnostics pom's pin; `--build <x.y.z>` asks about another one and `--pinned` about the pom's. For how *this template* laid out, use `layout.mjs` below |
@@ -102,7 +102,7 @@ PowerShell, cmd and bash.
 | Which build is this pin, really? | `node scripts/resolve-version.mjs --project-dir <dir> --json` → `artifact`. A `-SNAPSHOT` names no single build: `preflight` exits **6** until someone records `--accept-build --decision "..."`, and that acceptance binds to the jar it was given for |
 | Crop both images to one region | `node tools/visual-diff/bin/crop-region.mjs --revision <dir> --region <id>` |
 | Measure a diff | `node tools/visual-diff/bin/visual-diff.mjs <reference.png> <output.png> --json --update-revision <revision>` |
-| Ask whether the loop may continue | `node scripts/iterate-status.mjs <project-id>` — exit 0 ready, 2 revise, 3 blocked |
+| Ask whether the loop may continue | `node scripts/iterate-status.mjs <project-id>` — exit 0 ready, 2 revise, 4 convergence limit, 3 blocked. It also lists what has already been tried at the cause in front, and whether those passes are still moving anything |
 | Are the links in the data live in the render? | `node scripts/check-links.mjs --project <id> --revision <id>` — exit 0 clean, 1 a declared href is missing (also runs inside the two composites) |
 | Is a multi-page document whole? | `node scripts/check-document-integrity.mjs --project <id> --revision <id>` — page count, "Page N of M", content preservation (runs inside render-and-diff) |
 | Do the render and the reference draw the same rules? | `node scripts/check-border-topology.mjs --project <id> --revision <id> --region <id>` — a missing internal divider may be the design; this says which side is missing it |

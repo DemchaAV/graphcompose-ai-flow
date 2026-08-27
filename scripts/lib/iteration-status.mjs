@@ -36,7 +36,12 @@ import { auditReviewClaims } from "./review-claims.mjs";
 import { describeSeal, sealState } from "./revision-seal.mjs";
 
 /** Verdicts this module can return, in the order they end the loop. */
-export const VERDICTS = Object.freeze(["READY_FOR_APPROVAL", "REVISE", "BLOCKED"]);
+export const VERDICTS = Object.freeze([
+  "READY_FOR_APPROVAL",
+  "REVISE",
+  "CONVERGENCE_LIMIT_REACHED",
+  "BLOCKED",
+]);
 
 export class IterationStatusError extends Error {
   constructor(message) {
@@ -486,7 +491,14 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
         `${consecutiveBuildFailures} consecutive build failures (limit ${limits.maxConsecutiveBuildFailures})`,
       );
     } else if (sameMismatchAttempts >= limits.maxSameMismatchAttempts) {
-      verdict = "BLOCKED";
+      // Not BLOCKED. The loop spent its own budget on one cause; a document
+      // exists, it renders, and every gate but this one ran. A real run reached
+      // a finished-looking CV here and was reported as unable to make progress
+      // — which then refused the approval the user had already given and sent
+      // it around the one path that records which verdict was approved over.
+      // BLOCKED is for "no usable document can be produced"; this is "the loop
+      // is done deciding and a person is not".
+      verdict = "CONVERGENCE_LIMIT_REACHED";
       failureCategory = "VISUAL_MISMATCH";
       // Attribute it truthfully. When the focus came from the user, the passes
       // in between may have worked on other things — what survived is their
@@ -533,7 +545,10 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
             `${limits.maxIterationGrants}. The next pass must close another, or this stops`,
         );
       } else {
-        verdict = "BLOCKED";
+        // Same reasoning as the same-cause bound above: a loop out of passes
+        // has a document and has run out of budget, which is not the same thing
+        // as being unable to produce one.
+        verdict = "CONVERGENCE_LIMIT_REACHED";
         failureCategory = "ITERATION_LIMIT";
         reasons.push(
           `${agentIterations} agent passes (limit ${limits.maxIterations})` +
@@ -558,7 +573,12 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     }
   }
 
-  if (verdict === "BLOCKED" && !failureCategory) failureCategory = "VISUAL_MISMATCH";
+  // Both stopping verdicts owe a category: the schema requires one for BLOCKED,
+  // and a loop that stopped on its budget should still say what it was working
+  // on when it did.
+  if ((verdict === "BLOCKED" || verdict === "CONVERGENCE_LIMIT_REACHED") && !failureCategory) {
+    failureCategory = "VISUAL_MISMATCH";
+  }
 
   return {
     project: project.displayName ?? path.basename(projectDir),

@@ -27,7 +27,8 @@
  *
  *   0  READY_FOR_APPROVAL     stop and hand over to the user
  *   2  REVISE                 keep going; the JSON names the focus
- *   3  BLOCKED                stop and report the failure category
+ *   4  CONVERGENCE_LIMIT_REACHED  the loop spent its budget with work open
+ *   3  BLOCKED                stop; no usable document can be produced
  *   1  a step failed          (compile error, missing image, …)
  */
 
@@ -57,7 +58,7 @@ function usage(code = 0) {
       "  --skip-render         reuse the existing output.png (diff and verdict only)\n" +
       "  --root <workspace>    workspace override (default: discovered)\n" +
       "  --json                machine-readable result\n\n" +
-      "exit: 0 ready for approval | 2 revise | 3 blocked | 1 a step failed\n",
+      "exit: 0 ready for approval | 2 revise | 4 convergence limit | 3 blocked | 1 a step failed\n",
   );
   process.exit(code);
 }
@@ -828,7 +829,7 @@ step("loop verdict", (entry) => {
     workspace.root,
     "--json",
   ]);
-  // iterate-status exits 0/2/3 by verdict; anything it printed as JSON is the
+  // iterate-status exits 0/2/3/4 by verdict; anything it printed as JSON is the
   // answer regardless of which of those it chose.
   let loop;
   try {
@@ -935,5 +936,5 @@ if (result.links?.missing?.length && result.loop?.verdict === "READY_FOR_APPROVA
     ` — the data has the href, the PDF has no such target`;
 }
 
-const EXIT = { READY_FOR_APPROVAL: 0, REVISE: 2, BLOCKED: 3 };
+const EXIT = { READY_FOR_APPROVAL: 0, REVISE: 2, BLOCKED: 3, CONVERGENCE_LIMIT_REACHED: 4 };
 finish(EXIT[result.loop?.verdict] ?? 1);

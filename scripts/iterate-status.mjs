@@ -11,9 +11,16 @@
  *
  * Exit codes, so a workflow skill can branch without parsing prose:
  *
- *   0  READY_FOR_APPROVAL   stop and hand over to the user
- *   2  REVISE               keep going; fix the one named mismatch
- *   3  BLOCKED              stop and report the failure category
+ *   0  READY_FOR_APPROVAL          stop and hand over to the user
+ *   2  REVISE                      keep going; fix the one named mismatch
+ *   4  CONVERGENCE_LIMIT_REACHED   the loop spent its budget with work still
+ *                                  open: a document exists, and a person decides
+ *   3  BLOCKED                     no usable document can be produced; the
+ *                                  failure category says why
+ *
+ * The last two were one verdict until a run reached a finished-looking CV, hit
+ * its same-cause bound, and was reported as unable to make progress - which then
+ * refused the approval the user had already given.
  */
 
 import path from "node:path";
@@ -30,7 +37,7 @@ import {
   resolveWorkspace,
 } from "./lib/workspace.mjs";
 
-const EXIT = { READY_FOR_APPROVAL: 0, REVISE: 2, BLOCKED: 3 };
+const EXIT = { READY_FOR_APPROVAL: 0, REVISE: 2, BLOCKED: 3, CONVERGENCE_LIMIT_REACHED: 4 };
 
 function usage(code = 0) {
   process.stdout.write(

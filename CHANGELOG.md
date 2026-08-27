@@ -58,6 +58,26 @@ run. Both were readable throughout. Nothing put them in a row.
 
 ### Converging
 
+- **New verdict `CONVERGENCE_LIMIT_REACHED`, and `BLOCKED` means one thing
+  again.** The same-cause bound and the iteration ceiling used to report
+  BLOCKED — "the loop cannot make progress" — for a loop that had a rendering,
+  gate-passing document and had simply spent its budget. A run reached a
+  finished-looking CV that way, and BLOCKED then refused the approval the user
+  had already given, sending it around the revision manager's own door: the one
+  path that writes no `verdictAtApproval`. The record afterwards read as though
+  the review had been clean. BLOCKED now means only "no usable document can be
+  produced" — a build failure, a render failure, a missing asset. New exit code
+  **4** from `iterate-status` and `render-and-diff`.
+- **`approve-and-publish` lets `CONVERGENCE_LIMIT_REACHED` through**, recording
+  it as `verdictAtApproval`. That state is precisely the one a person is meant
+  to decide about, and the point of the fast path is that the decision is
+  written down. BLOCKED still stops it before anything changes.
+- **Not added: `READY_WITH_RESIDUAL_DIFF`.** The severities already encode it —
+  a READY review whose remaining mismatches are `ACCEPTED_LIMITATION` or
+  `INTENTIONAL_DIFFERENCE` *is* "ready with a residual difference", and
+  `review-claims` already blocks READY on anything CRITICAL or MAJOR. A verdict
+  would put the same fact in two places, and the two would eventually disagree.
+
 - **`iterate-status` now reports what has already been tried.** `attempts[]`
   lists every pass spent on the cause currently in front, with the lever its
   review recorded and the page difference it produced. Counting attempts stops a

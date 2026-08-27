@@ -46,6 +46,12 @@ What it enforces, so you do not have to:
   Tell the user the failure category; if they still insist, the revision
   manager's own `approve` remains available — deliberately less
   frictionless.
+- A `CONVERGENCE_LIMIT_REACHED` verdict does **not** stop it. The loop
+  ran out of budget with work still open and a document exists, which is
+  exactly the state a person is meant to decide about; it is recorded as
+  `verdictAtApproval` like any other. Refusing it was how one approval
+  left by the door that writes nothing down, and the record then read as
+  though the review had been clean.
 - A `REVISE` verdict does not block — the human approving *is* the
   decision — but it is recorded as `verdictAtApproval`, and you should
   mention it in one sentence when reporting.

@@ -86,7 +86,9 @@ function scenario({ status = "DRAFT", verdict = "READY_FOR_APPROVAL", priorAppro
   if (verdict !== null) {
     write(path.join(revision, "visual-review.json"), {
       schemaVersion: 1, verdict, mismatches: [],
-      ...(verdict === "BLOCKED" ? { failureCategory: "VISUAL_MISMATCH" } : {}),
+      ...(verdict === "BLOCKED" || verdict === "CONVERGENCE_LIMIT_REACHED"
+        ? { failureCategory: "VISUAL_MISMATCH" }
+        : {}),
     });
   }
   write(
@@ -249,6 +251,20 @@ test("a BLOCKED verdict stops the fast path before anything changes", () => {
   // Crucially: the refusal happened before the state machine moved.
   assert.equal(revisionOf(s).status, "DRAFT", "the revision was approved despite BLOCKED");
   assert.ok(!fs.existsSync(s.bundle), "a bundle was published despite BLOCKED");
+});
+
+test("a CONVERGENCE_LIMIT_REACHED verdict goes through, and lands in the record", () => {
+  // The state a person is meant to decide about: the loop spent its budget with
+  // work still open, and a document exists. Refusing it was how a real approval
+  // left by the revision manager's own door — the one that writes no
+  // verdictAtApproval — and the record then read as though the review had been
+  // clean.
+  const s = scenario({ verdict: "CONVERGENCE_LIMIT_REACHED", label: "convergence" });
+  const { status, parsed } = runCli(s.root, ["--json"]);
+
+  assert.equal(status, 0, parsed?.steps?.map((step) => step.error).filter(Boolean).join("; "));
+  assert.equal(parsed.verdictAtApproval, "CONVERGENCE_LIMIT_REACHED");
+  assert.equal(revisionOf(s).status, "APPROVED");
 });
 
 /** Give a scenario a data spec with one href, and a render that may or may not carry it. */
