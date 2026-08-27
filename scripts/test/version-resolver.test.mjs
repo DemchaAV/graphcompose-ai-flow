@@ -19,6 +19,8 @@ import { fileURLToPath } from "node:url";
 
 import {
   availableSkillPacks,
+  compareVersions,
+  describeArtifact,
   findBuildFile,
   readPinnedVersion,
   resolveVersion,
@@ -336,4 +338,77 @@ test("the CLI exits 0 / 3 / 4 so a skill can branch without parsing prose", () =
   assert.equal(run(["--project-dir", future], repoRoot).code, 3, "unsupported did not exit 3");
 
   assert.equal(run(["--project-dir", tempDir("cli-unknown")], repoRoot).code, 4, "unknown did not exit 4");
+});
+
+// ---------------------------------------------------------------- identity ---
+
+function fakeRepository(label, versions) {
+  const root = tempDir(label);
+  for (const [version, { jar = true, localInstall = false }] of Object.entries(versions)) {
+    const dir = path.join(root, "io", "github", "demchaav", "graph-compose", version);
+    fs.mkdirSync(dir, { recursive: true });
+    if (jar) fs.writeFileSync(path.join(dir, `graph-compose-${version}.jar`), "PK", "utf8");
+    if (localInstall) {
+      fs.writeFileSync(path.join(dir, "maven-metadata-local.xml"), "<metadata/>", "utf8");
+    }
+  }
+  return root;
+}
+
+test("a SNAPSHOT sorts before the release it leads up to", () => {
+  assert.equal(compareVersions("2.2.1-SNAPSHOT", "2.2.1"), -1);
+  assert.equal(compareVersions("2.2.2", "2.2.1"), 1);
+  assert.equal(compareVersions("2.2.1", "2.2.1"), 0);
+  assert.equal(compareVersions("v2.10.0", "2.9.9"), 1, "segments compare numerically, not as text");
+});
+
+test("a SNAPSHOT pin reports the releases already installed past it", () => {
+  // The case this exists for: a run pinned 2.2.1-SNAPSHOT while 2.2.1 and 2.2.2
+  // sat in the same repository, measured the engine against whatever jar carried
+  // that name, and recorded what it saw as a fact about the released line.
+  const repositoryRoot = fakeRepository("superseded", {
+    "2.2.1-SNAPSHOT": { localInstall: true },
+    "2.2.1": {},
+    "2.2.2": {},
+  });
+
+  const artifact = describeArtifact({ version: "2.2.1-SNAPSHOT", repositoryRoot });
+
+  assert.equal(artifact.mutable, true);
+  assert.equal(artifact.origin, "local-install");
+  assert.equal(artifact.identifiesOneBuild, false, "a SNAPSHOT names a build that can change");
+  assert.deepEqual(artifact.supersededBy, ["2.2.2", "2.2.1"]);
+  assert.match(artifact.message, /2\.2\.2, 2\.2\.1 are already installed/);
+});
+
+test("a released pin with a jar identifies one build and says nothing further", () => {
+  const repositoryRoot = fakeRepository("release", { "2.2.2": {}, "2.2.1": {} });
+  const artifact = describeArtifact({ version: "2.2.2", repositoryRoot });
+
+  assert.equal(artifact.mutable, false);
+  assert.equal(artifact.identifiesOneBuild, true);
+  assert.deepEqual(artifact.supersededBy, []);
+  assert.equal(artifact.message, null);
+  assert.ok(artifact.jar.path.endsWith("graph-compose-2.2.2.jar"));
+});
+
+test("a pin nothing has resolved here says so rather than reporting a build", () => {
+  const repositoryRoot = fakeRepository("absent", { "2.2.1": {} });
+  const artifact = describeArtifact({ version: "2.2.2", repositoryRoot });
+
+  assert.equal(artifact.jar, null);
+  assert.match(artifact.message, /not in the local repository/);
+  // Still one build: a release names immutable bits whether or not Maven has
+  // fetched them onto this machine yet. Only a SNAPSHOT fails to.
+  assert.equal(artifact.identifiesOneBuild, true);
+});
+
+test("resolveVersion carries the artifact, so one call answers pack and build", () => {
+  const dir = tempDir("artifact-in-resolve");
+  write(dir, "pom.xml", POM("2.2.0"));
+  const resolved = resolveVersion({ projectDir: dir, install: repoRoot });
+
+  assert.equal(resolved.status, "supported");
+  assert.equal(resolved.artifact.version, "2.2.0");
+  assert.equal(typeof resolved.artifact.identifiesOneBuild, "boolean");
 });

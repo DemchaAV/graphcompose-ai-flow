@@ -17,6 +17,7 @@ job.
 | [`flow-config.schema.json`](flow-config.schema.json) | written by `scripts/lib/workspace.mjs`, read by every script that resolves a workspace | `graphcompose-flow/flow.config.json` in the user's Java project — the manifest whose presence marks a workspace, plus any version or skill-pack pin. |
 | [`template-manifest.schema.json`](template-manifest.schema.json) | written by `scripts/publish-template.mjs`, read through `scripts/lib/template-bundle.mjs` | `templates/<template-id>/template.json` — the published bundle's consumer contract: which class to call, which provider loads the spec, which data file to copy and rename, where the assets are, and which dependencies a build file must declare. |
 | [`layout-snapshot.schema.json`](layout-snapshot.schema.json) | written by `tools/preview-renderer` from GraphCompose's own measurement | `layout-snapshot.json` in a revision folder — where every node actually ended up: measured bounds, content box, insets, hierarchy and page span. |
+| [`resolved-version.schema.json`](resolved-version.schema.json) | written by `scripts/preflight.mjs`, read by every step that would otherwise resolve the version again | `graphcompose-flow/resolved-version.json` — which GraphCompose build this workspace's work is against: the pin, the build file it came from, the jar it resolves to, whether that names one build, and the decision when it does not. |
 
 ### The layout snapshot is measured, not described
 

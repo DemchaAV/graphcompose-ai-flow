@@ -5,6 +5,57 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.15.0 — in progress
+
+**A version string is not a build.** A `create` run pinned `2.2.1-SNAPSHOT`,
+compiled and measured the engine against whatever jar carried that name, found
+the LayerStack row escape laying its children out vertically, and recorded that
+as a regression in the released line — then rewrote the whole page architecture
+around the workaround. The jar was a local `mvn install`, sitting in the same
+repository as released `2.2.1` and `2.2.2`, and 14% larger than the later of the
+two; the only tree on that machine pinning the name had 23 uncommitted files and
+a HEAD two commits after `v2.2.0`, and six other worktrees could have produced
+it. The observation is unattributable — not wrong, unattributable, which is
+worse, because it reads as a fact about a release. Nothing in the chain
+misbehaved except the assumption that a version string identifies code.
+
+Preflight also carried the disagreement in plain sight: the workspace manifest
+said `2.2.0` while the project said `2.2.1-SNAPSHOT`, for the whole 95-minute
+run. Both were readable throughout. Nothing put them in a row.
+
+### Public API
+
+- **`scripts/lib/version-resolver.mjs`** — new `describeArtifact()`: which jar
+  in the local repository a pin resolves to, its size and mtime, whether it came
+  from a download or a local `mvn install`, and — for a `-SNAPSHOT` — the
+  releases already installed past it. `identifiesOneBuild` is the fact a caller
+  branches on. New `compareVersions()` (a SNAPSHOT precedes the release it leads
+  up to) and `localRepositoryRoot()` (`MAVEN_REPO_LOCAL` / `M2_REPO`, else
+  `~/.m2/repository`). `resolveVersion()` now carries `artifact`, so one call
+  answers both which pack applies and whether the build behind it is one thing.
+- **`scripts/preflight.mjs`** — `graphCompose.artifact` publishes the above, and
+  new `graphCompose.pins` lists every place a version is recorded — host build
+  file, workspace manifest, project — with `agree` and, when they do not, which
+  said what. `--text` prints both as `Build:` and `Version disagreement:` lines,
+  before the routing, because a pin that names no single build makes every
+  number measured after it unattributable. **New exit code 6**: the pin is a
+  SNAPSHOT and nobody has said which build that is. It also now *writes*
+  `resolved-version.json` — the record the rest of the run is meant to read
+  instead of resolving the version again for itself.
+- **`resolved-version.json`** — new artifact at the workspace root, with
+  [`schemas/resolved-version.schema.json`](schemas/resolved-version.schema.json).
+  Version, line, pack, which build file it came from, the resolved build, the
+  pins as of the last preflight, and `accepted`.
+- **`scripts/resolve-version.mjs`** — new `--accept-build --decision "<text>"`,
+  the `page-size --use --decision` idiom applied to a build: a question put to
+  the user once and recorded where later steps read it. The acceptance **binds
+  to that jar** by sha1; rebuilding the snapshot reopens the question, which is
+  the only honest behaviour for a mutable build.
+- **`scripts/scaffold-runner.mjs`** — refuses when the project's
+  `targetGraphComposeVersion` disagrees with the workspace's resolved version.
+  This is where a version stops being a string and becomes the code that gets
+  compiled, so it is the last place the disagreement is cheap.
+
 ## v0.14.0 — 2026-08-27
 
 **The diagnostics existed and `create` never mentioned them.** A forensic audit

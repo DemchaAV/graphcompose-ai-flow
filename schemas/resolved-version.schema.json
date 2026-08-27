@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DemchaAV/graphcompose-ai-flow/schemas/resolved-version.schema.json",
+  "title": "Resolved version",
+  "description": "The one record of which GraphCompose build a workspace's work is against. Written by scripts/preflight.mjs at the start of a run and read by every step that would otherwise resolve the version again for itself. Three files used to answer this question — the host build file, flow.config.json and the project's targetGraphComposeVersion — and nothing compared them; one run carried 2.2.0 in the manifest and 2.2.1-SNAPSHOT in the project for its whole ninety minutes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "resolvedAt", "version", "build"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "resolvedAt": {
+      "type": "string",
+      "description": "ISO timestamp of the resolution. Stale by design: it says when the build behind the pin was last looked at, which is what makes a re-resolution meaningful."
+    },
+    "version": {
+      "type": "string",
+      "description": "The pinned version, verbatim, SNAPSHOT suffix included. A snapshot is not its release and is never recorded as one."
+    },
+    "line": { "type": ["string", "null"], "description": "major.minor, the skill-pack key." },
+    "coordinate": { "type": ["string", "null"] },
+    "skillPack": { "type": ["string", "null"] },
+    "buildFile": {
+      "type": ["string", "null"],
+      "description": "Which build file the pin was read out of. Recorded because a walk-up can reach a file the reader did not expect."
+    },
+    "build": {
+      "type": ["object", "null"],
+      "description": "What the pin resolves to in the local Maven repository — the output of describeArtifact(). `identifiesOneBuild` is the fact everything downstream branches on.",
+      "additionalProperties": true,
+      "properties": {
+        "jar": { "type": ["object", "null"] },
+        "sha1": { "type": ["string", "null"] },
+        "mutable": { "type": "boolean" },
+        "origin": {
+          "type": ["string", "null"],
+          "enum": ["local-install", "downloaded", null],
+          "description": "local-install: someone's `mvn install` put it there, so it exists on no other machine."
+        },
+        "installed": { "type": "array", "items": { "type": "string" } },
+        "supersededBy": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Releases already installed past a SNAPSHOT pin. A non-empty list means the pin sits behind its own line."
+        },
+        "identifiesOneBuild": { "type": "boolean" }
+      }
+    },
+    "pins": {
+      "type": ["object", "null"],
+      "description": "Every place a version was found, and whether they agreed, as of the last preflight.",
+      "additionalProperties": true
+    },
+    "accepted": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["version", "decision", "at"],
+      "description": "A person was shown a pin that names no single build and chose it anyway. Bound to the jar it was given for: same name with different bits reopens the question, which is the point of asking it about a mutable build.",
+      "properties": {
+        "version": { "type": "string" },
+        "sha1": { "type": ["string", "null"] },
+        "jar": { "type": ["object", "null"] },
+        "decision": {
+          "type": "string",
+          "minLength": 20,
+          "description": "Which build this is and why it is the right one to measure against. An acceptance with no reason is the silence the record replaces."
+        },
+        "at": { "type": "string" }
+      }
+    }
+  }
+}

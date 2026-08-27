@@ -17,7 +17,9 @@
  * and a wrong answer is worse than an honest gap.
  */
 
+import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 export const BUILD_FILES = Object.freeze(["pom.xml", "build.gradle.kts", "build.gradle"]);
@@ -275,6 +277,7 @@ export function resolveVersion({ projectDir = process.cwd(), install, version = 
       buildFile,
       skillPack: null,
       availablePacks,
+      artifact: describeArtifact({ coordinate: pinned.coordinate, version: pinned.version }),
       message:
         `GraphCompose ${pinned.version} has no skill pack. Packs on disk: ` +
         `${availablePacks.join(", ") || "(none)"}. Authoring against a pack from a different ` +
@@ -297,6 +300,10 @@ export function resolveVersion({ projectDir = process.cwd(), install, version = 
     buildFile,
     skillPack: match.path,
     availablePacks,
+    // What the pin resolves to on this machine. A supported line says the
+    // allow-list is right; this says whether the jar behind it is one build or
+    // a moving target, which is the half a probe result depends on.
+    artifact: describeArtifact({ coordinate: pinned.coordinate, version: pinned.version }),
     hasAllowList,
     ...(hasAllowList
       ? {}
@@ -308,4 +315,172 @@ export function resolveVersion({ projectDir = process.cwd(), install, version = 
             "the prose describes the shape of the API, not its exact signatures.",
         }),
   };
+}
+
+// ---------------------------------------------------------------- identity ---
+
+/**
+ * Where Maven keeps what it downloaded and what `mvn install` put there.
+ *
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {string} absolute path to the local repository
+ */
+export function localRepositoryRoot(env = process.env) {
+  const named = env?.MAVEN_REPO_LOCAL ?? env?.M2_REPO ?? null;
+  if (named && named.trim() !== "") return path.resolve(named.trim());
+  return path.join(os.homedir(), ".m2", "repository");
+}
+
+/**
+ * Maven's precedence for two version strings, far enough for the two questions
+ * this file has to answer: which of two releases is newer, and whether a
+ * SNAPSHOT sits before the release of the same numbers. `2.2.1-SNAPSHOT` is the
+ * work leading UP to 2.2.1, so it precedes it — which is the whole point here,
+ * because a pin that looks like the newest line can be two releases behind it.
+ *
+ * @param {string} a
+ * @param {string} b
+ * @returns {-1|0|1}
+ */
+export function compareVersions(a, b) {
+  const parse = (value) => {
+    const [base, ...rest] = String(value).trim().replace(/^v/i, "").split("-");
+    return {
+      numbers: base.split(".").map((part) => Number.parseInt(part, 10) || 0),
+      qualifier: rest.join("-").toUpperCase(),
+    };
+  };
+  const left = parse(a);
+  const right = parse(b);
+
+  const width = Math.max(left.numbers.length, right.numbers.length);
+  for (let i = 0; i < width; i += 1) {
+    const diff = (left.numbers[i] ?? 0) - (right.numbers[i] ?? 0);
+    if (diff !== 0) return diff < 0 ? -1 : 1;
+  }
+
+  // Same numbers: a release outranks its own SNAPSHOT, and any other qualifier
+  // sits between them rather than being ordered against qualifiers it never
+  // meets in this project.
+  const rank = (qualifier) => (qualifier === "" ? 1 : qualifier === "SNAPSHOT" ? -1 : 0);
+  const diff = rank(left.qualifier) - rank(right.qualifier);
+  if (diff !== 0) return diff < 0 ? -1 : 1;
+  if (left.qualifier === right.qualifier) return 0;
+  return left.qualifier < right.qualifier ? -1 : 1;
+}
+
+/**
+ * Which build does this pin actually name?
+ *
+ * <p>Resolution used to stop at the string, and a string is not a build. One
+ * run pinned `2.2.1-SNAPSHOT`, measured the engine against it, and recorded
+ * what it saw as a regression in the released line — while the jar behind that
+ * name was a local install from a tree two releases behind, and 2.2.1 and 2.2.2
+ * were both sitting in the same repository. Nothing in the chain was wrong
+ * except the assumption that a version string identifies code.</p>
+ *
+ * <p>So this reports the jar: where it is, how big, when it was written, and
+ * for a SNAPSHOT the releases already installed that it precedes. It decides
+ * nothing — `identifiesOneBuild` is the fact a caller branches on.</p>
+ *
+ * @param {{ coordinate?: string|null, version: string,
+ *           repositoryRoot?: string, hash?: boolean }} options
+ * @returns {{ coordinate: string, version: string,
+ *             jar: { path: string, bytes: number, modified: string }|null,
+ *             sha1: string|null, mutable: boolean, origin: string|null,
+ *             installed: string[], supersededBy: string[],
+ *             identifiesOneBuild: boolean, message: string|null }|null}
+ */
+export function describeArtifact({
+  coordinate = null,
+  version,
+  repositoryRoot = localRepositoryRoot(),
+  hash = false,
+} = {}) {
+  if (!version) return null;
+
+  const [group, artifact] = (coordinate ?? `${MAVEN_GROUP}:${MAVEN_ARTIFACT}`).split(":");
+  const artifactDir = path.join(repositoryRoot, ...group.split("."), artifact);
+  const versionDir = path.join(artifactDir, version);
+  const jarPath = path.join(versionDir, `${artifact}-${version}.jar`);
+  const mutable = /-SNAPSHOT$/i.test(version);
+
+  let jar = null;
+  try {
+    const stat = fs.statSync(jarPath);
+    jar = { path: jarPath, bytes: stat.size, modified: stat.mtime.toISOString() };
+  } catch {
+    /* nothing has resolved this pin on this machine */
+  }
+
+  let installed = [];
+  try {
+    installed = fs
+      .readdirSync(artifactDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && /^\d+\./.test(entry.name))
+      .map((entry) => entry.name)
+      .sort((a, b) => compareVersions(b, a));
+  } catch {
+    /* no such artifact locally */
+  }
+
+  const supersededBy = mutable
+    ? installed.filter((other) => !/-SNAPSHOT$/i.test(other) && compareVersions(other, version) > 0)
+    : [];
+
+  const origin = jar
+    ? fs.existsSync(path.join(versionDir, "maven-metadata-local.xml"))
+      ? "local-install"
+      : "downloaded"
+    : null;
+
+  return {
+    coordinate: `${group}:${artifact}`,
+    version,
+    jar,
+    sha1: hash && jar ? sha1OfFile(jarPath) : null,
+    mutable,
+    origin,
+    installed,
+    supersededBy,
+    // A release coordinate names immutable bits by contract, whether or not
+    // Maven has fetched them here yet. A SNAPSHOT never does, however present
+    // its jar is — which is the distinction everything downstream branches on.
+    identifiesOneBuild: !mutable,
+    message: artifactMessage({ version, jar, mutable, origin, supersededBy, repositoryRoot }),
+  };
+}
+
+function artifactMessage({ version, jar, mutable, origin, supersededBy, repositoryRoot }) {
+  if (!jar) {
+    return (
+      `${version} is not in the local repository (${repositoryRoot}), so nothing has ` +
+      "resolved this pin on this machine yet. Build or fetch it before measuring anything " +
+      "against it — probe results are only as identified as the jar they ran on."
+    );
+  }
+  if (!mutable) return null;
+
+  const built = origin === "local-install" ? "a local `mvn install`" : "a snapshot download";
+  if (supersededBy.length > 0) {
+    return (
+      `${version} is a SNAPSHOT from ${built}: the name says which release it leads up to, ` +
+      `not which code is in it. ${supersededBy.join(", ")} ${supersededBy.length === 1 ? "is" : "are"} ` +
+      "already installed alongside it, so this pin sits behind its own line. Anything measured " +
+      "here describes that build alone — record the jar's mtime or sha with it, and say which " +
+      "release the reader should compare against."
+    );
+  }
+  return (
+    `${version} is a SNAPSHOT from ${built}: the same string will name different code tomorrow. ` +
+    "Record the jar's mtime or sha alongside anything measured against it."
+  );
+}
+
+function sha1OfFile(file) {
+  try {
+    return crypto.createHash("sha1").update(fs.readFileSync(file)).digest("hex");
+  } catch {
+    return null;
+  }
 }

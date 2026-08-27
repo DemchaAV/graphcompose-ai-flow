@@ -60,6 +60,19 @@ previous runs already learned about this line, and whether the tools are
 built. Exit 3 means the pinned line has no pack — a **stop**, not a
 fallback. Exit 4 means this is not a GraphCompose project.
 
+Exit 6 means the pin does not name one build — a `-SNAPSHOT`, whose bits
+change under a fixed name. Also a **stop**, and a different kind: nothing
+you measure against it can be attributed to a release, and a probe result
+or an observation written from that run outlives it. Put the question to
+the user, and record their answer once:
+
+```bash
+node scripts/resolve-version.mjs --accept-build --decision "<which build, and why it is the one to measure against>"
+```
+
+The acceptance binds to that jar. Rebuilding the snapshot reopens it,
+which is exactly what a mutable build should do.
+
 It decides nothing. Which files to open is still yours; what it removes
 is the ten to twenty shell calls that used to go into establishing facts.
 

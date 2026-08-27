@@ -407,3 +407,56 @@ test("--text names the missing files and the snapshot state", () => {
   });
   assert.match(result.stdout, /Layout snapshot: (available|unavailable|unknown)/);
 });
+
+test("the version is read out of all three places, and a disagreement is named", () => {
+  // A real run carried 2.2.0 in the manifest and 2.2.1-SNAPSHOT in the project
+  // for ninety minutes. Both were readable throughout; nothing put them in a row.
+  const { host, root } = scenario({ version: "2.2.1" }, "pins");
+  write(
+    path.join(root, "flow.config.json"),
+    JSON.stringify({ schemaVersion: 1, graphComposeVersion: "2.2.0" }),
+  );
+
+  const { parsed } = run(["--project-dir", host, "--project", "demo"]);
+  const { pins } = parsed.graphCompose;
+
+  assert.equal(pins.agree, false);
+  assert.deepEqual(pins.pins.map((pin) => pin.source), ["build-file", "workspace", "project"]);
+  assert.deepEqual(pins.distinct.sort(), ["2.2.0", "2.2.1"]);
+  assert.match(pins.message, /disagree/);
+});
+
+test("a SNAPSHOT pin stops the run at 6 until someone says which build it is", () => {
+  // The run this exists for pinned 2.2.1-SNAPSHOT, measured the engine against
+  // whatever jar carried that name, and recorded the result as a fact about the
+  // released line. A release pin is not stopped; only a name that can mean
+  // different code tomorrow.
+  const { host, root } = scenario({ version: "2.2.1-SNAPSHOT" }, "snapshot");
+  const { status, parsed } = run(["--project-dir", host, "--project", "demo"]);
+
+  assert.equal(status, 6);
+  assert.equal(parsed.graphCompose.build.identified, false);
+  assert.equal(parsed.graphCompose.build.accepted, false);
+  assert.match(parsed.graphCompose.build.message, /--accept-build/);
+  // And the record every later step is meant to read is on disk by then.
+  const record = JSON.parse(fs.readFileSync(path.join(root, "resolved-version.json"), "utf8"));
+  assert.equal(record.version, "2.2.1-SNAPSHOT");
+  assert.equal(record.accepted, null);
+});
+
+test("a released pin needs no decision and exits ready", () => {
+  const { host } = scenario({ version: "2.2.0" }, "released");
+  const { status, parsed } = run(["--project-dir", host, "--project", "demo"]);
+
+  assert.notEqual(status, 6);
+  assert.equal(parsed.graphCompose.build.identified, true);
+  assert.equal(parsed.graphCompose.build.message, null);
+});
+
+test("three places saying the same version is not reported as a problem", () => {
+  const { host } = scenario({ version: "2.2.0" }, "pins-agree");
+  const { parsed } = run(["--project-dir", host, "--project", "demo"]);
+
+  assert.equal(parsed.graphCompose.pins.agree, true);
+  assert.equal(parsed.graphCompose.pins.message, null);
+});

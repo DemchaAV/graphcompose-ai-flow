@@ -20,6 +20,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -438,7 +439,13 @@ test("the CLI's exit codes distinguish the four ways it can decline", () => {
 });
 
 test("an illustrative snapshot is refused with a message that says which kind of file it is", () => {
-  const bogus = path.join(repoRoot, "scripts", "test", "fixtures", "not-a-snapshot.json");
+  // In a temp directory, not in fixtures/: the Codex adapter test copies this
+  // tree while the suite runs, and a file that appears in its readdir and is
+  // gone by the copy fails that test instead of this one.
+  const bogus = path.join(
+    fs.mkdtempSync(path.join(os.tmpdir(), "gclayout-bogus-")),
+    "not-a-snapshot.json",
+  );
   fs.writeFileSync(bogus, JSON.stringify({ formatVersion: "1.0", pages: [] }));
   try {
     const result = cli("inspect", "Anything", "--snapshot", bogus);

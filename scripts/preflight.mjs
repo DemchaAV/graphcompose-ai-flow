@@ -44,13 +44,18 @@ import {
 } from "./lib/workspace.mjs";
 import { resolveVersion } from "./lib/version-resolver.mjs";
 import {
+  buildIdentity,
+  resolvedVersionPath,
+  writeResolvedVersion,
+} from "./lib/resolved-version.mjs";
+import {
   loadPipelineConfig,
   resolveScope,
   stagesForScope,
 } from "./lib/pipeline-config.mjs";
 
 const repoRoot = installRoot();
-const EXIT = { ready: 0, usage: 2, unsupported: 3, unknown: 4, mismatch: 5 };
+const EXIT = { ready: 0, usage: 2, unsupported: 3, unknown: 4, mismatch: 5, unidentifiedBuild: 6 };
 
 function usage(code = 0) {
   process.stdout.write(
@@ -61,7 +66,8 @@ function usage(code = 0) {
       "  --json                machine-readable (default)\n" +
       "  --text                a short human summary instead\n\n" +
       "exit: 0 ready | 2 usage | 3 no pack for the pinned line | 4 not a GraphCompose project\n" +
-      "      5 installed skills are newer than these tools (diagnostics will be missing)\n",
+      "      5 installed skills are newer than these tools (diagnostics will be missing)\n" +
+      "      6 the pin does not name one build (a SNAPSHOT) and nobody has said which it is\n",
   );
   process.exit(code);
 }
@@ -127,6 +133,12 @@ const PLUGIN_CACHE = path.join(
 );
 
 const project = describeProject();
+// Written before anything reads a version from anywhere else: this record is
+// what the rest of the run is supposed to consult, and a run that never wrote
+// one is a run where three files can still disagree.
+const pins = describePins(version, project);
+const resolvedRecord = writeResolvedVersion(workspace, { resolved: version, pins });
+const build = describeBuild(version, resolvedRecord);
 const routing = describeRouting(project);
 // Read once: the report publishes it and `nextCommands` branches on it, and a
 // second probe would let the two disagree about the same machine.
@@ -151,6 +163,14 @@ const report = {
     skillPack: version.skillPack ?? null,
     buildFile: version.buildFile ?? null,
     availablePacks: version.availablePacks ?? [],
+    // Which build the pin resolves to, and whether the three places that record
+    // a version still agree. Both are cheap facts nobody was asked for: a run
+    // pinned 2.2.1-SNAPSHOT, measured the engine against whatever jar carried
+    // that name, and wrote the result down as a property of the released line.
+    artifact: version.artifact ?? null,
+    pins: pins,
+    build: build,
+    resolvedVersionFile: resolvedRecord ? resolvedVersionPath(workspace) : null,
     message: version.status === "supported" ? null : version.message,
   },
   project,
@@ -173,7 +193,91 @@ if (args.text) {
 // narrower fault would send the reader after the wrong thing.
 const versionExit = EXIT[version.status] ?? EXIT.ready;
 if (versionExit !== EXIT.ready) process.exit(versionExit);
+// Outranks the tools-parity code: a missing diagnostic makes the run expensive,
+// an unidentified build makes its findings unattributable, and the second is
+// the one that survives the run in an observation.
+if (!build.identified && !build.accepted) process.exit(EXIT.unidentifiedBuild);
 process.exit(capabilities.parity === "tools-behind" ? EXIT.mismatch : EXIT.ready);
+
+// ------------------------------------------------------------------ version ---
+
+/**
+ * Every place that records which GraphCompose version this work is against,
+ * and whether they still say the same thing.
+ *
+ * <p>Three of them exist and nothing compares them: the host build file, the
+ * workspace manifest written when the workspace was created, and the project's
+ * own `targetGraphComposeVersion`. One run carried `2.2.0` in the manifest and
+ * `2.2.1-SNAPSHOT` in the project for ninety minutes; both were readable the
+ * whole time, and the disagreement is only visible when they are put in a
+ * row.</p>
+ *
+ * @param {ReturnType<typeof resolveVersion>} resolved
+ * @param {{ dir?: string, targetGraphComposeVersion?: string|null }|null} projectMeta
+ */
+/**
+ * Whether the pin names one build, and whether anyone has said that the
+ * alternative is deliberate.
+ *
+ * <p>A SNAPSHOT is the case this exists for. It is a perfectly ordinary thing
+ * to develop against — the library's own author does — and a perfectly
+ * dishonest thing to measure the engine against without saying so, because the
+ * result reads afterwards as a property of the release the name points at. So
+ * this does not forbid it; it makes someone write down which build it is.</p>
+ *
+ * @param {ReturnType<typeof resolveVersion>} resolved
+ * @param {object|null} record the resolved-version record just written
+ */
+function describeBuild(resolved, record) {
+  const accepted = record?.accepted ?? null;
+  const identity = buildIdentity(resolved, accepted);
+  const settled = identity.identified || identity.accepted;
+
+  return {
+    identified: identity.identified,
+    accepted: identity.accepted,
+    decision: identity.accepted ? accepted.decision : null,
+    reason: identity.reason,
+    message: settled
+      ? null
+      : `${identity.reason}. Nothing measured against it — a probe verdict, an observation, a ` +
+        "rendered comparison — can be attributed to a release, and the record outlives the run " +
+        "that made it. Say which build this is and why it is the one to measure against: " +
+        'node scripts/resolve-version.mjs --accept-build --decision "..."',
+  };
+}
+
+function describePins(resolved, projectMeta) {
+  const pins = [];
+  if (resolved.version) {
+    pins.push({ source: "build-file", where: resolved.buildFile, version: resolved.version });
+  }
+  const manifestVersion = workspace.manifest?.graphComposeVersion ?? null;
+  if (manifestVersion) {
+    pins.push({ source: "workspace", where: workspace.manifestPath, version: manifestVersion });
+  }
+  if (projectMeta?.targetGraphComposeVersion) {
+    pins.push({
+      source: "project",
+      where: projectMeta.dir ? path.join(projectMeta.dir, "template-project.json") : null,
+      version: projectMeta.targetGraphComposeVersion,
+    });
+  }
+
+  const distinct = [...new Set(pins.map((pin) => pin.version))];
+  return {
+    pins,
+    agree: distinct.length <= 1,
+    distinct,
+    message:
+      distinct.length <= 1
+        ? null
+        : `the version is recorded in ${pins.length} places and they disagree: ` +
+          `${pins.map((pin) => `${pin.source} ${pin.version}`).join(", ")}. Settle it before ` +
+          "anything else — a probe, an observation and a rendered template that were measured " +
+          "against different builds cannot be compared with each other.",
+  };
+}
 
 // ------------------------------------------------------------------ project ---
 
@@ -622,6 +726,18 @@ function printText(r) {
   const lines = [];
   if (r.workspace.banner) lines.push(r.workspace.banner);
   lines.push(`GraphCompose ${r.graphCompose.version ?? "?"} (${r.graphCompose.status}) -> ${r.graphCompose.skillPack ?? "no pack"}`);
+  // Said second, before anything that would be measured against this build: a
+  // pin that does not name one build makes every later number unattributable.
+  if (r.graphCompose.build?.message) {
+    lines.push(`Build not identified: ${r.graphCompose.build.message}`);
+  } else if (r.graphCompose.build?.accepted) {
+    lines.push(`Build accepted: ${r.graphCompose.build.decision}`);
+  } else if (r.graphCompose.artifact?.message) {
+    lines.push(`Build: ${r.graphCompose.artifact.message}`);
+  }
+  if (r.graphCompose.pins?.message) {
+    lines.push(`Version disagreement: ${r.graphCompose.pins.message}`);
+  }
   if (r.routing?.scope) {
     lines.push(`Workflow: ${r.routing.workflow ?? "?"} · scope ${r.routing.scope} · ${r.routing.revision}`);
     // Labels, not ids: the id is the addressable key and stays in the JSON.

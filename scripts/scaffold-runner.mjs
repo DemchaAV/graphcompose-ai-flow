@@ -37,6 +37,7 @@ import {
 // the authoring runner; a second copy over there would be two answers to "does
 // this line need graph-compose-fonts", and the wrong one fails at render.
 import { fontsVersionFor } from "./lib/bundle-project.mjs";
+import { readResolvedVersion } from "./lib/resolved-version.mjs";
 
 function usage(code = 0) {
   process.stdout.write(
@@ -217,6 +218,22 @@ if (!graphComposeVersion) {
   process.stderr.write(
     `[scaffold-runner] ${args.project} has no targetGraphComposeVersion; ` +
       `resolve it first: node scripts/resolve-version.mjs --project-dir <java-project>\n`,
+  );
+  process.exit(1);
+}
+
+// This is where a version stops being a string and becomes the code that gets
+// compiled, so it is the last honest place to notice that the project and the
+// workspace disagree about which one that is. One run scaffolded a runner for
+// 2.2.1-SNAPSHOT out of a workspace whose manifest said 2.2.0, and every
+// measurement afterwards belonged to a build nobody had named.
+const resolvedRecord = readResolvedVersion(workspace);
+if (resolvedRecord && resolvedRecord.version !== graphComposeVersion) {
+  process.stderr.write(
+    `[scaffold-runner] ${args.project} pins ${graphComposeVersion}, but the workspace resolved ` +
+      `${resolvedRecord.version} (${resolvedRecord.buildFile ?? "no build file"}). Settle which ` +
+      "one this project is against — re-run preflight after fixing the build file, or correct " +
+      "targetGraphComposeVersion — rather than compiling against one and reporting the other.\n",
   );
   process.exit(1);
 }

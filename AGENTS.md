@@ -98,6 +98,7 @@ PowerShell, cmd and bash.
 | Ask how the library behaves | `node scripts/probe.mjs --list` · `node scripts/probe.mjs <name>` — how *GraphCompose* behaves, by running it. For how *this template* laid out, use `layout.mjs` below |
 | What previous runs learned about a call | `node scripts/observations.mjs find <symbol>` — exit 0 with the workaround, 3 if nothing is on record |
 | What previous runs learned | `node scripts/observations.mjs list` · `verify` |
+| Which build is this pin, really? | `node scripts/resolve-version.mjs --project-dir <dir> --json` → `artifact`. A `-SNAPSHOT` names no single build: `preflight` exits **6** until someone records `--accept-build --decision "..."`, and that acceptance binds to the jar it was given for |
 | Crop both images to one region | `node tools/visual-diff/bin/crop-region.mjs --revision <dir> --region <id>` |
 | Measure a diff | `node tools/visual-diff/bin/visual-diff.mjs <reference.png> <output.png> --json --update-revision <revision>` |
 | Ask whether the loop may continue | `node scripts/iterate-status.mjs <project-id>` — exit 0 ready, 2 revise, 3 blocked |
