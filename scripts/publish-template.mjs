@@ -5,8 +5,9 @@
  * Promotes an APPROVED revision of an example project into a
  * publish-quality bundle under `templates/<template-id>/`. Everything here is
  * mechanical — file copy, class renaming, manifest write — and the result is
- * scanned before it is left on disk, so a bundle either matches its APPROVED
- * revision or the publish fails.
+ * assembled beside the bundle, scanned, and moved into place only if it passes.
+ * A bundle therefore either matches its APPROVED revision or is not touched:
+ * the run that cannot replace it says so and changes nothing.
  *
  * It deliberately owns no editorial step. An earlier version left the template
  * class alone once it existed, so that a later publish would not discard the
@@ -59,19 +60,7 @@ import {
   toBundleId,
 } from "./lib/template-bundle.mjs";
 import { blocking, formatFinding, known, scanPortability } from "./lib/bundle-portability.mjs";
-import { classify, emit } from "./lib/bundle-split.mjs";
-
-/**
- * Every path this run wrote into the bundle.
- *
- * A bundle is not a directory that accumulates; it is the published form of one
- * approved revision. Anything in it this run did not write came from a previous
- * one, and a renamed template class is exactly how a bundle ends up shipping two
- * templates, one of them dead — which still compiles, so nothing downstream
- * notices.
- */
-const written = new Set();
-const record = (destPath) => written.add(path.resolve(destPath));
+import { classify, emit, inspect } from "./lib/bundle-split.mjs";
 
 const repoRoot = installRoot();
 
@@ -87,15 +76,22 @@ if (workspaceBanner) console.log(workspaceBanner);
  * it is inside neither. Printing everything relative to the install root gave
  * "..\..\..\tmp\..." once the workspace moved out of this repository, which
  * tells a user nothing about where their bundle went.
+ *
+ * A staged path is shown as the place it is going. The staging directory is an
+ * implementation detail of "assemble, then move"; a log full of
+ * `.publishing-mint-editorial-cv/` would make every path in the run look like a
+ * mistake.
  */
 function display(target) {
+  const text = String(target);
+  const staged = text.startsWith(targetDir) ? bundleDir + text.slice(targetDir.length) : target;
   for (const base of [workspace.root, repoRoot]) {
-    const rel = path.relative(base, target);
+    const rel = path.relative(base, staged);
     if (rel && !rel.startsWith("..") && !path.isAbsolute(rel)) {
       return base === repoRoot ? rel : path.join(path.basename(base), rel);
     }
   }
-  return target;
+  return staged;
 }
 
 const projectDir = workspaceProjectDir(workspace, project);
@@ -142,7 +138,26 @@ const templateId = args["template-id"] || toBundleId(displayName);
 const className = args["class-name"] || pascalCase(displayName) + "Template";
 const docKind = args["doc-kind"] || inferDocKind(revisionDir);
 
-const targetDir = path.join(workspace.templatesDir, templateId);
+/** Where the bundle lives, and where this run assembles it before it goes there. */
+const bundleDir = path.join(workspace.templatesDir, templateId);
+
+/**
+ * The publish is staged and moved into place, rather than written where the
+ * bundle lives.
+ *
+ * The scans below used to run on the bundle after every file had been written
+ * over it, and the abort they raise says "not leaving it in this state" while
+ * doing exactly that: four bundles ended a batch published *and* refused,
+ * because a Javadoc line naming a revision is only visible once the file is on
+ * disk. Assembling beside the bundle and moving in at the end makes a refusal a
+ * refusal — the bundle a consumer has keeps working, and the run that could not
+ * replace it says so and changes nothing.
+ *
+ * It also retires the stale sweep: a directory that starts empty cannot carry
+ * a previous run's leftovers. What the move discards is still reported, because
+ * "the renamed class is gone" is worth reading.
+ */
+const targetDir = path.join(workspace.templatesDir, `.publishing-${templateId}`);
 const targetSrcDir = path.join(targetDir, "src");
 const targetDataDir = path.join(targetDir, "data");
 const targetAssetsDir = path.join(targetDir, "assets");
@@ -155,13 +170,15 @@ console.log(`[publish-template] displayName   = ${displayName}`);
 console.log(`[publish-template] templateId    = ${templateId}`);
 console.log(`[publish-template] className     = ${className}`);
 console.log(`[publish-template] docKind       = ${docKind}`);
-console.log(`[publish-template] targetDir     = ${display(targetDir)}`);
+console.log(`[publish-template] targetDir     = ${display(bundleDir)}`);
 
 if (args["dry-run"]) {
   console.log("[publish-template] --dry-run set; not writing files.");
   process.exit(0);
 }
 
+// A staging directory left by a run that was killed rather than aborted.
+fs.rmSync(targetDir, { recursive: true, force: true });
 mkdirp(targetSrcDir, targetDataDir, targetAssetsDir, targetIconsDir, targetPreviewDir);
 
 // Accept either name, exactly as the render-runner pom does: the flow writes
@@ -272,18 +289,36 @@ if (layoutMode === "flat") {
       if (layoutMode === "structured") abort(`--layout structured, but ${layoutReason}`);
     } else {
       const split = emit(classification, { source: renamedSource, basePackage, className });
-      for (const [rel, contents] of split.files) {
-        const target = path.join(targetSrcDir, ...rel.split("/"));
-        fs.mkdirSync(path.dirname(target), { recursive: true });
-        writeJavaFile(target, contents);
+
+      // Read before written. A classification can be feasible and still emit a
+      // set javac refuses — a declaration carried twice, a record method left
+      // package-private — or one that compiles and renders wrong, which is what
+      // a static-initialisation cycle between `theme/` and `support/` does.
+      // All three happened, and all three were found by a Maven build on
+      // someone else's machine. `inspect` reads the same text here, for the
+      // price of a string scan, and an unsound split falls back to a layout
+      // that is merely plainer.
+      const unsound = inspect(classification, split.files);
+      if (unsound.length > 0) {
+        for (const finding of unsound) {
+          console.error(`[publish-template] unsound split: ${finding.file}: ${finding.detail}`);
+        }
+        layoutReason = `the split would not hold: ${unsound[0].kind} in ${unsound[0].file}`;
+        if (layoutMode === "structured") abort(`--layout structured, but ${layoutReason}`);
+      } else {
+        for (const [rel, contents] of split.files) {
+          const target = path.join(targetSrcDir, ...rel.split("/"));
+          fs.mkdirSync(path.dirname(target), { recursive: true });
+          writeJavaFile(target, contents);
+        }
+        layout = "structured";
+        layoutDetail = split.layout;
+        console.log(
+          `[publish-template] layout        = structured ` +
+            `(${split.layout.sections.length} section(s), ${split.layout.composites.length} composite(s), ` +
+            `${split.files.size} file(s))`,
+        );
       }
-      layout = "structured";
-      layoutDetail = split.layout;
-      console.log(
-        `[publish-template] layout        = structured ` +
-          `(${split.layout.sections.length} section(s), ${split.layout.composites.length} composite(s), ` +
-          `${split.files.size} file(s))`,
-      );
     }
   }
 }
@@ -347,10 +382,6 @@ if (fs.existsSync(sourceAssetsManifest)) {
   const publishedManifestPath = path.join(targetDir, "assets-manifest.json");
   fs.writeFileSync(publishedManifestPath, `${JSON.stringify(published, null, 2)}
 `, "utf8");
-  // Recorded, or the stale sweep at the end of this run deletes it again: that
-  // sweep removes whatever this run did not write, and a file written without
-  // record() looks exactly like leftovers from a previous publish.
-  record(publishedManifestPath);
   console.log(`[publish-template] wrote ${display(publishedManifestPath)}`);
 }
 // Everything under the revision's assets/, not just icons/. The old code
@@ -438,29 +469,22 @@ const entrypoint = {
 // Preserved, not incremented. Whether consumers must re-integrate is an
 // editorial judgement about what changed in the layout, and a publish step
 // cannot make it; --version is how it is made deliberately.
-const previousManifest = readJsonIfExists(path.join(targetDir, "template.json"));
+// From the bundle, not from the staging directory: this asks what the version
+// was before this run, and staging has no before.
+const previousManifest = readJsonIfExists(path.join(bundleDir, "template.json"));
 const bundleVersion =
   (typeof args.version === "string" ? args.version : null)
   ?? previousManifest?.version
   ?? "1.0.0";
 
-// The bundle is the approved revision and nothing else. Anything this run did
-// not write is left over from a previous one: a renamed class, an asset the
-// data no longer names, a preview page a shorter document no longer has. A
-// stale .java still compiles, so nothing downstream would have noticed.
+// The bundle is the approved revision and nothing else — a renamed class, an
+// asset the data no longer names, a preview page a shorter document no longer
+// has. A stale `.java` still compiles, so nothing downstream would notice.
 //
-// Before the manifest, not after: `sources` is read off the directory, and a
-// sweep that ran afterwards left the manifest describing files it had just
-// deleted. Republishing a structured bundle as flat produced a `template.json`
-// claiming 24 sources over a `src/` holding three. The manifest's own path is
-// recorded first, so the sweep does not read a previous run's manifest as
-// leftovers and delete it.
+// The sweep that used to enforce this is gone with the directory it swept: this
+// run assembles in an empty one, so there is nothing of a previous publish to
+// carry over. What the move at the end discards is reported there instead.
 const manifestPath = path.join(targetDir, "template.json");
-record(manifestPath);
-const pruned = pruneStale(targetDir, written);
-for (const stale of pruned) {
-  console.log(`[publish-template] removed stale ${display(stale)}`);
-}
 
 const manifest = {
   id: templateId,
@@ -494,7 +518,6 @@ const manifest = {
   dependencies,
 };
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
-record(manifestPath);
 console.log(`[publish-template] wrote ${display(manifestPath)}`);
 
 // Nothing above proves the bundle is self-consistent, and the failures it can
@@ -519,8 +542,24 @@ if (problems.length > 0) {
   for (const finding of problems) {
     console.error(`[publish-template] ${finding}`);
   }
-  abort(`${problems.length} problem(s) in the published bundle; not leaving it in this state`);
+  abort(
+    `${problems.length} problem(s) in the bundle this run assembled; `
+      + `${fs.existsSync(bundleDir) ? "the published one is untouched" : "nothing was published"}`,
+  );
 }
+
+// Everything has passed, so the assembled bundle becomes the bundle. The README
+// is the one file the publisher does not write and a person does, so it is
+// carried across rather than lost to the move.
+const carriedReadme = path.join(bundleDir, "README.md");
+if (fs.existsSync(carriedReadme) && !fs.existsSync(path.join(targetDir, "README.md"))) {
+  fs.copyFileSync(carriedReadme, path.join(targetDir, "README.md"));
+}
+for (const stale of discarded(bundleDir, targetDir)) {
+  console.log(`[publish-template] removed stale ${display(path.join(targetDir, stale))}`);
+}
+fs.rmSync(bundleDir, { recursive: true, force: true });
+fs.renameSync(targetDir, bundleDir);
 
 console.log(`[publish-template] done. Verify it builds and renders on its own:`);
 console.log(`[publish-template]   node scripts/verify-published-template.mjs --template-id ${templateId}` +
@@ -626,11 +665,10 @@ function copyJavaClass(srcPath, destPath, opts) {
     const newName = opts.newClassName;
     content = content.replace(new RegExp(`\\b${oldName}\\b`, "g"), newName);
   }
-  const previous = fs.existsSync(destPath) ? fs.readFileSync(destPath, "utf8") : null;
   fs.writeFileSync(destPath, content, "utf8");
-  record(destPath);
-  const state = previous === null ? "new" : previous === content ? "unchanged" : "UPDATED";
-  console.log(`[publish-template] copied ${display(srcPath)} -> ${display(destPath)} (${state})`);
+  console.log(
+    `[publish-template] copied ${display(srcPath)} -> ${display(destPath)} (${against(destPath, content)})`,
+  );
 }
 
 /**
@@ -642,12 +680,24 @@ function copyJavaClass(srcPath, destPath, opts) {
  * whole file was rewritten to prevent.
  */
 function writeJavaFile(destPath, contents) {
-  const previous = fs.existsSync(destPath) ? fs.readFileSync(destPath, "utf8") : null;
+  const state = against(destPath, contents);
   fs.mkdirSync(path.dirname(destPath), { recursive: true });
   fs.writeFileSync(destPath, contents, "utf8");
-  record(destPath);
-  const state = previous === null ? "new" : previous === contents ? "unchanged" : "UPDATED";
   console.log(`[publish-template] wrote ${display(destPath)} (${state})`);
+}
+
+/**
+ * How what is about to be staged compares with what the bundle already ships.
+ *
+ * Against the bundle, not against the staging directory, which is empty by
+ * construction and would report every file as new. `UPDATED` on a republish is
+ * the only signal that what was on disk had drifted from what the revision
+ * holds — the failure this whole file was rewritten to prevent.
+ */
+function against(destPath, contents) {
+  const published = bundleDir + String(destPath).slice(targetDir.length);
+  if (!String(destPath).startsWith(targetDir) || !fs.existsSync(published)) return "new";
+  return fs.readFileSync(published, "utf8") === contents ? "unchanged" : "UPDATED";
 }
 
 function copyJavaSource(srcPath, destPath) {
@@ -655,47 +705,34 @@ function copyJavaSource(srcPath, destPath) {
     abort(`Source class missing: ${srcPath}`);
   }
   fs.copyFileSync(srcPath, destPath);
-  record(destPath);
   console.log(`[publish-template] copied ${display(srcPath)} -> ${display(destPath)}`);
 }
 
 function copyFile(srcPath, destPath) {
   fs.copyFileSync(srcPath, destPath);
-  record(destPath);
   console.log(`[publish-template] copied ${display(srcPath)} -> ${display(destPath)}`);
 }
 
 /**
- * Delete everything under the bundle this run did not write.
+ * What the published bundle has that the assembled one does not.
  *
- * README.md survives: the publisher does not write it, and it carries the
- * hand-written half that approve-and-publish is careful to preserve. Removing
- * it here would delete the one part of a bundle a person authored.
+ * The stale sweep this replaces deleted files in place, which is what made a
+ * failed publish destructive. The move does the deleting now; this only reads,
+ * so the run can still say "the renamed class is gone" — which was the useful
+ * half of the sweep.
+ *
+ * @returns {Array<string>} paths relative to the bundle
  */
-function pruneStale(root, keep) {
-  const PRESERVE = new Set(["README.md"]);
-  const removed = [];
-
-  const walk = (dir) => {
-    if (!fs.existsSync(dir)) return;
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        walk(full);
-        // A directory that emptied out was only there for files that are gone.
-        if (fs.readdirSync(full).length === 0) fs.rmdirSync(full);
-        continue;
-      }
-      if (PRESERVE.has(path.relative(root, full))) continue;
-      if (keep.has(path.resolve(full))) continue;
-      fs.rmSync(full, { force: true });
-      removed.push(full);
-    }
-  };
-
-  walk(root);
-  return removed;
+function discarded(previous, assembled) {
+  if (!fs.existsSync(previous)) return [];
+  const under = (root) =>
+    new Set([...walkFiles(root)].map((file) => path.relative(root, file).split(path.sep).join("/")));
+  const now = under(assembled);
+  // README.md is carried across before this runs, so it is never discarded; the
+  // check stays for a caller that reorders them.
+  return [...under(previous)].filter((rel) => rel !== "README.md" && !now.has(rel)).sort();
 }
+
 
 /**
  * The revision's machine-readable architecture plan, when it wrote one.
@@ -812,5 +849,14 @@ function required(args, name) {
 
 function abort(msg) {
   console.error(`[publish-template] ${msg}`);
+  // The staging directory is this run's workspace and nothing else's. Leaving
+  // it behind would make the next run's "a directory that starts empty" untrue,
+  // and would put a `.publishing-*` directory beside the templates a person
+  // browses.
+  try {
+    if (typeof targetDir === "string") fs.rmSync(targetDir, { recursive: true, force: true });
+  } catch {
+    /* the exit code is the message; a failed cleanup must not hide it */
+  }
   process.exit(1);
 }

@@ -75,6 +75,34 @@ they cannot edit. A note that cannot be published is now dropped and named
 against the plan entry, where it is fixed. `unpublishableText()` is the same
 rule set the bundle scanner runs, asked of a string.
 
+**A refusal is a refusal now.** The scans that decide whether a bundle may ship
+ran on the bundle *after* every file had been written over it, and the abort
+they raise says "not leaving it in this state" while doing exactly that: a batch
+of thirteen republishes ended with four bundles published *and* refused, because
+a Javadoc line naming a revision is only visible once the file is on disk. The
+publisher now assembles into `.publishing-<id>/` beside the bundle, scans that,
+and moves it into place only if it passes. A run that cannot replace a bundle
+changes nothing — proved on navy-sidebar-cv, whose 25 files came back
+byte-identical after a refused republish, with no staging directory left behind.
+
+Two things fall out of it. The stale sweep is gone: a directory that starts
+empty cannot carry a previous run's leftovers, so `pruneStale` and the ledger of
+every path the run wrote go with it, while the move still reports what it
+discarded. And `new` / `UPDATED` / `unchanged` are measured against the
+*published* file rather than the staged one, which is the comparison that was
+always meant.
+
+**`inspect()` reads the split before it is written.** A classification can be
+feasible and still emit a set javac refuses — a declaration carried twice, a
+record method left package-private — or one that compiles and renders wrong,
+which is what a static-initialisation cycle between `theme/` and `support/`
+does. All three of those happened, and all three were found by a Maven build on
+another machine after the bundle was already published. The new check reads the
+emitted text for exactly them, costs a string scan, and turns an unsound split
+into a fallback to the plainer layout rather than a broken bundle. It runs over
+the repository's real fixtures in the test suite, and reports nothing on any of
+the fourteen templates in the maintainer's workspace.
+
 ### The loop
 
 **Whether the method exists is not a question about the role.**

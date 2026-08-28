@@ -22,7 +22,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { classify, emit, pascal } from "../lib/bundle-split.mjs";
+import { classify, emit, inspect, pascal } from "../lib/bundle-split.mjs";
 
 const NEWLINE = String.fromCharCode(10);
 
@@ -829,4 +829,104 @@ test("a token computed from infrastructure moves to it, so the two clinits canno
 
   // A constant that reads nothing infrastructural is still a design token.
   assert.ok(result.theme.some((m) => m.name === "LABEL_SIZE"));
+});
+
+// --- what only javac or a renderer would have found ---------------------------
+//
+// Three defects reached a real publish, and all three cleared this suite on the
+// way: a duplicated declaration, a static-initialisation cycle between theme and
+// support, and a record method left package-private. `inspect` reads the emitted
+// text for exactly those, so the next one is caught in a second rather than in a
+// Maven build somewhere else.
+
+/** The demo template, split, as `inspect` receives it. */
+function splitOf(source = SAMPLE, plan = null) {
+  const classification = classify(source, { plan });
+  assert.equal(classification.feasible, true, classification.reason ?? "");
+  const files = emit(classification, {
+    source,
+    basePackage: "com.example",
+    className: "DemoTemplate",
+  }).files;
+  return { classification, files };
+}
+
+test("a clean split has nothing to report", () => {
+  const { classification, files } = splitOf();
+  assert.deepEqual(inspect(classification, files), []);
+});
+
+test("a declaration carried twice into one file is caught", () => {
+  // The shape the comment walk produced: a constant, and the same constant
+  // again inside the block of text that travelled as another member's comment.
+  const { classification, files } = splitOf();
+  const theme = files.get("theme/DemoTheme.java");
+  files.set(
+    "theme/DemoTheme.java",
+    theme.replace("public static final double LABEL_SIZE = 8.65;",
+      "public static final double LABEL_SIZE = 8.65;\n\n    public static final double LABEL_SIZE = 8.65;"),
+  );
+
+  const findings = inspect(classification, files);
+  assert.deepEqual(findings.map((f) => f.kind), ["duplicate-declaration"]);
+  assert.match(findings[0].detail, /LABEL_SIZE is declared twice/);
+});
+
+test("a theme constant initialised from support is caught, because a cycle renders rather than fails", () => {
+  // orange-ops-cv's DISPLAY_AVAILABLE. `relocateCyclicTokens` prevents it, so
+  // the input here is built rather than classified — the point of the check is
+  // that it holds if that ever stops working.
+  const { files } = splitOf();
+  const classification = {
+    theme: [{ name: "DISPLAY_AVAILABLE", line: 10, initialiser: " Files.isRegularFile(FONT_FILE);" }],
+    support: [{ name: "FONT_FILE", line: 8, initialiser: " Path.of(\"x\");" }],
+  };
+
+  const findings = inspect(classification, files);
+  assert.deepEqual(findings.map((f) => f.kind), ["initialiser-cycle"]);
+  assert.match(findings[0].detail, /DISPLAY_AVAILABLE/);
+});
+
+test("a record method left package-private is caught, and an interface method is not", () => {
+  const { classification, files } = splitOf();
+  const support = files.get("support/DemoSupport.java");
+  assert.match(support, /public record IconAsset/);
+  files.set(
+    "support/DemoSupport.java",
+    support.replace("    public record IconAsset(String name, double size) {",
+      "    public record IconAsset(String name, double size) {\n        double area() {\n            return size * size;\n        }\n"),
+  );
+
+  const findings = inspect(classification, files);
+  assert.deepEqual(findings.map((f) => f.kind), ["unreachable-member"]);
+  assert.match(findings[0].detail, /IconAsset declares double area/);
+});
+
+test("every real template splits into a set that inspects clean", (t) => {
+  // The fixtures the classification rules are already pinned against. A rule
+  // that holds on the synthetic sample and not on 1,051 lines is not a rule,
+  // and the same is true of the emitted text.
+  let checked = 0;
+  for (const fixture of REAL) {
+    const file = path.join(repoRoot, fixture.source);
+    if (!fs.existsSync(file)) continue;
+    const source = fs.readFileSync(file, "utf8");
+    const plan = fixture.plan
+      ? JSON.parse(fs.readFileSync(path.join(repoRoot, fixture.plan), "utf8"))
+      : null;
+    const classification = classify(source, { plan });
+    assert.equal(classification.feasible, true, `${fixture.label}: ${classification.reason ?? ""}`);
+    const files = emit(classification, {
+      source,
+      basePackage: "com.example",
+      className: classification.className,
+    }).files;
+    assert.deepEqual(
+      inspect(classification, files),
+      [],
+      `${fixture.label} emitted a set javac would refuse`,
+    );
+    checked += 1;
+  }
+  if (checked === 0) t.skip("no real templates in this checkout");
 });

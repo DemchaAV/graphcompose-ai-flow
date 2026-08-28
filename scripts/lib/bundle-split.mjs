@@ -398,6 +398,119 @@ export function classify(source, options = {}) {
   };
 }
 
+/**
+ * What is wrong with a split that javac or a renderer would find, and nothing
+ * before them would.
+ *
+ * Three defects reached a real publish before this existed, and all three
+ * cleared the test suite on the way. A duplicated declaration, because a walk
+ * for a member's comment stepped over a `/*` opener and carried six other
+ * declarations along. A `theme/` constant reading a `support/` one, which closes
+ * a static-initialisation cycle and renders 4.5% wrong while compiling and
+ * running. A record's package-private method, unreachable the moment its caller
+ * is in another package.
+ *
+ * None of them is visible in a classification and all of them are visible in the
+ * emitted text, so this reads the text. Pure: findings, no I/O, no javac.
+ *
+ * @param {object} classification from {@link classify}
+ * @param {Map<string, string>} files from {@link emit}
+ * @returns {Array<{kind: string, file: string, detail: string}>}
+ */
+export function inspect(classification, files) {
+  const findings = [];
+
+  // The direction of the two static initialisers. `relocateCyclicTokens` is
+  // what keeps this true; the check is here because a cycle costs a render
+  // rather than a compile, which makes it the one defect a bundle can ship
+  // with.
+  const supportNames = new Set(classification.support.map((member) => member.name).filter(Boolean));
+  for (const member of classification.theme) {
+    if (!isDataMember(member) || !mentionsAny(member.initialiser, supportNames)) continue;
+    findings.push({
+      kind: "initialiser-cycle",
+      file: "theme",
+      detail: `${member.name} is initialised from a member of support, so the two class `
+        + "initialisers depend on each other and one of them reads zeroes",
+    });
+  }
+
+  for (const [file, text] of files) {
+    const parsed = parse(text);
+    if (parsed.reason) {
+      findings.push({ kind: "unparsed", file, detail: parsed.reason });
+      continue;
+    }
+
+    const seen = new Map();
+    for (const member of [...parsed.fields, ...parsed.methods, ...parsed.nestedTypes]) {
+      const key = member.params
+        ? `${member.name}(${member.params.map((param) => param.type).join(",")})`
+        : member.name;
+      if (seen.has(key)) {
+        findings.push({
+          kind: "duplicate-declaration",
+          file,
+          detail: `${key} is declared twice, at lines ${seen.get(key)} and ${member.line}`,
+        });
+        continue;
+      }
+      seen.set(key, member.line);
+    }
+
+    for (const hidden of nonPublicNestedMembers(text)) {
+      findings.push({
+        kind: "unreachable-member",
+        file,
+        detail: `${hidden.type} declares ${hidden.member} without public, and every other `
+          + "package in the bundle can see the type but not the member",
+      });
+    }
+  }
+
+  return findings;
+}
+
+/**
+ * Members of a nested type that another package could not reach.
+ *
+ * Interfaces are skipped: their members are public whether or not the word is
+ * written. Everything else nested in an emitted class is carried there from a
+ * template where one class could see all of itself.
+ */
+function nonPublicNestedMembers(text) {
+  const lines = text.split(NEWLINE);
+  const blocks = [];
+
+  let depth = 0;
+  for (let i = 0; i < lines.length; i += 1) {
+    const before = depth;
+    depth += netBraces(lines[i]);
+    if (before !== 1) continue;
+    const nested = CLASS_DECL.exec(lines[i]);
+    if (!nested || nested[1] === "interface") continue;
+    blocks.push({ type: nested[2], from: i, to: closingBrace(lines, i).line });
+  }
+
+  const hidden = [];
+  for (const block of blocks) {
+    let inner = 0;
+    for (let i = block.from; i <= block.to; i += 1) {
+      const before = inner;
+      inner += netBraces(lines[i]);
+      if (i === block.from || before !== 1) continue;
+
+      const trimmed = lines[i].trim();
+      if (trimmed === "" || SKIP_LINE.test(trimmed)) continue;
+      const starts = METHOD_DECL.test(lines[i]) || FIELD_DECL.test(lines[i]) || ANY_ACCESS.test(lines[i]);
+      if (!starts || PUBLIC_ACCESS.test(lines[i])) continue;
+
+      hidden.push({ type: block.type, member: trimmed.replace(/\s*\{\s*$/, "").slice(0, 60) });
+    }
+  }
+  return hidden;
+}
+
 // ------------------------------------------------------------------ parsing ---
 
 /**

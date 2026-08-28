@@ -587,3 +587,77 @@ test("--layout with no value is a usage error, not a silent auto", () => {
   const refused = failing(() => publish(root, ["--layout"]));
   assert.match(refused.output, /--layout needs a value/);
 });
+
+// --- a refusal is a refusal ---------------------------------------------------
+
+test("a publish that fails its scan leaves the published bundle exactly as it was", () => {
+  // The scans used to run on the bundle after every file had been written over
+  // it, so the abort that says "not leaving it in this state" did exactly that.
+  // A batch ended with four bundles published *and* refused.
+  const { root, revision } = workspaceWith({ label: "atomic" });
+  publish(root);
+
+  const bundle = bundleOf(root);
+  const before = inventory(bundle);
+  const published = path.join(bundle, "src", "NavySidebarCvTemplate.java");
+  const wasPublished = fs.readFileSync(published, "utf8");
+
+  // A Javadoc line naming a revision: harness vocabulary, which the portability
+  // scanner blocks, and which is only visible once the file is on disk.
+  const source = path.join(revision, "generated-template.java");
+  fs.writeFileSync(
+    source,
+    fs.readFileSync(source, "utf8").replace(
+      "public final class GeneratedCvTemplate {",
+      "/** Kept at 1.35, unlike revision-001. */\npublic final class GeneratedCvTemplate {",
+    ),
+    "utf8",
+  );
+
+  const refused = failing(() => publish(root));
+  assert.match(refused.output, /harness vocabulary/);
+  assert.match(refused.output, /the published one is untouched/);
+
+  assert.deepEqual(inventory(bundle), before, "the bundle changed under a refused publish");
+  assert.equal(fs.readFileSync(published, "utf8"), wasPublished);
+  assert.deepEqual(
+    fs.readdirSync(path.join(root, "templates")).filter((entry) => entry.startsWith(".publishing-")),
+    [],
+    "the staging directory was left behind",
+  );
+});
+
+test("a refused first publish leaves no bundle at all", () => {
+  const { root, revision } = workspaceWith({ label: "atomic-first" });
+  const source = path.join(revision, "generated-template.java");
+  fs.writeFileSync(
+    source,
+    fs.readFileSync(source, "utf8").replace(
+      "public final class GeneratedCvTemplate {",
+      "/** As revision-001 had it. */\npublic final class GeneratedCvTemplate {",
+    ),
+    "utf8",
+  );
+
+  const refused = failing(() => publish(root));
+  assert.match(refused.output, /nothing was published/);
+  assert.ok(!fs.existsSync(bundleOf(root)), "a refused publish created the bundle anyway");
+  assert.deepEqual(
+    fs.readdirSync(path.join(root, "templates")).filter((entry) => entry.startsWith(".publishing-")),
+    [],
+  );
+});
+
+/** Every file in a bundle, with its bytes, so a republish can be compared. */
+function inventory(dir) {
+  const out = [];
+  const walk = (at) => {
+    for (const entry of fs.readdirSync(at, { withFileTypes: true })) {
+      const full = path.join(at, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else out.push([path.relative(dir, full), fs.readFileSync(full).toString("base64")]);
+    }
+  };
+  if (fs.existsSync(dir)) walk(dir);
+  return out.sort((a, b) => a[0].localeCompare(b[0]));
+}
