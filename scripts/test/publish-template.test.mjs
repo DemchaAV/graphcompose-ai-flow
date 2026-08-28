@@ -484,7 +484,7 @@ test("a template the splitter cannot account for publishes flat, with the reason
   // Publishing must not fail because of this feature. `invoice-classic` has
   // exactly this shape, and a splitter that tried anyway would emit Java that
   // does not compile at the moment a user said "approve".
-  assert.match(output, /layout\s+= flat \(instance field: theme\)/);
+  assert.match(output, /layout\s+= flat \(instance field: theme /);
 
   const src = path.join(root, "templates", "navy-sidebar-cv", "src");
   assert.ok(fs.existsSync(path.join(src, "NavySidebarCvTemplate.java")));

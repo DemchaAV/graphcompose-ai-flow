@@ -44,10 +44,26 @@ shapes that were refusing the other six.
   method as a section; it no longer names it. A region name that lands on a name
   the source spells for itself yields to the source.
 
-That is **twelve of fourteen**. The two that still refuse refuse honestly, and
-both are named in the loop now rather than at approve time: navy-gold-cv holds
-an instance field (`iconCache`), serif-headline-cv a nested interface
-(`ColumnFactory`).
+**A nested interface travels the way a nested record does.** Both are implicitly
+static, so both are members a holder of statics can carry, and `support/` already
+imports its nested types by name for exactly that. serif-headline-cv declares
+`private interface ColumnFactory { BandColumn column(int index); }` — a lambda
+target for its band layout — and that one line was the whole reason its bundle
+could not be a project. `class` and `enum` are still refused, and not for the
+same reason: a nested class written without `static` is an *inner* class whose
+instances need an enclosing instance, while a nested enum would move safely but
+does not exist anywhere in the corpus, and an unfamiliar shape is a named
+refusal here rather than a guess that happens to be right.
+
+That is **thirteen of fourteen**, and the one that refuses refuses over a
+question that is not the publisher's to answer. navy-gold-cv holds `private
+final Map<String, SvgIcon> iconCache = new HashMap<>()`, whose own Javadoc says
+"parsed once *per document*". Publishing it as a static would quietly make that
+per-JVM and turn a per-instance `HashMap` into a shared one two threads can
+corrupt. So the refusal now names the change instead of making it: *every split
+class holds statics, so this has to be static final in the revision (which
+shares it across documents) or go.* Three templates in the corpus carry that
+field; whoever wrote them owns the lifetime decision.
 
 **A plan note is prose headed for a published file.** The notes become the
 Javadoc of a section class, and they are written for a reviewer who has the
@@ -79,6 +95,38 @@ on any Java, and "this is not a template" is not a finding about a template.
 
 ### Fixed
 
+- **Splitting one class in two splits its static initialiser, and the JVM does
+  not run the halves in source order.** orange-ops-cv computes
+  `DISPLAY_AVAILABLE` — a boolean, so a design token, so `theme/` — from
+  `DISPLAY_REGULAR`, a `Path`, so infrastructure, so `support/`. A dozen support
+  constants compute their spacing from theme sizes in the other direction.
+  Theme's initialiser therefore triggered Support's, Support read Theme's
+  half-initialised constants as zero, and the bundle rendered **4.5% away** from
+  the revision it claimed to be — compiling, running and rendering the whole way
+  there. Nothing but the pixel gate could have seen it. A token computed from
+  infrastructure is infrastructure, so it moves to `support/` and the cycle
+  becomes a line; repeated to a fixpoint, because the value that moves takes its
+  dependents with it. Support's fields are then re-sorted into source order,
+  since a simple-name forward reference inside one class does not compile.
+- **A moved record kept its methods package-private.** orange-ops-cv declares
+  `record FaceMetrics(...)` with `lineBox`, `capTop`, `capBottom` and
+  `sizeForCap`, all reachable inside one class and none of them reachable from
+  `sections/` once the record lives in `support/`: *lineBox(double) is not
+  public in FaceMetrics; cannot be accessed from outside package*. Widening is
+  the only safe direction, so every declaration a moved record's body starts is
+  now public.
+- **A plain block comment above a constant was a doorway into the rest of the
+  file.** The walk that finds a member's comment looked for `/**` and nothing
+  else, so a `/* … */` block — charcoal-gold uses one to explain, at nine lines,
+  why a contact row measures what it does — did not stop it. It kept walking up
+  to the previous Javadoc thirty lines earlier, and everything in between
+  travelled as that constant's "comment": six other declarations, copied
+  verbatim, `private` and all. The bundle compiled to `variable CONTACT_PITCH is
+  already defined in class CharcoalGoldCvTheme`, which is the good outcome — the
+  same walk told `unaccountedLine` those lines were claimed, so the quieter
+  alternative was a duplicate nobody saw. Present since the split shipped and
+  invisible until now, because the one bundle published structured before today
+  documents its constants with `//` and `/**`.
 - `approve-and-publish --readme-only` looked for the bundle under the project
   id, so a project whose display name kebabs to something else — "Luma & Co.
   Studio Invoice" is `luma-co-studio-invoice`, not `luma-studio-invoice` —

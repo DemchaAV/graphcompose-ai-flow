@@ -22,6 +22,8 @@ import test from "node:test";
 import { checkStructuralSmells } from "../lib/structural-smells.mjs";
 
 /** The pinned pack, as far as these tests are concerned. */
+const NEWLINE = String.fromCharCode(10);
+
 const PRIMITIVES = new Set(["addTimeline", "addTable", "pageBackgrounds"]);
 
 const check = (body, options = {}) =>
@@ -290,4 +292,21 @@ test("the plan takes part, because a name collision is one way the split refuses
   };
 
   assert.deepEqual(checkStructuralSmells({ source, primitives: PRIMITIVES, plan }), []);
+});
+
+test("prose that publishing will refuse is named in the loop, with its line", () => {
+  // Four of the fourteen templates explain a decision by naming the revision it
+  // was taken in. The portability scanner blocks on that — and it blocked after
+  // the publisher had written the files, naming a generated path the author
+  // cannot edit. The line to change is in the revision.
+  const source = template("    // Kept at 1.35 because revision-001 used 1.2." + NEWLINE);
+  const findings = checkStructuralSmells({ source, primitives: PRIMITIVES });
+
+  assert.deepEqual(kinds(findings), ["publish-blocked"]);
+  assert.match(findings[0].detail, /harness vocabulary/);
+  assert.match(findings[0].method, /^line [0-9]+$/);
+});
+
+test("a template that names no revision is told nothing about publishing", () => {
+  assert.deepEqual(checkStructuralSmells({ source: template(""), primitives: PRIMITIVES }), []);
 });

@@ -43,7 +43,10 @@
  */
 
 import { classify } from "./bundle-split.mjs";
+import { unpublishableText } from "./bundle-portability.mjs";
 import { methodBody } from "./region-primitives.mjs";
+
+const NEWLINE_RE = /\r?\n/;
 
 /**
  * Every `.margin(...)` / `.padding(...)` call, with its argument text.
@@ -296,6 +299,34 @@ function bundleLayout(source, plan) {
 }
 
 /**
+ * Prose in the source that publishing will refuse to put in a bundle.
+ *
+ * Four of the maintainer's fourteen templates explain a decision by naming the
+ * revision it was taken in — "not the 1.2 revision-001 used", "as revision-001",
+ * "reported by the user against revision-001". True, useful in the loop, and
+ * harness vocabulary that means nothing to whoever is handed the bundle: the
+ * portability scanner blocks on it, and it blocked *after* the publisher had
+ * written the files, naming a generated path the author cannot edit. The line
+ * that has to change is in the revision, so this says so while the revision is
+ * still open.
+ */
+function publishBlockers(source) {
+  const findings = [];
+  const lines = source.split(NEWLINE_RE);
+  lines.forEach((line, index) => {
+    const blocked = unpublishableText(line);
+    if (!blocked) return;
+    findings.push({
+      kind: "publish-blocked",
+      method: "line " + (index + 1),
+      count: 1,
+      detail: `${blocked.message} — publishing refuses the bundle over this line: ${line.trim().slice(0, 80)}`,
+    });
+  });
+  return findings;
+}
+
+/**
  * Report the structural smells in a generated template.
  *
  * @param {object} input
@@ -313,7 +344,7 @@ export function checkStructuralSmells({
 } = {}) {
   const { negativeMargins = 3, independentLiterals = 8 } = thresholds;
 
-  const findings = [...bundleLayout(source, plan)];
+  const findings = [...bundleLayout(source, plan), ...publishBlockers(source)];
   for (const method of methods(source)) {
     findings.push(...repeatedSiblingOffset(method));
     findings.push(...negativeMarginCluster(method, negativeMargins));

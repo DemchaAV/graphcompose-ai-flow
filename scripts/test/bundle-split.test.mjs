@@ -24,6 +24,8 @@ import { fileURLToPath } from "node:url";
 
 import { classify, emit, pascal } from "../lib/bundle-split.mjs";
 
+const NEWLINE = String.fromCharCode(10);
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 const SAMPLE = `package com.example;
@@ -331,6 +333,48 @@ test("a nested class is refused; a nested record is not", () => {
 
   assert.equal(result.feasible, false);
   assert.match(result.reason, /nested class: Helper/);
+});
+
+test("a nested interface travels to support the way a record does", () => {
+  // serif-headline-cv's `ColumnFactory` is a lambda target for its band layout,
+  // and that one line was the whole reason its bundle could not be a project.
+  // Both are implicitly static, which is what makes them carryable.
+  const withInterface = SAMPLE.replace(
+    "    private record IconAsset(String name, double size) {\n    }",
+    "    private record IconAsset(String name, double size) {\n    }\n\n"
+      + "    private interface ColumnFactory {\n        BandColumn column(int index);\n    }",
+  );
+  const result = classify(withInterface);
+
+  assert.equal(result.feasible, true, result.reason ?? "");
+  assert.deepEqual(
+    result.nestedTypes.map((t) => `${t.kind} ${t.name}`),
+    ["record IconAsset", "interface ColumnFactory"],
+  );
+
+  const support = emit(result, {
+    source: withInterface,
+    basePackage: "com.example",
+    className: "DemoTemplate",
+  }).files.get("support/DemoSupport.java");
+  assert.match(support, /public interface ColumnFactory/);
+});
+
+test("an instance field is refused with the change that would let it split", () => {
+  // Three templates in the corpus hold `private final Map<String, SvgIcon>
+  // iconCache = new HashMap<>()`, whose Javadoc says "parsed once per document".
+  // Publishing it as a static would make that per-JVM and share a HashMap two
+  // threads can corrupt — the author's decision, not the publisher's.
+  const withField = SAMPLE.replace(
+    "    private static final double LABEL_SIZE = 8.65;",
+    "    private final Map<String, SvgIcon> iconCache = new HashMap<>();\n"
+      + "    private static final double LABEL_SIZE = 8.65;",
+  );
+  const result = classify(withField);
+
+  assert.equal(result.feasible, false);
+  assert.match(result.reason, /instance field: iconCache/);
+  assert.match(result.reason, /static final in the revision/);
 });
 
 test("a template with no render methods is refused", () => {
@@ -690,4 +734,99 @@ test("a plan note that cannot be published is dropped, and named", () => {
   // could be published still is.
   assert.ok(files.has("sections/PageMastheadSection.java"));
   assert.match(files.get("sections/PageFooterSection.java"), /why it is built this way/);
+});
+
+test("a plain block comment above a constant is its comment, not a doorway to the file", () => {
+  // charcoal-gold documents SKILL_PITCH with a `/* ... */` block. Walking back
+  // for `/**` alone stepped over its opener and kept going to the previous
+  // Javadoc, so everything in between — six other declarations — travelled as
+  // that constant's comment. The bundle compiled to "variable CONTACT_PITCH is
+  // already defined", and `unaccountedLine` had been told those lines were
+  // claimed, so the quieter outcome was a duplicate nobody saw.
+  const source = SAMPLE.replace(
+    "    private static final double LABEL_SIZE = 8.65;",
+    `    private static final double LABEL_SIZE = 8.65;
+    /*
+     * Why the pitch is what it is, at length, and not in Javadoc.
+     */
+    private static final double SKILL_PITCH = 16.6;`,
+  );
+  const result = classify(source);
+
+  assert.equal(result.feasible, true, result.reason ?? "");
+  const theme = emit(result, {
+    source,
+    basePackage: "com.example",
+    className: "DemoTemplate",
+  }).files.get("theme/DemoTheme.java");
+
+  assert.equal((theme.match(/LABEL_SIZE/g) ?? []).length, 1, "LABEL_SIZE was carried twice");
+  assert.match(theme, /Why the pitch is what it is/);
+  assert.ok(!/private static final double LABEL_SIZE/.test(theme), "a raw copy came through");
+});
+
+test("a record's own methods are opened up when it moves to another package", () => {
+  // orange-ops-cv declares `record FaceMetrics(...)` with four package-private
+  // methods and calls them from the sections. Inside one class that is fine;
+  // once the record is in `support/` and the caller in `sections/`, javac says
+  // "lineBox(double) is not public in FaceMetrics; cannot be accessed from
+  // outside package" and the bundle does not compile.
+  const source = SAMPLE.replace(
+    "    private record IconAsset(String name, double size) {\n    }",
+    [
+      "    private record IconAsset(String name, double size) {",
+      "",
+      "        double lineBox(double scale) {",
+      "            return size * scale;",
+      "        }",
+      "",
+      "        private String label() {",
+      "            return name;",
+      "        }",
+      "    }",
+    ].join(NEWLINE),
+  );
+  const result = classify(source);
+  assert.equal(result.feasible, true, result.reason ?? "");
+
+  const support = emit(result, {
+    source,
+    basePackage: "com.example",
+    className: "DemoTemplate",
+  }).files.get("support/DemoSupport.java");
+
+  assert.match(support, /public double lineBox\(double scale\)/);
+  assert.match(support, /public String label\(\)/);
+  assert.ok(!/\n        double lineBox/.test(support), "a package-private method survived");
+});
+
+test("a token computed from infrastructure moves to it, so the two clinits cannot cycle", () => {
+  // orange-ops-cv computes DISPLAY_AVAILABLE — a boolean, so: theme — from a
+  // Path, so: support, while a dozen support constants compute their spacing
+  // from theme sizes. Theme's initialiser triggered Support's, which read
+  // Theme's half-initialised constants as zero, and the bundle rendered 4.5%
+  // away from the revision it claimed to be, compiling and running all the way.
+  const source = SAMPLE.replace(
+    "    private static final double LABEL_SIZE = 8.65;",
+    [
+      "    private static final Path FONT_FILE = REVISION_DIR.resolve(\"Display.ttf\");",
+      "    private static final boolean DISPLAY_AVAILABLE = Files.isRegularFile(FONT_FILE);",
+      "    private static final double LABEL_SIZE = 8.65;",
+    ].join(NEWLINE),
+  );
+  const result = classify(source);
+  assert.equal(result.feasible, true, result.reason ?? "");
+
+  const support = result.support.map((m) => m.name);
+  assert.ok(support.includes("DISPLAY_AVAILABLE"), "the boolean stayed in theme and closed a cycle");
+  assert.ok(!result.theme.some((m) => m.name === "DISPLAY_AVAILABLE"));
+
+  // And it lands after what it reads: within one class a simple-name forward
+  // reference does not compile.
+  const fields = result.support.filter((m) => m.params === undefined && m.kind === undefined);
+  const names = fields.map((m) => m.name);
+  assert.ok(names.indexOf("FONT_FILE") < names.indexOf("DISPLAY_AVAILABLE"), names.join(", "));
+
+  // A constant that reads nothing infrastructural is still a design token.
+  assert.ok(result.theme.some((m) => m.name === "LABEL_SIZE"));
 });

@@ -109,6 +109,18 @@ const METHOD_DECL = /^\s*(?:(?:public|private|protected|static|final|abstract|sy
 const FIELD_DECL = /^\s*(?:(public|private|protected)\s+)?(static\s+)?(final\s+)?([\w.\[\]]+(?:\s*<[^>]*>)?(?:\[\])?)\s+(\w+)\s*(=|;)/;
 const STATEMENT_HEAD = /^\s*(if|for|while|switch|catch|try|else|do|return|new|throw|synchronized)\b/;
 
+// Line shapes `openRecordMembers` asks about, kept beside the declaration
+// patterns above because they answer the same question about a line.
+const COMPACT_CONSTRUCTOR = /^\s*\w+\s*\{\s*$/;
+const ANY_ACCESS = /^\s*(?:public|private|protected)\s/;
+const PUBLIC_ACCESS = /^\s*public\s/;
+const NARROW_ACCESS = /^(\s*)(?:private|protected)\s+/;
+const LEADING_SPACE = /^(\s*)/;
+const SKIP_LINE = /^(?:@|\}|\/\/|\*|\/\*)/;
+const NEWLINE = String.fromCharCode(10);
+const IDENT_CHAR = /[A-Za-z0-9_$]/;
+const QUALIFIER_CHAR = /[A-Za-z0-9_$.]/;
+
 /**
  * Where every member of a generated template belongs.
  *
@@ -143,9 +155,22 @@ export function classify(source, options = {}) {
 
   // --- feasibility -----------------------------------------------------------
 
+  // Every emitted class is a holder of statics, so an instance field has nowhere
+  // to live. The corpus has exactly one, in three templates: `private final
+  // Map<String, SvgIcon> iconCache = new HashMap<>()`, whose own Javadoc says
+  // "parsed once *per document*". Publishing it as a static would quietly make
+  // that per-JVM and turn a per-instance `HashMap` into a shared one two threads
+  // can corrupt — a decision about the cache's lifetime, which belongs to
+  // whoever wrote the template. So the refusal names the change instead of
+  // making it.
   const instanceField = fields.find((f) => !f.static);
   if (instanceField) {
-    return refusal(`instance field: ${instanceField.name}`, className, planDrift);
+    return refusal(
+      `instance field: ${instanceField.name} — every split class holds statics, so this has to be `
+        + "static final in the revision (which shares it across documents) or go",
+      className,
+      planDrift,
+    );
   }
 
   const constructor = methods.find((m) => m.name === className);
@@ -156,7 +181,20 @@ export function classify(source, options = {}) {
     return refusal(`unbalanced declaration: ${unbalanced.name}`, className, planDrift);
   }
 
-  const foreignType = nestedTypes.find((t) => t.kind !== "record");
+  // A nested interface travels the way a nested record does: both are implicitly
+  // static, so both are members a static holder can carry, and `support/` already
+  // imports its nested types by name for exactly this. serif-headline-cv declares
+  // `private interface ColumnFactory { BandColumn column(int index); }` — a
+  // lambda target for its band layout — and that one line was the whole reason
+  // its bundle could not be a project.
+  //
+  // `class` and `enum` are still refused, and not for the same reason. A nested
+  // class written without `static` is an *inner* class: its instances need an
+  // enclosing instance, and a holder of statics has none. A nested enum would
+  // move safely, but nothing in the corpus declares one, and this file's rule is
+  // that an unfamiliar shape is a named refusal rather than a guess that happens
+  // to be right.
+  const foreignType = nestedTypes.find((t) => t.kind !== "record" && t.kind !== "interface");
   if (foreignType) {
     return refusal(`nested ${foreignType.kind}: ${foreignType.name}`, className, planDrift);
   }
@@ -321,6 +359,24 @@ export function classify(source, options = {}) {
     if (field.final && isThemeToken(field, declaredMethodNames, nestedNames)) theme.push(field);
     else support.push(field);
   }
+
+  // --- static initialisation order -------------------------------------------
+  //
+  // Splitting one class in two splits its static initialiser as well, and the
+  // JVM does not run the halves in the order the source declared them.
+  // orange-ops-cv computes `DISPLAY_AVAILABLE` — a boolean, so: theme — from
+  // `DISPLAY_REGULAR`, a `Path`, so: support. A dozen support constants compute
+  // their spacing from theme sizes in the other direction. Theme's clinit
+  // therefore triggered Support's, Support read Theme's half-initialised
+  // constants as zero, and the bundle rendered 4.5% away from the revision it
+  // claimed to be — compiling, running and rendering the whole way there. Only
+  // the pixel gate saw it.
+  //
+  // A token computed from infrastructure is infrastructure, so it moves to
+  // support and the cycle becomes a line. Repeated to a fixpoint, because the
+  // value that moves takes its dependents with it: `DISPLAY_FONT` reads
+  // `DISPLAY_AVAILABLE`, and `DISPLAY` reads it too.
+  relocateCyclicTokens(theme, support);
 
   const collision = duplicateTypeName([...sections, ...composites]);
   if (collision) {
@@ -600,6 +656,73 @@ function callGraph(source, methods) {
 }
 
 /**
+ * Move every theme constant that reads a support member into support.
+ *
+ * Only fields take part: a static initialiser is what runs at class-init time,
+ * and a method nothing calls from one cannot start a cycle. A reference to a
+ * support *method* counts all the same — calling it triggers that class's
+ * initialiser exactly as reading its field does.
+ *
+ * The moved fields are re-sorted into source order among support's own, because
+ * within one class Java forbids a simple-name forward reference, and the order
+ * the template declared them in is the one that already worked.
+ *
+ * @param {Array<object>} theme mutated in place
+ * @param {Array<object>} support mutated in place
+ */
+function relocateCyclicTokens(theme, support) {
+  const supportNames = new Set(support.map((member) => member.name).filter(Boolean));
+
+  for (let moved = true; moved; ) {
+    moved = false;
+    for (let i = theme.length - 1; i >= 0; i -= 1) {
+      const member = theme[i];
+      if (!isDataMember(member) || !mentionsAny(member.initialiser, supportNames)) continue;
+      theme.splice(i, 1);
+      support.push(member);
+      supportNames.add(member.name);
+      moved = true;
+    }
+  }
+
+  const inOrder = support.filter(isDataMember).sort((a, b) => a.line - b.line);
+  let next = 0;
+  for (let i = 0; i < support.length; i += 1) {
+    if (isDataMember(support[i])) {
+      support[i] = inOrder[next];
+      next += 1;
+    }
+  }
+}
+
+/** A field rather than a method or a nested type — the only thing a clinit runs. */
+function isDataMember(member) {
+  return member.params === undefined && member.kind === undefined;
+}
+
+/**
+ * Does this initialiser name any of these members?
+ *
+ * Whole identifiers only, and not one reached through a dot: `LATO` matches in
+ * `boxGap(18, null, 0, LATO, CONTACT_SIZE)` and in `LATO.lineFactor()`, and does
+ * not match in `FaceMetrics.LATO` or `LATO_BOLD`.
+ */
+function mentionsAny(text, names) {
+  if (!text) return false;
+  for (const name of names) {
+    for (let from = 0; ; ) {
+      const at = text.indexOf(name, from);
+      if (at < 0) break;
+      const before = at === 0 ? "" : text[at - 1];
+      const after = text[at + name.length] ?? "";
+      if (!QUALIFIER_CHAR.test(before) && !IDENT_CHAR.test(after)) return true;
+      from = at + name.length;
+    }
+  }
+  return false;
+}
+
+/**
  * Plan entries that name a render method the template does not declare.
  *
  * Reported rather than refused — see the note in {@link classify} — and exported
@@ -788,11 +911,24 @@ function docOf(lines, at, javadocLine) {
   return lines.slice(javadocLine - 1, at).join("\n");
 }
 
+/**
+ * Where the comment block above a declaration starts, or null if there is none.
+ *
+ * The walk back has to stop at `/*` and not only at `/**`. charcoal-gold
+ * documents `SKILL_PITCH` with a plain block comment — nine lines on why a
+ * contact row measures the way it does — and looking only for `/**` walked
+ * straight past its opener and on up the file to the previous Javadoc, thirty
+ * lines earlier. Everything in between then travelled as that constant's
+ * "comment": six other declarations, verbatim, `private` and all. The bundle
+ * compiled to `variable CONTACT_PITCH is already defined`, which is the good
+ * outcome — the same walk also told `unaccountedLine` those lines were claimed,
+ * so a silent duplicate was the alternative.
+ */
 function javadocStart(lines, at) {
   let i = at - 1;
   while (i >= 0 && /^\s*(@\w+.*)?$/.test(lines[i]) && lines[i].trim() !== "") i -= 1;
   if (i < 0 || !/\*\/\s*$/.test(lines[i])) return null;
-  while (i >= 0 && !/^\s*\/\*\*/.test(lines[i])) i -= 1;
+  while (i >= 0 && !/^\s*\/\*/.test(lines[i])) i -= 1;
   return i < 0 ? null : i + 1;
 }
 
@@ -1023,6 +1159,7 @@ function moveMember(member, { renames, name = null, visibility = "public", keepM
   let text;
   if (isField || isType) {
     text = member.text.replace(/^(\s*)(?:public|private|protected)\s+/, `$1${visibility} `);
+    if (member.kind === "record") text = openRecordMembers(text);
     text = rewriteCalls(text, renames);
   } else {
     const lines = member.text.split("\n");
@@ -1032,6 +1169,46 @@ function moveMember(member, { renames, name = null, visibility = "public", keepM
   }
 
   return member.doc ? `${member.doc}\n${text}` : text;
+}
+
+/**
+ * A moved record's own methods, opened up.
+ *
+ * Inside one class every member is reachable, so orange-ops-cv declares
+ * `record FaceMetrics(...)` with four package-private methods — `lineBox`,
+ * `capTop`, `capBottom`, `sizeForCap` — and calls them freely. Move the record
+ * to `support/` and the sections calling it are in another package: javac says
+ * *lineBox(double) is not public in FaceMetrics; cannot be accessed from outside
+ * package*, and the bundle does not compile.
+ *
+ * Widening is the only direction that is safe, so every declaration the record
+ * body starts becomes public. Its component accessors already are, and the
+ * compact constructor takes the modifier without complaint. A continuation line
+ * of a wrapped signature is left alone, which is why each line is asked whether
+ * it *starts* a declaration rather than assumed to.
+ */
+function openRecordMembers(text) {
+  const lines = text.split(NEWLINE);
+  let depth = 0;
+  const opened = lines.map((line, index) => {
+    const before = depth;
+    depth += netBraces(line);
+    if (index === 0 || before !== 1) return line;
+
+    const trimmed = line.trim();
+    if (trimmed === "" || SKIP_LINE.test(trimmed)) return line;
+
+    const starts = METHOD_DECL.test(line)
+      || FIELD_DECL.test(line)
+      || COMPACT_CONSTRUCTOR.test(line)
+      || ANY_ACCESS.test(line);
+    if (!starts) return line;
+
+    if (PUBLIC_ACCESS.test(line)) return line;
+    if (NARROW_ACCESS.test(line)) return line.replace(NARROW_ACCESS, "$1public ");
+    return line.replace(LEADING_SPACE, "$1public ");
+  });
+  return opened.join(NEWLINE);
 }
 
 /** `private void renderContact(SectionBuilder …) {` → `public static void render(SectionBuilder …) {`. */
