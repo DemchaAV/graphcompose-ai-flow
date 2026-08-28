@@ -5,7 +5,7 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
-## Unreleased
+## v0.18.0 — 2026-08-28
 
 **A retirement that had never been measured where it mattered, and a jar that
 lied about which code it was.** Four observations sat in the TestHarness tree
