@@ -269,3 +269,19 @@ test("every bundle published in this repository reads through the normaliser", (
     assert.ok(m.graphComposeVersion, `${bundle.id} has no resolvable GraphCompose version`);
   }
 });
+
+test("a staging directory is not a bundle, however complete it looks", () => {
+  // A publish assembles into `.publishing-<id>/` beside the bundles, and that
+  // directory carries a manifest for the moment before the move — permanently,
+  // if the run is killed in between. Listing it would offer a half-written
+  // template as a choice.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gcbundles-"));
+  const manifest = JSON.stringify({ id: "x", className: "XTemplate", docKind: "cv" });
+
+  fs.mkdirSync(path.join(dir, "real-cv"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "real-cv", "template.json"), manifest, "utf8");
+  fs.mkdirSync(path.join(dir, ".publishing-real-cv"), { recursive: true });
+  fs.writeFileSync(path.join(dir, ".publishing-real-cv", "template.json"), manifest, "utf8");
+
+  assert.deepEqual(listBundles(dir).map((b) => b.id), ["real-cv"]);
+});

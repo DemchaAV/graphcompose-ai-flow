@@ -315,6 +315,12 @@ export function listBundles(templatesDir) {
   const out = [];
   for (const entry of fs.readdirSync(templatesDir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
     if (!entry.isDirectory()) continue;
+    // A publish assembles into `.publishing-<id>/` beside the bundles, and that
+    // directory holds a manifest for the moment before it is moved into place —
+    // permanently, if the run is killed in between. No bundle id starts with a
+    // dot (`toBundleId` cannot produce one), so a dotted directory is never a
+    // bundle and listing one would offer a half-written template as a choice.
+    if (entry.name.startsWith(".")) continue;
     const dir = path.join(templatesDir, entry.name);
     if (!fs.existsSync(path.join(dir, MANIFEST_FILENAME))) continue;
     try {

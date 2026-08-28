@@ -520,6 +520,15 @@ const manifest = {
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
 console.log(`[publish-template] wrote ${display(manifestPath)}`);
 
+// The README is the one file the publisher does not write and a person does, so
+// it is carried across rather than lost to the move. Before the scans, not
+// after: it used to sit in the bundle while they ran, and a hand-written README
+// naming an absolute path is exactly the leak they exist for.
+const carriedReadme = path.join(bundleDir, "README.md");
+if (fs.existsSync(carriedReadme) && !fs.existsSync(path.join(targetDir, "README.md"))) {
+  fs.copyFileSync(carriedReadme, path.join(targetDir, "README.md"));
+}
+
 // Nothing above proves the bundle is self-consistent, and the failures it can
 // leave are quiet ones: a name that no longer resolves, a path that only exists
 // on the publishing machine. Both are cheap to detect and expensive to meet as
@@ -548,18 +557,25 @@ if (problems.length > 0) {
   );
 }
 
-// Everything has passed, so the assembled bundle becomes the bundle. The README
-// is the one file the publisher does not write and a person does, so it is
-// carried across rather than lost to the move.
-const carriedReadme = path.join(bundleDir, "README.md");
-if (fs.existsSync(carriedReadme) && !fs.existsSync(path.join(targetDir, "README.md"))) {
-  fs.copyFileSync(carriedReadme, path.join(targetDir, "README.md"));
-}
+// Everything has passed, so the assembled bundle becomes the bundle.
 for (const stale of discarded(bundleDir, targetDir)) {
   console.log(`[publish-template] removed stale ${display(path.join(targetDir, stale))}`);
 }
-fs.rmSync(bundleDir, { recursive: true, force: true });
-fs.renameSync(targetDir, bundleDir);
+try {
+  fs.rmSync(bundleDir, { recursive: true, force: true });
+  fs.renameSync(targetDir, bundleDir);
+} catch (cause) {
+  // A locked file — an editor with the old bundle open — is the way this fails
+  // on Windows, and the assembled bundle is worth more than the stack trace.
+  // Not `abort`: that clears the staging directory, and here the staging
+  // directory is the only complete copy of the bundle this run made.
+  console.error(`[publish-template] could not replace ${display(bundleDir)}: ${cause.message}`);
+  console.error(
+    `[publish-template] the bundle this run assembled is at ${targetDir}; `
+      + "move it into place once nothing holds the old one",
+  );
+  process.exit(1);
+}
 
 console.log(`[publish-template] done. Verify it builds and renders on its own:`);
 console.log(`[publish-template]   node scripts/verify-published-template.mjs --template-id ${templateId}` +

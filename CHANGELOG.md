@@ -5,6 +5,29 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## Unreleased
+
+### Fixed
+
+Three things a review of v0.19.0 found in v0.19.0, all of them in the machinery
+the release itself introduced.
+
+- **The bundle README stopped being scanned.** It is the one file the publisher
+  does not write and a person does, so the move carries it across — but it was
+  carried *after* the scans, where it used to sit in the bundle while they ran.
+  A hand-written README naming an absolute path is exactly the leak they exist
+  for. It is carried before them now.
+- **`listBundles` would have listed a staging directory as a bundle.**
+  `.publishing-<id>/` holds a manifest for the moment before the move, and
+  permanently if the run is killed in between. No bundle id can start with a dot,
+  so a dotted directory is skipped — otherwise `templates list` offers a
+  half-written template as a choice.
+- **A failed move told the user to rescue a directory it was about to delete.**
+  The swap now reports where the assembled bundle is and exits without calling
+  `abort`, whose cleanup would have removed the only complete copy of it. The
+  way this fails is a locked file on Windows, with an editor holding the old
+  bundle open.
+
 ## v0.19.0 — 2026-08-28
 
 ### Published bundles
