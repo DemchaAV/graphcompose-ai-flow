@@ -45,9 +45,19 @@ import com.demcha.compose.document.table.DocumentTableCell;
  * <p>Counting the ink of a whole arrangement is not enough either, because a
  * composite draws chrome of its own: a shape container's rectangle would score
  * as "content" while its child text was missing. So each kind is built twice,
- * once with leaf text and once with none, and rendered in both placements.
+ * once with leaf text and once with none, and rendered in every placement.
  * Subtracting gives the leaf's own ink in plain flow and in a cell, and their
  * ratio is the finding — full, partial, or gone.</p>
+ *
+ * <p>There are two cell placements, not one, and the difference between them is
+ * the whole point of the second. The original arm puts the table at page level.
+ * That is the arrangement 2.2.1's fix was measured against, and it is not where
+ * a sidebar page puts a table: there the table sits in a cell of a two-column
+ * row. A run on 2.2.1-SNAPSHOT reported a composite drawing its box and none of
+ * its children in exactly that placement while this probe reported the opposite,
+ * because this probe was not measuring it. The nested arm closes that gap, and
+ * reports into {@code nested*} keys of its own so the page-level keys keep the
+ * meaning the retired observation recorded against them.</p>
  */
 final class TableCellNodeProbe implements Probes.Probe {
 
@@ -67,7 +77,8 @@ final class TableCellNodeProbe implements Probes.Probe {
     @Override
     public String question() {
         return "Which DocumentNode kinds draw their child content when placed in a table cell "
-                + "with DocumentTableCell.node(...), and which lose some or all of it?";
+                + "with DocumentTableCell.node(...), and which lose some or all of it — with the "
+                + "table at page level, and with the same table nested in a row cell?";
     }
 
     @Override
@@ -124,6 +135,12 @@ final class TableCellNodeProbe implements Probes.Probe {
         List<String> partial = new java.util.ArrayList<>();
         List<String> lost = new java.util.ArrayList<>();
         List<String> inconclusive = new java.util.ArrayList<>();
+        // The nested placement is scored into its own lists so the page-level
+        // keys keep the exact meaning the retired observation recorded against.
+        List<String> nestedIntact = new java.util.ArrayList<>();
+        List<String> nestedPartial = new java.util.ArrayList<>();
+        List<String> nestedLost = new java.util.ArrayList<>();
+        List<String> nestedInconclusive = new java.util.ArrayList<>();
 
         for (Map.Entry<String, Arrangement> entry : kinds.entrySet()) {
             String kind = entry.getKey();
@@ -135,10 +152,14 @@ final class TableCellNodeProbe implements Probes.Probe {
             Integer flowWithout = ink(row, "flowWithout", () -> render(page -> page.add(build.apply(false))));
             Integer cellWith = ink(row, "cellWith", () -> render(page -> cell(page, build.apply(true))));
             Integer cellWithout = ink(row, "cellWithout", () -> render(page -> cell(page, build.apply(false))));
+            Integer nestedWith = ink(row, "nestedWith", () -> render(page -> nestedCell(page, build.apply(true))));
+            Integer nestedWithout = ink(row, "nestedWithout", () -> render(page -> nestedCell(page, build.apply(false))));
 
             if (flowWith == null || flowWithout == null || cellWith == null || cellWithout == null) {
                 row.put("verdict", "inconclusive: an arrangement was refused");
                 inconclusive.add(kind);
+                row.put("nestedVerdict", "inconclusive: the page-level arrangement was refused first");
+                nestedInconclusive.add(kind);
                 rows.add(row);
                 continue;
             }
@@ -165,6 +186,33 @@ final class TableCellNodeProbe implements Probes.Probe {
                     intact.add(kind);
                 }
             }
+
+            // The same leaf, one level deeper. Scored against its ink in plain
+            // flow, exactly as the page-level arm is, so the two verdicts are
+            // comparable and a difference between them is the finding.
+            if (nestedWith == null || nestedWithout == null) {
+                row.put("nestedVerdict", "inconclusive: the nested arrangement was refused");
+                nestedInconclusive.add(kind);
+            } else if (leafInFlow <= NOISE) {
+                row.put("nestedVerdict", "inconclusive: the leaf draws nothing even in plain flow");
+                nestedInconclusive.add(kind);
+            } else {
+                int leafInNested = nestedWith - nestedWithout;
+                row.put("leafInkInNestedCell", leafInNested);
+                double nestedShare = (double) leafInNested / leafInFlow;
+                row.put("shareOfLeafDrawnInNestedCell", Json.pt(nestedShare));
+                if (leafInNested <= NOISE) {
+                    row.put("nestedVerdict",
+                            "content lost: the nested cell reserves space and draws no child content");
+                    nestedLost.add(kind);
+                } else if (nestedShare < FULL) {
+                    row.put("nestedVerdict", "content only partly drawn in the nested cell");
+                    nestedPartial.add(kind);
+                } else {
+                    row.put("nestedVerdict", "content drawn in full");
+                    nestedIntact.add(kind);
+                }
+            }
             rows.add(row);
         }
 
@@ -181,6 +229,15 @@ final class TableCellNodeProbe implements Probes.Probe {
         result.put("contentPartiallyDrawn", partial);
         result.put("contentLost", lost);
         result.put("inconclusive", inconclusive);
+        result.put("nestedArrangement",
+                "The same one-cell table placed in the wide column of a two-column row, which is "
+                        + "where a sidebar page puts it. Measured against the same plain-flow "
+                        + "baseline, so a kind that is intact at page level and lost here has the "
+                        + "nesting as its only difference.");
+        result.put("nestedContentDrawnInFull", nestedIntact);
+        result.put("nestedContentPartiallyDrawn", nestedPartial);
+        result.put("nestedContentLost", nestedLost);
+        result.put("nestedInconclusive", nestedInconclusive);
 
         StringBuilder finding = new StringBuilder();
         if (lost.isEmpty() && partial.isEmpty()) {
@@ -196,6 +253,21 @@ final class TableCellNodeProbe implements Probes.Probe {
             }
             finding.append("Drawn in full: ").append(String.join(", ", intact)).append(".");
         }
+        finding.append(" Nested in a row cell: ");
+        if (nestedLost.isEmpty() && nestedPartial.isEmpty()) {
+            finding.append("every kind measured drew in full there too, so the placement makes no "
+                    + "difference on this build.");
+        } else {
+            if (!nestedLost.isEmpty()) {
+                finding.append("content is lost entirely for ")
+                        .append(String.join(", ", nestedLost)).append(". ");
+            }
+            if (!nestedPartial.isEmpty()) {
+                finding.append("content is only partly drawn for ")
+                        .append(String.join(", ", nestedPartial)).append(". ");
+            }
+            finding.append("Drawn in full: ").append(String.join(", ", nestedIntact)).append(".");
+        }
         result.put("finding", finding.toString());
         return result;
     }
@@ -205,6 +277,29 @@ final class TableCellNodeProbe implements Probes.Probe {
                 .name("ProbeTable")
                 .autoColumns(1)
                 .rowCells(DocumentTableCell.node(content)));
+    }
+
+    /**
+     * The same one-cell table, one level deeper: in a cell of a two-column row,
+     * which is the ordinary shape of a sidebar page and the placement a run
+     * reported losing content in after 2.2.1 fixed the page-level case.
+     *
+     * <p>The main column is deliberately wide. A 160 pt fixed-size child in a
+     * narrow cell would be refused or shrunk for want of room, and either would
+     * be scored as lost content — a fault of the arrangement, not of the engine.
+     * The aside carries real text so the section is unambiguously valid; it is
+     * identical in the with-leaf and without-leaf renders, so it subtracts out.</p>
+     */
+    private static void nestedCell(PageFlowBuilder page, DocumentNode content) {
+        page.addRow("OuterRow", outer -> {
+            outer.weights(0.85, 0.15);
+            outer.addSection("MainColumn", column -> column.addTable(table -> table
+                    .name("ProbeTable")
+                    .autoColumns(1)
+                    .rowCells(DocumentTableCell.node(content))));
+            outer.addSection("Aside", column -> column
+                    .addParagraph(p -> p.name("ProbeAside").text("ASIDE")));
+        });
     }
 
     private static Integer ink(Map<String, Object> row, String key, InkMeasurement measurement) {

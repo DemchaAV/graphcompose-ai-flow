@@ -105,6 +105,16 @@ swap propagate everywhere.
   the cell content as its own miniature semantic block and reach
   for the same primitive decision flow described in
   [`layout-primitives`](layout-primitives.md).
+  **Check the build first.** On 2.2.1 and 2.2.2 a cell draws any node
+  kind in full — measured for all eight, both at page level and with
+  the table nested in a row cell. On **2.2.0** it does not: a Row,
+  ShapeContainer or CanvasLayer in a cell reserves the height and
+  draws none of its children, and a Section or LayerStack draws about
+  0.4 of the ink, silently. A local `2.2.1-SNAPSHOT` carries the
+  2.2.0 behaviour — it precedes the release that fixes it — so a
+  version string ending in `-SNAPSHOT` is not evidence the fix is
+  present. See `table-cell-loses-composite-content` and its
+  `table-cell-node` probe.
 - Cross-page totals, running balances, and merged cells require
   careful handling. If the verified examples for 2.2.0 do not show
   the exact pattern needed, mark the requirement as a Visual Risk

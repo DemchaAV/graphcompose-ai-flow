@@ -276,6 +276,18 @@ document consistently.
 - Texture or gradient fills are not described by this skill. If the
   reference uses a gradient, treat it as a known limitation until a
   later skill version adds explicit gradient handling.
+- Per-page margins are **not** a limitation, contrary to a report that
+  circulated. `DocumentSession.pageMargins(List.of(PageMarginRule.page(n,
+  insets)))` applies to any page, not only the first: measured on 2.2.0,
+  2.2.1 and 2.2.2, a zero-margin rule for page 2 widens that page's flow
+  from 260 pt to 300 pt on a 300 pt sheet and moves its content from
+  x=20 to x=0, while page 1 keeps its own margin. A negative row margin
+  is honoured too. So if a full-bleed block on a later page fails,
+  measure the width the page actually offers before blaming the rule —
+  the likelier cause is the row's own column arithmetic, because a row
+  declaring fixed and auto columns is refused by name when their sum
+  exceeds the width available. See
+  `page-margin-rule-applies-to-later-pages` and its `page-margins` probe.
 
 ## Cross-references
 

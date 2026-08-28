@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "id": "row-span-cell-anchors-to-the-foot-of-its-span",
+  "graphComposeVersion": "2.2.2",
+  "api": [
+    "DocumentTableCell.rowSpan",
+    "DocumentTableCell.withStyle",
+    "TableBuilder.rowStyle",
+    "TableBuilder.defaultCellStyle",
+    "DocumentTableStyle.Builder.textAnchor",
+    "DocumentTableTextAnchor.TOP_LEFT"
+  ],
+  "observedBehaviour": "A cell that spans more than one row places its content at the FOOT of the span, and the vertical anchor is discarded rather than overridden. Measured differentially: the same two-row table rendered with a one-line body and with a six-line one, so the span grows by a known amount and the spanning cell's badge is located by colour in each render. The span grew 65 pt and the badge moved down 65 pt - the whole of it - at every one of the three places the anchor can be declared: the table's defaultCellStyle, the spanning row's rowStyle, and the cell's own withStyle. TOP_LEFT and BOTTOM_LEFT put the badge at the same y in all three, which is the part that says 'discarded' rather than 'losing to the span': if the anchor were being applied and then beaten, the two values would still differ. The span itself is correct - the columns are right and the second row lands in the second column - so the geometry is not the problem, only the seating. Confirmed identically on 2.2.1 and 2.2.2, so this is a property of the released line and not of one build.",
+  "minimalReproduction": {
+    "probe": "row-span-anchor",
+    "command": "node scripts/probe.mjs row-span-anchor --version 2.2 --json",
+    "arrangement": "A two-column, two-row table whose first cell is DocumentTableCell.node(badge).rowSpan(2), rendered twice per anchor placement with a one-line and a six-line body, the badge found by a colour nothing else draws. Growing the second row grows the span, so the badge's drift between the two renders answers the question without needing any absolute reference. DocumentTableCell.lines(...) carries the tall body: a fixed column refuses a single long string rather than wrapping it."
+  },
+  "probeResult": {
+    "spanGrowthPt": 65,
+    "topAnchorHonoured": false,
+    "anchorChangesWhereTheBadgeSits": false,
+    "contentSeatedAtFootOfSpan": true,
+    "inconclusive": []
+  },
+  "workaround": "Do not use rowSpan for a badge-beside-text pair. Build the pair as a layer stack of two sections carved with complementary margins - the badge with margin-right = width - splitX, the text with margin-left = splitX - and hand both to layer(node, LayerAlign.TOP_LEFT). The stack's height follows the taller side, nothing computes a height, and both layers anchor where they are told. That is the same shape layered-row-survives-a-row-cell prescribes for a horizontal pair a nested row cannot carry, and it works inside a row cell. Where the span is genuinely tabular - one label against several rows of values - keep the rowSpan and accept the seating, or repeat the label per row and suppress the interior rules with the per-cell stroke that table-borders-are-per-cell describes.",
+  "confidence": "confirmed",
+  "sourceRun": {
+    "project": "orange-ops-cv",
+    "revision": "revision-005",
+    "date": "2026-08-27",
+    "note": "Cost three iteration passes in the source run: the first read the offset as centring and moved the style to the row, the second moved it to the cell, and only the third measured the disc against its card and saw it was bottom-aligned. A wrong diagnosis is cheap to make, because bottom-aligned and centred look alike until the span's two rows differ in height. Imported into this tree on 2026-08-28 with a probe behind it: the source record had none, and the differential arrangement measures more than the run could - that the anchor is discarded outright, which the run could not have told from an anchor that loses to the span."
+  },
+  "promotedTo": null,
+  "engineDefect": {
+    "isDefect": true,
+    "affectedVersions": "2.2.1-2.2.2",
+    "reportedTo": null,
+    "fixedIn": null
+  },
+  "verifiedAgainst": [
+    {
+      "version": "2.2.2",
+      "on": "2026-08-28",
+      "verdict": "held",
+      "build": {
+        "sha1": "61585d2d93d195b6b297ec26d5ff7e6a60f141a8",
+        "bytes": 4085,
+        "modified": "2026-08-26T23:43:50.104Z",
+        "origin": "downloaded"
+      }
+    },
+    {
+      "version": "2.2.1",
+      "on": "2026-08-28",
+      "verdict": "held",
+      "build": {
+        "sha1": "4bd8314d461ea103bd607fc6c366ac82e1c5cd51",
+        "bytes": 4086,
+        "modified": "2026-08-25T16:10:12.995Z",
+        "origin": "downloaded"
+      }
+    }
+  ]
+}

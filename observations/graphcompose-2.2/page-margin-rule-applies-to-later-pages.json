@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "id": "page-margin-rule-applies-to-later-pages",
+  "graphComposeVersion": "2.2.2",
+  "api": [
+    "DocumentSession.pageMargins",
+    "PageMarginRule.page",
+    "RowBuilder.margin",
+    "LayoutNodeSnapshot.placementWidth",
+    "LayoutNodeSnapshot.startPage"
+  ],
+  "observedBehaviour": "A PageMarginRule for a page OTHER than the first does take effect, and it widens the layout rather than merely shifting it. Measured on a 300x200 pt document with a 20 pt base margin: with no rule, page two offers a row 260 pt starting at x=20, exactly like page one. With PageMarginRule.page(2, DocumentInsets.zero()) the same row on page two is 300 pt starting at x=0 - a gain of 40 pt, which is both side margins - while page one keeps its own 260 pt at x=20. Identical on 2.2.0, 2.2.1 and 2.2.2. A negative left margin on a row is also honoured, not discarded: a row given margin(new DocumentInsets(0, 0, 0, -20)) starts at x=0 where its unmargined sibling starts at x=20, measured in the same document. BOTH of these contradict a report from the annual-report run, which is why the numbers are here. What that run hit was not reproduced, and the differences are worth naming rather than guessing between: it used page 3 rather than page 2, an inset zeroing only the LEFT edge rather than all four, and a row mixing fixed and auto columns whose declared sum exceeded the offered width - and its symptom was that row being REFUSED. A separate measurement here says a row whose declared columns exceed the width offered is not refused at all but simply overflows, on one fixed column and on two, so the refusal that run saw is more likely a property of the fixed-and-auto column-sum check than of the margin rule.",
+  "minimalReproduction": {
+    "probe": "page-margins",
+    "command": "node scripts/probe.mjs page-margins --version 2.2 --json",
+    "arrangement": "One weights(1.0) row on page one and another on page two, with PageMarginRule.page(2, zero()) declared, and the same document again with no rule as the control. Position and width come from computedX and placementWidth in the layout snapshot, and startPage is asserted so a marker that never reached page two cannot be read as one that did. A row is used rather than a paragraph because a paragraph's placementWidth is its own text, not the width the flow offered."
+  },
+  "probeResult": {
+    "controlPutsPageTwoAtTheSideMargin": true,
+    "laterPageRuleMovesContent": true,
+    "laterPageRuleWidensLayout": true,
+    "laterPageWidthGainPt": 40,
+    "firstPageKeepsItsOwnMargin": true,
+    "negativeRowMarginShiftsRow": true
+  },
+  "workaround": "Nothing to work around - this is a fact to know, and the useful part is what it rules out. If a full-bleed block on a later page fails, do not conclude the margin rule was ignored: measure the width the page actually offers (placementWidth of a weights(1.0) row, with startPage asserted) before changing the rule. The likelier cause is the row's own column arithmetic, because a row declaring fixed and auto columns is checked against the width available and refused by name when they exceed it.",
+  "confidence": "confirmed",
+  "sourceRun": {
+    "project": "annual-report",
+    "revision": "revision-003",
+    "date": "2026-08-25",
+    "note": "The source run recorded the opposite - page-margin-rule-does-not-widen-layout - from four reference pages that bleed a photograph to a paper edge. That record named no probe, so nothing could re-run it. This one exists because writing the probe refuted it on all three builds including the 2.2.0 it was recorded against, which is a better outcome than importing an unverifiable claim: the source record is not imported, and what replaced it says what was measured and what was not."
+  },
+  "promotedTo": null,
+  "engineDefect": {
+    "isDefect": false,
+    "affectedVersions": "2.2.0-2.2.2",
+    "reportedTo": null,
+    "fixedIn": null
+  },
+  "verifiedAgainst": [
+    {
+      "version": "2.2.2",
+      "on": "2026-08-28",
+      "verdict": "held",
+      "build": {
+        "sha1": "61585d2d93d195b6b297ec26d5ff7e6a60f141a8",
+        "bytes": 4085,
+        "modified": "2026-08-26T23:43:50.104Z",
+        "origin": "downloaded"
+      }
+    },
+    {
+      "version": "2.2.1",
+      "on": "2026-08-28",
+      "verdict": "held",
+      "build": {
+        "sha1": "4bd8314d461ea103bd607fc6c366ac82e1c5cd51",
+        "bytes": 4086,
+        "modified": "2026-08-25T16:10:12.995Z",
+        "origin": "downloaded"
+      }
+    },
+    {
+      "version": "2.2.0",
+      "on": "2026-08-28",
+      "verdict": "held",
+      "build": {
+        "sha1": "f9fb65ee710483731d77c1029ab272c69817a93d",
+        "bytes": 4086,
+        "modified": "2026-08-15T12:23:17.980Z",
+        "origin": "downloaded"
+      }
+    }
+  ]
+}

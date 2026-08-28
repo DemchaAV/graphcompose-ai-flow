@@ -145,7 +145,18 @@ function unverifiedHere(body, line) {
   // the gate. The version must match exactly, suffix included: 2.2.1-SNAPSHOT is
   // not 2.2.1, and that distinction is the whole reason this list exists.
   const measuredHere = (body.verifiedAgainst ?? []).find((v) => v.version === target.version);
-  if (measuredHere) {
+  // `held` means the probe reproduced what the record CLAIMS. For a confirmed
+  // record that settles it. For a retired one it says the opposite of settled:
+  // what a retired record claims is the behaviour the retirement calls gone, so
+  // reproducing it on this build means the retirement does not apply here. A
+  // reader told "trustworthy" would read "fixed in 2.2.1" off a jar that has
+  // just been measured not to have the fix — the exact failure the gate exists
+  // to stop, arriving through the one path that skips it. So a retired record
+  // that still reproduces falls through to the retirement gate below, which
+  // then cites the measurement.
+  const retiredButLiveHere =
+    body.confidence === "retired" && measuredHere?.verdict === "held" ? measuredHere : null;
+  if (measuredHere && !retiredButLiveHere) {
     if (measuredHere.verdict === "held") return null;
     return {
       headline: `"${body.id}" was re-measured on ${target.version} and did NOT hold.`,
@@ -171,12 +182,23 @@ function unverifiedHere(body, line) {
           `pinned to ${target.version} — a snapshot precedes its release, so the change may not be in ` +
           `the jar on this machine.`
         : "";
+    // Stronger than the caveat above, because it is a measurement rather than a
+    // reading of the version string: the probe ran on this exact build and the
+    // retired behaviour was still there.
+    const measuredCaveat = retiredButLiveHere
+      ? `\n\nThis is not a guess about ${target.version}: the probe was run against it on ` +
+        `${retiredButLiveHere.on} and REPRODUCED the behaviour this record describes. The ` +
+        `retirement does not apply to the jar this project resolves to. Treat the record as live ` +
+        `and the workaround as current.`
+      : "";
     return {
-      headline: `"${body.id}" is retired, and a retirement is a claim about a change — not a settled fact.`,
+      headline: retiredButLiveHere
+        ? `"${body.id}" is retired, but this build still shows it.`
+        : `"${body.id}" is retired, and a retirement is a claim about a change — not a settled fact.`,
       detail:
         `Recorded against GraphCompose ${body.graphComposeVersion}` +
         (target.version ? `; this project resolves to ${target.version}` : "; this project's version did not resolve") +
-        `.${snapshotCaveat}\n\n${howToSettle}`,
+        `.${snapshotCaveat}${measuredCaveat}\n\n${howToSettle}`,
     };
   }
 
@@ -483,8 +505,17 @@ if (command === "verify") {
           `  BACK ${body.id}: retired, but the probe agrees with it again — ` +
             `either it was retired in error or the behaviour returned`,
         );
+        // A retirement is the claim most worth filing a build against, and this
+        // branch used to `continue` before `remember` was ever reached — so
+        // `--record` silently wrote nothing for exactly the record whose
+        // build history decides whether a reader can trust the retirement. The
+        // verdict means what it means everywhere else: `held` is "the probe
+        // reproduced what this record claims", which on a retired record is the
+        // interesting answer, not the boring one.
+        remember(subject, "held", result.graphComposeVersion, "retired, but this build still shows it");
       } else {
         console.log(`  ret  ${body.id} (${probe}) — retired, and still not true`);
+        remember(subject, "changed", result.graphComposeVersion, differences.join("; "));
       }
       continue;
     }

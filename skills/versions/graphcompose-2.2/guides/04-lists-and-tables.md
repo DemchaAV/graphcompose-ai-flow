@@ -56,8 +56,16 @@ row, not a table.
   statistical summaries, and any content where column alignment matters.
 - `repeatHeader()` when a table can cross a page boundary and readers need the
   header repeated on each page.
-- `colSpan` / `rowSpan` / composed cells when a cell needs richer structure than
-  plain text.
+- `colSpan` / composed cells when a cell needs richer structure than plain text.
+- `rowSpan` **only when the spanning cell's content may sit at the foot of the
+  span.** Measured on 2.2.1 and 2.2.2: a spanning cell seats its content at the
+  bottom of the span and the vertical anchor is discarded, not overridden —
+  `TOP_LEFT` and `BOTTOM_LEFT` land it at the same y, at all three places the
+  anchor can be declared (`defaultCellStyle`, the row's `rowStyle`, the cell's
+  own `withStyle`). Growing the span by 65 pt moved the content down by 65 pt.
+  For a badge-beside-text pair, use a layer stack of two margin-carved sections
+  instead. See the `row-span-cell-anchors-to-the-foot-of-its-span` observation
+  and its `row-span-anchor` probe.
 
 ## When not to use this
 Do not use a table to create two columns of unrelated prose. Use `addRow` with

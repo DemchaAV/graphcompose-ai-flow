@@ -5,6 +5,107 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## Unreleased
+
+**A retirement that had never been measured where it mattered, and a jar that
+lied about which code it was.** Four observations sat in the TestHarness tree
+and had never reached this store. Three of them could not be imported at all —
+they violate `schemas/observation.schema.json`, and two name no probe, which by
+this repository's own rule makes them unpromotable forever. `observations
+record` would have written all three without complaint: it checks the six
+required top-level keys and nothing else, so the gate that catches them is
+`validate-schemas`, after the fact.
+
+The one worth the most turned out to be the one that was wrong. It claimed the
+2.2.1 fix for `table-cell-loses-composite-content` failed to reach a cell whose
+table sits inside a row cell. `table-cell-node` grew a second arm to measure
+exactly that, and on released 2.2.1 and 2.2.2 all eight node kinds draw in full
+in both placements. Against the jar the claim was made on — `2.2.1-SNAPSHOT`,
+sha1 `a18aa0f1…`, 4108 bytes, `local-install` — the probe reproduces this
+store's **2.2.0** numbers exactly, at both placements. That jar is pre-fix. It
+is the same jar on which `layered-row-survives-a-row-cell` measured
+`layeredRowHorizontal` false while 2.2.2 measures it true, so one stale local
+install explains two anomalies that had been filed as separate defects.
+
+### Observations
+
+- **`row-span-cell-anchors-to-the-foot-of-its-span`** — imported, **confirmed**,
+  and sharper than the report it came from. New `row-span-anchor` probe measures
+  it differentially: the same table with a one-line body and a six-line one, the
+  spanning cell's badge found by colour. The span grew 65 pt and the badge moved
+  65 pt, at all three places the anchor can be declared. `TOP_LEFT` and
+  `BOTTOM_LEFT` land it at the same y, so the anchor is **discarded**, not
+  overridden — which the source run could not have told apart. Held on 2.2.1 and
+  2.2.2.
+- **`row-cell-accepts-table-and-shape-container`** — imported with two
+  corrections. Its `graphComposeVersion` said 2.2.0; the source tree's
+  `probe.mjs` has no `--build` and its diagnostics pom pins 2.2.1, so 2.2.0 is
+  not a build it could have measured. And its table sentence claimed the columns
+  "lay out"; the probe's own verdict says a table's cell children are not named
+  snapshot entities, so what it measures is the table's **box**. Held on 2.2.1
+  and 2.2.2. `RowCellContentsProbe` ported with it.
+- **`page-margin-rule-applies-to-later-pages`** — new, replacing
+  `page-margin-rule-does-not-widen-layout`, which is **not** imported because the
+  new `page-margins` probe refutes it on 2.2.0, 2.2.1 and 2.2.2 alike. A
+  zero-margin rule for page 2 widens that page's flow from 260 pt to 300 pt and
+  moves its content from x=20 to x=0 while page 1 keeps its own margin; a
+  negative row margin is honoured, moving a row exactly the −20 pt asked. The
+  arm that measured this is the second one written: the first asked "was an
+  over-wide block refused?" and never got a refusal — a row whose declared
+  columns exceed the width offered simply overflows, on one fixed column and on
+  two. An arm that cannot fail its own premise is not measuring, so it was
+  replaced by `computedX`/`placementWidth` with `startPage` asserted.
+- **`composite-in-a-cell-inside-a-row-cell-loses-children`** — **not imported**.
+  It is `table-cell-loses-composite-content` seen on a pre-fix jar, and a second
+  record for one behaviour is how two records start disagreeing. The finding is
+  folded into that record's `retiredNote` instead, naming the jar.
+- **`table-cell-loses-composite-content`** — `retiredNote` rewritten twice.
+  First narrowed to the placement its probe actually built ("in a PLAIN PAGE
+  FLOW"), which needed no measurement and was the cheapest correction available;
+  then extended with the nested measurement and the stale-jar account. Now
+  carries three verdicts: `held` on 2.2.1-SNAPSHOT, `changed` on 2.2.1 and
+  2.2.2, each with its jar fingerprint.
+
+### Probes
+
+- **`table-cell-node`** — second placement: the same one-cell table in the wide
+  column of a two-column row. Reports into `nested*` keys of its own so the
+  page-level keys keep the meaning the retired record was recorded against.
+- **`row-span-anchor`**, **`page-margins`**, **`row-cell-contents`** — new.
+- **Inconclusive is its own bucket.** Both new probes report `null` rather than
+  `false` when nothing measured a claim, and say so in `finding`. The first draft
+  of `row-span-anchor` printed a confident negative built out of three refused
+  renders, which is the exact fault this release is correcting elsewhere.
+
+### Fixed
+
+- **`observations verify --record` never wrote a verdict for a retired record.**
+  The retired branch `continue`d before `remember()` was reached, so `--record`
+  silently wrote nothing for precisely the records whose build history decides
+  whether a reader can trust a retirement — including the `BACK` case, where the
+  probe agrees with a retired record again and the retirement is therefore wrong
+  on that build.
+- **`observations show` cleared its gate on the strength of a `held` verdict,
+  whatever the record's confidence.** For a confirmed record that is right. For a
+  retired one `held` means the probe reproduced *what the record claims* — the
+  behaviour the retirement calls gone — so the reader was told "trustworthy"
+  about a jar just measured not to have the fix. A retired record that still
+  reproduces now gates harder and cites the measurement.
+
+### Skills
+
+- `guides/04-lists-and-tables.md` — `rowSpan` no longer sits in a list of things
+  to reach for when a cell needs richer structure; it carries what was measured.
+- `tables.md` — the per-cell-render-method advice now says which builds it is
+  safe on, and that a `-SNAPSHOT` version string is not evidence of a fix.
+- `backgrounds-and-panels.md` — `PageMarginRule` gets its first prose anywhere in
+  the pack, and it says the rule works on later pages.
+
+### Tests
+
+- `npm test`: 888 pass, 0 fail. `observations verify`: 13 hold, 1 retired, none
+  unmeasurable. `validate-schemas`: 14 valid, 0 invalid.
+
 ## v0.17.0 — 2026-08-27
 
 **Gemini CLI has no plugins, and the difference is not only the manifest

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "id": "row-cell-accepts-table-and-shape-container",
+  "graphComposeVersion": "2.2.1",
+  "api": [
+    "AbstractFlowBuilder.addTable",
+    "AbstractFlowBuilder.addContainer",
+    "ShapeContainerBuilder.position",
+    "ParagraphBuilder.dot",
+    "RowBuilder.columns"
+  ],
+  "observedBehaviour": "A row cell refuses a nested row, but three other horizontal arrangements survive there. A table builds inside a row cell and its own box spans the full cell width, which is as much as this probe can see: a table's cell children are not named snapshot entities, so whether the cell CONTENT draws is a separate question this arm does not answer (see table-cell-loses-composite-content). A shape container placing two children with LayerAlign anchors lays them out side by side. An inline shape run measures into a paragraph line inside a row cell. Flattening the pair into the OUTER row's own columns also works and needs no container at all. So a two-column page is not restricted to vertical stacks in its columns: tabular content stays a table, and an icon-beside-text pair is either an inline run or a shape container with anchors. This is a menu of ARRANGEMENTS that survive a row cell, not a claim that everything placed in one draws.",
+  "minimalReproduction": {
+    "probe": "row-cell-contents",
+    "command": "node scripts/probe.mjs row-cell-contents --version 2.2 --json",
+    "arrangement": "Four arrangements, one document each: a two-column table in a row cell (measured by its own box against the cell, because a table's cell children are not named snapshot entities); a shape container positioning two paragraphs CENTER_LEFT at different x; the same pair carried as columns of the outer row; and a paragraph whose first run is an inline dot."
+  },
+  "probeResult": {
+    "tableBuilds": true,
+    "tableFillsCell": true,
+    "containerHorizontal": true,
+    "flattenedHorizontal": true,
+    "inlineShapeBuilds": true
+  },
+  "workaround": "Not a defect to work around — a menu. Prefer the cheapest arrangement that carries the meaning: an inline run for an icon beside a label, a table for genuinely tabular rows, a shape container with anchors for a fixed-size pair, and outer-row columns when the pair can simply be flattened.",
+  "confidence": "confirmed",
+  "sourceRun": {
+    "project": "northline-proposal",
+    "revision": "revision-001",
+    "date": "2026-08-25",
+    "note": "Written before the first render, because row-cannot-nest-in-row-cell rules out the obvious structure for a two-column proposal page and the alternatives had to be settled before the architecture was chosen. Imported into this tree on 2026-08-28 and re-measured here against released 2.2.2 and 2.2.1; the version on the record was corrected from 2.2.0, which the source tree could not have measured (its probe.mjs has no --build and its diagnostics pom pins 2.2.1)."
+  },
+  "promotedTo": null,
+  "verifiedAgainst": [
+    {
+      "version": "2.2.1",
+      "on": "2026-08-28",
+      "verdict": "held",
+      "build": {
+        "sha1": "4bd8314d461ea103bd607fc6c366ac82e1c5cd51",
+        "bytes": 4086,
+        "modified": "2026-08-25T16:10:12.995Z",
+        "origin": "downloaded"
+      }
+    },
+    {
+      "version": "2.2.2",
+      "on": "2026-08-28",
+      "verdict": "held",
+      "build": {
+        "sha1": "61585d2d93d195b6b297ec26d5ff7e6a60f141a8",
+        "bytes": 4085,
+        "modified": "2026-08-26T23:43:50.104Z",
+        "origin": "downloaded"
+      }
+    }
+  ]
+}
