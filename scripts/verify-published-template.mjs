@@ -35,9 +35,10 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { describeWorkspaceLine, installRoot, resolveWorkspace } from "./lib/workspace.mjs";
-import { readManifest } from "./lib/template-bundle.mjs";
+import { bundleSources, readManifest } from "./lib/template-bundle.mjs";
 import { blocking, formatFinding, known, scanPortability } from "./lib/bundle-portability.mjs";
 import { generatePom, maven, stageResources, stageSources } from "./lib/bundle-project.mjs";
+import { countRenderPages, pagePairs, renderPageFile } from "./lib/page-pairs.mjs";
 
 const repoRoot = installRoot();
 
@@ -133,6 +134,13 @@ const problems = [];
 const checked = [];
 const problem = (message) => problems.push(message);
 const ok = (message) => checked.push(message);
+// A check that could not run is neither a pass nor a failure, and reporting it
+// as either is how a gate stops meaning anything: silently skipped reads as
+// verified, and failed reads as broken when nothing is.
+const skipped = [];
+const note = (message) => skipped.push(message);
+/** What the page-by-page comparison found, for a caller that has to act on it. */
+let parity = null;
 
 // ---------------------------------------------------------------- static ---
 
@@ -150,13 +158,13 @@ if (!fs.existsSync(manifestPath)) {
 }
 
 const srcDir = path.join(bundleDir, "src");
-const sources = fs.existsSync(srcDir)
-  ? fs.readdirSync(srcDir).filter((f) => f.endsWith(".java"))
-  : [];
+const sources = bundleSources(bundleDir);
 if (sources.length === 0) problem("src/ holds no Java sources");
 else ok(`${sources.length} Java source(s)`);
 
 if (manifest?.className) {
+  // The entry class stays at the top of `src/` in both layouts; the sections and
+  // composites of a structured bundle hang off it in sub-packages.
   const expected = `${manifest.className}.java`;
   if (!sources.includes(expected)) {
     problem(`template.json names className "${manifest.className}" but src/${expected} does not exist`);
@@ -305,6 +313,9 @@ function buildAndMaybeRender(dir) {
     "utf8",
   );
 
+  const approved = approvedRevisionDir();
+  const parityPages = approved ? Math.max(1, countRenderPages(approved)) : 1;
+
   const render = spawnSync(
     "java",
     [
@@ -329,6 +340,10 @@ function buildAndMaybeRender(dir) {
       "150",
       "--page",
       "0",
+      // As many pages as the revision this bundle came from produced. One JVM
+      // rasterises them all; asking for one left a two-page CV half measured.
+      "--pages",
+      String(parityPages),
     ],
     { cwd: dir, encoding: "utf8" },
   );
@@ -340,6 +355,142 @@ function buildAndMaybeRender(dir) {
     return;
   }
   ok(`renders its example data (${fs.statSync(rendered).size} bytes of PDF)`);
+
+  checkParity(stage, approved);
+}
+
+/**
+ * The revision this bundle was published from, when it is in this workspace.
+ *
+ * Absent is normal: a bundle installed anywhere else has no revision to compare
+ * against, and there is nothing wrong with that.
+ */
+function approvedRevisionDir() {
+  const project = manifest?.sourceProject;
+  const revision = manifest?.sourceRevision;
+  if (!project || !revision) return null;
+  const dir = path.join(workspace.projectsDir, project, "revisions", revision);
+  return fs.existsSync(dir) ? dir : null;
+}
+
+/**
+ * Does the bundle render what the user approved?
+ *
+ * Publishing now restructures the template — theme, sections, composites and a
+ * support class instead of one file — and a restructuring that changes the
+ * output is a defect, not a layout. Only a pixel comparison can say so: the
+ * split moves methods between classes without touching a single value, so a
+ * mistake in it looks exactly like correct code until something is drawn.
+ *
+ * **Every page.** The first version of this rasterised one page and compared
+ * it, which on `cv-reference` — a two-page CV whose revisions carry
+ * `output-page-2.png` — left half the document unmeasured while reporting that
+ * the bundle "renders exactly what revision-009 did". A member reached only
+ * from `renderPageTwo` could have moved to the wrong class and the gate would
+ * have passed it. `scope-routing.md` states the exact-diff gate as AE == 0 on
+ * every page, and this is the check standing in for it.
+ *
+ * Evidence, not a leap of faith. The comparison is skipped, loudly, when there
+ * is nothing to compare against; inventing a pass there would make the check
+ * meaningless everywhere.
+ */
+function checkParity(stage, approved) {
+  const project = manifest?.sourceProject;
+  const revision = manifest?.sourceRevision;
+
+  if (!project || !revision) {
+    note("no sourceProject/sourceRevision in the manifest; skipped the parity check");
+    return;
+  }
+  if (!approved) {
+    note(`${project}/${revision} is not in this workspace; skipped the parity check`);
+    return;
+  }
+  if (!fs.existsSync(renderPageFile(stage, 1))) {
+    // The render tier takes the PDF as proof of success and never looks at the
+    // preview. A silent return here reads as a pass, which is the failure the
+    // `note` channel exists to prevent.
+    note("the render produced no preview image; skipped the parity check");
+    return;
+  }
+
+  const { pairs, missingFromRender, extraInRender } = pagePairs({
+    revisionDir: stage,
+    parentDir: approved,
+    against: "parent",
+  });
+
+  // A page the approved revision has and the bundle does not is not a gap to
+  // pass over: it is the document coming out shorter than the one that was
+  // accepted.
+  for (const page of missingFromRender) {
+    problem(`the bundle renders no page ${page}, which ${revision} has`);
+  }
+  for (const page of extraInRender) {
+    problem(`the bundle renders a page ${page} that ${revision} does not have`);
+  }
+
+  const pages = [];
+  for (const pair of pairs) {
+    const stats = comparePage(pair);
+    if (!stats) return;
+    pages.push({ page: pair.page, mismatchPx: stats.mismatchPx, percent: stats.percent });
+    if (stats.mismatchPx !== 0) {
+      problem(
+        `the bundle does not render what ${revision} did on page ${pair.page}: `
+          + `${stats.mismatchPx} px differ (${stats.percent}%, ${stats.classification}) — diff at ${stats.diff}`,
+      );
+    }
+  }
+
+  const clean = pages.length > 0 && pages.every((p) => p.mismatchPx === 0);
+  if (clean && missingFromRender.length === 0 && extraInRender.length === 0) {
+    ok(
+      `renders exactly what ${revision} did, on all ${pages.length} page(s) `
+        + `(${pages.reduce((n, p) => n + p.mismatchPx, 0)} px differ)`,
+    );
+  }
+
+  // Structured, so a caller does not have to read the prose. `approve-and-publish`
+  // decides whether to republish flat on this, and keying that decision on the
+  // wording of a sentence in another file is a coupling nothing would catch
+  // when the sentence changed.
+  parity = {
+    project,
+    revision,
+    pages,
+    missingFromRender,
+    extraInRender,
+    mismatchPx: pages.reduce((n, p) => n + p.mismatchPx, 0),
+    identical: clean && missingFromRender.length === 0 && extraInRender.length === 0,
+  };
+}
+
+/** One page, through the same differ the loop uses. */
+function comparePage(pair) {
+  const diff = spawnSync(
+    process.execPath,
+    [
+      path.join(repoRoot, "tools", "visual-diff", "bin", "visual-diff.mjs"),
+      pair.reference,
+      pair.render,
+      "--json",
+      "--out",
+      pair.diff,
+    ],
+    { encoding: "utf8" },
+  );
+  if (diff.status !== 0) {
+    problem(`could not compare page ${pair.page} with the approved revision`);
+    reportTail(`${diff.stdout ?? ""}${diff.stderr ?? ""}`, Boolean);
+    return null;
+  }
+  try {
+    return JSON.parse(diff.stdout);
+  } catch {
+    problem(`the parity comparison for page ${pair.page} returned output that is not JSON`);
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------- report ---
@@ -353,6 +504,8 @@ if (args.json) {
         verified: problems.length === 0,
         tiers: { static: true, build: args.build, render: args.render },
         checks: checked,
+        skipped,
+        parity,
         problems,
       },
       null,
@@ -361,6 +514,7 @@ if (args.json) {
   );
 } else {
   for (const line of checked) console.log(`  ok   ${line}`);
+  for (const line of skipped) console.log(`  --   ${line}`);
   for (const line of problems) console.error(`  FAIL ${line}`);
   console.log(
     problems.length === 0

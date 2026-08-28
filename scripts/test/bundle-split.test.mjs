@@ -1,0 +1,533 @@
+#!/usr/bin/env node
+/**
+ * scripts/test/bundle-split.test.mjs — where each member of a generated
+ * template lands in the published bundle.
+ *
+ * The classification runs at publish, unattended, on whatever the loop happened
+ * to produce. There is no reviewer between it and the bundle a person is handed,
+ * so every rule it applies has to be pinned here — including the ones that say
+ * "do not try", because a splitter that guesses at an unfamiliar shape emits
+ * Java that will not compile at the exact moment the user said "approve".
+ *
+ * The synthetic sample below carries, deliberately, every shape the real
+ * templates carry: a brace inside a string, a nested record, an overloaded
+ * public entry point, a helper used twice, a helper used once, a node factory
+ * that takes no builder, and a `Path` constant that is infrastructure rather
+ * than a design token.
+ */
+
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+
+import { classify, emit, pascal } from "../lib/bundle-split.mjs";
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+
+const SAMPLE = `package com.example;
+
+import java.nio.file.Path;
+
+/** A template. */
+public final class DemoTemplate {
+
+    private static final Path REVISION_DIR = Path.of(
+            System.getProperty("graphcompose.revision.dir", "."));
+
+    private static final double LABEL_SIZE = 8.65;
+    private static final String TITLE = "a } brace in a string";
+    private static final Map<String, IconAsset> ICONS = readIconManifest();
+
+    private record IconAsset(String name, double size) {
+    }
+
+    public void compose(DocumentSession document, DemoSpec spec) {
+        renderMasthead(document, spec);
+        renderFooter(document, spec);
+    }
+
+    public void compose(DocumentSession document, CanonicalSpec spec) {
+        compose(document, DemoSpec.from(spec));
+    }
+
+    public String getTemplateId() {
+        return "demo";
+    }
+
+    private void renderMasthead(SectionBuilder section, DemoSpec spec) {
+        heading(section, "Masthead");
+        section.add(marker(0));
+        onlyHere(section, spec);
+    }
+
+    private void renderFooter(SectionBuilder section, DemoSpec spec) {
+        heading(section, "Footer");
+        section.add(marker(1));
+    }
+
+    private void heading(SectionBuilder section, String text) {
+        section.addParagraph(p -> p.text(text).style(textStyle(LABEL_SIZE)));
+    }
+
+    private void onlyHere(SectionBuilder section, DemoSpec spec) {
+        section.addParagraph(p -> p.text(spec.name()));
+    }
+
+    private DocumentNode marker(int index) {
+        return new ShapeBuilder().build();
+    }
+
+    private static DocumentTextStyle textStyle(double size) {
+        return DocumentTextStyle.builder().size(size).build();
+    }
+
+    private static String compact(String text) {
+        return text.trim();
+    }
+
+    private static Map<String, IconAsset> readIconManifest() {
+        return Map.of();
+    }
+}
+`;
+
+test("classify splits a generated template into theme, sections, composites and support", () => {
+  const result = classify(SAMPLE);
+
+  assert.equal(result.feasible, true, result.reason ?? "");
+  assert.equal(result.className, "DemoTemplate");
+
+  const sections = result.sections.map((s) => s.typeName).sort();
+  assert.deepEqual(sections, ["FooterSection", "MastheadSection"]);
+});
+
+test("the public surface stays in the template class, overloads included", () => {
+  const result = classify(SAMPLE);
+  const names = result.template.map((m) => m.name);
+
+  // Two `compose` overloads and the interface accessor. Classifying by shape
+  // alone filed the invoice lane's second `compose` under composites, as a class
+  // called `Compose`.
+  assert.deepEqual(names, ["compose", "compose", "getTemplateId"]);
+});
+
+test("a helper used by two sections becomes a composite; one used by a single section does not", () => {
+  const result = classify(SAMPLE);
+
+  const composites = result.composites.map((c) => c.typeName).sort();
+  assert.deepEqual(composites, ["Heading", "Marker"]);
+
+  // `onlyHere` is Masthead's private detail. Giving it a file of its own is the
+  // fragmentation the brief rules out.
+  const masthead = result.sections.find((s) => s.typeName === "MastheadSection");
+  assert.deepEqual((masthead.local ?? []).map((m) => m.name), ["onlyHere"]);
+});
+
+test("a node factory is a composite even without a builder parameter", () => {
+  const result = classify(SAMPLE);
+  const marker = result.composites.find((c) => c.typeName === "Marker");
+
+  assert.ok(marker, "marker(int) returns a DocumentNode and draws");
+  assert.equal(marker.params[0].type, "int");
+});
+
+test("constants are theme; a Path and a manifest lookup are not", () => {
+  const result = classify(SAMPLE);
+
+  const theme = result.theme.map((t) => t.name).sort();
+  assert.deepEqual(theme, ["LABEL_SIZE", "TITLE", "textStyle"]);
+
+  const support = result.support.map((s) => s.name).sort();
+  assert.deepEqual(support, ["ICONS", "REVISION_DIR", "compact", "readIconManifest"]);
+});
+
+test("a brace inside a string literal does not end a declaration", () => {
+  const result = classify(SAMPLE);
+  const title = result.theme.find((t) => t.name === "TITLE");
+
+  assert.ok(title, "TITLE survived the brace in its value");
+  assert.match(title.text, /a \} brace/);
+});
+
+test("architecture-plan regions name the sections when the revision has one", () => {
+  const plan = {
+    componentMapping: [
+      { region: "page-masthead", renderMethod: "renderMasthead", notes: "why it is built this way" },
+    ],
+  };
+  const result = classify(SAMPLE, { plan });
+
+  const masthead = result.sections.find((s) => s.name === "renderMasthead");
+  assert.equal(masthead.typeName, "PageMastheadSection");
+  assert.equal(masthead.notes, "why it is built this way");
+
+  // Undeclared render methods are still sections. The plan enriches; it does
+  // not select — charcoal-gold's plan omits its two container methods, and
+  // treating it as the whole list demoted them to composites.
+  assert.ok(result.sections.some((s) => s.typeName === "FooterSection"));
+});
+
+test("a plan naming a method the source does not declare is a refusal, not a skip", () => {
+  const plan = { componentMapping: [{ region: "ghost", renderMethod: "renderGhost" }] };
+  const result = classify(SAMPLE, { plan });
+
+  assert.equal(result.feasible, false);
+  assert.match(result.reason, /renderGhost/);
+});
+
+test("instance state is refused rather than mangled", () => {
+  const withField = SAMPLE.replace(
+    "    private static final double LABEL_SIZE = 8.65;",
+    "    private final BusinessTheme theme;\n    private static final double LABEL_SIZE = 8.65;",
+  );
+  const result = classify(withField);
+
+  assert.equal(result.feasible, false);
+  assert.match(result.reason, /instance field: theme/);
+});
+
+test("a constructor is refused", () => {
+  const withCtor = SAMPLE.replace(
+    "    public void compose(DocumentSession document, DemoSpec spec) {",
+    "    public DemoTemplate(BusinessTheme theme) {\n        this.theme = theme;\n    }\n\n    public void compose(DocumentSession document, DemoSpec spec) {",
+  );
+  const result = classify(withCtor);
+
+  assert.equal(result.feasible, false);
+  assert.match(result.reason, /constructor/);
+});
+
+test("a nested class is refused; a nested record is not", () => {
+  const withClass = SAMPLE.replace(
+    "    private record IconAsset(String name, double size) {\n    }",
+    "    private static final class Helper {\n    }",
+  );
+  const result = classify(withClass);
+
+  assert.equal(result.feasible, false);
+  assert.match(result.reason, /nested class: Helper/);
+});
+
+test("a template with no render methods is refused", () => {
+  const bare = `package com.example;
+
+public final class BareTemplate {
+    public void compose(DocumentSession document, DemoSpec spec) {
+        document.pageFlow(page -> page.name("Bare"));
+    }
+}
+`;
+  const result = classify(bare);
+
+  assert.equal(result.feasible, false);
+  assert.match(result.reason, /no render\* methods/);
+});
+
+test("pascal folds every separator a region id or a method name can use", () => {
+  assert.equal(pascal("sidebar-contact"), "SidebarContact");
+  assert.equal(pascal("sidebar_contact"), "SidebarContact");
+  assert.equal(pascal("sidebarContact"), "SidebarContact");
+  assert.equal(pascal("page background"), "PageBackground");
+});
+
+// --- the real templates ------------------------------------------------------
+//
+// The synthetic sample above is the contract; these are the four files the
+// contract has to survive. A rule that holds on a fixture and not on
+// charcoal-gold's 1,051 lines is not a rule.
+
+const REAL = [
+  {
+    label: "charcoal-gold revision-009, with its architecture plan",
+    source: "examples/charcoal-gold-cv/revisions/revision-009/generated-template.java",
+    plan: "examples/charcoal-gold-cv/revisions/revision-009/architecture-plan.json",
+    sections: 17,
+    named: "SidebarContactSection",
+  },
+  {
+    label: "charcoal-gold revision-010, which has no plan",
+    source: "examples/charcoal-gold-cv/revisions/revision-010/generated-template.java",
+    plan: null,
+    sections: 17,
+    named: "ContactSection",
+  },
+  {
+    label: "the published mint-editorial-cv bundle",
+    source: "templates/mint-editorial-cv/src/MintEditorialCvTemplate.java",
+    plan: null,
+    sections: 13,
+    named: "ContactSection",
+  },
+  {
+    label: "the published olive-curve-invoice bundle",
+    source: "templates/olive-curve-invoice/src/OliveCurveInvoiceTemplate.java",
+    plan: null,
+    sections: 15,
+    named: "ItemsSection",
+  },
+];
+
+for (const fixture of REAL) {
+  test(`classifies ${fixture.label}`, (t) => {
+    const source = path.join(repoRoot, fixture.source);
+    if (!fs.existsSync(source)) {
+      t.skip(`${fixture.source} is not in this checkout`);
+      return;
+    }
+    const plan = fixture.plan ? JSON.parse(fs.readFileSync(path.join(repoRoot, fixture.plan), "utf8")) : null;
+    const result = classify(fs.readFileSync(source, "utf8"), { plan });
+
+    assert.equal(result.feasible, true, result.reason ?? "");
+    assert.equal(result.sections.length, fixture.sections);
+    assert.ok(
+      result.sections.some((s) => s.typeName === fixture.named),
+      `expected a ${fixture.named}, got ${result.sections.map((s) => s.typeName).join(", ")}`,
+    );
+    assert.ok(result.theme.length > 0, "a generated template has constants");
+    assert.ok(
+      result.template.some((m) => m.name === "compose"),
+      "compose stays in the template class",
+    );
+    // Every method is accounted for exactly once: nothing is silently dropped,
+    // and nothing is emitted twice.
+    const placed = [
+      ...result.sections.map((s) => s.name),
+      ...result.sections.flatMap((s) => (s.local ?? []).map((m) => m.name)),
+      ...result.composites.map((c) => c.name),
+      ...result.support.filter((s) => s.params).map((s) => s.name),
+      ...result.theme.filter((t) => t.params).map((t) => t.name),
+      ...result.template.map((m) => m.name),
+    ];
+    assert.equal(new Set(placed).size, placed.length - duplicateOverloads(result.template));
+  });
+}
+
+/** Overloads share a name legitimately; every other repeat is a bug. */
+function duplicateOverloads(template) {
+  const seen = new Set();
+  let repeats = 0;
+  for (const method of template) {
+    if (seen.has(method.name)) repeats += 1;
+    seen.add(method.name);
+  }
+  return repeats;
+}
+
+test("invoice-classic, which this flow did not generate, is refused by name", (t) => {
+  const source = path.join(repoRoot, "templates", "invoice-classic", "src", "InvoiceClassicTemplate.java");
+  if (!fs.existsSync(source)) {
+    t.skip("invoice-classic is not in this checkout");
+    return;
+  }
+  const result = classify(fs.readFileSync(source, "utf8"));
+
+  assert.equal(result.feasible, false);
+  assert.match(result.reason, /instance field: theme/);
+});
+
+// --- emitting -----------------------------------------------------------------
+
+const EMIT_OPTIONS = { source: SAMPLE, basePackage: "com.example", className: "DemoTemplate" };
+
+test("emit lays the bundle out as theme, sections, composites, support and a template", () => {
+  const { files } = emit(classify(SAMPLE), EMIT_OPTIONS);
+
+  const paths = [...files.keys()].sort();
+  assert.deepEqual(paths, [
+    "DemoTemplate.java",
+    "composites/Heading.java",
+    "composites/Marker.java",
+    "sections/FooterSection.java",
+    "sections/MastheadSection.java",
+    "support/DemoSupport.java",
+    "theme/DemoTheme.java",
+  ]);
+});
+
+test("the template class reads as a table of contents", () => {
+  const { files } = emit(classify(SAMPLE), EMIT_OPTIONS);
+  const template = files.get("DemoTemplate.java");
+
+  assert.match(template, /MastheadSection\.render\(document, spec\)/);
+  assert.match(template, /FooterSection\.render\(document, spec\)/);
+  // The entry point keeps its signature: it is the contract a consumer calls.
+  assert.match(template, /public void compose\(DocumentSession document, DemoSpec spec\)/);
+  assert.doesNotMatch(template, /private void render/);
+});
+
+test("a section carries its own render method and its section-local helper", () => {
+  const { files } = emit(classify(SAMPLE), EMIT_OPTIONS);
+  const masthead = files.get("sections/MastheadSection.java");
+
+  assert.match(masthead, /^package com\.example\.sections;/);
+  assert.match(masthead, /public static void render\(SectionBuilder section, DemoSpec spec\)/);
+  assert.match(masthead, /private static void onlyHere\(SectionBuilder section, DemoSpec spec\)/);
+  assert.match(masthead, /Heading\.render\(section, "Masthead"\)/);
+  assert.match(masthead, /Marker\.create\(0\)/);
+});
+
+test("a composite renders when it appends and creates when it returns a node", () => {
+  const { files } = emit(classify(SAMPLE), EMIT_OPTIONS);
+
+  assert.match(files.get("composites/Heading.java"), /public static void render\(/);
+  assert.match(files.get("composites/Marker.java"), /public static DocumentNode create\(/);
+});
+
+test("constants reach every file by static import, not by rewritten references", () => {
+  const { files } = emit(classify(SAMPLE), EMIT_OPTIONS);
+  const theme = files.get("theme/DemoTheme.java");
+  const heading = files.get("composites/Heading.java");
+
+  assert.match(theme, /public static final double LABEL_SIZE = 8\.65;/);
+  assert.match(heading, /import static com\.example\.theme\.DemoTheme\.\*;/);
+  // 71 constants in the real template: qualifying each use is 71 chances to
+  // corrupt a literal, for nothing.
+  assert.match(heading, /textStyle\(LABEL_SIZE\)/);
+  assert.doesNotMatch(heading, /DemoTheme\.LABEL_SIZE/);
+});
+
+test("infrastructure is not filed among the composites", () => {
+  const { files } = emit(classify(SAMPLE), EMIT_OPTIONS);
+  const support = files.get("support/DemoSupport.java");
+
+  assert.match(support, /^package com\.example\.support;/);
+  assert.match(support, /public record IconAsset\(/);
+  assert.match(support, /public static final Path REVISION_DIR/);
+  assert.match(support, /public static Map<String, IconAsset> readIconManifest\(\)/);
+});
+
+test("every holder of statics refuses instantiation; the template does not", () => {
+  const { files } = emit(classify(SAMPLE), EMIT_OPTIONS);
+
+  assert.match(files.get("theme/DemoTheme.java"), /private DemoTheme\(\) \{/);
+  assert.match(files.get("sections/FooterSection.java"), /private FooterSection\(\) \{/);
+  assert.doesNotMatch(files.get("DemoTemplate.java"), /private DemoTemplate\(\) \{/);
+});
+
+test("a method reference to a moved method is repointed too", () => {
+  const withRef = SAMPLE.replace(
+    '        heading(section, "Footer");',
+    '        section.addSection("Inner", this::renderMasthead);',
+  );
+  const { files } = emit(classify(withRef), { ...EMIT_OPTIONS, source: withRef });
+
+  // The invoice lane has exactly one of these. A rewriter that only knew about
+  // a name followed by a bracket would have left it pointing at a method that
+  // no longer exists.
+  assert.match(files.get("sections/FooterSection.java"), /MastheadSection::render/);
+  assert.doesNotMatch(files.get("sections/FooterSection.java"), /this::renderMasthead/);
+});
+
+test("a moved member keeps the Javadoc that says why it is what it is", () => {
+  const documented = SAMPLE.replace(
+    "    private static final double LABEL_SIZE = 8.65;",
+    "    /** Calibrated against the first render, not estimated. */\n    private static final double LABEL_SIZE = 8.65;",
+  );
+  const { files } = emit(classify(documented), { ...EMIT_OPTIONS, source: documented });
+
+  assert.match(files.get("theme/DemoTheme.java"), /Calibrated against the first render/);
+});
+
+test("an architecture-plan note becomes the section's class comment", () => {
+  const plan = {
+    componentMapping: [
+      {
+        region: "page-masthead",
+        renderMethod: "renderMasthead",
+        notes: "Page backgrounds, not section fills: they reach all four paper edges.",
+      },
+    ],
+  };
+  const { files } = emit(classify(SAMPLE, { plan }), EMIT_OPTIONS);
+
+  const section = files.get("sections/PageMastheadSection.java");
+  assert.match(section, /page-masthead/);
+  assert.match(section, /reach all four paper edges/);
+});
+
+test("emitting an infeasible split is refused rather than attempted", () => {
+  const withField = SAMPLE.replace(
+    "    private static final double LABEL_SIZE = 8.65;",
+    "    private final BusinessTheme theme;\n    private static final double LABEL_SIZE = 8.65;",
+  );
+  assert.throws(
+    () => emit(classify(withField), { ...EMIT_OPTIONS, source: withField }),
+    /instance field: theme/,
+  );
+});
+
+test("every emitted file can see every other, because the rewriter reaches all of them", () => {
+  // `rewriteCalls` runs over each moved member, so a composite that calls a
+  // section emits `XSection.render(…)` into `composites/`. Sections were once
+  // imported only by the template class, and that call did not resolve — a
+  // failure the compile gate found only after the bundle was on disk.
+  const calling = SAMPLE.replace(
+    '    private void heading(SectionBuilder section, String text) {',
+    "    private void heading(SectionBuilder section, String text) {\n        renderFooter(section, null);",
+  );
+  const { files } = emit(classify(calling), { ...EMIT_OPTIONS, source: calling });
+  const composite = files.get("composites/Heading.java");
+
+  assert.match(composite, /FooterSection\.render\(/, "the call was rewritten");
+  assert.match(composite, /import com\.example\.sections\.\*;/, "but the class it names is not imported");
+});
+
+test("no emitted file imports itself", () => {
+  const { files } = emit(classify(SAMPLE), EMIT_OPTIONS);
+
+  // A class cannot static-import its own members, and a file does not import
+  // its own package. Handing every file the same list without subtracting its
+  // own entry is how that happens.
+  assert.doesNotMatch(
+    files.get("theme/DemoTheme.java"),
+    /import static com\.example\.theme\.DemoTheme\.\*;/,
+  );
+  assert.doesNotMatch(
+    files.get("support/DemoSupport.java"),
+    /import (static )?com\.example\.support\.DemoSupport\.\*;/,
+  );
+  assert.doesNotMatch(files.get("composites/Heading.java"), /import com\.example\.composites\.\*;/);
+  assert.doesNotMatch(files.get("sections/FooterSection.java"), /import com\.example\.sections\.\*;/);
+  assert.doesNotMatch(files.get("DemoTemplate.java"), /import com\.example\.\*;/);
+});
+
+test("emitted sources parse back cleanly and reference nothing that moved away", () => {
+  for (const fixture of REAL) {
+    const source = path.join(repoRoot, fixture.source);
+    if (!fs.existsSync(source)) continue;
+
+    const text = fs.readFileSync(source, "utf8");
+    const plan = fixture.plan
+      ? JSON.parse(fs.readFileSync(path.join(repoRoot, fixture.plan), "utf8"))
+      : null;
+    const result = classify(text, { plan });
+    const { files } = emit(result, {
+      source: text,
+      basePackage: "com.example.doc",
+      className: result.className,
+    });
+
+    const movedNames = [
+      ...result.sections.map((s) => s.name),
+      ...result.composites.map((c) => c.name),
+    ];
+
+    for (const [rel, content] of files) {
+      assert.match(content, /^package com\.example\.doc/, `${fixture.label}: ${rel} has a package`);
+      assert.ok(content.trim().endsWith("}"), `${fixture.label}: ${rel} is closed`);
+
+      // Nothing may still call a method by the name it had before it moved: a
+      // surviving bare call is a call into a class that no longer declares it,
+      // and it would only surface at compile time.
+      for (const name of movedNames) {
+        assert.doesNotMatch(
+          content,
+          new RegExp(`(^|[^\\w.$"])${name}\\s*\\(`, "m"),
+          `${fixture.label}: ${rel} still calls ${name}`,
+        );
+      }
+    }
+  }
+});

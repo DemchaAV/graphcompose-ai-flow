@@ -122,6 +122,10 @@ const result = {
   bundle: null,
   readme: null,
   verify: null,
+  // Set only when a structured bundle was republished flat because it did not
+  // render what the user approved. Recorded rather than logged: the layout a
+  // bundle ended up at, and why, outlives the run that decided it.
+  layoutFallback: null,
   telemetry: null,
 };
 
@@ -441,28 +445,104 @@ step("write the README's generated half", (entry) => {
 
 if (args.verify !== "none") {
   step(`verify (${args.verify})`, (entry) => {
-    const verified = run(path.join(repoRoot, "scripts", "verify-published-template.mjs"), [
-      "--template-id", templateId,
-      ...(args.root ? ["--root", args.root] : []),
-      ...(args.verify === "render" ? ["--render"] : []),
-      "--json",
-    ]);
-    let parsed = null;
-    try {
-      parsed = JSON.parse(verified.stdout);
-    } catch {
-      /* fall through to the status check */
+    let outcome = runVerify();
+
+    // The split is the one thing here that rewrites the approved code. If the
+    // bundle it produced does not render what the user approved, the layout is
+    // wrong and the code is not — so the layout goes, and the approval stands.
+    // Publishing a differently-rendering bundle is the single outcome this
+    // command must never have: the user was looking at a picture, and the
+    // bundle is supposed to be that picture's source.
+    if (!outcome.verified && isParityFailure(outcome) && publishedLayout() === "structured") {
+      entry.detail = "structured layout did not render what was approved; republished flat";
+      result.layoutFallback = {
+        from: "structured",
+        to: "flat",
+        reason: outcome.parity
+          ? `${outcome.parity.mismatchPx} px differ from ${outcome.parity.revision} across `
+            + `${outcome.parity.pages.length} page(s)`
+          : "parity failed",
+      };
+      const republished = run(path.join(repoRoot, "scripts", "publish-template.mjs"), [
+        "--project", args.project,
+        ...(args.root ? ["--root", args.root] : []),
+        "--layout", "flat",
+      ]);
+      if (republished.status !== 0) {
+        throw new Error(republished.output.trim() || "republishing flat failed");
+      }
+      generateReadme(result.bundle);
+      outcome = runVerify();
     }
-    result.verify = parsed
-      ? { verified: parsed.verified, checks: parsed.checks?.length ?? 0, problems: parsed.problems ?? [] }
-      : { verified: false, problems: [verified.output.trim().slice(0, 400)] };
-    entry.detail = parsed?.verified ? `${parsed.checks.length} checks` : undefined;
-    if (!result.verify.verified) {
+
+    result.verify = outcome;
+    entry.detail = entry.detail ?? (outcome.verified ? `${outcome.checks} checks` : undefined);
+    if (!outcome.verified) {
       throw new Error(
-        `the published bundle failed verification: ${result.verify.problems[0] ?? "see problems"}`,
+        `the published bundle failed verification: ${outcome.problems[0] ?? "see problems"}`,
       );
     }
   });
+}
+
+/** One verification run, reduced to what the caller has to decide on. */
+function runVerify() {
+  const verified = run(path.join(repoRoot, "scripts", "verify-published-template.mjs"), [
+    "--template-id", templateId,
+    ...(args.root ? ["--root", args.root] : []),
+    ...(args.verify === "render" ? ["--render"] : []),
+    "--json",
+  ]);
+  let parsed = null;
+  try {
+    parsed = JSON.parse(verified.stdout);
+  } catch {
+    /* fall through to the status check */
+  }
+  return parsed
+    ? {
+        verified: parsed.verified,
+        checks: parsed.checks?.length ?? 0,
+        problems: parsed.problems ?? [],
+        // Carried through rather than re-derived from the problem text: the
+        // fallback below decides on it, and a decision that reads a sentence
+        // from another file breaks silently the day the sentence changes.
+        parity: parsed.parity ?? null,
+      }
+    : { verified: false, checks: 0, problems: [verified.output.trim().slice(0, 400)], parity: null };
+}
+
+/**
+ * Did it fail *because the render moved*, as opposed to for any other reason?
+ *
+ * Only a parity failure is worth falling back for. A missing asset or a
+ * dependency the manifest forgot fails identically under both layouts, and
+ * republishing flat would hide the real cause behind a layout change.
+ *
+ * Read off the verifier's structured `parity` result. This used to match a
+ * regular expression against the verifier's problem text, which made the two
+ * files agree only about the wording of a sentence — reword it and the fallback
+ * stops firing, with nothing to notice that it had.
+ */
+function isParityFailure(outcome) {
+  const parity = outcome.parity;
+  if (!parity) return false;
+  return (
+    parity.identical === false
+    || parity.mismatchPx > 0
+    || parity.missingFromRender?.length > 0
+    || parity.extraInRender?.length > 0
+  );
+}
+
+/** The layout the bundle on disk was published at. */
+function publishedLayout() {
+  try {
+    const manifest = JSON.parse(fs.readFileSync(path.join(result.bundle, "template.json"), "utf8"));
+    return manifest.layout ?? "flat";
+  } catch {
+    return "flat";
+  }
 }
 
 // Telemetry is reported, never load-bearing: a metrics failure must not turn a
@@ -557,6 +637,10 @@ function renderGeneratedHalf(manifest, bundleDir) {
       .map((f) => [f.family, `\`${f.family}\` (${f.source})`]),
   ).values()];
 
+  // A structured bundle is a project; a flat one is three files. The README has
+  // to say which, because the reader's first question is where to make a change.
+  const structured = manifest.layout === "structured";
+
   const lines = [
     `# ${manifest.displayName}`,
     "",
@@ -570,9 +654,21 @@ function renderGeneratedHalf(manifest, bundleDir) {
     "",
     "```text",
     ...renderFileTable([
-      [`src/${manifest.className}.java`, "the template"],
+      [`src/${manifest.className}.java`, structured ? "the document, assembled from its sections" : "the template"],
       ...(manifest.specClass ? [[`src/${simple(manifest.specClass)}.java`, "the typed content spec"]] : []),
       ...(manifest.specProviderClass ? [[`src/${simple(manifest.specProviderClass)}.java`, "loads the data JSON into the spec"]] : []),
+      // The layout is the first thing a maintainer needs, and a directory
+      // listing is where they will look for it before they open anything.
+      ...(structured
+        ? [
+            ["src/theme/", "colours, type scale, spacing — change typography once, here"],
+            ["src/sections/", `one file per region (${manifest.structure?.sections?.length ?? 0})`],
+            ...(manifest.structure?.composites?.length
+              ? [["src/composites/", `blocks shared by more than one section (${manifest.structure.composites.length})`]]
+              : []),
+            ["src/support/", "asset resolution and text utilities"],
+          ]
+        : []),
       ...dataFiles.map((f) => [`data/${f}`, "example content — edit this, not the Java"]),
       ["assets/", "icons and images the template loads"],
       ["preview/", "rendered output, clean and with layout guides"],
@@ -580,6 +676,14 @@ function renderGeneratedHalf(manifest, bundleDir) {
     ]),
     "```",
     "",
+    ...(structured
+      ? [
+          "The structure is the document's: a change to one region is a change to one",
+          "file. Global typography lives in `theme/`, so it is one edit rather than a",
+          "walk through every section.",
+          "",
+        ]
+      : []),
     "## Dependencies",
     "",
     "| group | artifact | version |",

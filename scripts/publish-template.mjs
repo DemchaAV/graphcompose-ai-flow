@@ -52,11 +52,13 @@ import {
   deriveData,
   deriveResources,
   fqcn,
+  bundleSources,
   normaliseDependencies,
   packageOf,
   previewPageCount,
 } from "./lib/template-bundle.mjs";
 import { blocking, formatFinding, known, scanPortability } from "./lib/bundle-portability.mjs";
+import { classify, emit } from "./lib/bundle-split.mjs";
 
 /**
  * Every path this run wrote into the bundle.
@@ -193,16 +195,80 @@ const sourceClassName =
   declaredClassName
   || inferPublicClassName(sourceClassFile)
   || "GeneratedCvTemplate";
+
 // The published class is always rewritten from the revision. It used to be
 // preserved when it already existed, so that a later publish would not discard
 // the editorial Javadoc an agent had added on top — but the cost was that an
 // APPROVED revision and its published bundle could hold different code, with
 // nothing reporting the divergence. Editorial polish belongs in the revision's
 // generated-template.java, where the next render actually exercises it.
-copyJavaClass(sourceClassFile, targetClassFile, {
-  oldClassName: sourceClassName,
-  newClassName: className,
-});
+const renamedSource = fs
+  .readFileSync(sourceClassFile, "utf8")
+  .replace(new RegExp(`\\b${sourceClassName}\\b`, "g"), className);
+
+/**
+ * How the bundle's `src/` is laid out.
+ *
+ * The revision is one file on purpose: `source.mjs`, `check-structural-smells`
+ * and `restore-component` all address a single template, and reading one method
+ * out of it is what keeps a loop pass cheap. The bundle has the opposite reader
+ * — a person who has to maintain it — so it is split into the structure the
+ * document already has, once, here.
+ *
+ * `auto` splits when the split can be proven and publishes flat when it cannot.
+ * It never fails: a template this cannot account for is published exactly as it
+ * was, with the reason on the manifest, because a bundle that ships is worth
+ * more than a layout that is prettier.
+ */
+// `parseArgs` gives `true` for a flag with no value, and coercing that to the
+// default made a dropped value mean `auto` in silence — a caller who meant
+// `flat` got a structured bundle and no diagnostic.
+if (args.layout === true) abort("--layout needs a value: auto, structured or flat");
+const layoutMode = args.layout ?? "auto";
+if (!["auto", "structured", "flat"].includes(layoutMode)) {
+  abort(`--layout must be auto, structured or flat (got "${layoutMode}")`);
+}
+
+let layout = "flat";
+let layoutReason = null;
+let layoutDetail = null;
+
+if (layoutMode === "flat") {
+  layoutReason = "--layout flat";
+} else {
+  const classification = classify(renamedSource, { plan: readArchitecturePlan(revisionDir) });
+  if (!classification.feasible) {
+    layoutReason = classification.reason;
+    if (layoutMode === "structured") {
+      abort(`--layout structured, but this template cannot be split: ${classification.reason}`);
+    }
+  } else {
+    const basePackage = packageOf(sourceClassFile);
+    if (!basePackage) {
+      layoutReason = "the template declares no package";
+      if (layoutMode === "structured") abort(`--layout structured, but ${layoutReason}`);
+    } else {
+      const split = emit(classification, { source: renamedSource, basePackage, className });
+      for (const [rel, contents] of split.files) {
+        const target = path.join(targetSrcDir, ...rel.split("/"));
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        writeJavaFile(target, contents);
+      }
+      layout = "structured";
+      layoutDetail = split.layout;
+      console.log(
+        `[publish-template] layout        = structured ` +
+          `(${split.layout.sections.length} section(s), ${split.layout.composites.length} composite(s), ` +
+          `${split.files.size} file(s))`,
+      );
+    }
+  }
+}
+
+if (layout === "flat") {
+  console.log(`[publish-template] layout        = flat (${layoutReason ?? "no reason given"})`);
+  writeJavaFile(targetClassFile, renamedSource);
+}
 
 const runnerSrcDir = path.join(projectDir, "render-runner", "src", "main", "java");
 const specClassFqcn = projectMeta.specClass;
@@ -355,6 +421,24 @@ const bundleVersion =
   ?? previousManifest?.version
   ?? "1.0.0";
 
+// The bundle is the approved revision and nothing else. Anything this run did
+// not write is left over from a previous one: a renamed class, an asset the
+// data no longer names, a preview page a shorter document no longer has. A
+// stale .java still compiles, so nothing downstream would have noticed.
+//
+// Before the manifest, not after: `sources` is read off the directory, and a
+// sweep that ran afterwards left the manifest describing files it had just
+// deleted. Republishing a structured bundle as flat produced a `template.json`
+// claiming 24 sources over a `src/` holding three. The manifest's own path is
+// recorded first, so the sweep does not read a previous run's manifest as
+// leftovers and delete it.
+const manifestPath = path.join(targetDir, "template.json");
+record(manifestPath);
+const pruned = pruneStale(targetDir, written);
+for (const stale of pruned) {
+  console.log(`[publish-template] removed stale ${display(stale)}`);
+}
+
 const manifest = {
   id: templateId,
   displayName,
@@ -373,24 +457,22 @@ const manifest = {
     normaliseDependencies(dependencies)
       .find((d) => d.coordinate === "io.github.demchaav:graph-compose")?.version ?? null,
   pageCount: previewPageCount(targetDir),
-  schemaVersion: "1.1.0",
+  // How `src/` is laid out, and why, when it is not the structured one. A
+  // consumer reading the manifest should not have to infer the shape of the
+  // directory beside it, and a run that fell back needs to say so somewhere
+  // more durable than a console line.
+  layout,
+  layoutReason: layout === "structured" ? null : layoutReason,
+  structure: layoutDetail,
+  sources: bundleSources(targetDir),
+  schemaVersion: "1.2.0",
   publishedAt: new Date().toISOString(),
   fonts: fontRoles,
   dependencies,
 };
-const manifestPath = path.join(targetDir, "template.json");
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
 record(manifestPath);
 console.log(`[publish-template] wrote ${display(manifestPath)}`);
-
-// The bundle is the approved revision and nothing else. Anything this run did
-// not write is left over from a previous one: a renamed class, an asset the
-// data no longer names, a preview page a shorter document no longer has. A
-// stale .java still compiles, so nothing downstream would have noticed.
-const pruned = pruneStale(targetDir, written);
-for (const stale of pruned) {
-  console.log(`[publish-template] removed stale ${display(stale)}`);
-}
 
 // Nothing above proves the bundle is self-consistent, and the failures it can
 // leave are quiet ones: a name that no longer resolves, a path that only exists
@@ -528,6 +610,23 @@ function copyJavaClass(srcPath, destPath, opts) {
   console.log(`[publish-template] copied ${display(srcPath)} -> ${display(destPath)} (${state})`);
 }
 
+/**
+ * Write one published source, and say whether it changed.
+ *
+ * The state matters more than the write. A bundle is the published form of one
+ * approved revision, and an `UPDATED` on a republish is the only signal that
+ * what was on disk had drifted from what the revision holds — the failure this
+ * whole file was rewritten to prevent.
+ */
+function writeJavaFile(destPath, contents) {
+  const previous = fs.existsSync(destPath) ? fs.readFileSync(destPath, "utf8") : null;
+  fs.mkdirSync(path.dirname(destPath), { recursive: true });
+  fs.writeFileSync(destPath, contents, "utf8");
+  record(destPath);
+  const state = previous === null ? "new" : previous === contents ? "unchanged" : "UPDATED";
+  console.log(`[publish-template] wrote ${display(destPath)} (${state})`);
+}
+
 function copyJavaSource(srcPath, destPath) {
   if (!fs.existsSync(srcPath)) {
     abort(`Source class missing: ${srcPath}`);
@@ -573,6 +672,27 @@ function pruneStale(root, keep) {
 
   walk(root);
   return removed;
+}
+
+/**
+ * The revision's machine-readable architecture plan, when it wrote one.
+ *
+ * Optional on purpose. Only the newest projects carry `architecture-plan.json`;
+ * older ones have the prose `.md`, whose component table maps regions to
+ * *primitives* rather than to methods and cannot name a section. Absent, the
+ * split falls back to the `render*` prefix — the naming rule the harness
+ * enforces anyway — so a plan is an improvement to the names, never a
+ * precondition for the split.
+ */
+function readArchitecturePlan(dir) {
+  const file = path.join(dir, "architecture-plan.json");
+  if (!fs.existsSync(file)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (cause) {
+    console.warn(`[publish-template] WARN: architecture-plan.json is not valid JSON (${cause.message}); splitting on method names instead.`);
+    return null;
+  }
 }
 
 function mkdirp(...dirs) {

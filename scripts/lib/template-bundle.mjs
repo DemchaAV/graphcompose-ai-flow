@@ -111,6 +111,35 @@ export function fqcn(pkg, simpleName) {
 }
 
 /**
+ * Every Java source in a bundle, as paths relative to `src/`.
+ *
+ * A published bundle used to be three flat files, and every reader of it said
+ * `readdirSync(srcDir)`. A structured bundle puts sections, composites, the
+ * theme and the support class in packages of their own, so the same readers now
+ * have to walk. Returned relative, because that relative path is also where the
+ * file belongs under the consumer's package root — `sections/X.java` is
+ * `<pkg>/sections/X.java`, and staging is then a copy that preserves it.
+ *
+ * @param {string} bundleDir
+ * @returns {string[]} sorted, POSIX-separated, e.g. `["Foo.java", "theme/T.java"]`
+ */
+export function bundleSources(bundleDir) {
+  const srcDir = path.join(bundleDir, "src");
+  if (!fs.existsSync(srcDir)) return [];
+
+  const out = [];
+  const walk = (dir, prefix) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) walk(path.join(dir, entry.name), rel);
+      else if (entry.isFile() && entry.name.endsWith(".java")) out.push(rel);
+    }
+  };
+  walk(srcDir, "");
+  return out.sort();
+}
+
+/**
  * Which package the bundle's classes live in.
  *
  * Prefer the file the manifest names, because that is the one a runner
@@ -121,10 +150,13 @@ export function fqcn(pkg, simpleName) {
 export function bundlePackage(bundleDir, className) {
   const srcDir = path.join(bundleDir, "src");
   if (!fs.existsSync(srcDir)) return null;
-  const named = className ? path.join(srcDir, `${className}.java`) : null;
-  if (named && fs.existsSync(named)) return packageOf(named);
-  const first = fs.readdirSync(srcDir).filter((f) => f.endsWith(".java")).sort()[0];
-  return first ? packageOf(path.join(srcDir, first)) : null;
+  const sources = bundleSources(bundleDir);
+  // The entry class sits at the top of `src/`, structured or not: its package is
+  // the bundle's base package, and the sub-packages hang off it.
+  const named = className ? sources.find((rel) => rel === `${className}.java`) : null;
+  if (named) return packageOf(path.join(srcDir, named));
+  const first = sources.find((rel) => !rel.includes("/")) ?? sources[0];
+  return first ? packageOf(path.join(srcDir, ...first.split("/"))) : null;
 }
 
 /**
@@ -289,8 +321,8 @@ export function resourceProperty(bundleDir) {
   const srcDir = path.join(bundleDir, "src");
   if (!fs.existsSync(srcDir)) return null;
   const found = new Set();
-  for (const file of fs.readdirSync(srcDir).filter((f) => f.endsWith(".java"))) {
-    const text = fs.readFileSync(path.join(srcDir, file), "utf8");
+  for (const file of bundleSources(bundleDir)) {
+    const text = fs.readFileSync(path.join(srcDir, ...file.split("/")), "utf8");
     for (const [, name] of text.matchAll(/"(graphcompose\.[\w.]*dir)"/g)) found.add(name);
   }
   if (found.has("graphcompose.template.dir")) return "graphcompose.template.dir";

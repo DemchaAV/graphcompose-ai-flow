@@ -27,7 +27,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { bundlePackage, fqcn, normaliseDependencies } from "./template-bundle.mjs";
+import { bundlePackage, bundleSources, fqcn, normaliseDependencies } from "./template-bundle.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -187,9 +187,7 @@ export function generatePom(manifest, options = {}) {
  */
 export function stageSources(bundleDir, projectDir, { className = null, javaRoot = null } = {}) {
   const srcDir = path.join(bundleDir, "src");
-  const files = fs.existsSync(srcDir)
-    ? fs.readdirSync(srcDir).filter((f) => f.endsWith(".java")).sort()
-    : [];
+  const files = bundleSources(bundleDir);
 
   const pkg = bundlePackage(bundleDir, className);
   const root = javaRoot ?? path.join(projectDir, "src", "main", "java");
@@ -197,7 +195,12 @@ export function stageSources(bundleDir, projectDir, { className = null, javaRoot
 
   fs.mkdirSync(javaDir, { recursive: true });
   for (const file of files) {
-    fs.copyFileSync(path.join(srcDir, file), path.join(javaDir, file));
+    // The relative path is the sub-package: `sections/X.java` declares
+    // `<pkg>.sections` and has to land under `<pkg>/sections/`, or javac
+    // reports a class in the wrong directory.
+    const target = path.join(javaDir, ...file.split("/"));
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(path.join(srcDir, ...file.split("/")), target);
   }
   return { package: pkg, javaDir, files };
 }

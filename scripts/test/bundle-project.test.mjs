@@ -31,7 +31,7 @@ import {
   stageResources,
   stageSources,
 } from "../lib/bundle-project.mjs";
-import { readManifest } from "../lib/template-bundle.mjs";
+import { bundlePackage, bundleSources, readManifest, resourceProperty } from "../lib/template-bundle.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -279,4 +279,79 @@ test("every bundle in this repository yields a pom naming GraphCompose", () => {
     assert.match(pom, /<artifactId>graph-compose<\/artifactId>/, `${id} generated a pom without GraphCompose`);
     assert.ok(!/\$\{(?!graphcompose)/.test(pom.replace(/\$\{project\./g, "")), `${id}: unexpanded placeholder in the pom`);
   }
+});
+
+// --- structured bundles -------------------------------------------------------
+//
+// A published bundle used to be three flat files, and every reader of `src/`
+// said `readdirSync`. Once publishing splits a template into sections,
+// composites, a theme and a support class, the same readers have to walk — and
+// a sub-package has to land under a matching directory, or javac reports a
+// class in the wrong place and the bundle is unbuildable for a reason that has
+// nothing to do with the template.
+
+const STRUCTURED_SOURCES = {
+  "MintEditorialCvTemplate.java":
+    "package com.demcha.examples.cv;\npublic final class MintEditorialCvTemplate {}\n",
+  "MintEditorialCvSpec.java": "package com.demcha.examples.cv;\npublic record MintEditorialCvSpec() {}\n",
+  "theme/MintEditorialCvTheme.java":
+    "package com.demcha.examples.cv.theme;\npublic final class MintEditorialCvTheme {}\n",
+  "sections/HeaderSection.java":
+    "package com.demcha.examples.cv.sections;\npublic final class HeaderSection {}\n",
+  "composites/Heading.java":
+    "package com.demcha.examples.cv.composites;\npublic final class Heading {}\n",
+  "support/MintEditorialCvSupport.java":
+    'package com.demcha.examples.cv.support;\npublic final class MintEditorialCvSupport {\n  static final String DIR = System.getProperty("graphcompose.template.dir");\n}\n',
+};
+
+test("a structured bundle stages every sub-package under its own directory", () => {
+  const dir = bundle({ label: "structured", manifest: CV_MANIFEST, sources: STRUCTURED_SOURCES });
+  const project = tempDir("proj-structured");
+
+  const staged = stageSources(dir, project, { className: CV_MANIFEST.className });
+
+  assert.equal(staged.package, "com.demcha.examples.cv");
+  assert.deepEqual(staged.files, [
+    "MintEditorialCvSpec.java",
+    "MintEditorialCvTemplate.java",
+    "composites/Heading.java",
+    "sections/HeaderSection.java",
+    "support/MintEditorialCvSupport.java",
+    "theme/MintEditorialCvTheme.java",
+  ]);
+
+  const pkgRoot = path.join(project, "src", "main", "java", "com", "demcha", "examples", "cv");
+  assert.ok(fs.existsSync(path.join(pkgRoot, "MintEditorialCvTemplate.java")));
+  assert.ok(fs.existsSync(path.join(pkgRoot, "sections", "HeaderSection.java")));
+  assert.ok(fs.existsSync(path.join(pkgRoot, "composites", "Heading.java")));
+  assert.ok(fs.existsSync(path.join(pkgRoot, "theme", "MintEditorialCvTheme.java")));
+  assert.ok(fs.existsSync(path.join(pkgRoot, "support", "MintEditorialCvSupport.java")));
+});
+
+test("the base package comes from the entry class, not from whichever file sorts first", () => {
+  const dir = bundle({ label: "structured-pkg", manifest: CV_MANIFEST, sources: STRUCTURED_SOURCES });
+
+  // `composites/Heading.java` sorts before the template and declares
+  // `…cv.composites`. Taking the first source would make that the bundle's
+  // package and stage every file one level too deep.
+  assert.equal(bundlePackage(dir, CV_MANIFEST.className), "com.demcha.examples.cv");
+});
+
+test("the data property is found in a sub-package source too", () => {
+  const dir = bundle({ label: "structured-prop", manifest: CV_MANIFEST, sources: STRUCTURED_SOURCES });
+
+  assert.equal(resourceProperty(dir), "graphcompose.template.dir");
+});
+
+test("bundleSources lists a flat bundle unchanged", () => {
+  const dir = bundle({
+    label: "flat-sources",
+    manifest: CV_MANIFEST,
+    sources: {
+      "MintEditorialCvTemplate.java": "package com.demcha.examples.cv;\npublic final class MintEditorialCvTemplate {}\n",
+      "MintEditorialCvSpec.java": "package com.demcha.examples.cv;\npublic record MintEditorialCvSpec() {}\n",
+    },
+  });
+
+  assert.deepEqual(bundleSources(dir), ["MintEditorialCvSpec.java", "MintEditorialCvTemplate.java"]);
 });

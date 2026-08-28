@@ -37,7 +37,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { describeWorkspaceLine, resolveWorkspace } from "./lib/workspace.mjs";
-import { readManifest, resourceProperty } from "./lib/template-bundle.mjs";
+import { bundleSources, readManifest, resourceProperty } from "./lib/template-bundle.mjs";
 import {
   JAVA_RELEASE,
   generateConsumerReadme,
@@ -239,9 +239,9 @@ function target() {
     ? path.join(sourceRoot, ...manifest.entrypoint.templateClass.split(".").slice(0, -1))
     : sourceRoot;
   const clashes = [];
-  const srcDir = path.join(bundleDir, "src");
-  for (const file of fs.existsSync(srcDir) ? fs.readdirSync(srcDir).filter((f) => f.endsWith(".java")) : []) {
-    if (fs.existsSync(path.join(pkgDir, file))) clashes.push(path.join(pkgDir, file));
+  for (const file of bundleSources(bundleDir)) {
+    const target = path.join(pkgDir, ...file.split("/"));
+    if (fs.existsSync(target)) clashes.push(target);
   }
   const resourceTarget = path.join(dir, resourceDir);
   if (fs.existsSync(resourceTarget) && fs.readdirSync(resourceTarget).length > 0) clashes.push(resourceTarget);

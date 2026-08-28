@@ -62,6 +62,36 @@ What it enforces, so you do not have to:
   Wire it and re-render rather than routing around the refusal — the
   previously published `navy-sidebar-cv` bundle ships every contact
   dead because nothing between the render and the bundle asked.
+- **The bundle is a project, not the revision's one file.** Publishing
+  splits the approved template into the structure the document already
+  has — `theme/` for the tokens, one file per region under `sections/`,
+  the blocks two or more sections share under `composites/`, and asset
+  resolution under `support/` — leaving the template class reading as a
+  table of contents. The revision stays a single file on purpose: that
+  is what `source.mjs`, `check-structural-smells` and
+  `restore-component` address, and what keeps a loop pass cheap.
+
+  The split is deterministic and does not ask you anything. It uses the
+  revision's `architecture-plan.json` to name the sections after their
+  regions when there is one, and the `render*` prefix otherwise.
+
+  A template it cannot account for — instance state, a constructor, a
+  construction it cannot parse — publishes **flat**, with the reason on
+  `template.json`'s `layoutReason`. That is not a failure and does not
+  need fixing; say which layout was published if the user asks, and
+  otherwise leave it alone.
+- **The published bundle must render what the user approved.** The
+  `render` tier now compares its own render with the approved revision's
+  `output.png` and fails on any difference. If a structured bundle does
+  not match, the command republishes it flat and re-verifies, recording
+  `layoutFallback` — the layout is what goes, never the approval, because
+  the user was looking at a picture and the bundle is meant to be that
+  picture's source. A parity failure is the only thing that triggers the
+  fallback; anything else fails identically under both layouts and
+  republishing would hide the cause.
+
+  When the revision is not in this workspace there is nothing to compare
+  against, and the check reports itself skipped rather than passing.
 - Verification runs on the published bundle and **renders it** by
   default: the `render` tier compiles the bundle standalone and puts its
   own example data through the renderer. `--verify static` compiles
@@ -89,7 +119,9 @@ marker is regenerated on every publish; everything below it survives.
 
 **4. Report.** Name the approved revision, what it superseded, the
 bundle path, and the verify result. A published bundle the user cannot
-find is not delivered.
+find is not delivered. Mention the layout only when it is worth a
+sentence: a structured bundle is worth naming its section count once, and
+a fallback to flat is worth naming its reason.
 
 ## What must not happen
 

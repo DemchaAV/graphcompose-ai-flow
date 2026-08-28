@@ -27,6 +27,95 @@ is the same jar on which `layered-row-survives-a-row-cell` measured
 `layeredRowHorizontal` false while 2.2.2 measures it true, so one stale local
 install explains two anomalies that had been filed as separate defects.
 
+### Published bundles
+
+**The bundle is a project now, and it has to prove it draws the same
+picture.** `approve-and-publish` used to hand over three flat files, one of
+them the whole document — 1,051 lines in the largest example, with the
+palette, every region and every helper in a single class. That is the right
+shape for the iteration loop, which reads one method at a time through
+`source.mjs`, and the wrong shape for the artifact a person is expected to
+maintain. Publishing now splits it, once, into the structure the document
+already has:
+
+```text
+src/
+  <Name>Template.java   the document, assembled from its sections
+  theme/                colours, type scale, spacing
+  sections/             one file per region
+  composites/           blocks shared by more than one section
+  support/              asset resolution and text utilities
+```
+
+`compose` reads as a table of contents —
+`addSection("Header", section -> HeaderSection.render(section, spec))` — and
+the largest section file of the mint-editorial CV is 129 lines against the
+571 it came from. The revision is deliberately untouched: it stays one file,
+because that is what `source.mjs`, `check-structural-smells` and
+`restore-component` address.
+
+The split is deterministic and asks nothing of a model, which is the same
+rule the rest of the zero-token half of the lifecycle already follows. It
+takes the section list from the `render*` naming invariant, and names those
+sections after their regions when the revision wrote an
+`architecture-plan.json`. Constants reach the sections by static import
+rather than by rewritten references — 71 constants in one template is 71
+chances to corrupt a literal for nothing — so the only names that move are
+the ones that genuinely gained a class.
+
+Anything it cannot account for publishes flat with the reason on
+`template.json` (`layout`, `layoutReason`, `structure`, `sources`, at
+`schemaVersion` 1.2.0). `sources` is written after the stale sweep, not before:
+taken first, it described files the sweep had just deleted, and republishing a
+structured bundle as flat produced a manifest claiming 24 sources over a `src/`
+holding three. `--layout` with no value is a usage error rather than a silent
+`auto`. `templates/invoice-classic` is such a template — it
+has a constructor and an instance field, because this flow did not generate
+it — and a splitter that tried anyway would emit Java that does not compile
+at the exact moment a user said "approve". `--layout flat` opts out for good;
+`--layout structured` refuses instead of falling back.
+
+Two parser defects surfaced while building it, both of which had been losing
+members in silence: a generic type with a space in it
+(`Map<String, IconAsset> ICONS`) matched no field pattern, and a signature
+wrapped across lines matched no method pattern — so `style(double size,` was
+in no bucket, written to no file, and gone without a word. Every line inside
+the class is now claimed by a member or the split is refused by name. A
+silent drop is the only failure that produces a bundle which looks complete
+and is not.
+
+**The parity gate, on every page.** Restructuring code that draws is only safe
+if something looks at what it draws, so `verify-published-template --render`
+now renders as many pages as the approved revision produced and compares each
+one, failing on any difference. `mint-editorial-cv` reports *renders exactly
+what revision-009 did, on all 2 page(s) (0 px differ)*; the invoice reports the
+same on its single page. A deliberately mismatched reference reports *43150 px
+differ (1.99%, MAJOR)* and names the diff image. A page the revision has and
+the bundle does not is a failure in its own right, not a gap to pass over.
+
+The first cut of this rasterised one page. `cv-reference` is a two-page CV
+whose revisions have carried `output-page-2.png` all along, so the gate was
+reporting that a bundle rendered exactly what was approved while measuring half
+of it — a member reached only from `renderPageTwo` could have moved to the
+wrong class and passed. `scope-routing.md` states the exact-diff gate as AE == 0
+on **every** page, and this is the check standing in for it.
+
+A bundle whose revision is not in this workspace has nothing to compare
+against, and the check says it was skipped rather than counting itself a pass.
+So does a render that produced no preview image: the render tier takes the PDF
+as proof of success and never looks at the PNG, so a silent return there would
+have read as a pass.
+
+`approve-and-publish` acts on that: a structured bundle that does not render
+what was approved is republished flat and re-verified, with `layoutFallback`
+recorded. It decides on the verifier's structured `parity` field rather than on
+the wording of its problem text — a regular expression over another file's
+prose couples the two through a sentence, and rewording the sentence would have
+switched the fallback off with nothing to notice. The layout is what goes, never the approval — the user was looking
+at a picture, and the bundle is supposed to be that picture's source. Only a
+parity failure triggers it; a missing asset fails identically under both
+layouts, and falling back there would hide the cause behind a layout change.
+
 ### Observations
 
 - **`row-span-cell-anchors-to-the-foot-of-its-span`** — imported, **confirmed**,

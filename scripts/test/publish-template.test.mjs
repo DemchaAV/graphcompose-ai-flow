@@ -231,7 +231,7 @@ test("the manifest carries the consumer contract, so a generator substitutes rat
 
   const manifest = JSON.parse(fs.readFileSync(path.join(bundleOf(root), "template.json"), "utf8"));
 
-  assert.equal(manifest.schemaVersion, "1.1.0");
+  assert.equal(manifest.schemaVersion, "1.2.0");
   // The published class is renamed from the revision's, and the package comes
   // from the file as copied — not from the revision, and not from a convention.
   assert.deepEqual(manifest.entrypoint, {
@@ -391,4 +391,199 @@ test("verify refuses a missing bundle rather than reporting it as clean", () => 
   );
   assert.equal(status, 1);
   assert.match(output, /no bundle at/);
+});
+
+// --- layout -------------------------------------------------------------------
+//
+// The revision stays one file; the bundle does not. A person handed
+// `templates/<id>/` has to maintain it, and a 1,000-line class with the theme,
+// every region and every helper in it is not a project — so publishing splits it
+// into the structure the document already has. When it cannot prove the split it
+// publishes flat and says why, because a bundle that ships is worth more than a
+// layout that is prettier.
+
+/** A revision whose template has the shape a generated one has. */
+function splittableTemplate() {
+  return [
+    "package com.demchaav.cv;",
+    "",
+    "/** A CV. */",
+    "public final class GeneratedCvTemplate {",
+    "",
+    "    private static final double LABEL_SIZE = 8.65;",
+    "",
+    "    public void compose(DocumentSession document, NavyCvSpec spec) {",
+    "        renderHeader(document, spec);",
+    "        renderFooter(document, spec);",
+    "    }",
+    "",
+    "    private void renderHeader(SectionBuilder section, NavyCvSpec spec) {",
+    '        heading(section, "Header");',
+    "    }",
+    "",
+    "    private void renderFooter(SectionBuilder section, NavyCvSpec spec) {",
+    '        heading(section, "Footer");',
+    "    }",
+    "",
+    "    private void heading(SectionBuilder section, String text) {",
+    "        section.addParagraph(p -> p.text(text).size(LABEL_SIZE));",
+    "    }",
+    "}",
+    "",
+  ].join("\n");
+}
+
+test("a splittable template publishes as a project, not as one file", () => {
+  const { root, revision } = workspaceWith({ label: "layout-structured" });
+  write(path.join(revision, "generated-template.java"), splittableTemplate());
+
+  const output = publish(root);
+  assert.match(output, /layout\s+= structured/);
+
+  const src = path.join(root, "templates", "navy-sidebar-cv", "src");
+  assert.ok(fs.existsSync(path.join(src, "NavySidebarCvTemplate.java")), "the entry class stays at the top");
+  assert.ok(fs.existsSync(path.join(src, "theme", "NavySidebarCvTheme.java")));
+  assert.ok(fs.existsSync(path.join(src, "sections", "HeaderSection.java")));
+  assert.ok(fs.existsSync(path.join(src, "sections", "FooterSection.java")));
+  assert.ok(fs.existsSync(path.join(src, "composites", "Heading.java")));
+
+  // The class rename reaches every emitted file, not only the entry class.
+  const header = fs.readFileSync(path.join(src, "sections", "HeaderSection.java"), "utf8");
+  assert.doesNotMatch(header, /GeneratedCvTemplate/);
+});
+
+test("the manifest records the layout, its parts and its sources", () => {
+  const { root, revision } = workspaceWith({ label: "layout-manifest" });
+  write(path.join(revision, "generated-template.java"), splittableTemplate());
+  publish(root);
+
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(root, "templates", "navy-sidebar-cv", "template.json"), "utf8"),
+  );
+
+  assert.equal(manifest.layout, "structured");
+  assert.equal(manifest.layoutReason, null);
+  assert.equal(manifest.structure.sections.length, 2);
+  assert.deepEqual(manifest.structure.composites, ["com.demchaav.cv.composites.Heading"]);
+  assert.ok(manifest.sources.includes("sections/HeaderSection.java"));
+  assert.ok(manifest.sources.includes("NavySidebarCvTemplate.java"));
+});
+
+test("a template the splitter cannot account for publishes flat, with the reason", () => {
+  const { root, revision } = workspaceWith({ label: "layout-fallback" });
+  write(
+    path.join(revision, "generated-template.java"),
+    splittableTemplate().replace(
+      "    private static final double LABEL_SIZE = 8.65;",
+      "    private final BusinessTheme theme;\n    private static final double LABEL_SIZE = 8.65;",
+    ),
+  );
+
+  const output = publish(root);
+
+  // Publishing must not fail because of this feature. `invoice-classic` has
+  // exactly this shape, and a splitter that tried anyway would emit Java that
+  // does not compile at the moment a user said "approve".
+  assert.match(output, /layout\s+= flat \(instance field: theme\)/);
+
+  const src = path.join(root, "templates", "navy-sidebar-cv", "src");
+  assert.ok(fs.existsSync(path.join(src, "NavySidebarCvTemplate.java")));
+  assert.ok(!fs.existsSync(path.join(src, "sections")));
+
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(root, "templates", "navy-sidebar-cv", "template.json"), "utf8"),
+  );
+  assert.equal(manifest.layout, "flat");
+  assert.match(manifest.layoutReason, /instance field: theme/);
+});
+
+test("--layout flat opts out; --layout structured refuses instead of falling back", () => {
+  const { root, revision } = workspaceWith({ label: "layout-flags" });
+  write(path.join(revision, "generated-template.java"), splittableTemplate());
+
+  const flat = publish(root, ["--layout", "flat"]);
+  assert.match(flat, /layout\s+= flat \(--layout flat\)/);
+  assert.ok(!fs.existsSync(path.join(root, "templates", "navy-sidebar-cv", "src", "sections")));
+
+  const unsplittable = workspaceWith({ label: "layout-strict" });
+  write(
+    path.join(unsplittable.revision, "generated-template.java"),
+    splittableTemplate().replace(
+      "    private static final double LABEL_SIZE = 8.65;",
+      "    private final BusinessTheme theme;",
+    ),
+  );
+  const refused = failing(() => publish(unsplittable.root, ["--layout", "structured"]));
+  assert.match(refused.output, /cannot be split: instance field: theme/);
+});
+
+test("switching a published bundle back to flat removes the sub-packages", () => {
+  const { root, revision } = workspaceWith({ label: "layout-switch" });
+  write(path.join(revision, "generated-template.java"), splittableTemplate());
+
+  publish(root);
+  const src = path.join(root, "templates", "navy-sidebar-cv", "src");
+  assert.ok(fs.existsSync(path.join(src, "sections")));
+
+  publish(root, ["--layout", "flat"]);
+
+  // A bundle is the published form of one revision, not a directory that
+  // accumulates. Sections left behind from an earlier layout would still
+  // compile, so nothing downstream would notice them.
+  assert.ok(!fs.existsSync(path.join(src, "sections")), "the old sections/ is gone");
+  assert.ok(!fs.existsSync(path.join(src, "theme")), "the old theme/ is gone");
+  assert.ok(fs.existsSync(path.join(src, "NavySidebarCvTemplate.java")));
+});
+
+test("an architecture plan names the sections; without one the method names do", () => {
+  const withPlan = workspaceWith({ label: "layout-plan" });
+  write(path.join(withPlan.revision, "generated-template.java"), splittableTemplate());
+  write(
+    path.join(withPlan.revision, "architecture-plan.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      componentMapping: [{ region: "page-masthead", renderMethod: "renderHeader", notes: "why" }],
+    }),
+  );
+  publish(withPlan.root);
+
+  const src = path.join(withPlan.root, "templates", "navy-sidebar-cv", "src", "sections");
+  assert.ok(fs.existsSync(path.join(src, "PageMastheadSection.java")), "the region names the class");
+  // The plan enriches; it does not select. renderFooter is absent from the
+  // mapping and is still a section.
+  assert.ok(fs.existsSync(path.join(src, "FooterSection.java")));
+});
+
+test("the manifest lists the sources that survived the sweep, not the ones it deleted", () => {
+  // `sources` is read off the directory, so a sweep that ran after the manifest
+  // was written left it describing files that were already gone: republishing a
+  // structured bundle as flat produced a template.json claiming 24 sources over
+  // a src/ holding three.
+  const { root, revision } = workspaceWith({ label: "layout-sources" });
+  write(path.join(revision, "generated-template.java"), splittableTemplate());
+
+  publish(root);
+  publish(root, ["--layout", "flat"]);
+
+  const bundle = path.join(root, "templates", "navy-sidebar-cv");
+  const manifest = JSON.parse(fs.readFileSync(path.join(bundle, "template.json"), "utf8"));
+  const onDisk = fs
+    .readdirSync(path.join(bundle, "src"), { recursive: true })
+    .map((f) => String(f).split(path.sep).join("/"))
+    .filter((f) => f.endsWith(".java"))
+    .sort();
+
+  assert.deepEqual(manifest.sources, onDisk);
+  assert.ok(!manifest.sources.some((f) => f.startsWith("sections/")), "a pruned source is still listed");
+});
+
+test("--layout with no value is a usage error, not a silent auto", () => {
+  const { root, revision } = workspaceWith({ label: "layout-novalue" });
+  write(path.join(revision, "generated-template.java"), splittableTemplate());
+
+  // `parseArgs` gives `true` for a flag with no value; coercing that to the
+  // default meant a caller who dropped the value got a structured bundle and no
+  // diagnostic.
+  const refused = failing(() => publish(root, ["--layout"]));
+  assert.match(refused.output, /--layout needs a value/);
 });
