@@ -41,7 +41,7 @@ import { spawnSync } from "node:child_process";
 
 import { measurementEvidence } from "./lib/iteration-status.mjs";
 import { describeSeal, sealState } from "./lib/revision-seal.mjs";
-import { normaliseDependencies } from "./lib/template-bundle.mjs";
+import { normaliseDependencies, toBundleId } from "./lib/template-bundle.mjs";
 
 import {
   describeWorkspaceLine,
@@ -218,11 +218,26 @@ if (args.readmeOnly) {
       throw new Error(`no project at ${projectDir} (missing template-project.json)`);
     }
     const meta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
-    templateId = meta.templateId || meta.projectName || args.project;
+
+    // The publisher's own default is `kebab(displayName)`, and it has to be
+    // tried before the project id: luma-studio-invoice publishes as
+    // luma-co-studio-invoice, because the display name is "Luma & Co. Studio
+    // Invoice". Looking only at the project id sent this path to a directory
+    // that has never existed and reported the bundle as unpublished.
+    const candidates = [
+      meta.templateId,
+      meta.displayName ? toBundleId(meta.displayName) : null,
+      meta.projectName,
+      args.project,
+    ].filter(Boolean);
+    templateId = candidates.find((id) =>
+      fs.existsSync(path.join(workspace.templatesDir, id, "template.json")),
+    ) ?? candidates[0];
     const bundleDir = path.join(workspace.templatesDir, templateId);
     if (!fs.existsSync(path.join(bundleDir, "template.json"))) {
       throw new Error(
-        `no published bundle at ${bundleDir} — publish it first with `
+        `no published bundle for ${args.project} — looked for ${candidates.join(", ")} under `
+          + `${workspace.templatesDir}. Publish it first with `
           + `scripts/publish-template.mjs --project ${args.project}`,
       );
     }

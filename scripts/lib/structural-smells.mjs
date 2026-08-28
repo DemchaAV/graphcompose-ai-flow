@@ -32,9 +32,17 @@
  * an inter-item gap — exactly what `spacing(...)` is for — so that case is
  * reported with the specific fix rather than the generic one.
  *
+ * ## And one question that is not about geometry
+ *
+ * Whether the template can be *published* as a project rather than as one file
+ * is asked here too, for the same reason: it is a property of the source that no
+ * render can show, and the place to answer it is the loop, not the moment
+ * someone says "approve".
+ *
  * Evidence, not a build failure. The caller exits 0 either way.
  */
 
+import { classify } from "./bundle-split.mjs";
 import { methodBody } from "./region-primitives.mjs";
 
 /**
@@ -253,18 +261,59 @@ function independentGeometryCluster(method, threshold) {
 }
 
 /**
+ * Whether this source can be published as a project rather than as one file.
+ *
+ * Publishing splits the template into `theme/`, `sections/`, `composites/` and
+ * `support/`, and the splitter refuses shapes it cannot account for. That
+ * refusal used to surface at approve time, where the only choices left are
+ * "publish flat" and "do not publish" — luma-co-studio-invoice shipped its
+ * first structured-era bundle as three flat files over an overloaded helper
+ * nobody had been told was a problem. The same question costs nothing in the
+ * loop, where the answer is one rename away, so it is asked here.
+ *
+ * The plan is passed through because it takes part in naming, and a name
+ * collision is one of the things that refuses.
+ */
+function bundleLayout(source, plan) {
+  // Only a template is asked. The other checks here read any Java — a method,
+  // a fragment, a snippet under test — and "this is not a template" is not a
+  // finding about a template. A generated one always carries the entry point
+  // the render runner calls, so that is the test.
+  if (!/\bpublic\s+[\w.<>,?[\]]+\s+compose\s*\(/.test(source)) return [];
+
+  const split = classify(source, { plan });
+  if (split.feasible) return [];
+  return [
+    {
+      kind: "bundle-publishes-flat",
+      method: split.className ?? "the template",
+      count: 1,
+      detail:
+        `approving this publishes a flat bundle — one file, no theme/ sections/ composites/ — ` +
+        `because ${split.reason}. It is a minute's work here and not a choice at all at approve time`,
+    },
+  ];
+}
+
+/**
  * Report the structural smells in a generated template.
  *
  * @param {object} input
  * @param {string} input.source Java source of the generated template
  * @param {Set<string>} [input.primitives] symbols the pinned pack declares
  * @param {object} [input.thresholds]
+ * @param {object|null} [input.plan] parsed `architecture-plan.json`, when there is one
  * @returns {Array<{kind: string, method: string, count: number, detail: string}>}
  */
-export function checkStructuralSmells({ source = "", primitives = new Set(), thresholds = {} } = {}) {
+export function checkStructuralSmells({
+  source = "",
+  primitives = new Set(),
+  thresholds = {},
+  plan = null,
+} = {}) {
   const { negativeMargins = 3, independentLiterals = 8 } = thresholds;
 
-  const findings = [];
+  const findings = [...bundleLayout(source, plan)];
   for (const method of methods(source)) {
     findings.push(...repeatedSiblingOffset(method));
     findings.push(...negativeMarginCluster(method, negativeMargins));

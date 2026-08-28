@@ -200,6 +200,34 @@ test("a plan naming a method the template does not define is reported", () => {
   assert.deepEqual(kinds(findings), ["method-not-found"]);
 });
 
+test("a method that is not there is reported whatever the region is for", () => {
+  // luma's `parties` is role `content`, which carries no build contract, so the
+  // check returned before ever asking whether `renderParties()` existed. It did
+  // not — the source has always said `renderParty(…)` — and six revisions later
+  // that was the reason the published bundle had no structure. Whether a method
+  // exists is not a question about the role.
+  const source = `public final class T {
+    private void renderParty(SectionBuilder section) { section.addParagraph(p -> p.text("x")); }
+}`;
+  const findings = check(
+    source,
+    [{ id: "parties", label: "Bill to / ship to", role: "content" }],
+    [{ region: "parties", renderMethod: "renderParties" }],
+  );
+
+  assert.deepEqual(kinds(findings), ["method-not-found"]);
+  assert.equal(findings[0].role, "content");
+  assert.equal(findings[0].method, "renderParties");
+});
+
+test("a drifted mapping is reported once, not once per pass", () => {
+  const findings = check(CHROME_FOOTER, FOOTER_REGION, [
+    { region: "page-footer", renderMethod: "renderPageFooter" },
+    { region: "page-footer", renderMethod: "renderPageFooter" },
+  ]);
+  assert.deepEqual(kinds(findings), ["method-not-found"]);
+});
+
 // --- reading a method out of Java ---------------------------------------------
 
 test("a method body is read by matching braces, not by guessing where it ends", () => {

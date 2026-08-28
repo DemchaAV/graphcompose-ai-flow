@@ -93,6 +93,23 @@ public final class DemoTemplate {
 }
 `;
 
+/**
+ * The same template with an optional argument on a shared helper.
+ *
+ * Two of the fourteen templates in the maintainer's workspace carry exactly this
+ * — `tracked(…)` on luma, `sectionLabel(…)` on alex-demidov — and both published
+ * flat because the splitter counted the overload as a second member wanting the
+ * same class name.
+ */
+const WITH_OVERLOADED_HELPER = SAMPLE.replace(
+  "    private void onlyHere(",
+  `    private void heading(SectionBuilder section, String text, double gap) {
+        section.addParagraph(p -> p.text(text).style(textStyle(gap)));
+    }
+
+    private void onlyHere(`,
+);
+
 test("classify splits a generated template into theme, sections, composites and support", () => {
   const result = classify(SAMPLE);
 
@@ -169,12 +186,118 @@ test("architecture-plan regions name the sections when the revision has one", ()
   assert.ok(result.sections.some((s) => s.typeName === "FooterSection"));
 });
 
-test("a plan naming a method the source does not declare is a refusal, not a skip", () => {
-  const plan = { componentMapping: [{ region: "ghost", renderMethod: "renderGhost" }] };
+test("a plan naming a method the source does not declare is reported, not refused", () => {
+  const plan = {
+    componentMapping: [
+      { region: "ghost", renderMethod: "renderGhost" },
+      { region: "page-masthead", renderMethod: "renderMasthead" },
+    ],
+  };
   const result = classify(SAMPLE, { plan });
 
+  // This used to refuse, and it cost a real bundle its layout: luma's plan has
+  // named `renderParties` since revision-001 while the source has always
+  // declared `renderParty(…)`. An entry that names nothing enriches nothing —
+  // it is dropped, reported, and the rest of the plan still applies.
+  assert.equal(result.feasible, true, result.reason ?? "");
+  assert.deepEqual(result.planDrift, [{ region: "ghost", renderMethod: "renderGhost" }]);
+  assert.ok(result.sections.some((s) => s.typeName === "PageMastheadSection"));
+});
+
+test("drift is reported even when the split refuses for another reason", () => {
+  const plan = { componentMapping: [{ region: "ghost", renderMethod: "renderGhost" }] };
+  const withField = SAMPLE.replace(
+    "    private static final double LABEL_SIZE = 8.65;",
+    "    private final BusinessTheme theme;\n    private static final double LABEL_SIZE = 8.65;",
+  );
+  const result = classify(withField, { plan });
+
+  // The loop gate asks the same function and has to hear about both.
   assert.equal(result.feasible, false);
-  assert.match(result.reason, /renderGhost/);
+  assert.deepEqual(result.planDrift, [{ region: "ghost", renderMethod: "renderGhost" }]);
+});
+
+test("overloads are one member in one file, not a collision", () => {
+  const result = classify(WITH_OVERLOADED_HELPER);
+
+  assert.equal(result.feasible, true, result.reason ?? "");
+  const heading = result.composites.filter((c) => c.typeName === "Heading");
+  assert.equal(heading.length, 1, "two overloads, one composite");
+  assert.equal(heading[0].overloads.length, 2);
+
+  const files = emit(result, {
+    source: WITH_OVERLOADED_HELPER,
+    basePackage: "com.example",
+    className: "DemoTemplate",
+  }).files;
+  const file = files.get("composites/Heading.java");
+  assert.equal((file.match(/static void render\(/g) ?? []).length, 2);
+  assert.ok(!files.has("composites/Heading2.java"));
+});
+
+test("a call to an overloaded helper is repointed once, for every arity", () => {
+  const result = classify(WITH_OVERLOADED_HELPER);
+  const files = emit(result, {
+    source: WITH_OVERLOADED_HELPER,
+    basePackage: "com.example",
+    className: "DemoTemplate",
+  }).files;
+
+  const masthead = files.get("sections/MastheadSection.java");
+  assert.match(masthead, /Heading\.render\(section, "Masthead"\)/);
+  assert.ok(!/[^.]\bheading\(/.test(masthead), "no unqualified call is left behind");
+});
+
+test("a method several regions map to is named by none of them", () => {
+  // slate-orange's plan maps both `masthead-identity` and `masthead-hairline`
+  // to `renderMasthead`. Taking the last entry named that method after a region
+  // it does not draw, and collided with the method that does.
+  const plan = {
+    componentMapping: [
+      { region: "masthead-identity", renderMethod: "renderMasthead" },
+      { region: "masthead-hairline", renderMethod: "renderMasthead" },
+    ],
+  };
+  const result = classify(SAMPLE, { plan });
+
+  assert.equal(result.feasible, true, result.reason ?? "");
+  const masthead = result.sections.find((s) => s.name === "renderMasthead");
+  assert.equal(masthead.typeName, "MastheadSection");
+});
+
+test("a region name the source already spells for itself yields to the source", () => {
+  const plan = { componentMapping: [{ region: "footer", renderMethod: "renderMasthead" }] };
+  const result = classify(SAMPLE, { plan });
+
+  assert.equal(result.feasible, true, result.reason ?? "");
+  assert.equal(result.sections.find((s) => s.name === "renderMasthead").typeName, "MastheadSection");
+  assert.equal(result.sections.find((s) => s.name === "renderFooter").typeName, "FooterSection");
+});
+
+test("overloads that are not the same kind of thing are refused by name", () => {
+  const confused = SAMPLE.replace(
+    "    private void onlyHere(",
+    "    private static DocumentTextStyle heading(double size) {\n"
+      + "        return DocumentTextStyle.builder().size(size).build();\n"
+      + "    }\n\n    private void onlyHere(",
+  );
+  const result = classify(confused);
+
+  assert.equal(result.feasible, false);
+  assert.match(result.reason, /overloads of heading/);
+});
+
+test("overloads that differ in visibility are refused by name", () => {
+  const confused = SAMPLE.replace(
+    "    private void onlyHere(",
+    "    public void heading(SectionBuilder section, String text, int level) {\n"
+      + "        heading(section, text);\n"
+      + "    }\n\n    private void onlyHere(",
+  );
+  const result = classify(confused);
+
+  assert.equal(result.feasible, false);
+  assert.match(result.reason, /overloads of heading differ in visibility/);
 });
 
 test("instance state is refused rather than mangled", () => {
@@ -530,4 +653,41 @@ test("emitted sources parse back cleanly and reference nothing that moved away",
       }
     }
   }
+});
+
+test("a plan note that cannot be published is dropped, and named", () => {
+  // The note becomes the section class's Javadoc, so it leaves the harness.
+  // One of the 1,576 notes in the corpus ends "that trade was tried in
+  // revision-004 and reversed": true, useful in the plan, and a blocking
+  // portability finding once it is inside a published .java. It used to abort
+  // the publish after the files were on disk, pointing at a generated file
+  // rather than at the plan.
+  const plan = {
+    componentMapping: [
+      {
+        region: "page-masthead",
+        renderMethod: "renderMasthead",
+        notes: "The band is one fixed background; the alternative was tried in revision-004.",
+      },
+      { region: "page-footer", renderMethod: "renderFooter", notes: "why it is built this way" },
+    ],
+  };
+  const result = classify(SAMPLE, { plan });
+
+  assert.equal(result.feasible, true, result.reason ?? "");
+  assert.deepEqual(
+    result.notesDropped.map((n) => ({ region: n.region, rule: n.rule })),
+    [{ region: "page-masthead", rule: "revision-vocabulary" }],
+  );
+
+  const files = emit(result, {
+    source: SAMPLE,
+    basePackage: "com.example",
+    className: "DemoTemplate",
+  }).files;
+  assert.ok(!files.get("sections/PageMastheadSection.java").includes("revision-004"));
+  // The section is still there, still named by its region, and the note that
+  // could be published still is.
+  assert.ok(files.has("sections/PageMastheadSection.java"));
+  assert.match(files.get("sections/PageFooterSection.java"), /why it is built this way/);
 });

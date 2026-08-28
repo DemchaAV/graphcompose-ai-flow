@@ -23,7 +23,13 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { blocking, formatFinding, known, scanPortability } from "../lib/bundle-portability.mjs";
+import {
+  blocking,
+  formatFinding,
+  known,
+  scanPortability,
+  unpublishableText,
+} from "../lib/bundle-portability.mjs";
 
 function bundleWith(files, label = "scan") {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `gcport-${label}-`));
@@ -138,4 +144,19 @@ test("every bundle tracked in this repository is portable", () => {
       `${id} ships a path that resolves only where it was published`,
     );
   }
+});
+
+test("prose headed for a bundle is asked the same questions as a file in one", () => {
+  assert.equal(unpublishableText("the alternative was tried in revision-004 and reversed").rule,
+    "revision-vocabulary");
+  assert.equal(unpublishableText("see revisions/revision-002/output.png").rule, "revision-path");
+  assert.equal(unpublishableText("the band is one fixed bottomBand page background"), null);
+  assert.equal(unpublishableText(""), null);
+  assert.equal(unpublishableText(null), null);
+});
+
+test("a known leak in prose is not a reason to drop it", () => {
+  // `graphcompose.revision.dir` is a `known` rule: real, scheduled, and not
+  // something that should silently delete a sentence.
+  assert.equal(unpublishableText("the provider reads graphcompose.revision.dir"), null);
 });

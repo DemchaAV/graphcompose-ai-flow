@@ -16,6 +16,11 @@
  * has, and where one region has accumulated more independent constants than a
  * layout needs.
  *
+ * It also answers, here rather than at approve time, whether this template can
+ * be published as a project — `theme/`, `sections/`, `composites/` — or only as
+ * one flat file. That question is decided by the source, so this is where it is
+ * cheap: at approve time the only choices left are flat or nothing.
+ *
  * It is evidence, not a build failure: exit 0 whether or not it finds anything,
  * the same contract `check-region-primitives.mjs` has, so a reviewer sees the
  * whole list rather than the first item. `render-and-diff` folds the findings
@@ -155,7 +160,12 @@ if (!template) {
 const project = readJsonOr(path.join(projectDir, "template-project.json")) ?? {};
 const { pack, symbols } = packSymbols(project);
 
-const findings = checkStructuralSmells({ source: template.source, primitives: symbols });
+// The plan takes part in naming the split's files, so the layout this predicts
+// is the layout publishing would actually produce. A revision without one is
+// ordinary and the prediction still holds.
+const plan = readJsonOr(path.join(revisionDir, "architecture-plan.json"));
+
+const findings = checkStructuralSmells({ source: template.source, primitives: symbols, plan });
 
 const result = {
   project: args.project,

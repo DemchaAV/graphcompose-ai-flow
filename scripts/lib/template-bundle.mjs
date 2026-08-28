@@ -56,6 +56,25 @@ const SHORTHAND = new Map([
 const GRAPH_COMPOSE = "io.github.demchaav:graph-compose";
 
 /**
+ * A bundle id from a display name — the publisher's default, shared so that
+ * anything looking a bundle up derives the same id the publisher wrote.
+ *
+ * "Luma & Co. Studio Invoice" is `luma-co-studio-invoice`, which is not the
+ * project id `luma-studio-invoice`. `approve-and-publish --readme-only` had its
+ * own guess and looked in a directory that has never existed.
+ *
+ * @param {string} displayName
+ * @returns {string}
+ */
+export function toBundleId(displayName) {
+  return String(displayName ?? "")
+    .trim()
+    .replace(/[^A-Za-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+}
+
+/**
  * Expand a manifest `dependencies` map into resolvable Maven coordinates.
  *
  * Insertion order is preserved, because it is the order a generated pom lists

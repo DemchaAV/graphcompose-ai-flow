@@ -226,3 +226,68 @@ class T {
   assert.equal(findings.length, 1);
   assert.equal(findings[0].method, "renderSkills");
 });
+
+// ------------------------------------------------------------ bundle layout ---
+
+/** A template in the shape publishing splits, parameterised by its members. */
+const template = (members) => `package com.example;
+
+public final class DemoTemplate {
+
+    private static final double LABEL = 8.5;
+
+    public void compose(DocumentSession document, DemoSpec spec) {
+        renderMasthead(document, spec);
+    }
+
+    private void renderMasthead(SectionBuilder section, DemoSpec spec) {
+        section.addParagraph(p -> p.text(spec.name()));
+    }
+${members}
+}
+`;
+
+test("a template that would publish flat is told so while it can still be fixed", () => {
+  const findings = checkStructuralSmells({
+    source: template("    private final IconCache cache = new IconCache();\n"),
+    primitives: PRIMITIVES,
+  });
+
+  assert.deepEqual(kinds(findings), ["bundle-publishes-flat"]);
+  assert.match(findings[0].detail, /instance field: cache/);
+  assert.equal(findings[0].method, "DemoTemplate");
+});
+
+test("a template that would publish as a project says nothing about layout", () => {
+  const findings = checkStructuralSmells({ source: template(""), primitives: PRIMITIVES });
+  assert.deepEqual(findings, []);
+});
+
+test("a fragment that is not a template is not told about bundles", () => {
+  // The rest of this file feeds three-line snippets to the same function.
+  // "This is not a template" is not a finding about a template.
+  const findings = checkStructuralSmells({
+    source: "class T {\n    private void render(SectionBuilder s) {\n        s.add(x());\n    }\n}\n",
+    primitives: PRIMITIVES,
+  });
+  assert.deepEqual(findings, []);
+});
+
+test("the plan takes part, because a name collision is one way the split refuses", () => {
+  // slate-orange's plan mapped two regions to one method and named it after a
+  // method its own source declares. Predicting the layout without the plan
+  // would have said "structured" and publishing would have said otherwise.
+  const source = template(`
+    private void renderMastheadRule(SectionBuilder section) {
+        section.addLine(l -> l.width(1));
+    }
+`);
+  const plan = {
+    componentMapping: [
+      { region: "masthead-rule", renderMethod: "renderMasthead" },
+      { region: "masthead-rule-2", renderMethod: "renderMastheadRule" },
+    ],
+  };
+
+  assert.deepEqual(checkStructuralSmells({ source, primitives: PRIMITIVES, plan }), []);
+});

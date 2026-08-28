@@ -7,6 +7,84 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### Published bundles
+
+**The first bundle published after v0.18.0 published flat, and it was right
+to.** `luma-co-studio-invoice` came out of a real run as three files, with the
+reason on its manifest: `architecture-plan names renderParties, which the
+source does not declare`. The plan had said `renderParties` since revision-001
+and the source has always declared `renderParty(…)` — a plural that was never
+typed. One word, and the structured layout the whole release was about did not
+happen.
+
+Running `classify()` over the fourteen projects in a real workspace said the
+same thing louder: **eight of fourteen** could be split with their own plan. The
+split was validated against four sources — charcoal-gold 009 and 010, and the
+mint-editorial and olive-curve bundles — and none of the four carries the two
+shapes that were refusing the other six.
+
+- **A plan entry naming a method that is not there is reported, not refused.**
+  The module already said it, twelve lines below the check: *the plan enriches;
+  it does not select*. An entry that names nothing enriches nothing, so it is
+  dropped and travels out on `classification.planDrift`, which the publisher
+  prints and the loop gate reads. This alone was the whole blocker on
+  emerald-chef-cv.
+- **Overloads are one member, not two.** `tracked(name, text, style, tracking,
+  ground)` and the sibling that adds a vertical alignment were filed separately,
+  and both asked for the class name `Tracked`. Java has no such difficulty — two
+  `create(…)` in one class is ordinary — so the classification now works on
+  groups keyed by name, and a group is filed, named and emitted as one thing.
+  Two of the fourteen templates carry exactly this: luma's `tracked`,
+  alex-demidov's `sectionLabel`.
+- **A method several regions map to is named by none of them.**
+  slate-orange's plan maps both `masthead-identity` and `masthead-hairline` to
+  `renderMasthead`; last-wins named that method `MastheadHairlineSection`, which
+  is the name of a *different* method the same template declares, and the split
+  collided with itself. A mapping that is not one-to-one still selects the
+  method as a section; it no longer names it. A region name that lands on a name
+  the source spells for itself yields to the source.
+
+That is **twelve of fourteen**. The two that still refuse refuse honestly, and
+both are named in the loop now rather than at approve time: navy-gold-cv holds
+an instance field (`iconCache`), serif-headline-cv a nested interface
+(`ColumnFactory`).
+
+**A plan note is prose headed for a published file.** The notes become the
+Javadoc of a section class, and they are written for a reviewer who has the
+revisions on disk. One of the 1,576 notes in the corpus ends "that trade was
+tried in revision-004 and reversed" — true, useful in the plan, and a blocking
+portability finding the moment it is inside a published `.java`. It aborted the
+publish *after* the files were written, pointing the author at a generated file
+they cannot edit. A note that cannot be published is now dropped and named
+against the plan entry, where it is fixed. `unpublishableText()` is the same
+rule set the bundle scanner runs, asked of a string.
+
+### The loop
+
+**Whether the method exists is not a question about the role.**
+`check-region-primitives` asked it only for roles carrying a build contract, so
+luma's `parties` — role `content`, deliberately unconstrained — mapped to a
+method that has never existed for six revisions while the check reported "each
+is built the way its role says" every time. It is now asked of every mapping.
+Against the real revision-006 it is one line: `method-not-found [parties] the
+plan maps this region to renderParties(), which the template does not define`.
+
+**`check-structural-smells` predicts the published layout.** The splitter's
+constraints existed only inside the splitter, and surfaced at the one moment
+where the only choices left are "publish flat" and "do not publish". The same
+question costs nothing in the loop, where the answer is a rename away, so the
+gate that already reads the source now answers it: `bundle-publishes-flat`,
+with the refusal reason. Asked only of a template — the gate's other checks run
+on any Java, and "this is not a template" is not a finding about a template.
+
+### Fixed
+
+- `approve-and-publish --readme-only` looked for the bundle under the project
+  id, so a project whose display name kebabs to something else — "Luma & Co.
+  Studio Invoice" is `luma-co-studio-invoice`, not `luma-studio-invoice` —
+  reported its published bundle as unpublished. Both scripts now derive the id
+  through one `toBundleId()` in `scripts/lib/template-bundle.mjs`.
+
 ### Site
 
 **The landing page was drawing an architecture the project stopped having.**

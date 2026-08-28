@@ -41,6 +41,8 @@
  * files is `emit()`'s job, and writing them is the publisher's.
  */
 
+import { unpublishableText } from "./bundle-portability.mjs";
+
 /** Builder types whose presence as a first parameter means "this draws". */
 const BUILDER_TYPES = new Set([
   "DocumentSession",
@@ -122,6 +124,8 @@ const STATEMENT_HEAD = /^\s*(if|for|while|switch|catch|try|else|do|return|new|th
  *   sections: Array<object>,
  *   composites: Array<object>,
  *   template: Array<object>,
+ *   planDrift: Array<{region: string|null, renderMethod: string}>,
+ *   notesDropped: Array<{region: string|null, renderMethod: string, rule: string, message: string}>,
  * }}
  */
 export function classify(source, options = {}) {
@@ -132,24 +136,29 @@ export function classify(source, options = {}) {
 
   const { className, fields, methods, nestedTypes } = parsed;
 
+  // Computed before anything can refuse, because a stale plan entry is worth
+  // reporting whatever else is wrong with the template: it is a finding about
+  // the revision, and the revision is where it gets fixed.
+  const planDrift = driftingEntries(plan, methods);
+
   // --- feasibility -----------------------------------------------------------
 
   const instanceField = fields.find((f) => !f.static);
   if (instanceField) {
-    return refusal(`instance field: ${instanceField.name}`, className);
+    return refusal(`instance field: ${instanceField.name}`, className, planDrift);
   }
 
   const constructor = methods.find((m) => m.name === className);
-  if (constructor) return refusal(`constructor: ${className}(…)`, className);
+  if (constructor) return refusal(`constructor: ${className}(…)`, className, planDrift);
 
   const unbalanced = [...methods, ...nestedTypes].find((m) => !m.balanced);
   if (unbalanced) {
-    return refusal(`unbalanced declaration: ${unbalanced.name}`, className);
+    return refusal(`unbalanced declaration: ${unbalanced.name}`, className, planDrift);
   }
 
   const foreignType = nestedTypes.find((t) => t.kind !== "record");
   if (foreignType) {
-    return refusal(`nested ${foreignType.kind}: ${foreignType.name}`, className);
+    return refusal(`nested ${foreignType.kind}: ${foreignType.name}`, className, planDrift);
   }
 
   // The public surface stays where a consumer expects to find it. `compose` has
@@ -159,21 +168,44 @@ export function classify(source, options = {}) {
   // filed the second `compose` under composites as a class called `Compose`.
   const publicApi = methods.filter((m) => m.public);
   if (!publicApi.some((m) => m.name === "compose")) {
-    return refusal("no public compose(…) method", className);
+    return refusal("no public compose(…) method", className, planDrift);
   }
 
   // --- sections --------------------------------------------------------------
 
-  const byName = new Map(methods.map((m) => [m.name, m]));
-  const declared = declaredSections(plan);
+  // Overloads are one member, not two. `tracked(name, text, style, tracking,
+  // ground)` and the sibling that adds a vertical alignment are the same helper
+  // with an optional argument, and filing them separately gave both the class
+  // name `Tracked` — a collision that refused the split of a template whose only
+  // unusual feature was a default. Java has no such difficulty: two `create(…)`
+  // in one class is ordinary. So everything below works on groups keyed by name,
+  // and a group is filed, named and emitted as a single thing.
+  const groups = groupByName(methods);
 
-  const missing = declared.find((d) => !byName.has(d.renderMethod));
-  if (missing) {
+  const mixedVisibility = groups.find(
+    (g) => g.members.some((m) => m.public) !== g.members.every((m) => m.public),
+  );
+  if (mixedVisibility) {
     return refusal(
-      `architecture-plan names ${missing.renderMethod}, which the source does not declare`,
+      `overloads of ${mixedVisibility.name} differ in visibility`,
       className,
+      planDrift,
     );
   }
+
+  const byName = new Map(groups.map((g) => [g.name, g]));
+  const privateGroups = groups.filter((g) => !g.primary.public);
+
+  // The plan is written at design time and the source moves out from under it.
+  // luma's plan named `renderParties` from revision-001, while the source has
+  // always declared `renderParty(…)` — a plural that was never typed — and six
+  // revisions later that one word was the entire reason a bundle published flat.
+  // Refusing over it made the plan authoritative about the source, which is the
+  // opposite of the rule stated just below. An entry naming a method that is not
+  // there enriches nothing, so it is dropped and reported: `planDrift` is what
+  // the loop gate reads, because a stale plan is fixed in the revision and not
+  // at the moment someone says "approve".
+  const declared = declaredSections(plan).filter((d) => byName.has(d.renderMethod));
 
   // The plan enriches; it does not select. `componentMapping` names the regions
   // a reviewer cares about and says why each is built the way it is, but it is
@@ -183,22 +215,57 @@ export function classify(source, options = {}) {
   // is neither a composite nor a name. The naming rule the harness actually
   // enforces is the method prefix, so that is the list, and the plan supplies
   // the better name and the reasoning for the entries it does cover.
-  const declaredByMethod = new Map(declared.map((d) => [d.renderMethod, d]));
-  const sections = methods
-    .filter((m) => !m.public)
-    .filter((m) => /^render[A-Z]/.test(m.name) || declaredByMethod.has(m.name))
-    .map((m) => {
-      const declaredEntry = declaredByMethod.get(m.name) ?? null;
+  //
+  // A method several regions map to is named by none of them. slate-orange's
+  // plan maps `masthead-identity` and `masthead-hairline` both to
+  // `renderMasthead`; taking the last entry named that method
+  // `MastheadHairlineSection`, which is the name of a *different* method the same
+  // template declares, so the split collided with itself and refused. A mapping
+  // that is not one-to-one still selects the method as a section; it just does
+  // not get to name it.
+  const mappedMethods = new Set(declared.map((d) => d.renderMethod));
+  const declaredByMethod = new Map();
+  for (const entry of declared) {
+    declaredByMethod.set(entry.renderMethod, declaredByMethod.has(entry.renderMethod) ? null : entry);
+  }
+
+  // A note becomes the section class's Javadoc, so it leaves the harness. The
+  // notes are written for a reviewer who has the revisions on disk, and one of
+  // the 1,576 in the corpus ends "that trade was tried in revision-004 and
+  // reversed" — which is true, useful in the plan, and a blocking portability
+  // finding once it is inside a published `.java`. That aborted a publish after
+  // the files were already written, pointing the author at a generated file
+  // rather than at the plan. The note is enrichment like the region name: one
+  // that cannot be published is dropped and reported.
+  const notesDropped = [];
+
+  const sections = privateGroups
+    .filter((g) => /^render[A-Z]/.test(g.name) || mappedMethods.has(g.name))
+    .map((g) => {
+      const declaredEntry = declaredByMethod.get(g.name) ?? null;
       const region = declaredEntry ? declaredEntry.region : null;
+      const stemName = sectionType(renderStem(g.name));
+      const unpublishable = declaredEntry ? unpublishableText(declaredEntry.notes) : null;
+      if (unpublishable) {
+        notesDropped.push({ region, renderMethod: g.name, ...unpublishable });
+      }
       return {
-        ...m,
+        ...g.primary,
+        overloads: g.members,
         region,
-        notes: declaredEntry ? declaredEntry.notes : null,
-        typeName: sectionType(region ? pascal(region) : renderStem(m.name)),
+        notes: declaredEntry && !unpublishable ? declaredEntry.notes : null,
+        stemName,
+        typeName: region ? sectionType(pascal(region)) : stemName,
       };
     });
 
-  if (sections.length === 0) return refusal("no render* methods to split on", className);
+  if (sections.length === 0) return refusal("no render* methods to split on", className, planDrift);
+
+  // A region name can still land on a name the source already spells itself.
+  // The plan is the borrowed name and the method prefix is the native one, so
+  // the borrowed one yields; what survives that is a genuine clash and refuses
+  // below.
+  preferNativeNames(sections);
 
   const sectionNames = new Set(sections.map((s) => s.name));
 
@@ -210,18 +277,27 @@ export function classify(source, options = {}) {
   const themeMethods = [];
   const template = [...publicApi];
 
-  for (const method of methods) {
-    if (method.public || sectionNames.has(method.name)) continue;
+  for (const group of privateGroups) {
+    if (sectionNames.has(group.name)) continue;
 
-    const called = callers.get(method.name) ?? new Set();
+    // `callGraph` is keyed by name and already ignores a method calling itself,
+    // so a group's callers are the union across its overloads minus the calls
+    // they make to each other — which is what decides placement for the group.
+    const called = callers.get(group.name) ?? new Set();
     const callingSections = [...called].filter((name) => sectionNames.has(name));
 
-    if (makesToken(method)) {
-      themeMethods.push(method);
+    const kinds = new Set(group.members.map(bucketOf));
+    if (kinds.size > 1) {
+      return refusal(`overloads of ${group.name} are not the same kind of thing`, className, planDrift);
+    }
+    const kind = [...kinds][0];
+
+    if (kind === "theme") {
+      themeMethods.push(...group.members);
       continue;
     }
-    if (!drawsInto(method)) {
-      support.push(method);
+    if (kind === "support") {
+      support.push(...group.members);
       continue;
     }
     // Used by exactly one section and by nothing else: it is that section's
@@ -230,10 +306,10 @@ export function classify(source, options = {}) {
     if (callingSections.length === 1 && called.size === 1) {
       const owner = sections.find((s) => s.name === callingSections[0]);
       owner.local = owner.local ?? [];
-      owner.local.push(method);
+      owner.local.push(...group.members);
       continue;
     }
-    composites.push({ ...method, typeName: pascal(method.name) });
+    composites.push({ ...group.primary, overloads: group.members, typeName: pascal(group.name) });
   }
 
   // Fields split the same way: a palette entry is a token, a system-property
@@ -247,7 +323,9 @@ export function classify(source, options = {}) {
   }
 
   const collision = duplicateTypeName([...sections, ...composites]);
-  if (collision) return refusal(`two members would produce class ${collision}`, className);
+  if (collision) {
+    return refusal(`two members would produce class ${collision}`, className, planDrift);
+  }
 
   return {
     feasible: true,
@@ -259,6 +337,8 @@ export function classify(source, options = {}) {
     composites,
     template,
     nestedTypes,
+    planDrift,
+    notesDropped,
   };
 }
 
@@ -428,6 +508,50 @@ function baseType(token) {
 
 // -------------------------------------------------------------- classifying ---
 
+/**
+ * Methods as groups of overloads, in source order, first declaration first.
+ *
+ * @param {Array<object>} methods
+ * @returns {Array<{name: string, primary: object, members: Array<object>}>}
+ */
+function groupByName(methods) {
+  const groups = new Map();
+  for (const method of methods) {
+    const group = groups.get(method.name);
+    if (group) group.members.push(method);
+    else groups.set(method.name, { name: method.name, primary: method, members: [method] });
+  }
+  return [...groups.values()];
+}
+
+/** Which of the three buckets a helper belongs in, before placement decides where. */
+function bucketOf(method) {
+  if (makesToken(method)) return "theme";
+  return drawsInto(method) ? "draws" : "support";
+}
+
+/**
+ * Give the method prefix the last word when a plan region wants a taken name.
+ *
+ * The plan's name is borrowed and the prefix's name is native, so the borrowed
+ * one yields. Done in place, once, before the duplicate check: what still
+ * collides afterwards is two methods genuinely asking for one class, which is
+ * a refusal and not something to paper over.
+ */
+function preferNativeNames(sections) {
+  const uses = new Map();
+  for (const section of sections) {
+    uses.set(section.typeName, (uses.get(section.typeName) ?? 0) + 1);
+  }
+  for (const section of sections) {
+    if (!section.region || section.typeName === section.stemName) continue;
+    if ((uses.get(section.typeName) ?? 0) < 2) continue;
+    uses.set(section.typeName, uses.get(section.typeName) - 1);
+    section.typeName = section.stemName;
+    uses.set(section.stemName, (uses.get(section.stemName) ?? 0) + 1);
+  }
+}
+
 /** A helper draws when it appends to a builder or hands back a piece of page. */
 function drawsInto(method) {
   const first = method.params[0];
@@ -473,6 +597,24 @@ function callGraph(source, methods) {
     }
   }
   return callers;
+}
+
+/**
+ * Plan entries that name a render method the template does not declare.
+ *
+ * Reported rather than refused — see the note in {@link classify} — and exported
+ * through the classification so the loop can raise it while the revision is
+ * still being iterated, which is the only place it is cheap to fix.
+ *
+ * @param {object|null} plan
+ * @param {Array<object>} methods
+ * @returns {Array<{region: string|null, renderMethod: string}>}
+ */
+function driftingEntries(plan, methods) {
+  const declared = new Set(methods.map((m) => m.name));
+  return declaredSections(plan)
+    .filter((entry) => !declared.has(entry.renderMethod))
+    .map((entry) => ({ region: entry.region, renderMethod: entry.renderMethod }));
 }
 
 function declaredSections(plan) {
@@ -654,7 +796,7 @@ function javadocStart(lines, at) {
   return i < 0 ? null : i + 1;
 }
 
-function refusal(reason, className) {
+function refusal(reason, className, planDrift = []) {
   return {
     feasible: false,
     reason,
@@ -665,6 +807,8 @@ function refusal(reason, className) {
     composites: [],
     template: [],
     nestedTypes: [],
+    planDrift,
+    notesDropped: [],
   };
 }
 
@@ -782,7 +926,10 @@ export function emit(classification, options) {
         imports: importsFor(sectionsPackage),
         doc: sectionDoc(section),
         name: section.typeName,
-        members: [moveMember(section, { renames, name: "render" }), ...locals],
+        members: [
+          ...overloadsOf(section).map((m) => moveMember(m, { renames, name: "render" })),
+          ...locals,
+        ],
       }),
     );
   }
@@ -795,7 +942,9 @@ export function emit(classification, options) {
         imports: importsFor(compositesPackage),
         doc: compositeDoc(composite),
         name: composite.typeName,
-        members: [moveMember(composite, { renames, name: renames.get(composite.name).name })],
+        members: overloadsOf(composite).map((m) =>
+          moveMember(m, { renames, name: renames.get(composite.name).name }),
+        ),
       }),
     );
   }
@@ -830,6 +979,11 @@ export function emit(classification, options) {
   };
 }
 
+/** A member and its overloads, which travel to the same file under one name. */
+function overloadsOf(member) {
+  return member.overloads ?? [member];
+}
+
 /** Old method name → where it moved and what it is called there. */
 function renameMap(classification) {
   const renames = new Map();
@@ -842,7 +996,13 @@ function renameMap(classification) {
       // A helper that appends to a builder renders; one that hands back a node
       // creates. `AddressBlock.create(...)` and `SectionHeading.render(...)`
       // read as what they do, which a kept `sidebarHeading` would not.
-      name: baseType(composite.returnType ?? "void") === "void" ? "render" : "create",
+      //
+      // Overloads share the name, so the group decides it once: anything that
+      // hands something back makes the whole group `create`, because a call site
+      // cannot be repointed at two different names.
+      name: overloadsOf(composite).every((m) => baseType(m.returnType ?? "void") === "void")
+        ? "render"
+        : "create",
     });
   }
   return renames;

@@ -56,6 +56,7 @@ import {
   normaliseDependencies,
   packageOf,
   previewPageCount,
+  toBundleId,
 } from "./lib/template-bundle.mjs";
 import { blocking, formatFinding, known, scanPortability } from "./lib/bundle-portability.mjs";
 import { classify, emit } from "./lib/bundle-split.mjs";
@@ -137,7 +138,7 @@ if (revisionMeta.status !== "APPROVED") {
 }
 
 const displayName = projectMeta.displayName || project;
-const templateId = args["template-id"] || toKebab(displayName);
+const templateId = args["template-id"] || toBundleId(displayName);
 const className = args["class-name"] || pascalCase(displayName) + "Template";
 const docKind = args["doc-kind"] || inferDocKind(revisionDir);
 
@@ -237,6 +238,28 @@ if (layoutMode === "flat") {
   layoutReason = "--layout flat";
 } else {
   const classification = classify(renamedSource, { plan: readArchitecturePlan(revisionDir) });
+
+  // A plan entry naming a method the source does not declare no longer refuses
+  // the split — it just names nothing, so the section it was meant to name is
+  // called after its method instead. Said out loud because the region name is
+  // the better one and the revision is where it gets fixed.
+  for (const drift of classification.planDrift) {
+    console.log(
+      `[publish-template] plan drift    = ${drift.renderMethod}() is not declared; ` +
+        `"${drift.region ?? "?"}" names no section`,
+    );
+  }
+
+  // The note would have become that section's Javadoc, and it says something a
+  // consumer cannot use. Named against the plan entry, which is where it is
+  // edited — the scanner that used to catch this named the generated file.
+  for (const dropped of classification.notesDropped) {
+    console.log(
+      `[publish-template] note dropped  = "${dropped.region ?? dropped.renderMethod}" — ` +
+        `${dropped.message}`,
+    );
+  }
+
   if (!classification.feasible) {
     layoutReason = classification.reason;
     if (layoutMode === "structured") {
@@ -712,14 +735,6 @@ function inferDocKind(revisionDir) {
     return "cv";
   }
   return match.replace(/-data\.json$/, "");
-}
-
-function toKebab(s) {
-  return s
-    .trim()
-    .replace(/[^A-Za-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase();
 }
 
 function pascalCase(s) {

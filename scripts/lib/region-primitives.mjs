@@ -150,6 +150,30 @@ export function methodBody(source, methodName) {
 export function checkRegionPrimitives({ regions = [], componentMapping = [], source = "" }) {
   const findings = [];
   const mappingFor = new Map(componentMapping.map((entry) => [entry.region, entry]));
+  const roleFor = new Map(regions.map((region) => [region.id, region.role ?? null]));
+
+  // Whether the method exists is not a question about the role. It used to be
+  // asked only for roles carrying a build contract, so luma's `parties` — role
+  // `content`, deliberately unconstrained — mapped to `renderParties()` for six
+  // revisions while the source declared `renderParty(…)`, and this check
+  // reported "each is built the way its role says" every time. The plan is the
+  // link the whole review follows; an entry pointing at nothing breaks the link
+  // whatever the region is for, and it is what publishes a bundle flat later.
+  const reported = new Set();
+  for (const entry of componentMapping) {
+    if (!entry || typeof entry.renderMethod !== "string" || entry.renderMethod === "") continue;
+    const key = `${entry.region}::${entry.renderMethod}`;
+    if (reported.has(key)) continue;
+    if (methodBody(source, entry.renderMethod) !== null) continue;
+    reported.add(key);
+    findings.push({
+      kind: "method-not-found",
+      region: entry.region ?? null,
+      role: roleFor.get(entry.region) ?? null,
+      method: entry.renderMethod,
+      detail: `the plan maps this region to ${entry.renderMethod}(), which the template does not define`,
+    });
+  }
 
   for (const region of regions) {
     const role = region.role ?? null;
@@ -184,17 +208,10 @@ export function checkRegionPrimitives({ regions = [], componentMapping = [], sou
       continue;
     }
 
+    // Already reported by the pass above, which asks it of every mapping rather
+    // than only of the roles that carry a contract.
     const body = methodBody(source, mapping.renderMethod);
-    if (body === null) {
-      findings.push({
-        kind: "method-not-found",
-        region: region.id,
-        role,
-        method: mapping.renderMethod,
-        detail: `the plan maps this region to ${mapping.renderMethod}(), which the template does not define`,
-      });
-      continue;
-    }
+    if (body === null) continue;
 
     for (const banned of contract.forbidden) {
       if (body.includes(banned)) {

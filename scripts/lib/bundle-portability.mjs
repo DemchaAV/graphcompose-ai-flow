@@ -118,6 +118,32 @@ export function scanPortability(root, { skip = [] } = {}) {
   return findings;
 }
 
+/**
+ * The blocking rule a piece of prose trips, if it trips one.
+ *
+ * For text that is about to be *written into* a bundle rather than found in
+ * one: an `architecture-plan.json` note becomes the Javadoc of a section class,
+ * and the loop writes those notes for a reviewer who has the revisions on disk.
+ * One of the 1,576 notes in the corpus ends "that trade was tried in
+ * revision-004 and reversed" — true, useful in the plan, and meaningless to
+ * someone handed the bundle.
+ *
+ * `allowIn` is deliberately not consulted: the allowance is for the manifest
+ * and the README, where revision vocabulary is metadata, and this asks about
+ * text headed for a `.java` file.
+ *
+ * @param {string} text
+ * @returns {{rule: string, message: string}|null}
+ */
+export function unpublishableText(text) {
+  if (typeof text !== "string" || text === "") return null;
+  for (const rule of RULES) {
+    if (rule.severity !== "blocking") continue;
+    if (rule.pattern.test(text)) return { rule: rule.id, message: rule.message };
+  }
+  return null;
+}
+
 /** The findings that must stop a publish. */
 export function blocking(findings) {
   return findings.filter((f) => f.severity === "blocking");

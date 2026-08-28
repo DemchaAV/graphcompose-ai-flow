@@ -79,7 +79,15 @@ What it enforces, so you do not have to:
   construction it cannot parse — publishes **flat**, with the reason on
   `template.json`'s `layoutReason`. That is not a failure and does not
   need fixing; say which layout was published if the user asks, and
-  otherwise leave it alone.
+  otherwise leave it alone. It should not be news either way:
+  `check-structural-smells` reports `bundle-publishes-flat` with the same
+  reason during the loop, where a rename still fixes it.
+
+  Two things the publisher says out loud and neither stops it. `plan
+  drift` means a `componentMapping` entry names a method the source does
+  not declare, so that region's name was not used; `note dropped` means a
+  plan note could not go into a published file — both are edits to the
+  revision's `architecture-plan.json`, not to the bundle.
 - **The published bundle must render what the user approved.** The
   `render` tier now compares its own render with the approved revision's
   `output.png` and fails on any difference. If a structured bundle does
