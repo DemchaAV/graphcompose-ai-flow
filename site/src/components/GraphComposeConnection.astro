@@ -1,46 +1,91 @@
 ---
+import project from '../data/generated/project.json';
+import { Spell } from '../lib/numbers';
+import { Code } from 'astro:components';
+import { CODE_THEME } from '../lib/code';
+
+// Repository paths are written out literally; see the note in Architecture.astro.
 const graphComposeUrl = 'https://github.com/DemchaAV/GraphCompose';
 const repoUrl = 'https://github.com/DemchaAV/graphcompose-ai-flow';
+const packs = project.library.packs;
+const currentPack = packs.find((p) => `${p.line}.x` === project.library.default) ?? packs.at(-1);
+
+// The strawman. Not GraphCompose — this is what drawing a document on a canvas
+// looks like, and the point is that nothing about it can be reviewed.
+const artistParadigm = `canvas.moveTo(72, 720);
+canvas.drawString("INVOICE");
+canvas.rect(72, 600, 460, 80);`;
+
+// Real calls. This is the shape examples/skill-fixtures/ compiles and renders
+// against the pinned line in CI, not an illustration written for the page — a
+// landing page for a harness whose first rule is "never invent GraphCompose
+// API" is the last place to show API that does not exist.
+const compilerParadigm = `document.pageFlow(page -> page
+        .name("Invoice")
+        .spacing(BASE_GAP)
+        .addSection("Terms", this::renderTerms));
+
+section.softPanel(theme.surfaceMuted(), 6.0, 8.0)
+        .addParagraph(p -> p
+                .text(data.terms())
+                .textStyle(theme.body()));`;
 ---
 <section class="gc" id="graphcompose">
   <div class="container">
-    <p class="eyebrow">04 · the target language</p>
-    <h2>GraphCompose is the compile target. The AI learns to speak it.</h2>
+    <p class="eyebrow">07 · the target language</p>
+    <h2>GraphCompose is the compile target. The harness teaches the agent to speak it.</h2>
 
     <div class="grid">
       <div class="prose">
         <p>
           <a href={graphComposeUrl}><code>GraphCompose</code></a> is a Java library for
           building PDFs out of <em>semantic primitives</em>: sections, rows, tables,
-          themes, layer stacks, shape containers, layout snapshots, and visual regression
-          checks. It treats documents as composable nodes, not as a canvas of coordinates.
+          themes, layer stacks, shape containers, layout snapshots and visual regression
+          checks. It treats a document as composable nodes, not as a canvas of
+          coordinates.
         </p>
         <p>
-          <strong class="accent">This project is the AI workflow that targets GraphCompose
-          as a compile target.</strong> The agent receives a visual reference and
-          reconstructs it using GraphCompose primitives. The output is not a one-shot
-          PDF &mdash; it is a maintainable Java template you can read, diff, and revise.
+          <strong class="accent">This project is the harness that targets GraphCompose as
+          a compile target.</strong> The agent receives a visual reference and
+          reconstructs it out of those primitives. The output is not a one-shot PDF — it
+          is a maintainable Java template you can read, diff and revise, with the content
+          in a JSON file beside it.
         </p>
         <p class="meta">
-          GraphCompose <code>1.6.0</code> is resolved through JitPack as
-          <code>com.github.DemchaAV:GraphCompose:v1.6.0</code>. The skill packs under
+          The library is resolved from Maven Central as
+          <code>{project.library.coordinate}</code>, and the version your build file pins
+          decides which knowledge the agent may use.
+          {Spell(packs.length)} packs ship — {project.library.supported.join(', ')} — and the
+          current one carries a source-generated allow-list plus a loading map that
+          answers <em>given this task, which of its {currentPack?.fileCount} files do I
+          open?</em> A line with no pack stops the run.
           <a href={`${repoUrl}/tree/main/skills/versions`}><code>skills/versions/</code></a>
-          are versioned contracts between the agent and a specific GraphCompose API.
         </p>
       </div>
 
-      <pre class="snippet" aria-label="Two paradigms for AI-generated PDFs"><span class="line muted"># artist paradigm</span>
-<span class="line warn">canvas.moveTo(72, 720);</span>
-<span class="line warn">canvas.drawString("INVOICE");</span>
-<span class="line warn">canvas.rect(72, 600, 460, 80);</span>
-<span class="line muted">  one-shot. unreviewable.</span>
+      <div class="snippets">
+        <figure class="snippet-figure paradigm artist">
+          <figcaption class="paradigm-head">
+            <span class="paradigm-name">the artist paradigm</span>
+            <span class="paradigm-verdict">one-shot · unreviewable</span>
+          </figcaption>
+          <Code code={artistParadigm} lang="java" theme={CODE_THEME} />
+        </figure>
 
-<span class="line muted"># compiler paradigm (this project)</span>
-<span class="line good">Section.of(invoiceHeader)</span>
-<span class="line good">    .withTheme(BusinessTheme.mint())</span>
-<span class="line good">    .row(invoiceMeta, invoiceTotal)</span>
-<span class="line good">    .table(lineItems, spec);</span>
-<span class="line muted">  typed. testable. revisable.</span></pre>
+        <figure class="snippet-figure paradigm compiler">
+          <figcaption class="paradigm-head">
+            <span class="paradigm-name">the compiler paradigm</span>
+            <span class="paradigm-verdict">typed · testable · revisable</span>
+          </figcaption>
+          <Code code={compilerParadigm} lang="java" theme={CODE_THEME} />
+          <p class="snippet-note">
+            The shape the fixtures compile and render against
+            {project.library.default.replace('.x', '.0')} in CI: one named method per
+            visible region, geometry derived from a base constant, content out of the
+            data file.
+          </p>
+        </figure>
+      </div>
     </div>
   </div>
 </section>
@@ -89,29 +134,84 @@ const repoUrl = 'https://github.com/DemchaAV/graphcompose-ai-flow';
     font-size: 0.92rem !important;
     color: var(--fg-dim) !important;
   }
+  .meta code {
+    color: var(--fg-muted);
+  }
+  .meta em {
+    color: var(--fg-muted);
+  }
 
-  .snippet {
+  .prose,
+  .snippets {
+    /* Grid items default to min-width:auto, so a pre meant to scroll inside its
+       own box would widen the column and take the page with it on a narrow
+       screen. */
+    min-width: 0;
+  }
+  .snippets {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .snippet-figure {
     margin: 0;
-    background: var(--bg-card);
+    min-width: 0;
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 22px;
+    overflow: hidden;
+    background: var(--bg-card);
+  }
+  /* Which paradigm a block belongs to is carried by one edge, so the tokens
+     themselves stay the theme's rather than being recoloured to make a point. */
+  .paradigm.artist {
+    border-left: 2px solid #f87171;
+  }
+  .paradigm.compiler {
+    border-left: 2px solid var(--accent);
+  }
+
+  .paradigm-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 6px 16px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
     font-family: var(--font-mono);
-    font-size: 0.86rem;
-    line-height: 1.7;
-    overflow-x: auto;
-    white-space: pre;
+    font-size: 0.74rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
-  .line {
-    display: block;
-  }
-  .muted {
-    color: var(--fg-dim);
-  }
-  .warn {
+  .paradigm.artist .paradigm-name {
     color: #f87171;
   }
-  .good {
+  .paradigm.compiler .paradigm-name {
     color: var(--accent);
+  }
+  .paradigm-verdict {
+    color: var(--fg-dim);
+  }
+
+  /* Shiki inlines the theme's background; the card supplies its own. */
+  .snippet-figure :global(pre.astro-code) {
+    margin: 0;
+    padding: 18px;
+    background: transparent !important;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.7;
+    overflow-x: auto;
+  }
+  .snippet-figure :global(pre.astro-code code) {
+    font-size: inherit;
+  }
+
+  .snippet-note {
+    margin: 0;
+    padding: 14px 18px;
+    border-top: 1px solid var(--border);
+    color: var(--fg-dim);
+    font-size: 0.85rem;
+    line-height: 1.6;
   }
 </style>

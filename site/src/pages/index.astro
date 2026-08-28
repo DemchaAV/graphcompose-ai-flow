@@ -1,17 +1,25 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import Nav from '../components/Nav.astro';
 import Hero from '../components/Hero.astro';
+import Architecture from '../components/Architecture.astro';
+import Install from '../components/Install.astro';
 import Pipeline from '../components/Pipeline.astro';
 import Pillars from '../components/Pillars.astro';
 import GraphComposeConnection from '../components/GraphComposeConnection.astro';
+import RevisionFlows from '../components/RevisionFlows.astro';
 import LiveExample from '../components/LiveExample.astro';
 import Footer from '../components/Footer.astro';
 ---
-<Layout title="GraphCompose AI Template Flow — AI doesn't draw PDFs. It compiles them.">
+<Layout title="GraphCompose AI Flow — AI doesn't draw PDFs. It compiles them.">
+  <Nav />
   <Hero />
+  <RevisionFlows />
+  <LiveExample />
+  <Install />
+  <Architecture />
   <Pipeline />
   <Pillars />
   <GraphComposeConnection />
-  <LiveExample />
   <Footer />
 </Layout>

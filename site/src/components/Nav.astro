@@ -1,0 +1,185 @@
+---
+import project from '../data/generated/project.json';
+
+const repoUrl = 'https://github.com/DemchaAV/graphcompose-ai-flow';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+// The page is fifteen screens tall. Without this a visitor who wants the
+// install command has to scroll past every argument for why they should want
+// it, and a visitor who wants the architecture has to scroll past the proof.
+// Both are reasonable ways to arrive.
+const links = [
+  { href: '#flows', label: 'runs' },
+  { href: '#install', label: 'install' },
+  { href: '#architecture', label: 'architecture' },
+  { href: '#pipeline', label: 'pipeline' },
+  { href: '#why', label: 'why' },
+];
+---
+<nav class="nav" aria-label="Sections">
+  <div class="inner">
+    <a class="brand" href={`${base}/`}>
+      graphcompose-ai-flow
+      <span class="version">v{project.version}</span>
+    </a>
+
+    <ul class="links">
+      {links.map((link) => (
+        <li>
+          <a href={`${base}/${link.href}`} data-target={link.href.slice(1)}>{link.label}</a>
+        </li>
+      ))}
+    </ul>
+
+    <a class="repo" href={repoUrl}>GitHub</a>
+  </div>
+</nav>
+
+<style>
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: color-mix(in srgb, var(--bg) 86%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  /* color-mix is recent enough to want a floor under it: without the blur or
+     the mix the bar still has to be opaque, or the page scrolls through it. */
+  @supports not (background: color-mix(in srgb, red 50%, transparent)) {
+    .nav {
+      background: var(--bg);
+    }
+  }
+
+  .inner {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 24px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .brand {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--fg);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .brand:hover {
+    color: var(--accent);
+  }
+  .version {
+    color: var(--fg-dim);
+    font-weight: 400;
+    margin-left: 4px;
+  }
+
+  .links {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .links::-webkit-scrollbar {
+    display: none;
+  }
+  .links a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--fg-muted);
+    white-space: nowrap;
+    transition: color 0.12s ease, background 0.12s ease;
+  }
+  .links a:hover {
+    color: var(--fg);
+    background: var(--bg-elev);
+  }
+  .links a[aria-current='true'] {
+    color: var(--accent);
+    background: var(--bg-elev);
+  }
+
+  .repo {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--fg-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .repo:hover {
+    color: var(--accent);
+  }
+
+  @media (max-width: 720px) {
+    .inner {
+      gap: 14px;
+      padding: 0 16px;
+    }
+    .brand {
+      /* The version is the first thing worth dropping when the bar runs out of
+         room: the footer carries it too. */
+      font-size: 0.76rem;
+    }
+    .version,
+    .repo {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  // Mark the section the reader is actually in. `IntersectionObserver` fires on
+  // the boundary rather than on every scroll frame, so this costs nothing while
+  // the page sits still.
+  const links = Array.from(
+    document.querySelectorAll<HTMLAnchorElement>('.nav .links a[data-target]'),
+  );
+  const byId = new Map(links.map((link) => [link.dataset.target!, link]));
+  const sections = links
+    .map((link) => document.getElementById(link.dataset.target!))
+    .filter((section): section is HTMLElement => section !== null);
+
+  let current: HTMLAnchorElement | null = null;
+  function mark(id: string | null) {
+    const next = id ? byId.get(id) ?? null : null;
+    if (next === current) return;
+    current?.removeAttribute('aria-current');
+    next?.setAttribute('aria-current', 'true');
+    current = next;
+  }
+
+  if ('IntersectionObserver' in window && sections.length) {
+    const visible = new Set<string>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visible.add(entry.target.id);
+          else visible.delete(entry.target.id);
+        }
+        // More than one section can straddle the line; the earliest in document
+        // order is the one the reader is reading down through.
+        const first = sections.find((section) => visible.has(section.id));
+        mark(first ? first.id : null);
+      },
+      // Only the band just under the sticky bar counts as "here", so the mark
+      // changes when a heading reaches the top rather than when it appears.
+      { rootMargin: '-52px 0px -70% 0px' },
+    );
+    for (const section of sections) observer.observe(section);
+  }
+</script>

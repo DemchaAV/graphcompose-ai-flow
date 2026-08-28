@@ -1,5 +1,52 @@
 {
   "$comment": "The two runs the current harness produced, as the landing page shows them. Hand-written rather than generated: these ran in a user's own Java project, which is where the harness is meant to work, so there is no artifact in this repository to derive them from. scripts/test/contracts.test.mjs asserts the figures here also appear in README.md, because two places holding the same numbers is how they drift.",
+  "flows": {
+    "$comment": "The recorded revision flows, as the landing page plays them. Each entry is one run replayed revision by revision: the left panel is the reference, the right is what the harness rendered, and the rail underneath is every revision it took. Nothing in either frame is regenerated imagery. Hand-written for the same reason as `runs` above — these ran in a user's own Java project, so there is no artifact in this repository to derive them from — and scripts/test/contracts.test.mjs asserts the revision counts here also appear in README.md.",
+    "items": [
+      {
+        "id": "northpoint-invoice",
+        "title": "Invoice",
+        "subtitle": "flowing table, repeated header, page numbering",
+        "video": "flows/invoice-revision-flow.mp4",
+        "poster": "flows/invoice-revision-flow-cover.png",
+        "gif": "assets/readme/v0.6/invoice-revision-flow.gif",
+        "revisions": 12,
+        "minutes": 113,
+        "approvedAt": "revision-012",
+        "headline": "12 revisions, 113 minutes.",
+        "body": "The first two did not compile, which is the point of recording them: revision-001 and revision-002 are FAILED and still on disk, with what broke and what was tried. The last two were plain sentences with no instructions attached.",
+        "quote": "the dividers disappeared, for some reason",
+        "quoteNote": "translated from the user’s Russian"
+      },
+      {
+        "id": "professional-sidebar-cv",
+        "title": "Professional sidebar CV",
+        "subtitle": "photo, sidebar, timeline rail",
+        "video": "flows/sidebar-cv-revision-flow.mp4",
+        "poster": "flows/sidebar-cv-revision-flow-cover.png",
+        "gif": "assets/readme/v0.6/sidebar-cv-revision-flow.gif",
+        "revisions": 10,
+        "minutes": 120,
+        "approvedAt": "revision-010",
+        "headline": "10 revisions, 120 minutes.",
+        "body": "From a screenshot and the sentence “Create this screenshot as a GraphCompose template.” The corrections in the second half are the ones worth reading: initials that must derive from the name rather than be hardcoded, a LinkedIn href that has to apply to the icon as well as the text, a timeline rail that should not run above its first marker."
+      },
+      {
+        "id": "charcoal-gold-cv",
+        "title": "Charcoal and gold CV",
+        "subtitle": "dark sidebar, rated skill rows, timeline rail",
+        "video": "flows/charcoal-gold-cv-revision-flow.mp4",
+        "poster": "flows/charcoal-gold-cv-revision-flow-cover.png",
+        "gif": "assets/readme/v0.6/charcoal-gold-cv-revision-flow.gif",
+        "revisions": 9,
+        "approvedAt": "revision-009",
+        "headline": "9 revisions, and the ninth was one sentence.",
+        "body": "The loop declared itself ready at revision-008, after seven passes that each named one thing and fixed it — calibrate the type scale, drop the main column’s uniform 9px offset, seat the skill bullets in their own column. Then one sentence closed it. No duration is quoted here: the session stayed open across a long gap, so the telemetry measures the window rather than the work.",
+        "quote": "the timeline ring should close over the rail, not let it pass through",
+        "quoteNote": "translated from the user’s Russian"
+      }
+    ]
+  },
   "runs": [
     {
       "id": "navy-sidebar-cv",
@@ -30,13 +77,38 @@
       "corrections": 3,
       "totalRevisions": 11,
       "correctionSummary": "Three plain sentences about what looked wrong, none explaining how to fix it.",
-      "quote": "вот только sertification и achivment разделитель вертикальный",
+      "quote": "just the certification and achievement divider — vertical",
       "cycles": [
-        { "label": "create from the reference", "minutes": 68, "output": "280.4k", "cacheRead": "61.0M", "requests": 211 },
-        { "label": "first correction", "minutes": 7, "output": "25.2k", "cacheRead": "16.0M", "requests": 32 },
-        { "label": "second correction", "minutes": 10, "output": "36.4k", "cacheRead": "21.8M", "requests": 39 },
-        { "label": "approve and publish", "minutes": 2, "output": "8.1k", "cacheRead": "6.5M", "requests": 11 }
-      ]
+        {
+          "label": "create from the reference",
+          "minutes": 68,
+          "output": "280.4k",
+          "cacheRead": "61.0M",
+          "requests": 211
+        },
+        {
+          "label": "first correction",
+          "minutes": 7,
+          "output": "25.2k",
+          "cacheRead": "16.0M",
+          "requests": 32
+        },
+        {
+          "label": "second correction",
+          "minutes": 10,
+          "output": "36.4k",
+          "cacheRead": "21.8M",
+          "requests": 39
+        },
+        {
+          "label": "approve and publish",
+          "minutes": 2,
+          "output": "8.1k",
+          "cacheRead": "6.5M",
+          "requests": 11
+        }
+      ],
+      "quoteNote": "translated from the user’s Russian"
     }
   ],
   "caveat": "Neither run was pixel-perfect from one request, and the pixel-similarity figure stayed unimpressive in both: the references are rasterised in typefaces no bundled family reproduces, so glyph edges dominate the comparison. The images are the evidence; the score is not."

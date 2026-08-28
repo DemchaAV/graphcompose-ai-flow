@@ -1,4 +1,7 @@
 ---
+import project from '../data/generated/project.json';
+
+// Repository paths are written out literally; see the note in Architecture.astro.
 const repoUrl = 'https://github.com/DemchaAV/graphcompose-ai-flow';
 const graphComposeUrl = 'https://github.com/DemchaAV/GraphCompose';
 ---
@@ -6,13 +9,14 @@ const graphComposeUrl = 'https://github.com/DemchaAV/GraphCompose';
   <div class="container">
     <div class="grid">
       <div>
-        <h3>graphcompose-ai-flow</h3>
+        <h3>graphcompose-ai-flow <span class="version">v{project.version}</span></h3>
         <p>
-          A strict AI-assisted visual matching workflow for turning document
-          references into maintainable GraphCompose Java templates.
+          An installable harness that turns a document reference into a
+          maintainable GraphCompose Java template, then renders, compares and
+          iterates until it is ready for approval.
         </p>
         <p class="dim">
-          Experimental companion project to
+          Companion project to
           <a href={graphComposeUrl}><code>GraphCompose</code></a>.
           MIT licensed.
         </p>
@@ -22,22 +26,28 @@ const graphComposeUrl = 'https://github.com/DemchaAV/GraphCompose';
         <ul>
           <li><a href={repoUrl}>GitHub repository</a></li>
           <li><a href={`${repoUrl}/blob/main/README.md`}>README</a></li>
-          <li><a href={`${repoUrl}/blob/main/AGENTS.md`}>AGENTS.md</a></li>
+          <li><a href={`${repoUrl}/blob/main/AGENTS.md`}>AGENTS.md — for agents</a></li>
+          <li><a href={`${repoUrl}/blob/main/docs/plugin-installation.md`}>Installing the plugin</a></li>
           <li><a href={`${repoUrl}/blob/main/docs/quickstart.md`}>5-min quickstart</a></li>
         </ul>
       </div>
       <div>
         <h4>Engineering</h4>
         <ul>
+          <li><a href={`${repoUrl}/blob/main/docs/architecture.md`}>Architecture</a></li>
           <li><a href={`${repoUrl}/blob/main/docs/implementation-status.md`}>Implementation status</a></li>
           <li><a href={`${repoUrl}/blob/main/docs/revision-model.md`}>Revision model</a></li>
           <li><a href={`${repoUrl}/blob/main/docs/visual-accuracy-contract.md`}>Visual accuracy contract</a></li>
+          <li><a href={`${repoUrl}/blob/main/docs/benchmarks.md`}>Benchmarks</a></li>
           <li><a href={`${repoUrl}/blob/main/docs/limitations.md`}>Limitations</a></li>
         </ul>
       </div>
     </div>
     <div class="colophon">
-      <span><code>site/</code> built with Astro · auto-pulled from <code>prompts/</code>, <code>templates/</code>, and <code>examples/</code> at build time.</span>
+      <span><code>site/</code> built with Astro · the version, the packs, the gates and the
+      loop bounds on this page are read out of <code>package.json</code>,
+      <code>skills/</code> and <code>config/pipeline.json</code> at build time, so the
+      page cannot outlive the thing it describes.</span>
     </div>
   </div>
 </footer>
@@ -64,6 +74,10 @@ const graphComposeUrl = 'https://github.com/DemchaAV/GraphCompose';
     font-size: 1rem;
     color: var(--fg);
     margin-bottom: 12px;
+  }
+  .version {
+    color: var(--fg-dim);
+    font-weight: 400;
   }
   h4 {
     font-family: var(--font-mono);

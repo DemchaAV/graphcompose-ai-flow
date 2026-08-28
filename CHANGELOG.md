@@ -5,6 +5,120 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## Unreleased
+
+### Site
+
+**The landing page was drawing an architecture the project stopped having.**
+`assets/readme/graphcompose-ai-flow.png` — the hero, and the OG image every
+link preview served — was the eleven-agent chain, hexagon by numbered hexagon:
+Orchestrator, Resolver, Skill Validator, Visual Analyzer, Architecture Mapper,
+Asset Resolver, Template Coder, Test + Render, Visual Review, Revision Manager,
+Template Publisher. That chain was folded into four workflow skills, and
+v0.5.0-beta.15 fixed the *alt text* that said "11-agent" while leaving the
+picture it described in place. The first thing a visitor read was the one thing
+nothing was checking.
+
+- **A new diagram**, `assets/readme/architecture.png`, draws what ships: you,
+  the host agent that owns the model loop, the harness, the GraphCompose
+  engine, and the output. It is the hero and the OG image; the old one is no
+  longer synced.
+- **Two sections the page never had.** `Architecture` is the readable form of
+  that diagram — five lanes, with the middle one marked as the only lane this
+  repository owns. `Install` is the plugin, the Codex skills and the Gemini
+  extension, then the five gestures the skills fire from. The page had been
+  describing a workflow to read rather than a harness to install.
+- **The stale facts are now generated rather than typed.**
+  `site/scripts/extract-project.mjs` reads the version out of `package.json`,
+  the coordinate out of `scripts/lib/version-resolver.mjs`, the supported lines
+  out of `skills/skill-manifest.json`, and the gates and loop bounds out of
+  `config/pipeline.json`. The page had been advertising "GraphCompose 1.6.0
+  pulled via JitPack" for several releases after the coordinate moved to Maven
+  Central, because that sentence was typed into a component and nothing owned
+  it. `Pillars` also still labelled a link `prompts/visual-review-agent.md` —
+  the href was corrected three releases ago and the label was not, because the
+  link test reads hrefs.
+- **`Pillars` gained the four claims the moat had grown** and lost none:
+  bounded iteration with the real limits, measured geometry, recorded
+  observations, and a CI job list that matches the workflow.
+- **The snippet is code that compiles.** The compiler-paradigm half of
+  `GraphComposeConnection` was invented API. It is now the shape
+  `examples/skill-fixtures/` compiles and renders against 2.2.0 in CI.
+
+**The recordings were in the repository and nowhere on the page.** Two revision
+flows had shipped in the README since v0.6 and the landing page showed neither;
+what it did show was the static triple — reference, one request, final — which
+argues that the harness converges but never shows it converging.
+
+- **`06 · the loop, as it actually ran`** plays three runs revision by
+  revision: the Northpoint invoice (12 revisions, approved at `revision-012`),
+  the professional sidebar CV (10, at `revision-010`), and a new one — a
+  charcoal-and-gold CV that reached ready-for-approval at `revision-008` after
+  seven passes that each named one thing and fixed it, then closed on one
+  sentence from the user. Approved at `revision-009`.
+- **The page plays MP4, the README keeps the GIF.** Both come out of one
+  recording, and the MP4 is the better half of it by every measure that
+  matters here: 1080x1350 at 30fps against the GIF's 720x900 at about ten, in
+  fewer bytes. Each cover is the poster, so a reader who never scrolls that far
+  fetches nothing but a still — an `IntersectionObserver` starts a recording
+  when it comes on screen and pauses it when it leaves, and
+  `prefers-reduced-motion` turns all three into posters with a play control.
+- **No duration is quoted for the charcoal run.** Its session stayed open
+  across a three-hour gap between `revision-003` and `revision-004`, so the
+  telemetry measures the window rather than the work. The other two keep their
+  measured figures.
+- **A second parity test.** `contracts.test.mjs` already asserted the site's
+  run figures appear in the README; the flows now get the same treatment —
+  revision count, approval revision, minutes where quoted, and the existence of
+  both the GIF the README renders and the MP4 the page plays. Checked against a
+  deliberately altered count.
+
+The three recordings are laid out one per row rather than three across. At a
+third of the container each was 341px wide, and the whole point of the frame is
+that you can read the reference against the render.
+
+**Fifteen screens with no way through them.** Measured at 1440x900 the page ran
+13,748px, and the recordings — the one section that shows the thing working —
+did not start until screen 10.7. A visitor who wanted the install command
+scrolled past every argument for why they should want it.
+
+- **Proof first.** The order is now runs → measured cost → install →
+  architecture → pipeline → moat → target language. The recordings start at
+  screen 1.5.
+- **A sticky bar with the five destinations**, marking the section the reader is
+  actually in. `IntersectionObserver` on a band under the bar, so the mark moves
+  when a heading reaches the top rather than when it first appears.
+- **The stage chain lost its cards.** Ten stages as ten bordered cards ran to 2.7
+  screens for what is reference material; one row each brings it to 1.6. The
+  whole page is 15.3 screens down to 13.9 with a section added.
+
+**The code was not highlighted.** Shiki ships with Astro and runs at build time,
+so the install commands and both Java snippets are now tokenised into the HTML
+with no highlighter shipped to the reader. One theme name in `site/src/lib/code.ts`
+holds them together. The two-paradigm snippet no longer colours whole lines red
+or green to make its point — the tokens are the theme's, and which paradigm a
+block belongs to is carried by one edge and a label.
+
+That change surfaced a defect worth naming: the install commands sat behind a
+horizontal scrollbar, so the clone URL read as a truncated command. They wrap
+now, with a hanging indent marking a continuation. These are the one thing on
+the page a visitor copies.
+
+**The quotes are in English.** Three corrections were said in Russian and shown
+that way on an otherwise English page. They are translated, and each says it is
+a translation rather than passing for the original wording. The README keeps the
+original with a gloss beside it, which is its own convention.
+
+Two layout defects went with it, both the same CSS mistake: a grid item defaults
+to `min-width: auto`, so a `<pre>` meant to scroll inside its own box widened
+its track instead and took the page sideways with it. The install cards did it
+at desktop width, the code snippet at mobile. Verified at 375, 768 and 1440:
+no horizontal scroll at any of them.
+
+Repository links in the components stay written out literally. The contract
+test greps the component text for them, so a helper that took the path as a
+variable would hide every link from the only thing checking it.
+
 ## v0.18.0 — 2026-08-28
 
 **A retirement that had never been measured where it mattered, and a jar that

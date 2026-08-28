@@ -121,7 +121,7 @@ rest.
 
 ### The whole loop, as it actually ran
 
-Two runs on 2.2.0, recorded revision by revision. The left panel is the
+Three runs on 2.2.0, recorded revision by revision. The left panel is the
 reference; the right is what the harness rendered; the rail underneath is
 every revision it took to get there. Nothing in either frame is
 regenerated imagery — each step is the render that revision actually
@@ -145,10 +145,27 @@ from the name rather than be hardcoded, a LinkedIn href that has to apply
 to the icon as well as the text, a timeline rail that should not run
 above its first marker. Approved at `revision-010`.
 
-Both were published as standalone bundles — template, typed spec, data
-JSON, assets, previews — which is what the harness exists to produce. The
-document is Java you can read and change; the content is a JSON file next
-to it.
+![Charcoal and gold CV: one reference, nine recorded revisions](assets/readme/v0.6/charcoal-gold-cv-revision-flow.gif)
+
+**Charcoal and gold CV — 9 revisions, and the ninth was one sentence.**
+The loop declared itself ready at `revision-008`, after seven passes that
+each named one thing and fixed it: calibrate the type scale against the
+first render, calibrate the vertical rhythm against the measured line
+boxes, drop the main column's uniform 9px offset, seat the skill bullets
+in their own column. Then one sentence closed it — *"Кольцо таймлайна
+должно закрывать рельс, а не пропускать его сквозь себя"* (the timeline
+ring should close over the rail, not let it pass through). Approved at
+`revision-009`.
+
+No duration is quoted for that one. The session stayed open across a
+long gap between `revision-003` and `revision-004`, so the telemetry
+measures the window rather than the work, and a number that measures
+the wrong thing is worse than no number.
+
+All three were published as standalone bundles — template, typed spec,
+data JSON, assets, previews — which is what the harness exists to
+produce. The document is Java you can read and change; the content is a
+JSON file next to it.
 
 ### Two-column CV with a photo, navy sidebar and a timeline rail
 

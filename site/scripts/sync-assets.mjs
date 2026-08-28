@@ -23,8 +23,24 @@ const assets = [
   ['assets/readme/v0.5/serif-reference.jpg', 'runs/serif-reference.jpg'],
   ['assets/readme/v0.5/serif-one-request.png', 'runs/serif-one-request.png'],
   ['assets/readme/v0.5/serif-final.png', 'runs/serif-final.png'],
-  // Hero artwork.
-  ['assets/readme/graphcompose-ai-flow.png', 'hero/graphcompose-ai-flow.png'],
+  // The recorded revision flows. The page plays the MP4s — 1080x1350 at 30fps,
+  // and smaller than the GIFs beside them, which are 720x900 at about ten — and
+  // uses each cover as the poster so nothing but the still is fetched until the
+  // section is on screen. README.md keeps the GIFs, because that is what renders
+  // in markdown; both come out of the same recording.
+  ['assets/readme/v0.6/invoice-revision-flow.mp4', 'flows/invoice-revision-flow.mp4'],
+  ['assets/readme/v0.6/invoice-revision-flow-cover.png', 'flows/invoice-revision-flow-cover.png'],
+  ['assets/readme/v0.6/sidebar-cv-revision-flow.mp4', 'flows/sidebar-cv-revision-flow.mp4'],
+  ['assets/readme/v0.6/sidebar-cv-revision-flow-cover.png', 'flows/sidebar-cv-revision-flow-cover.png'],
+  ['assets/readme/v0.6/charcoal-gold-cv-revision-flow.mp4', 'flows/charcoal-gold-cv-revision-flow.mp4'],
+  ['assets/readme/v0.6/charcoal-gold-cv-revision-flow-cover.png', 'flows/charcoal-gold-cv-revision-flow-cover.png'],
+  // The architecture diagram, which is also the OG image. It replaced
+  // graphcompose-ai-flow.png: that one drew the eleven-agent chain, hexagon by
+  // numbered hexagon, and the chain was folded into four workflow skills. A
+  // diagram of an architecture the project no longer has is worse than no
+  // diagram — it is the first thing a visitor reads and the last thing they
+  // check.
+  ['assets/readme/architecture.png', 'hero/architecture.png'],
 ];
 
 async function ensureDir(p) {

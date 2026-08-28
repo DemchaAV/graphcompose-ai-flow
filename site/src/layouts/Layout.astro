@@ -3,9 +3,9 @@ interface Props {
   title: string;
   description?: string;
 }
-const { title, description = 'AI doesn\'t draw PDFs. It compiles them. A workflow that turns visual document references into maintainable GraphCompose Java templates.' } = Astro.props;
+const { title, description = 'AI doesn\'t draw PDFs. It compiles them. An installable harness for Claude Code, Codex and Gemini CLI that turns a document reference into a maintainable GraphCompose Java template — rendered, compared and iterated until it is ready for approval.' } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-const ogImage = `${base}/previews/hero/graphcompose-ai-flow.png`;
+const ogImage = `${base}/previews/hero/architecture.png`;
 ---
 <!doctype html>
 <html lang="en">
@@ -54,6 +54,17 @@ const ogImage = `${base}/previews/hero/graphcompose-ai-flow.png`;
   body {
     margin: 0;
     padding: 0;
+  }
+
+  html {
+    /* The sticky bar is 52px; without this an anchored heading lands under it. */
+    scroll-padding-top: 68px;
+    scroll-behavior: smooth;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
   }
 
   body {

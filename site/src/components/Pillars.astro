@@ -1,40 +1,67 @@
 ---
+import project from '../data/generated/project.json';
+
+// Repository paths are written out literally; see the note in Architecture.astro.
 const repoUrl = 'https://github.com/DemchaAV/graphcompose-ai-flow';
 
 const pillars = [
   {
-    title: 'Revision history with statuses',
-    body: 'Every change creates a new revision under revisions/ with DRAFT, APPROVED, REJECTED, REVERTED, SUPERSEDED, or FAILED. Approved revisions are never overwritten. Undo, revert-to-approved, and selective rollback are first-class operations.',
+    title: 'The gate is arithmetic',
+    body: `Three gates, one per kind of change. A refactor must produce AE == 0 against its parent. A data edit may differ only in the regions it touched. A visual change is reviewed layer by layer against the reference. The metric is quoted verbatim into the verdict, never paraphrased — "looks identical" is not a gate result.`,
+    href: `${repoUrl}/blob/main/config/pipeline.json`,
+    linkLabel: 'config/pipeline.json',
+  },
+  {
+    title: 'Nothing is overwritten',
+    body: 'Every change opens a new revision with DRAFT, APPROVED, REJECTED, REVERTED, SUPERSEDED or FAILED. Approving supersedes rather than replaces. The failed passes stay on disk with what broke and what was tried, and a single component can be restored from any earlier revision.',
     href: `${repoUrl}/blob/main/docs/revision-model.md`,
     linkLabel: 'docs/revision-model.md',
   },
   {
-    title: 'Visual diff against committed baselines',
-    body: 'The visual-diff CLI compares rendered output against reference and approved baselines. A visible mismatch is a defect unless explicitly classified. No "looks close enough."',
-    href: `${repoUrl}/tree/main/tools/visual-diff`,
-    linkLabel: 'tools/visual-diff/',
+    title: 'The version decides the API',
+    body: `Your build file is read, the pinned line is mapped to a skill pack, and a line with no pack stops the run rather than being rounded to the nearest one. The pack's allow-list is a closed set: absent means the call does not exist. If a skill and the library disagree, the library wins.`,
+    href: `${repoUrl}/blob/main/docs/versioned-skills.md`,
+    linkLabel: 'docs/versioned-skills.md',
   },
   {
-    title: 'Fixture validation against the real library',
-    body: 'GraphCompose 1.6.0 is pulled via JitPack. Five skill-fixture projects compile and run against the real artifact in CI. Skills cannot invent APIs — if the library and a skill disagree, the library wins.',
+    title: 'The allow-list is checked against the real jar',
+    body: `Five fixture projects compile, test and render against GraphCompose ${project.library.default.replace('.x', '.0')} from Maven Central in CI, each render identical to its baseline. Five fixtures are a subset of what the packs describe, and the page says so rather than calling it coverage.`,
     href: `${repoUrl}/tree/main/examples/skill-fixtures`,
     linkLabel: 'examples/skill-fixtures/',
   },
   {
-    title: 'Typed Java specs + data JSON',
-    body: 'Templates accept content through a typed Java spec loaded via --spec-provider. Editing content is one JSON file change. No Java edits to swap the data.',
+    title: 'The loop is bounded',
+    body: `A separate tool counts the iterations, the consecutive build failures and the repeats of the same mismatch, and answers ready / revise / blocked with an exit code. It stops at ${project.limits.maxIterations} passes, ${project.limits.maxConsecutiveBuildFailures} build failures in a row, or ${project.limits.maxSameMismatchAttempts} attempts at one mismatch. An agent going round in circles is the last thing qualified to notice it.`,
+    href: `${repoUrl}/blob/main/scripts/iterate-status.mjs`,
+    linkLabel: 'scripts/iterate-status.mjs',
+  },
+  {
+    title: 'The geometry is measured, not argued about',
+    body: 'The renderer writes GraphCompose’s own post-layout snapshot beside the PDF, so "this block sits too far right" is arithmetic. The diagnostics name the additive chain and the node that owns the offset rather than the one that shows it — and answer "I cannot derive this" instead of producing a number they cannot support.',
+    href: `${repoUrl}/blob/main/scripts/layout.mjs`,
+    linkLabel: 'scripts/layout.mjs',
+  },
+  {
+    title: 'What earlier runs learned is kept',
+    body: 'When the loop cannot tell a layout fault from a painting fault, it writes a probe — a throwaway document that renders one arrangement and measures the pixels — and settles it. The finding is recorded with the probe that re-confirms it, so the next run does not pay for it twice.',
+    href: `${repoUrl}/blob/main/observations/README.md`,
+    linkLabel: 'observations/README.md',
+  },
+  {
+    title: 'Content is a JSON file, not a Java edit',
+    body: 'Templates take their content through a typed spec loaded by a spec provider. Changing an email is one JSON change. If swapping the data means editing Java, the contract is broken and the review says so.',
     href: `${repoUrl}/blob/main/skills/workflows/references/authoring-rules.md`,
     linkLabel: 'authoring-rules.md',
   },
   {
-    title: 'Human approval gate',
-    body: 'The review skill writes a structured verdict, and the loop stops there. Publishing happens only when a person approves, and the publisher refuses any revision that is not APPROVED. The agent never marks its own work ready to ship.',
-    href: `${repoUrl}/blob/main/skills/workflows/review-template/SKILL.md`,
-    linkLabel: 'prompts/visual-review-agent.md',
+    title: 'Nothing ships without a human APPROVE',
+    body: 'The review skill writes a structured verdict and the loop stops there. Publishing happens only when a person approves, and the publisher refuses any revision that is not APPROVED. The agent never marks its own work ready to ship.',
+    href: `${repoUrl}/blob/main/skills/workflows/approve-template/SKILL.md`,
+    linkLabel: 'approve-template/SKILL.md',
   },
   {
-    title: 'CI matrix that actually compiles',
-    body: 'Separate jobs run revision-manager, visual-diff, preview-renderer, skill-fixtures, and repository-contract checks. Node 20 + Java 21 + Maven. Smoke tests render the invoice and CV examples.',
+    title: 'CI that actually compiles',
+    body: 'Separate jobs run the revision manager, the visual diff, the preview renderer, the skill fixtures, the schema validation and a cross-cutting harness-contract check that fails when the routing, the schemas, the skills and the packaging stop agreeing. Node 20 + Java 21 + Maven.',
     href: `${repoUrl}/blob/main/.github/workflows/ci.yml`,
     linkLabel: '.github/workflows/ci.yml',
   },
@@ -42,11 +69,11 @@ const pillars = [
 ---
 <section class="pillars" id="why">
   <div class="container">
-    <p class="eyebrow">03 · the moat</p>
+    <p class="eyebrow">06 · the moat</p>
     <h2>Why this isn't prompt-and-hope.</h2>
     <p class="lede">
       Most AI document tools are a prompt with a hopeful disposition. This one is closer
-      to a build pipeline: agents have contracts, outputs go through tests, regressions
+      to a build pipeline: the work has contracts, outputs go through tests, regressions
       get caught, and nothing ships without a human-signed APPROVE.
     </p>
 

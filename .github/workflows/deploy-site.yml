@@ -10,6 +10,12 @@ on:
       - 'templates/**'
       - 'examples/cv-reference/reference/**'
       - 'assets/readme/**'
+      # The page reads its version, packaging and library coordinate out of
+      # these at build time, so a bump here has to redeploy it or the site
+      # starts advertising a version the project no longer is.
+      - 'package.json'
+      - '.claude-plugin/**'
+      - 'scripts/lib/version-resolver.mjs'
       - '.github/workflows/deploy-site.yml'
   workflow_dispatch:
 

@@ -1,0 +1,278 @@
+---
+import runsData from '../data/runs.json';
+
+// Repository paths are written out literally; see the note in Architecture.astro.
+const repoUrl = 'https://github.com/DemchaAV/graphcompose-ai-flow';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+type Flow = {
+  id: string;
+  title: string;
+  subtitle: string;
+  video: string;
+  poster: string;
+  gif: string;
+  revisions: number;
+  minutes?: number;
+  approvedAt: string;
+  headline: string;
+  body: string;
+  quote?: string;
+  quoteNote?: string;
+};
+
+const flows = runsData.flows.items as Flow[];
+const totalRevisions = flows.reduce((sum, flow) => sum + flow.revisions, 0);
+---
+<section class="flows" id="flows">
+  <div class="container">
+    <p class="eyebrow">01 · the loop, as it actually ran</p>
+    <h2>Watch {totalRevisions} revisions arrive.</h2>
+    <p class="lede">
+      Three runs, replayed revision by revision. The left panel is the reference the
+      harness was given; the right is what it rendered; the rail underneath is every
+      revision it took to get there, failures included.
+      <strong>Nothing in either frame is regenerated imagery</strong> — each step is the
+      render that revision actually produced, read back off disk.
+    </p>
+
+    <div class="grid">
+      {flows.map((flow, index) => (
+        <figure class="flow">
+          <video
+            src={`${base}/previews/${flow.video}`}
+            poster={`${base}/previews/${flow.poster}`}
+            width="1080"
+            height="1350"
+            autoplay
+            muted
+            loop
+            playsinline
+            preload={index === 0 ? 'metadata' : 'none'}
+            aria-label={`${flow.title}: the reference on the left, the harness render on the right, and the ${flow.revisions} revisions it took, approved at ${flow.approvedAt}`}
+          ></video>
+          <figcaption>
+            <h3>{flow.title}</h3>
+            <p class="sub">{flow.subtitle}</p>
+            <p class="counts">
+              <span><strong>{flow.revisions}</strong> revisions</span>
+              {flow.minutes && (<><span aria-hidden="true">·</span><span><strong>{flow.minutes}</strong> min</span></>)}
+              <span aria-hidden="true">·</span>
+              <span class="approved">approved at {flow.approvedAt.replace('revision-', 'r')}</span>
+            </p>
+            <p class="headline">{flow.headline}</p>
+            <p class="body">{flow.body}</p>
+            {flow.quote && (
+              <blockquote>
+                <p>{flow.quote}</p>
+                {flow.quoteNote && <cite>{flow.quoteNote}</cite>}
+              </blockquote>
+            )}
+          </figcaption>
+        </figure>
+      ))}
+    </div>
+
+    <p class="footnote">
+      All three were published as standalone bundles — template, typed spec, data JSON,
+      assets, previews — which is what the harness exists to produce. The same recordings
+      are in the
+      <a href={`${repoUrl}/blob/main/README.md`}>README</a> as GIFs, and the revision
+      model behind the rail is in
+      <a href={`${repoUrl}/blob/main/docs/revision-model.md`}><code>docs/revision-model.md</code></a>.
+    </p>
+  </div>
+</section>
+
+<style>
+  .lede {
+    max-width: 760px;
+    color: var(--fg-muted);
+    margin: 16px 0 48px 0;
+    font-size: 1.05rem;
+  }
+  .lede strong {
+    color: var(--fg);
+    font-weight: 500;
+  }
+
+  .grid {
+    display: flex;
+    flex-direction: column;
+    gap: 56px;
+  }
+
+  /* One row per run rather than three columns. The recordings are 1080x1350 and
+     carry two document panels side by side plus the revision rail; in a third of
+     the container none of that is legible, which defeats the point of showing
+     the render at all. */
+  .flow {
+    margin: 0;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+    gap: 36px;
+    align-items: start;
+  }
+  @media (max-width: 820px) {
+    .flow {
+      grid-template-columns: 1fr;
+      gap: 20px;
+      max-width: 520px;
+    }
+  }
+
+  .flow video {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    /* The recordings are drawn on their own dark ground; this only shows while
+       the poster is still loading. */
+    background: #14110f;
+  }
+
+  figcaption {
+    min-width: 0;
+  }
+  @media (max-width: 820px) {
+    figcaption {
+      padding-top: 4px;
+    }
+  }
+  .flow h3 {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 1.12rem;
+    font-weight: 600;
+    color: var(--fg);
+  }
+  .sub {
+    margin: 4px 0 0 0;
+    color: var(--fg-dim);
+    font-size: 0.9rem;
+  }
+  .counts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0 0 0;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    color: var(--fg-dim);
+  }
+  .counts strong {
+    color: var(--fg);
+  }
+  .counts .approved {
+    color: var(--accent);
+  }
+
+  .headline {
+    margin: 18px 0 0 0;
+    color: var(--fg);
+    font-size: 1.08rem;
+    line-height: 1.45;
+    font-weight: 500;
+  }
+  .body {
+    margin: 10px 0 0 0;
+    color: var(--fg-muted);
+    font-size: 0.96rem;
+    line-height: 1.65;
+    max-width: 62ch;
+  }
+
+  blockquote {
+    margin: 14px 0 0 0;
+    padding: 10px 14px;
+    border-left: 2px solid var(--border-strong);
+    background: var(--bg-card);
+    border-radius: 0 4px 4px 0;
+  }
+  blockquote p {
+    margin: 0;
+    color: var(--fg-muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+  /* The page is English throughout, so a correction said in another language is
+     translated — and says so, rather than reading as the original wording. */
+  blockquote cite {
+    display: block;
+    margin-top: 4px;
+    color: var(--fg-dim);
+    font-size: 0.8rem;
+    font-style: normal;
+  }
+
+  .footnote {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--fg-dim);
+    font-size: 0.9rem;
+    line-height: 1.7;
+    max-width: 820px;
+  }
+  .footnote code {
+    color: var(--fg-muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Autoplay is a claim about attention, not a right. */
+    .flow video {
+      animation: none;
+    }
+  }
+</style>
+
+<script>
+  // Three autoplaying videos is three decoders running for content that is
+  // mostly off screen. Pause what is not visible, and honour a reader who has
+  // asked the system for less motion — in which case the poster stands in for
+  // the recording and a control appears to play it deliberately.
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const videos = Array.from(document.querySelectorAll<HTMLVideoElement>('.flow video'));
+
+  function applyMotionPreference() {
+    for (const video of videos) {
+      if (reduced.matches) {
+        video.autoplay = false;
+        video.loop = false;
+        video.controls = true;
+        video.pause();
+      } else {
+        video.controls = false;
+        video.loop = true;
+      }
+    }
+  }
+
+  applyMotionPreference();
+  reduced.addEventListener('change', applyMotionPreference);
+
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const video = entry.target as HTMLVideoElement;
+          if (reduced.matches) continue;
+          if (entry.isIntersecting) {
+            video.play().catch(() => {
+              // Autoplay refused: the poster is already showing, so give the
+              // reader the controls rather than a still that looks broken.
+              video.controls = true;
+            });
+          } else {
+            video.pause();
+          }
+        }
+      },
+      { rootMargin: '200px 0px', threshold: 0.1 },
+    );
+    for (const video of videos) observer.observe(video);
+  }
+</script>

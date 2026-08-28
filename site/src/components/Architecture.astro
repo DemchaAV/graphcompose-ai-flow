@@ -1,0 +1,337 @@
+---
+import project from '../data/generated/project.json';
+
+// Every repository path below is written out literally rather than assembled by
+// a helper. scripts/test/contracts.test.mjs greps this file for the repository
+// links it makes and fails the build when one names a path that no longer
+// exists — a helper taking the path as a variable would hide the link from the
+// only thing checking it, which is how the page came to advertise a deleted
+// file for three releases.
+const repoUrl = 'https://github.com/DemchaAV/graphcompose-ai-flow';
+const graphComposeUrl = 'https://github.com/DemchaAV/GraphCompose';
+
+const hostNames = project.hosts.map((h) => h.name).join(' · ');
+
+// The five lanes are the boundary this project is built on: the host owns the
+// model, the harness owns the method, the engine owns the page. Everything on
+// the landing page below this section is a detail of one lane.
+const lanes = [
+  {
+    id: 'user',
+    label: 'You',
+    role: 'what you hand over',
+    items: [
+      { name: 'Visual reference', detail: 'a screenshot, a PDF, a design image' },
+      { name: 'A sentence', detail: '“Create this in GraphCompose”, “Make the sidebar wider”' },
+    ],
+  },
+  {
+    id: 'host',
+    label: 'Host agent',
+    role: `${hostNames} — outside the harness, owns the model loop`,
+    items: [
+      { name: 'Reasoning', detail: 'plans, decomposes, decides' },
+      { name: 'Vision', detail: 'reads the reference image' },
+      { name: 'Context', detail: 'tracks state and artifacts' },
+      { name: 'Filesystem + shell', detail: 'runs the tools, edits the Java' },
+    ],
+    footnote:
+      'The project deliberately builds none of this: no LLM API client, no MCP server, no standalone runtime.',
+  },
+  {
+    id: 'harness',
+    label: 'GraphCompose AI Flow',
+    role: 'the installable harness — this repository',
+    self: true,
+    items: [
+      { name: `${project.workflowCount} workflow skills`, detail: 'create · revise · review · approve', href: `${repoUrl}/tree/main/skills/workflows` },
+      { name: 'Versioned GraphCompose knowledge', detail: `one pack per library line, loaded selectively`, href: `${repoUrl}/tree/main/skills/versions` },
+      { name: 'Deterministic tools', detail: 'version, assets, revisions, render, diff, publish', href: `${repoUrl}/tree/main/tools` },
+      { name: 'A bounded iteration loop', detail: `gated, and capped at ${project.limits.maxIterations} passes`, href: `${repoUrl}/blob/main/skills/workflows/references/iteration-loop.md` },
+      { name: 'The workspace', detail: 'reference, data JSON, assets, revisions, snapshots, diffs', href: `${repoUrl}/blob/main/skills/workflows/references/workspace.md` },
+    ],
+    footnote:
+      'Anything a script can decide is decided by a script; anything the model decides is written to a file a script can read back.',
+  },
+  {
+    id: 'engine',
+    label: 'GraphCompose',
+    role: 'the compile target and rendering engine',
+    items: [
+      { name: 'Semantic primitives', detail: 'sections, rows, tables, images, lists, charts' },
+      { name: 'Layout engine', detail: 'flow, alignment, constraints, styles' },
+      { name: 'Pagination', detail: 'page breaks, repeated headers, numbering' },
+      { name: 'Layout snapshot', detail: 'post-layout geometry, so a mismatch is arithmetic' },
+    ],
+  },
+  {
+    id: 'output',
+    label: 'Output',
+    role: 'what you are left holding',
+    items: [
+      { name: 'A maintainable Java template', detail: 'semantic primitives, one named method per region' },
+      { name: 'Typed spec + data JSON', detail: 'content separated from layout' },
+      { name: 'Revisions and assets', detail: 'every pass kept, statuses owned by the tool', href: `${repoUrl}/blob/main/docs/revision-model.md` },
+      { name: 'PDF and PNG previews', detail: 'the render, and the page it was diffed as' },
+      { name: 'A published bundle', detail: 'self-contained: Java, data, assets, pom — no dependency on this harness', href: `${repoUrl}/tree/main/templates` },
+    ],
+    footnote: 'A human APPROVE is required before anything is published.',
+  },
+];
+
+// Ordinary properties of the harness, each with the mechanism that produces it.
+// A claim with no mechanism under it is marketing, so none of these ship without one.
+const properties = [
+  { title: 'Open source', detail: 'MIT licensed, and the bundles it publishes carry no licence of ours.', href: `${repoUrl}/blob/main/LICENSE` },
+  { title: 'Version-aware', detail: `Your build file picks the pack. ${project.library.supported.join(' · ')} ship today.`, href: `${repoUrl}/blob/main/docs/versioned-skills.md` },
+  { title: 'Deterministic', detail: 'The gate is arithmetic — a quoted pixel metric, not an opinion.', href: `${repoUrl}/blob/main/config/pipeline.json` },
+  { title: 'Reproducible', detail: 'Nothing is overwritten; a component can be restored from any earlier revision.', href: `${repoUrl}/blob/main/docs/rollback.md` },
+  { title: 'Human approval', detail: 'The loop stops at ready-for-approval. The publisher refuses anything not APPROVED.', href: `${repoUrl}/blob/main/skills/workflows/approve-template/SKILL.md` },
+  { title: 'Reviewable later', detail: 'Verdicts, diffs and what each pass tried are on disk, not in a chat log.', href: `${repoUrl}/blob/main/docs/visual-accuracy-contract.md` },
+];
+---
+<section class="arch" id="architecture">
+  <div class="container">
+    <p class="eyebrow">04 · the shape of it</p>
+    <h2>Three layers, and a boundary each one respects.</h2>
+    <p class="lede">
+      The host agent already has the model, the reasoning, the vision and the shell.
+      Rebuilding any of that would duplicate it and add nothing. What a host does
+      <em>not</em> have is how to reconstruct a document out of
+      <a href={graphComposeUrl}>GraphCompose</a> primitives, when a change needs a new
+      revision, and what “close enough to the reference” means. That is the whole of
+      this project's job.
+    </p>
+
+    <ol class="lanes">
+      {lanes.map((lane) => (
+        <li class={`lane${lane.self ? ' self' : ''}`} id={`lane-${lane.id}`}>
+          <header>
+            <h3>{lane.label}</h3>
+            <p class="role">{lane.role}</p>
+          </header>
+          <ul>
+            {lane.items.map((item) => (
+              <li>
+                {item.href ? <a href={item.href}>{item.name}</a> : <span class="name">{item.name}</span>}
+                <span class="detail">{item.detail}</span>
+              </li>
+            ))}
+          </ul>
+          {lane.footnote && <p class="foot">{lane.footnote}</p>}
+        </li>
+      ))}
+    </ol>
+
+    <p class="reuse">
+      <strong>Reuse is checked before reconstruction.</strong> “An invoice like the one we
+      did before” consults the catalog of published bundles first — a match is a file copy
+      into your project, not the loop. The two cost different orders of magnitude, so the
+      question is asked before any of the above runs.
+      <a href={`${repoUrl}/blob/main/skills/workflows/references/scope-routing.md`}><code>scope-routing.md</code></a>
+    </p>
+
+    <ul class="props">
+      {properties.map((p) => (
+        <li>
+          <a href={p.href}><h4>{p.title}</h4></a>
+          <p>{p.detail}</p>
+        </li>
+      ))}
+    </ul>
+
+    <p class="footnote">
+      The full split, including what this project deliberately does <em>not</em> build, is in
+      <a href={`${repoUrl}/blob/main/docs/architecture.md`}><code>docs/architecture.md</code></a>.
+    </p>
+  </div>
+</section>
+
+<style>
+  .lede {
+    max-width: 760px;
+    color: var(--fg-muted);
+    margin: 16px 0 48px 0;
+    font-size: 1.05rem;
+  }
+  .lede em {
+    color: var(--fg);
+    font-style: normal;
+  }
+
+  .lanes {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+    align-items: stretch;
+  }
+  @media (max-width: 1000px) {
+    .lanes {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (max-width: 620px) {
+    .lanes {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .lane {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 18px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  /* The middle lane is the only one this repository owns; the page should not
+     leave a visitor guessing which. */
+  .lane.self {
+    border-color: var(--accent);
+    background: linear-gradient(to bottom, rgba(94, 234, 212, 0.05), var(--bg-card) 140px);
+  }
+  @media (min-width: 1001px) {
+    .lane:not(:last-child)::after {
+      content: '→';
+      position: absolute;
+      right: -12px;
+      top: 26px;
+      color: var(--fg-dim);
+      font-size: 0.8rem;
+      line-height: 1;
+    }
+  }
+
+  .lane header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 12px;
+    margin-bottom: 14px;
+  }
+  .lane h3 {
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--fg);
+    line-height: 1.3;
+  }
+  .lane.self h3 {
+    color: var(--accent);
+  }
+  .role {
+    margin: 6px 0 0 0;
+    color: var(--fg-dim);
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+
+  .lane ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex-grow: 1;
+  }
+  .lane ul li {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .lane ul a,
+  .name {
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--fg);
+    line-height: 1.35;
+  }
+  .lane ul a:hover {
+    color: var(--accent);
+  }
+  .detail {
+    color: var(--fg-muted);
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+
+  .foot {
+    margin: 16px 0 0 0;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+    color: var(--fg-dim);
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+  .reuse {
+    margin: 28px 0 0 0;
+    padding: 18px 20px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--warn);
+    border-radius: 6px;
+    color: var(--fg-muted);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    max-width: 900px;
+  }
+  .reuse strong {
+    color: var(--fg);
+    font-weight: 600;
+  }
+
+  .props {
+    list-style: none;
+    padding: 0;
+    margin: 48px 0 0 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px 32px;
+    border-top: 1px solid var(--border);
+    padding-top: 32px;
+  }
+  @media (max-width: 880px) {
+    .props {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (max-width: 560px) {
+    .props {
+      grid-template-columns: 1fr;
+    }
+  }
+  .props h4 {
+    margin: 0 0 6px 0;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--fg);
+  }
+  .props a:hover h4 {
+    color: var(--accent);
+  }
+  .props p {
+    margin: 0;
+    color: var(--fg-muted);
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+
+  .footnote {
+    margin-top: 40px;
+    color: var(--fg-dim);
+    font-size: 0.9rem;
+  }
+  .footnote code {
+    color: var(--fg-muted);
+  }
+  .footnote em {
+    color: var(--fg-muted);
+    font-style: normal;
+  }
+</style>

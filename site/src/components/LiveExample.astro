@@ -16,6 +16,7 @@ type Run = {
   correctionSummary: string;
   note?: string;
   quote?: string;
+  quoteNote?: string;
   cycles?: Cycle[];
 };
 
@@ -24,7 +25,7 @@ const caveat = runsData.caveat as string;
 ---
 <section class="live" id="example">
   <div class="container">
-    <p class="eyebrow">05 · two real runs</p>
+    <p class="eyebrow">02 · one request, measured</p>
     <h2>How close does one request get?</h2>
     <p class="lede">
       A first render is never right. What matters is how close one request gets,
@@ -65,7 +66,12 @@ const caveat = runsData.caveat as string;
           </div>
 
           <p class="says">{run.correctionSummary}</p>
-          {run.quote && (<blockquote>{run.quote}</blockquote>)}
+          {run.quote && (
+            <blockquote>
+              <p>{run.quote}</p>
+              {run.quoteNote && <cite>{run.quoteNote}</cite>}
+            </blockquote>
+          )}
           {run.note && (<p class="note">{run.note}</p>)}
 
           {run.cycles && (
@@ -186,6 +192,18 @@ const caveat = runsData.caveat as string;
     border-left: 2px solid var(--border);
     color: var(--fg-dim);
     font-size: 0.95rem;
+  }
+  blockquote p {
+    margin: 0;
+  }
+  /* Same rule as the flows above: a translated correction says it is one. */
+  blockquote cite {
+    display: block;
+    margin-top: 4px;
+    color: var(--fg-dim);
+    font-size: 0.8rem;
+    font-style: normal;
+    opacity: 0.8;
   }
   .note {
     margin: 14px 0 0 0;

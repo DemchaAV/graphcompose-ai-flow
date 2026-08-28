@@ -463,6 +463,46 @@ test("the site and the README report the same runs", () => {
   }
 });
 
+test("the site and the README report the same revision flows", () => {
+  // Same rule as the runs above, for the recordings the landing page plays.
+  // These are hand-written for the same reason — the runs happened in a user's
+  // own Java project — so the README is what keeps them honest.
+  const flows = JSON.parse(read("site/src/data/runs.json")).flows.items;
+  const readme = read("README.md");
+
+  assert.ok(flows.length >= 2, "the site plays fewer flows than the README describes");
+
+  for (const flow of flows) {
+    assert.match(
+      readme,
+      new RegExp(`${flow.revisions}\\s+revisions?`, "i"),
+      `${flow.id}: the README does not mention ${flow.revisions} revisions`,
+    );
+    assert.match(
+      readme,
+      new RegExp(`\`${flow.approvedAt}\``),
+      `${flow.id}: the README does not say it was approved at ${flow.approvedAt}`,
+    );
+    if (flow.minutes !== undefined) {
+      assert.match(
+        readme,
+        new RegExp(`${flow.minutes} minutes`),
+        `${flow.id}: the README does not carry the ${flow.minutes}-minute figure`,
+      );
+    }
+    // The GIF is what the README renders; the MP4 beside it is what the page
+    // plays. Both come out of one recording, so both must exist.
+    const gif = path.join(repoRoot, flow.gif);
+    assert.ok(fs.existsSync(gif), `${flow.id}: missing ${flow.gif}`);
+    assert.match(readme, new RegExp(flow.gif.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      `${flow.id}: the README does not show ${flow.gif}`);
+    for (const asset of [flow.video, flow.poster]) {
+      const source = path.join(repoRoot, "assets", "readme", "v0.6", path.basename(asset));
+      assert.ok(fs.existsSync(source), `${flow.id}: missing shared asset ${path.basename(asset)}`);
+    }
+  }
+});
+
 test("every repository link the site makes still resolves", () => {
   // The landing page linked to prompts/visual-review-agent.md for three
   // releases after that file was deleted. Nothing was checking, and a dead
