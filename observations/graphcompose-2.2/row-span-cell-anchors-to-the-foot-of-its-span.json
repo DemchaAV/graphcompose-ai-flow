@@ -10,7 +10,7 @@
     "DocumentTableStyle.Builder.textAnchor",
     "DocumentTableTextAnchor.TOP_LEFT"
   ],
-  "observedBehaviour": "A cell that spans more than one row places its content at the FOOT of the span, and the vertical anchor is discarded rather than overridden. Measured differentially: the same two-row table rendered with a one-line body and with a six-line one, so the span grows by a known amount and the spanning cell's badge is located by colour in each render. The span grew 65 pt and the badge moved down 65 pt - the whole of it - at every one of the three places the anchor can be declared: the table's defaultCellStyle, the spanning row's rowStyle, and the cell's own withStyle. TOP_LEFT and BOTTOM_LEFT put the badge at the same y in all three, which is the part that says 'discarded' rather than 'losing to the span': if the anchor were being applied and then beaten, the two values would still differ. The span itself is correct - the columns are right and the second row lands in the second column - so the geometry is not the problem, only the seating. Confirmed identically on 2.2.1 and 2.2.2, so this is a property of the released line and not of one build.",
+  "observedBehaviour": "A cell that spans more than one row places its content at the FOOT of the span, and the vertical anchor is discarded rather than overridden. Measured differentially: the same two-row table rendered with a one-line body and with a six-line one, so the span grows by a known amount and the spanning cell's badge is located by colour in each render. The span grew 65 pt and the badge moved down 65 pt - the whole of it - at every one of the three places the anchor can be declared: the table's defaultCellStyle, the spanning row's rowStyle, and the cell's own withStyle. TOP_LEFT and BOTTOM_LEFT put the badge at the same y in all three, which is the part that says 'discarded' rather than 'losing to the span': if the anchor were being applied and then beaten, the two values would still differ. The span itself is correct - the columns are right and the second row lands in the second column - so the geometry is not the problem, only the seating. Confirmed identically on 2.2.1 and 2.2.2, so this is a property of the released line and not of one build. ROOT CAUSE, found 2026-08-28 in the engine: NodeDefinitionSupport.emitComposedCellFragments accepted the cell height and never read it, placing a composed child at cellLocalY + padding.bottom() with no anchor branch at all. That is why all three declaration sites behaved alike and why TOP_LEFT and BOTTOM_LEFT agreed. It is a COMPOSED-CONTENT defect: text in the same cell is anchored correctly by PdfTableRowFragmentRenderHandler.resolveTextLines, which reads cell.height() and the anchor, so a spanning cell holding TEXT was never affected.",
   "minimalReproduction": {
     "probe": "row-span-anchor",
     "command": "node scripts/probe.mjs row-span-anchor --version 2.2 --json",
@@ -35,7 +35,7 @@
   "engineDefect": {
     "isDefect": true,
     "affectedVersions": "2.2.1-2.2.2",
-    "reportedTo": null,
+    "reportedTo": "GraphCompose fix/rowspan-composed-cell-anchor @ 3a1f71bb (branched from origin/develop, 2.2.3-SNAPSHOT)",
     "fixedIn": null
   },
   "verifiedAgainst": [

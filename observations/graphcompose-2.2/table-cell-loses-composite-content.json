@@ -46,7 +46,7 @@
     "note": "Reported from a real acceptance run and reproduced here independently. The probe found more than was reported: the partial-draw cases (Section, LayerStack) were not in the original account, and they are the ones that mislead, because a half-drawn cell reads as a styling problem rather than a lost-content one."
   },
   "promotedTo": null,
-  "retiredNote": "Fixed in 2.2.1 for a table in a PLAIN PAGE FLOW, which is the only arrangement `table-cell-node` builds. Re-running it against 2.2.1 shows all eight node kinds drawing in full: contentDrawnInFull became [ParagraphNode, ListNode, TableNode, SectionNode, RowNode, LayerStackNode, ShapeContainerNode, CanvasLayerNode], with contentPartiallyDrawn and contentLost both empty; the same probe reports the same eight on released 2.2.2. On 2.2.0 a RowNode, ShapeContainerNode or CanvasLayerNode in a cell reserved the cell's height and drew none of its child content, and a SectionNode or LayerStackNode drew about 0.4 of the ink. The workaround above is what a project still pinned to 2.2.0 needs. The nested placement has now been measured too. `table-cell-node` grew a second arm on 2026-08-28 — the same one-cell table in the wide column of a two-column row, which is where a sidebar page puts it — and on released 2.2.1 and 2.2.2 all eight kinds draw in full THERE AS WELL: nestedContentLost and nestedContentPartiallyDrawn are both empty. So the fix does reach a cell one level deeper, and this retirement covers both placements. What the same run settled is where the contrary report came from. A create run pinned to 2.2.1-SNAPSHOT reported a composite drawing its box and none of its children inside a row cell, and filed it as a defect surviving the fix. Measured against that exact jar — sha1 a18aa0f12a0fca390fe2088e5cf562ba0089b723, 4108 bytes, a local mvn install — the probe reproduces THIS record's 2.2.0 numbers exactly, at both placements: ParagraphNode, ListNode and TableNode in full, SectionNode and LayerStackNode partial, RowNode, ShapeContainerNode and CanvasLayerNode lost. That jar is pre-fix. It is also the same jar on which `layered-row-survives-a-row-cell` measured layeredRowHorizontal false while 2.2.2 measures it true. A SNAPSHOT named for a release is not that release, and on this machine it was the older code: a run that sees the 2.2.0 behaviour on a build called 2.2.1-SNAPSHOT has found a stale jar, not a new defect.",
+  "retiredNote": "Fixed in 2.2.1 for a table in a PLAIN PAGE FLOW, which is the only arrangement `table-cell-node` builds. Re-running it against 2.2.1 shows all eight node kinds drawing in full: contentDrawnInFull became [ParagraphNode, ListNode, TableNode, SectionNode, RowNode, LayerStackNode, ShapeContainerNode, CanvasLayerNode], with contentPartiallyDrawn and contentLost both empty; the same probe reports the same eight on released 2.2.2. On 2.2.0 a RowNode, ShapeContainerNode or CanvasLayerNode in a cell reserved the cell's height and drew none of its child content, and a SectionNode or LayerStackNode drew about 0.4 of the ink. The workaround above is what a project still pinned to 2.2.0 needs. The nested placement has now been measured too. `table-cell-node` grew a second arm on 2026-08-28 — the same one-cell table in the wide column of a two-column row, which is where a sidebar page puts it — and on released 2.2.1 and 2.2.2 all eight kinds draw in full THERE AS WELL: nestedContentLost and nestedContentPartiallyDrawn are both empty. So the fix does reach a cell one level deeper, and this retirement covers both placements. What the same run settled is where the contrary report came from. A create run pinned to 2.2.1-SNAPSHOT reported a composite drawing its box and none of its children inside a row cell, and filed it as a defect surviving the fix. Measured against that exact jar — sha1 a18aa0f12a0fca390fe2088e5cf562ba0089b723, 4108 bytes, a local mvn install — the probe reproduces THIS record's 2.2.0 numbers exactly, at both placements: ParagraphNode, ListNode and TableNode in full, SectionNode and LayerStackNode partial, RowNode, ShapeContainerNode and CanvasLayerNode lost. That jar is pre-fix. It is also the same jar on which `layered-row-survives-a-row-cell` measured layeredRowHorizontal false while 2.2.2 measures it true. A SNAPSHOT named for a release is not that release, and on this machine it was the older code: a run that sees the 2.2.0 behaviour on a build called 2.2.1-SNAPSHOT has found a stale jar, not a new defect. The depth axis was closed on 2026-08-28 too. A separate run reported a cell losing a SectionNode whose OWN children were composite (a row and a table) and noted, correctly, that this probe pointed the other way because every arrangement it built wrapped a single leaf. The probe now builds two deeper ones - SectionNode(Row(leaf)) and SectionNode(Row+Table) - and they settle it the same way as everything else here: on 2.2.2 both draw in full at both placements, share 1.0. On the same 2.2.1-SNAPSHOT jar both are LOST entirely, share 0.0, while a one-leaf SectionNode draws 0.4 there - so depth does make the pre-fix failure worse, and the fix covers it.",
   "verifiedAgainst": [
     {
       "version": "2.2.2",
@@ -61,18 +61,6 @@
       }
     },
     {
-      "version": "2.2.1",
-      "on": "2026-08-28",
-      "verdict": "changed",
-      "note": "contentDrawnInFull: recorded [\"ParagraphNode\",\"ListNode\",\"TableNode\"], probe says [\"ParagraphNode\",\"ListNode\",\"TableNode\",\"SectionNode\",\"RowNode\",\"LayerStackNode\",\"ShapeContainerNode\",\"CanvasLayerNode\"]; contentPartiallyDrawn: recorded [\"SectionNode\",\"LayerStackNode\"], probe says []; contentLost: recorded [\"RowNode\",\"ShapeContainerNode\",\"CanvasLayerNode\"], probe says []",
-      "build": {
-        "sha1": "4bd8314d461ea103bd607fc6c366ac82e1c5cd51",
-        "bytes": 4086,
-        "modified": "2026-08-25T16:10:12.995Z",
-        "origin": "downloaded"
-      }
-    },
-    {
       "version": "2.2.1-SNAPSHOT",
       "on": "2026-08-28",
       "verdict": "held",
@@ -82,6 +70,18 @@
         "bytes": 4108,
         "modified": "2026-08-26T18:00:55.245Z",
         "origin": "local-install"
+      }
+    },
+    {
+      "version": "2.2.1",
+      "on": "2026-08-28",
+      "verdict": "changed",
+      "note": "contentDrawnInFull: recorded [\"ParagraphNode\",\"ListNode\",\"TableNode\"], probe says [\"ParagraphNode\",\"ListNode\",\"TableNode\",\"SectionNode\",\"RowNode\",\"LayerStackNode\",\"ShapeContainerNode\",\"CanvasLayerNode\"]; contentPartiallyDrawn: recorded [\"SectionNode\",\"LayerStackNode\"], probe says []; contentLost: recorded [\"RowNode\",\"ShapeContainerNode\",\"CanvasLayerNode\"], probe says []",
+      "build": {
+        "sha1": "4bd8314d461ea103bd607fc6c366ac82e1c5cd51",
+        "bytes": 4086,
+        "modified": "2026-08-25T16:10:12.995Z",
+        "origin": "downloaded"
       }
     }
   ]

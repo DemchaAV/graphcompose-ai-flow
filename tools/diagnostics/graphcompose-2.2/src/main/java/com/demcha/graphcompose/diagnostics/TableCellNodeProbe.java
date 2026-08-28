@@ -103,6 +103,39 @@ final class TableCellNodeProbe implements Probes.Probe {
             section.addParagraph(p -> p.name("SectionLeaf").text(withLeaf ? LEAF : ""));
             return section.build();
         });
+        // The depth axis, which every other entry here misses. Each arrangement
+        // above wraps ONE LEAF: a section holding a paragraph, a row holding a
+        // paragraph. A run reported a cell losing a section whose own children
+        // were composite — a row and a table — and pointed out that this probe's
+        // clean result actively misleads, because "SectionNode draws in full"
+        // was measured on a section one level shallower than the one that
+        // failed. So: a section holding a row holding the leaf, and a section
+        // holding both a row and a table.
+        kinds.put("SectionNode(Row(leaf))", withLeaf -> {
+            RowBuilder inner = new RowBuilder();
+            inner.name("DeepRow");
+            inner.weights(1.0);
+            inner.addParagraph(p -> p.name("DeepRowLeaf").text(withLeaf ? LEAF : ""));
+            SectionBuilder section = new SectionBuilder();
+            section.name("DeepSection");
+            section.add(inner.build());
+            return section.build();
+        });
+        kinds.put("SectionNode(Row+Table)", withLeaf -> {
+            RowBuilder inner = new RowBuilder();
+            inner.name("DeepRow2");
+            inner.weights(1.0);
+            inner.addParagraph(p -> p.name("DeepRowLeaf2").text(withLeaf ? LEAF : ""));
+            SectionBuilder section = new SectionBuilder();
+            section.name("DeepSection2");
+            section.add(inner.build());
+            section.add(new TableBuilder()
+                    .name("DeepNestedTable")
+                    .autoColumns(1)
+                    .row(withLeaf ? LEAF : "")
+                    .build());
+            return section.build();
+        });
         kinds.put("RowNode", withLeaf -> {
             RowBuilder row = new RowBuilder();
             row.name("ProbeRow");
@@ -141,6 +174,18 @@ final class TableCellNodeProbe implements Probes.Probe {
         List<String> nestedPartial = new java.util.ArrayList<>();
         List<String> nestedLost = new java.util.ArrayList<>();
         List<String> nestedInconclusive = new java.util.ArrayList<>();
+        // The depth arrangements report into lists of their own, for the same
+        // reason the nested placement does: `contentLost` and its siblings are
+        // keys an existing record was written against, and a probe that learns
+        // to measure MORE must not make that read as the library changing. The
+        // first draft of these arms put them in the flat lists and flipped a
+        // filed verdict from `held` to `changed` on a build where nothing had
+        // moved at all.
+        java.util.Set<String> deepKinds = java.util.Set.of(
+                "SectionNode(Row(leaf))", "SectionNode(Row+Table)");
+        List<String> deepIntact = new java.util.ArrayList<>();
+        List<String> deepPartial = new java.util.ArrayList<>();
+        List<String> deepLost = new java.util.ArrayList<>();
 
         for (Map.Entry<String, Arrangement> entry : kinds.entrySet()) {
             String kind = entry.getKey();
@@ -175,15 +220,16 @@ final class TableCellNodeProbe implements Probes.Probe {
             } else {
                 double share = (double) leafInCell / leafInFlow;
                 row.put("shareOfLeafDrawnInCell", Json.pt(share));
+                boolean deep = deepKinds.contains(kind);
                 if (leafInCell <= NOISE) {
                     row.put("verdict", "content lost: the cell reserves space and draws no child content");
-                    lost.add(kind);
+                    (deep ? deepLost : lost).add(kind);
                 } else if (share < FULL) {
                     row.put("verdict", "content only partly drawn in the cell");
-                    partial.add(kind);
+                    (deep ? deepPartial : partial).add(kind);
                 } else {
                     row.put("verdict", "content drawn in full");
-                    intact.add(kind);
+                    (deep ? deepIntact : intact).add(kind);
                 }
             }
 
@@ -238,6 +284,14 @@ final class TableCellNodeProbe implements Probes.Probe {
         result.put("nestedContentPartiallyDrawn", nestedPartial);
         result.put("nestedContentLost", nestedLost);
         result.put("nestedInconclusive", nestedInconclusive);
+        result.put("deepArrangement",
+                "A section whose OWN children are composite - a row, and a row plus a "
+                + "table - rather than the single leaf every other arrangement here "
+                + "wraps. Reported separately so the flat lists keep the meaning the "
+                + "records written against them have.");
+        result.put("deepContentDrawnInFull", deepIntact);
+        result.put("deepContentPartiallyDrawn", deepPartial);
+        result.put("deepContentLost", deepLost);
 
         StringBuilder finding = new StringBuilder();
         if (lost.isEmpty() && partial.isEmpty()) {
