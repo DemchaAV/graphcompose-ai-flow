@@ -61,6 +61,22 @@ import com.demcha.compose.document.table.DocumentTableTextAnchor;
  * {@code BOTTOM_LEFT}. If those two put the badge in the same place, the anchor
  * is not merely losing to the span — it is being ignored, which is a different
  * defect and a different fix.</p>
+ *
+ * <h2>What this probe does not separate</h2>
+ *
+ * <p>It measures a composed node, and only that. {@code textAnchor} is the TEXT
+ * anchor: the PDF handler applies it in {@code resolveTextLines}, which reads
+ * {@code cell.lines()}, and a composed node never passes through that code at
+ * all. So "the anchor is discarded" has two readings — a spanning cell that
+ * ignores the anchor for everything, or a control that was only ever about text
+ * being asked to place a node — and they need different fixes.</p>
+ *
+ * <p>Measuring both kinds would tell them apart. That is not what this probe
+ * does; the engine source answered the question directly, and a second arm
+ * built to re-answer it would be measurement for its own sake. The distinction
+ * is recorded here because it is what made the root cause findable, and because
+ * a later reader looking at these numbers should know which of the two they
+ * are numbers about.</p>
  */
 final class TableRowSpanProbe implements Probes.Probe {
 
@@ -71,7 +87,6 @@ final class TableRowSpanProbe implements Probes.Probe {
     private static final double BADGE_W = 40.0;
     private static final double BADGE_H = 24.0;
     private static final DocumentColor BADGE = DocumentColor.rgb(220, 30, 30);
-
     /**
      * One line of body in the short render, six in the tall one — as explicit
      * lines rather than one long string. A fixed column refuses a value whose
