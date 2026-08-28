@@ -53,6 +53,7 @@ import {
   resolveScope,
   stagesForScope,
 } from "./lib/pipeline-config.mjs";
+import { planSetup } from "./lib/setup-plan.mjs";
 
 const repoRoot = installRoot();
 const EXIT = { ready: 0, usage: 2, unsupported: 3, unknown: 4, mismatch: 5, unidentifiedBuild: 6 };
@@ -72,12 +73,13 @@ function usage(code = 0) {
   process.exit(code);
 }
 
-const args = { projectDir: process.cwd(), project: null, root: null, text: false };
+const args = { projectDir: process.cwd(), project: null, root: null, text: false, noSetup: false };
 for (let i = 0; i < process.argv.length - 2; i += 1) {
   const a = process.argv[i + 2];
   if (a === "--help" || a === "-h") usage(0);
   else if (a === "--json") args.text = false;
   else if (a === "--text") args.text = true;
+  else if (a === "--no-setup") args.noSetup = true;
   else if (a === "--project-dir" || a === "-C") args.projectDir = process.argv[++i + 2];
   else if (a === "--project" || a === "-p") args.project = process.argv[++i + 2];
   else if (a === "--root") args.root = process.argv[++i + 2];
@@ -142,7 +144,7 @@ const build = describeBuild(version, resolvedRecord);
 const routing = describeRouting(project);
 // Read once: the report publishes it and `nextCommands` branches on it, and a
 // second probe would let the two disagree about the same machine.
-const tools = describeTools();
+const tools = runSetupIfNeeded(describeTools());
 // After tools: snapshot support depends on whether preview-renderer is built,
 // and asking twice would let the two answers disagree about the same machine.
 const capabilities = describeCapabilities(version, tools);
@@ -541,6 +543,66 @@ function describeTools() {
   };
 }
 
+/**
+ * Build what ships as source, when that is what is in the way.
+ *
+ * The report used to say `npm run setup` and stop there. It was right, and it
+ * was still a step someone had to take between reading the report and doing the
+ * work — which is the kind of step this whole command exists to remove. So it
+ * runs it, once, and re-reads the tools afterwards so the rest of the report
+ * describes the tree as it now is rather than as it was found.
+ *
+ * The build's own output goes to stderr, never stdout: this command's stdout is
+ * JSON that a caller parses, and a Maven log in the middle of it is a parse
+ * error rather than a build log.
+ */
+function runSetupIfNeeded(tools) {
+  // The version verdict decides the run: an unsupported line exits 3 and a
+  // directory that is not a GraphCompose project exits 4, both a few lines
+  // below. Building first spent a full `npm ci` and a Maven package to answer a
+  // question the caller never gets to ask — a typo in `--project-dir` cost
+  // minutes and then said "not a GraphCompose project".
+  const willStop =
+    version.status === "unsupported"
+      ? `GraphCompose ${version.version ?? "?"} has no skill pack`
+      : version.status === "unknown"
+        ? "this is not a GraphCompose project"
+        : null;
+  const plan = planSetup(tools, { optedOut: args.noSetup, runWillStop: willStop });
+  if (!plan.run) {
+    return { ...tools, setup: { ran: false, ok: null, reason: plan.reason, blockedBy: plan.blockedBy } };
+  }
+
+  const startedAt = process.hrtime.bigint();
+  if (args.text) process.stderr.write(`[preflight] building ${tools.unbuilt.join(", ")} — this happens once\n`);
+
+  const built = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "setup.mjs")], {
+    cwd: repoRoot,
+    // stdin closed, and both of the child's streams onto ours — which for stdout
+    // means fd 2, so a build log never lands in the JSON.
+    stdio: ["ignore", 2, 2],
+  });
+  const seconds = Math.round(Number(process.hrtime.bigint() - startedAt) / 1e8) / 10;
+
+  const after = describeTools();
+  const stillUnbuilt = after.unbuilt;
+  return {
+    ...after,
+    setup: {
+      ran: true,
+      ok: built.status === 0 && stillUnbuilt.length === 0,
+      reason: plan.reason,
+      blockedBy: [],
+      seconds,
+      // What the build actually changed, rather than what it was asked to do.
+      // A setup that exits 0 and leaves a tool unbuilt is the failure worth
+      // naming, and its exit code alone would not name it.
+      built: tools.unbuilt.filter((name) => !stillUnbuilt.includes(name)),
+      stillUnbuilt,
+    },
+  };
+}
+
 // ------------------------------------------------------------- capabilities ---
 
 /**
@@ -710,9 +772,16 @@ function nextCommands(projectInfo, routing, tools) {
   // twenty-minutes-in discovery this report exists to prevent. Nothing pointed
   // at the fix: `setupCommand` was a constant that appeared whether or not it
   // was needed, and this list never read the tools at all.
+  // Only when building them here did not, or could not, happen. A tree that was
+  // just built reports nothing; one where the build failed says so, because
+  // being told to run a command that has already failed is worse than silence.
   if (tools?.needsSetup) {
     commands.push({
-      why: `${tools.unbuilt.join(", ")} ship as source and are not built here; without them the first render exits 69`,
+      why: tools.setup?.ran
+        ? `setup ran here and ${tools.unbuilt.join(", ")} are still not built; the error is above, and without them the first render exits 69`
+        : tools.setup?.blockedBy?.length
+          ? `${tools.setup.reason}; without ${tools.unbuilt.join(", ")} the first render exits 69`
+          : `${tools.unbuilt.join(", ")} ship as source and are not built here; without them the first render exits 69`,
       run: tools.setupCommand,
     });
   }
@@ -772,8 +841,15 @@ function printText(r) {
   }
   // The explicit lists, not every false-valued key: `ready` and `needsSetup`
   // are booleans as well, and a bare filter reported them as missing tools.
+  if (r.tools.setup?.ran && r.tools.setup.ok) {
+    lines.push(`Built: ${r.tools.setup.built.join(", ")} (${r.tools.setup.seconds}s)`);
+  }
   if (r.tools.unbuilt.length > 0) {
-    lines.push(`Not built: ${r.tools.unbuilt.join(", ")} — run ${r.tools.setupCommand}`);
+    lines.push(
+      r.tools.setup?.ran
+        ? `Still not built after setup: ${r.tools.unbuilt.join(", ")} — run ${r.tools.setupCommand} and read the error`
+        : `Not built: ${r.tools.unbuilt.join(", ")} — ${r.tools.setup?.blockedBy?.length ? r.tools.setup.reason : `run ${r.tools.setupCommand}`}`,
+    );
   }
   if (r.tools.absent.length > 0) {
     lines.push(`Not on PATH: ${r.tools.absent.join(", ")} — no setup step installs these`);

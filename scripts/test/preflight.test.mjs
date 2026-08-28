@@ -193,23 +193,31 @@ test("tool readiness is reported now rather than at the first render", () => {
   assert.ok(Array.isArray(parsed.tools.absent), "what is absent is not stated as a list");
 });
 
+/** An install carrying the scripts and none of the tools they drive. */
+function unbuiltInstall(label) {
+  const install = tempDir(label);
+  for (const dir of ["scripts", "config", "skills"]) {
+    fs.cpSync(path.join(repoRoot, dir), path.join(install, dir), { recursive: true });
+  }
+  // tools/ is deliberately not copied: nothing is built in this install.
+  assert.ok(!fs.existsSync(path.join(install, "tools")), "the fixture built something");
+  return install;
+}
+
 test("an unbuilt install is told to build before it is told to do anything else", () => {
   // A fresh plugin install carries no dist/ and no jar: they ship as source.
   // The old advice was to create a workspace and render, which succeeds at the
   // first step and exits 69 at the second — the twenty-minutes-in discovery
   // this report exists to prevent. Nothing pointed at the fix, because
   // nextCommands never read the tool report at all.
-  const install = tempDir("unbuilt");
-  for (const dir of ["scripts", "config", "skills"]) {
-    fs.cpSync(path.join(repoRoot, dir), path.join(install, dir), { recursive: true });
-  }
-  // tools/ is deliberately not copied: nothing is built in this install.
-  assert.ok(!fs.existsSync(path.join(install, "tools")), "the fixture built something");
+  const install = unbuiltInstall("unbuilt");
 
   const { host } = scenario({}, "unbuilt-host");
   const result = spawnSync(
     process.execPath,
-    [path.join(install, "scripts", "preflight.mjs"), "--project-dir", host, "--project", "demo"],
+    // --no-setup: this test is about the advice, not about building. Without it
+    // the run would attempt the build it is asserting was recommended.
+    [path.join(install, "scripts", "preflight.mjs"), "--project-dir", host, "--project", "demo", "--no-setup"],
     { encoding: "utf8" },
   );
   const parsed = JSON.parse(result.stdout);
@@ -495,4 +503,68 @@ test("three places saying the same version is not reported as a problem", () => 
 
   assert.equal(parsed.graphCompose.pins.agree, true);
   assert.equal(parsed.graphCompose.pins.message, null);
+});
+
+test("--no-setup reports what is unbuilt instead of building it", () => {
+  // The escape hatch, and the shape the report keeps when it is used: a caller
+  // that wants the facts and not a build has to be able to ask for exactly that.
+  const install = unbuiltInstall("nosetup");
+  const { host } = scenario({}, "nosetup-host");
+  const result = spawnSync(
+    process.execPath,
+    [path.join(install, "scripts", "preflight.mjs"), "--project-dir", host, "--project", "demo", "--no-setup"],
+    { encoding: "utf8" },
+  );
+  const parsed = JSON.parse(result.stdout);
+
+  assert.equal(parsed.tools.setup.ran, false);
+  assert.equal(parsed.tools.setup.reason, "--no-setup");
+  assert.equal(parsed.tools.needsSetup, true);
+  assert.equal(parsed.nextCommands[0]?.run, "npm run setup");
+});
+
+test("a built install records that there was nothing to build", () => {
+  const { host } = scenario({}, "setup-noop");
+  const { parsed } = run(["--project-dir", host, "--project", "demo"]);
+
+  if (parsed.tools.unbuilt.length > 0) return; // this checkout has not run setup
+
+  // `setup` reinstalls and rebuilds every Node tool unconditionally. Running it
+  // on a ready tree would spend a minute to change nothing, so the report has
+  // to be able to say it decided not to.
+  assert.equal(parsed.tools.setup.ran, false);
+  assert.match(parsed.tools.setup.reason, /everything that ships as source is built/);
+});
+
+test("a build that runs and does not finish the job says so, and does not repeat the advice as if it were new", () => {
+  // The fixture has no `tools/` at all, so setup runs and fails. That is the
+  // case worth pinning: being told to run a command that has just failed, with
+  // no hint that it was tried, is worse than not being told at all.
+  const install = unbuiltInstall("setup-fails");
+  const { host } = scenario({}, "setup-fails-host");
+  const result = spawnSync(
+    process.execPath,
+    [path.join(install, "scripts", "preflight.mjs"), "--project-dir", host, "--project", "demo"],
+    { encoding: "utf8" },
+  );
+  const parsed = JSON.parse(result.stdout);
+
+  assert.equal(parsed.tools.setup.ran, true);
+  assert.equal(parsed.tools.setup.ok, false);
+  assert.ok(Array.isArray(parsed.tools.setup.stillUnbuilt));
+  assert.equal(parsed.nextCommands[0]?.run, "npm run setup");
+  assert.match(parsed.nextCommands[0].why, /setup ran here/);
+});
+
+test("the build's own output never reaches stdout, because stdout is the report", () => {
+  const install = unbuiltInstall("setup-stdout");
+  const { host } = scenario({}, "setup-stdout-host");
+  const result = spawnSync(
+    process.execPath,
+    [path.join(install, "scripts", "preflight.mjs"), "--project-dir", host, "--project", "demo"],
+    { encoding: "utf8" },
+  );
+
+  // A Maven log in the middle of the JSON is a parse error, not a build log.
+  assert.doesNotThrow(() => JSON.parse(result.stdout), "stdout stopped being parseable JSON");
 });

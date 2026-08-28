@@ -83,7 +83,7 @@ PowerShell, cmd and bash.
 
 | Do | Command |
 |---|---|
-| **Start here in a new run** | `node scripts/preflight.mjs --project-dir <dir> [--project <id>]` |
+| **Start here in a new run** | `node scripts/preflight.mjs --project-dir <dir> [--project <id>]` — also builds the tools that ship as source, when they are not built yet (`--no-setup` to only report) |
 | Does this API exist? | `node scripts/api-query.mjs --exists <Type>.<method>` — exit 0 yes, 3 no |
 | What is there for a topic? | `node scripts/api-query.mjs --version 2.2 --query footer` |
 | Regenerate the allow-list from the pinned jar | `node tools/api-surface/extract-api.mjs --version <x.y.z>` (`--check` to compare) |
@@ -132,8 +132,16 @@ PowerShell, cmd and bash.
 | Recount the corpus, for a before/after | `node scripts/telemetry/run-metrics.mjs baseline` — needs no session, so anyone can re-derive it later; the recorded numbers are in [`docs/benchmarks.md`](docs/benchmarks.md) |
 | Run every gate locally | `npm run verify` (`--quick` skips Java/Maven) |
 
-Exit 69 from `graphcompose-flow` or `visual-diff` means the tools are
-not built: run `npm run setup`.
+`preflight` builds what ships as source when it finds it unbuilt, so a
+fresh clone or plugin install is ready after the first command rather
+than after a step someone has to remember. `--no-setup` reports instead
+of building. It will not build when Java or Maven is missing — `setup`
+checks the whole toolchain first and would stop there, and recommending
+a build for a missing JDK is wrong advice delivered confidently.
+
+Exit 69 from `graphcompose-flow` or `visual-diff` still means the tools
+are not built: run `npm run setup` and read the error, because preflight
+either did not run or could not finish it.
 
 ## Where things are declared
 

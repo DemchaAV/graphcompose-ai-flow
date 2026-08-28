@@ -27,6 +27,45 @@ is the same jar on which `layered-row-survives-a-row-cell` measured
 `layeredRowHorizontal` false while 2.2.2 measures it true, so one stale local
 install explains two anomalies that had been filed as separate defects.
 
+### Setup
+
+**`preflight` builds the tools instead of recommending that someone else
+does.** Since v0.6.5 the report has known which tools ship as source and are
+not built here, and it put `npm run setup` first in `nextCommands`. That was
+the right finding and still left a step between reading the report and doing
+the work — the kind of step this command exists to remove. It now runs the
+build itself: on a copy with `dist/` and the renderer jar deleted, `preflight`
+reported *Built: revisionManager, visualDiff, previewRenderer (15.1s)* and
+finished in 16.7 seconds. The second run took 0.96s and built nothing.
+
+It does not always build, and the cases it declines are the same distinction
+that split `unbuilt` from `absent` in the first place:
+
+- **The run is about to stop.** An unsupported line exits 3 and a directory
+  that is not a GraphCompose project exits 4, both a few lines after the tools
+  are read. Building first meant a typo in `--project-dir` cost a full `npm ci`
+  and a Maven package before being told it was the wrong directory.
+- **Nothing is unbuilt.** `setup` reinstalls and rebuilds every Node tool
+  unconditionally, so firing it at a ready tree spends a minute to change
+  nothing.
+- **Java or Maven is missing.** `setup` checks the whole toolchain before it
+  builds anything and stops there, so the run would fail in a way that reads
+  as "setup is broken" when the answer is "install a JDK". ImageMagick is
+  deliberately not in that list: the gates need it, the build does not.
+
+`--no-setup` reports instead of building. The decision lives in
+`scripts/lib/setup-plan.mjs` and is covered on its own, because it is small
+and its consequences are not.
+
+Two things the report now keeps straight. The build's output goes to stderr,
+never stdout — a Maven log in the middle of the JSON is a parse error, not a
+build log. And `setup.ok` is measured by re-reading the tools afterwards
+rather than by the exit code, because a setup that exits 0 and leaves a tool
+unbuilt is exactly the failure worth naming. When a build ran and did not
+finish the job, `nextCommands` says so rather than repeating the advice as
+though it were new: being told to run a command that has just failed, with no
+hint that it was tried, is worse than not being told.
+
 ### Published bundles
 
 **The bundle is a project now, and it has to prove it draws the same
