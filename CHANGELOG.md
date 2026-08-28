@@ -67,6 +67,11 @@ install explains two anomalies that had been filed as separate defects.
   2.2.2, each with its jar fingerprint.
 
 ### Probes
+- **`layered-row-in-row-cell`** — ported with the fifth record. Its source
+  `probeResult` was a cross-build summary (`collapsesOn`, `laysOutOn`) whose keys
+  the probe never emits, so `verify` would have failed it on every run; the
+  six-build comparison is prose now and `probeResult` is what the probe says.
+
 
 - **`table-cell-node`** — second placement: the same one-cell table in the wide
   column of a two-column row. Reports into `nested*` keys of its own so the

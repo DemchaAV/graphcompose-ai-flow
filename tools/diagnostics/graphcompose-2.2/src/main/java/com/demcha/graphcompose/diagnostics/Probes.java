@@ -24,6 +24,7 @@ public final class Probes {
     private static final Map<String, Supplier<Probe>> REGISTRY = new TreeMap<>(Map.ofEntries(
             Map.entry("anchor-alignment", AnchorAlignmentProbe::new),
             Map.entry("column-nesting", ColumnNestingProbe::new),
+            Map.entry("layered-row-in-row-cell", LayeredRowInRowCellProbe::new),
             Map.entry("line-spacing", LineSpacingProbe::new),
             Map.entry("page-enumeration", PageEnumerationProbe::new),
             Map.entry("page-margins", PageMarginProbe::new),

@@ -31,6 +31,31 @@ function run(args, options = {}) {
   return { ...result, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
 }
 
+/**
+ * A record `show` will call trustworthy when nothing is gating it but the
+ * question being asked.
+ *
+ * <p>Confirmed is not enough. A record measured as `changed` on a RELEASE of its
+ * own line is gated for every build not explicitly measured as holding — a
+ * behaviour that differs between two builds of one line is a property of the
+ * build — so a test using one as its subject fails on the gate rather than on
+ * what it meant to assert. `layered-row-collapses-on-2-2-1-snapshot` is exactly
+ * that record and sorts first, which is how it turned three passing tests red
+ * without any of them being about it. The existing comment below already says
+ * subjects must be picked deliberately rather than by readdir order; this is the
+ * second dimension of the same rule.</p>
+ */
+function unambiguous(line = null) {
+  return records().find(
+    (r) =>
+      r.body.confidence === "confirmed" &&
+      (line === null || r.line === line) &&
+      !(r.body.verifiedAgainst ?? []).some(
+        (v) => v.verdict === "changed" && !/-SNAPSHOT$/i.test(String(v.version)),
+      ),
+  );
+}
+
 /** Every observation on disk, with the line it belongs to. */
 function records() {
   const out = [];
@@ -124,7 +149,7 @@ test("show returns one record in full, and refuses an unknown id", () => {
   // Explicitly a confirmed one: `show` exits 5 on a retired record, so picking
   // whatever readdir happens to return first would make this test's subject
   // depend on filename order.
-  const first = records().find((r) => r.body.confidence === "confirmed");
+  const first = unambiguous();
   const found = run(["show", first.body.id]);
   assert.equal(found.status, 0);
   assert.equal(JSON.parse(found.stdout).id, first.body.id);
@@ -366,7 +391,7 @@ test("a same-line version difference is not treated as a mismatch", () => {
 });
 
 test("a record from another line is history, not an answer", () => {
-  const subject = records().find((r) => r.body.confidence === "confirmed" && r.line === "2.2");
+  const subject = unambiguous("2.2");
   if (!subject) return;
   const cwd = pinnedProject("2.1.0", "otherline");
 
@@ -376,7 +401,7 @@ test("a record from another line is history, not an answer", () => {
 });
 
 test("--version judges against the line the caller names", () => {
-  const subject = records().find((r) => r.body.confidence === "confirmed" && r.line === "2.2");
+  const subject = unambiguous("2.2");
   if (!subject) return;
 
   assert.equal(run(["show", subject.body.id, "--version", "2.2"]).status, 0);

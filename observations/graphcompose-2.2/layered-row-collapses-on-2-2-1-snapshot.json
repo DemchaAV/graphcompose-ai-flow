@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "id": "layered-row-collapses-on-2-2-1-snapshot",
+  "graphComposeVersion": "2.2.2",
+  "api": [
+    "AbstractFlowBuilder.addLayerStack",
+    "LayerStackBuilder.layer",
+    "SectionBuilder.addRow",
+    "RowBuilder.weights",
+    "RowBuilder.addSection"
+  ],
+  "observedBehaviour": "A row cannot nest in a row cell, and row-nesting names the LayerStack layer as the way around it. That workaround holds on 2.2.0's successor releases and NOT on the locally installed 2.2.1-SNAPSHOT: there, a LayerStack whose layer holds a row, placed inside a row cell, lays the row's cells out VERTICALLY at the row's own x, ignoring weights(...) entirely. Each cell falls back to its natural width and the last one takes the remaining width, which is exactly what a Section does — so the row silently becomes a column. Nothing is thrown. Measured with layoutSnapshot() on one arrangement (outer row 0.3/0.7, sidebar paragraph, main column holding the stack) held byte-identical across six locally installed builds, varying only the graph-compose / graph-compose-core / graph-compose-render-pdf jars: 2.2.0 COLLAPSES, 2.2.1-SNAPSHOT COLLAPSES, 2.2.1 lays out, 2.2.2 lays out, 2.2.2-SNAPSHOT lays out, 2.3.0-SNAPSHOT lays out. So 2.2.1-SNAPSHOT is a pre-fix build of the 2.2.1 line: it carries 2.2.0's behaviour, and the fix landed in the 2.2.1 release it precedes. The engine class that decides this lives in graph-compose-CORE, not in the graph-compose facade jar — swapping only the facade jar reproduces the release's version string with the snapshot's behaviour and reads as 'the version makes no difference'.",
+  "minimalReproduction": {
+    "probe": "layered-row-in-row-cell",
+    "command": "node scripts/probe.mjs layered-row-in-row-cell --version 2.2 --json",
+    "arrangement": "An outer row weighted 0.3/0.7 whose first cell is a paragraph and whose second cell holds a LayerStack; the stack's single layer is a Section holding a row with weights and two or three paragraph cells. Read computedX/placementWidth from layoutSnapshot(). Cells at three distinct x values means the row laid out; all cells at the row's own x means it collapsed. The probe project pins its own graph-compose version, so running it says nothing about a template project pinned to a different one — compare the two pins before trusting the answer."
+  },
+  "probeResult": {
+    "horizontalInPlainFlowLayer": true,
+    "horizontalWithParagraphCells": true,
+    "horizontalWithSectionCells": true,
+    "horizontalWithThreeCells": true,
+    "horizontalWithMarginOnStack": true,
+    "horizontalOneSectionDeeper": true,
+    "horizontalWithDecoratedCells": true,
+    "horizontalWithLongTextCells": true
+  },
+  "workaround": "Fix the pin, not the template: 2.2.1-SNAPSHOT is superseded by the 2.2.1 release, which fixes this, and by 2.2.2. If the pin cannot move, do not keep the layered row — on this build the two horizontal arrangements that still work inside a row cell are the ones row-cell-accepts-table-and-shape-container names, both re-measured here on 2.2.1-SNAPSHOT itself: addTable lays its columns out and spans its declared width, and addContainer with centerLeft/centerRight anchors places its children side by side. A table needs its columns to fit — a fixed column narrower than its content's natural width throws 'Fixed column N width X is smaller than required natural width Y', and a table wider than the cell throws 'Table T width X exceeds available width Y' — so size columns from the content, or use DocumentTableColumn.auto().",
+  "confidence": "confirmed",
+  "engineDefect": {
+    "isDefect": true,
+    "affectedVersions": "2.2.0, 2.2.1-SNAPSHOT",
+    "reportedTo": null,
+    "fixedIn": "2.2.1"
+  },
+  "sourceRun": {
+    "project": "oliver-bennett-cv",
+    "revision": "revision-002",
+    "date": "2026-08-28",
+    "note": "Found after two renders of a two-column CV in which every one of the four layered rows — timeline entries, project rows, education entries, sidebar icon-and-text pairs — stacked its cells. The trap is that scripts/probe.mjs answers from tools/diagnostics/graphcompose-2.2, whose pom pins 2.2.1, while the template project's pom pins 2.2.1-SNAPSHOT: the probe reported the arrangement as horizontal on every variant while the identical code collapsed in the render. Copying the probe's arrangement verbatim into the render-runner's own classpath is what separated 'the code is wrong' from 'the build is different'. Imported into this tree on 2026-08-28. Two things changed on the way in. The version was moved from 2.2.1-SNAPSHOT to 2.2.2, because a record is filed against the build its probeResult describes and the useful answer is the one about the current release. And probeResult was rewritten: it recorded a cross-build summary (collapsesOn, laysOutOn, weightsApplied, throws) that layered-row-in-row-cell never emits, so verify would have reported those keys missing and failed the record on every run. The six-build comparison is prose in observedBehaviour, where a summary belongs, and every build is filed in verifiedAgainst with its jar fingerprint."
+  },
+  "promotedTo": null,
+  "verifiedAgainst": [
+    {
+      "version": "2.2.2",
+      "on": "2026-08-28",
+      "verdict": "held",
+      "build": {
+        "sha1": "61585d2d93d195b6b297ec26d5ff7e6a60f141a8",
+        "bytes": 4085,
+        "modified": "2026-08-26T23:43:50.104Z",
+        "origin": "downloaded"
+      }
+    },
+    {
+      "version": "2.2.1",
+      "on": "2026-08-28",
+      "verdict": "held",
+      "build": {
+        "sha1": "4bd8314d461ea103bd607fc6c366ac82e1c5cd51",
+        "bytes": 4086,
+        "modified": "2026-08-25T16:10:12.995Z",
+        "origin": "downloaded"
+      }
+    },
+    {
+      "version": "2.2.1-SNAPSHOT",
+      "on": "2026-08-28",
+      "verdict": "changed",
+      "note": "horizontalInPlainFlowLayer: recorded true, probe says false; horizontalWithParagraphCells: recorded true, probe says false; horizontalWithSectionCells: recorded true, probe says false; horizontalWithThreeCells: recorded true, probe says false; horizontalWithMarginOnStack: recorded true, probe says false; horizontalOneSectionDeeper: recorded true, probe says false; horizontalWithLongTextCells: recorded true, probe says false",
+      "build": {
+        "sha1": "a18aa0f12a0fca390fe2088e5cf562ba0089b723",
+        "bytes": 4108,
+        "modified": "2026-08-26T18:00:55.245Z",
+        "origin": "local-install"
+      }
+    },
+    {
+      "version": "2.2.0",
+      "on": "2026-08-28",
+      "verdict": "changed",
+      "note": "horizontalInPlainFlowLayer: recorded true, probe says false; horizontalWithParagraphCells: recorded true, probe says false; horizontalWithSectionCells: recorded true, probe says false; horizontalWithThreeCells: recorded true, probe says false; horizontalWithMarginOnStack: recorded true, probe says false; horizontalOneSectionDeeper: recorded true, probe says false; horizontalWithLongTextCells: recorded true, probe says false",
+      "build": {
+        "sha1": "f9fb65ee710483731d77c1029ab272c69817a93d",
+        "bytes": 4086,
+        "modified": "2026-08-15T12:23:17.980Z",
+        "origin": "downloaded"
+      }
+    }
+  ]
+}
