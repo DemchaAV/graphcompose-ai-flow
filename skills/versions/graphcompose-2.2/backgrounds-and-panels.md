@@ -87,10 +87,19 @@ Semantic intent: "this content reads as a single quiet block".
 ### Card
 
 A more pronounced surface that visually lifts content above the page.
-A card may have a border, a stronger fill, or rounded corners. If the
-corners are rounded, the implementation moves to a shape container —
-see [`shapes-and-containers`](shapes-and-containers.md). If the card
-is rectangular, the same section-background primitive is enough.
+A card may have a border, a stronger fill, or rounded corners — all
+three stay on the flow builder: `softPanel(color, radius, padding)`, or
+`fillColor(...)` with `cornerRadius(...)` and `padding(...)` when the
+parts come from different tokens. The surface is bounded by what the
+section laid out, so the card is as tall as its copy.
+
+**Rounded corners are not a reason to leave the flow.** A shape
+container is a fixed box — it sizes to the rectangle you declare, not to
+its content, and copy inside it does not wrap at the padded width
+(measured: `node scripts/probe.mjs shape-padding --version 2.2`). Move
+to [`shapes-and-containers`](shapes-and-containers.md) when the surface
+is a shape a rectangle cannot express — a circle, a chevron, an SVG
+path — or when you want a fixed band with layered children.
 
 Semantic intent: "this is a distinct, raised object on the page".
 

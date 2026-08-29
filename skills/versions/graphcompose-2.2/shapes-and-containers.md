@@ -139,6 +139,78 @@ Use `.center(...)` when the child is centered in the shape, and
 `.position(..., LayerAlign.X)` or a shape-specific anchor helper when
 the child is anchored to a shape edge or corner.
 
+### Padding is how content gets room — and only one surface grows with it
+
+Content anchored to a shape's edge sits **on** that edge. The gap that
+keeps it off belongs on the container as `padding(...)`, not on each
+child as an offset: that is the ownership rule, and it is the right
+answer for both surfaces below. What separates them is whether the
+surface follows its content.
+
+Measured at 2.2.1 by `node scripts/probe.mjs shape-padding --version 2.2`
+(observation
+[`shape-padding-insets-children-and-grows-the-box`](../../../observations/graphcompose-2.2/shape-padding-insets-children-and-grows-the-box.json)):
+
+**A card on the flow builder grows with what it holds — rounded corners
+included.** Copy 34.8 pt tall in a section with `padding(12)` lays out
+58.8 pt tall, content plus padding, and the copy wraps at 266.71 pt
+inside a 290.71 pt section — the width less the padding.
+`softPanel(color, radius, padding)` measures identically: fill, corner
+radius and padding in one call, still content-sized. This is the card
+whose height nobody knows in advance:
+
+```java
+// Rounded, filled, padded, and as tall as its copy.
+section.addSection("Callout", card -> card
+        .softPanel(PANEL, 8, 12)
+        .addParagraph(p -> p.text(spec.note())));
+
+// The same thing spelled out, when the parts come from different tokens.
+section.addSection("Callout", card -> card
+        .fillColor(PANEL)
+        .cornerRadius(8)
+        .padding(DocumentInsets.of(12))   // flow builders take insets, not a double
+        .addParagraph(p -> p.text(spec.note())));
+```
+
+**A shape container does not.** `rectangle(w, h)` is a fixed box:
+
+1. Padding reaches an anchored child, per side — `padding(top 6, left 24)`
+   moves a `.topLeft(...)` child 24 pt right and 6 pt down.
+2. Padding is added *outside* the declared rectangle:
+   `rectangle(200, 40).padding(12)` lays out as 224 × 64.
+3. Content never stretches it. An 80 pt child in a 40 pt box leaves the
+   box at 40 (64 with padding) and overflows; a paragraph inside wraps at
+   199 pt, not at the 176 pt the padding implies.
+
+So pick the surface by the question being asked. **Rounded corners are
+not the question** — a rounded rectangle stays on the flow builder:
+
+| the surface is… | use | height |
+|---|---|---|
+| a panel or card under content, rounded or not | `softPanel(...)`, or `fillColor` + `cornerRadius` + `padding` | follows the content |
+| a shape a rectangle cannot express — circle, ellipse, diamond, chevron, arrow, star, SVG path | shape container | what you declared, plus padding |
+| a fixed band with layered children — a masthead, an icon row, a marker overhanging an edge | shape container | what you declared, plus padding |
+
+With a shape container you own the arithmetic: declare it smaller by the
+padding (`roundedRect(176, 16, 8).padding(12)` for a 200 × 40 card), and
+give copy inside it a width it can wrap at rather than trusting the
+padding to impose one. Declaring `rectangle(200, 40)` and adding padding
+is how a template matched to a reference silently grows by 24 pt and
+fails its own visual diff — after which the padding gets reverted to
+`padding(DocumentInsets.zero())` and the gutter comes back as a per-child
+offset constant. That form is a computed offset in disguise: one number
+per child, all meaning the same thing, and the next child added gets its
+own.
+
+If you find yourself doing that arithmetic for a plain rounded card, you
+are in the wrong primitive: go back to `softPanel(...)` and let the
+content size it.
+
+Reach for `.position(child, dx, dy, align)` when the offset is a genuine
+exception — a badge overhanging a corner, a marker deliberately breaking
+the edge — not for the gutter every child shares.
+
 Do not render a shape and then place its text/icon/image as a sibling
 paragraph with a negative margin. That breaks component ownership,
 rollback semantics, and layout snapshots even when the preview looks

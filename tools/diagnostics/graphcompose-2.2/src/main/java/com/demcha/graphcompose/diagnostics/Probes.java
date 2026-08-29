@@ -32,6 +32,7 @@ public final class Probes {
             Map.entry("row-cell-contents", RowCellContentsProbe::new),
             Map.entry("row-nesting", RowNestingProbe::new),
             Map.entry("row-span-anchor", TableRowSpanProbe::new),
+            Map.entry("shape-padding", ShapePaddingProbe::new),
             Map.entry("shape-paint", ShapePaintProbe::new),
             Map.entry("table-borders", TableBorderProbe::new),
             Map.entry("table-cell-node", TableCellNodeProbe::new),

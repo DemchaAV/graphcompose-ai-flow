@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "id": "shape-padding-insets-children-and-grows-the-box",
+  "graphComposeVersion": "2.2.1",
+  "api": [
+    "AbstractFlowBuilder.softPanel",
+    "AbstractFlowBuilder.cornerRadius",
+    "AbstractFlowBuilder.padding",
+    "AbstractFlowBuilder.fillColor",
+    "ShapeContainerBuilder.padding",
+    "ShapeContainerBuilder.rectangle",
+    "ShapeContainerBuilder.topLeft"
+  ],
+  "observedBehaviour": "Padding is how content gets room inside a rectangle on both rectangular surfaces, and only the flow one grows with what it holds. A SECTION carrying its own fill is content-driven: copy 34.8 pt tall with padding(12) lays out 58.8 pt tall (content + padding) and wraps at 266.71 pt inside a 290.71 pt section, the width less the padding. softPanel(color, 8, 12) measures identically — fill, corner radius and padding in one call, still content-sized — so ROUNDED CORNERS ARE NOT A REASON TO LEAVE THE FLOW BUILDER. A SHAPE CONTAINER is a fixed box: padding(...) does inset an anchored child per side (padding(top 6, left 24) moves a topLeft child 24 pt right and 6 pt down) and grows the box by the full padding outside the declared rectangle (rectangle(200, 40).padding(12) lays out 224 x 64), but content never stretches it — an 80 pt child leaves a 40 pt box at 40 and overflows, and a paragraph inside wraps at 199 pt rather than at the 176 pt the horizontal padding implies.",
+  "minimalReproduction": {
+    "probe": "shape-padding",
+    "command": "node scripts/probe.mjs shape-padding --version 2.2",
+    "arrangement": "Three identical 200 x 40 rectangles holding the same 60 x 10 spacer at topLeft, differing only in padding (none, uniform 12, asymmetric top 6 / left 24); then five content-sizing cases: the same rectangle holding an 80 pt spacer bare and padded, the same rectangle holding a wrapping paragraph, a section with fillColor and padding(12) holding that paragraph, and a section with softPanel(colour, 8, 12) holding it. Compare each child's offset from its container's origin, each container's laid-out size against the declared one, and each container's height against its content."
+  },
+  "probeResult": {
+    "paddingReachesAnchoredChild": true,
+    "paddingIsAddedOutsideTheDeclaredRectangle": true,
+    "asymmetricInsetLeft": 24,
+    "asymmetricInsetTop": 6,
+    "declaredWidth": 200,
+    "paddedWidth": 224,
+    "paddedHeight": 64,
+    "containerGrowsToFitAnOverTallChild": false,
+    "aParagraphGrowsTheContainer": false,
+    "aParagraphWrapsAtTheContentWidth": false,
+    "paragraphWidth": 199,
+    "contentWidth": 176,
+    "sectionHeight": 58.8,
+    "sectionCopyHeight": 34.8,
+    "sectionHeightIsCopyPlusPadding": true,
+    "sectionWidth": 290.71,
+    "sectionCopyWidth": 266.71,
+    "sectionCopyWrapsInsideThePadding": true,
+    "softPanelHeight": 58.8,
+    "softPanelCopyHeight": 34.8,
+    "softPanelHeightIsCopyPlusPadding": true,
+    "softPanelCopyWrapsInsideThePadding": true
+  },
+  "workaround": "Use padding for the space inside a rectangle — it is the property that owns children inside their owner, and one value replaces an offset repeated on every child. For a card or panel under content of unknown height, put it on the flow builder: softPanel(colour, radius, padding), or fillColor + cornerRadius + padding when the parts come from different tokens. Reach for a shape container when the surface is a shape a rectangle cannot express (circle, chevron, SVG path) or a deliberately fixed band with layered children; there the author owns the size — declare it smaller by the padding and give inner copy an explicit wrap width.",
+  "confidence": "confirmed",
+  "sourceRun": {
+    "project": "navy-gold-cv",
+    "revision": "revision-008",
+    "date": "2026-08-29",
+    "note": "Found by asking why no generated template uses shape padding: 38 shape containers across the corpus, none with a real padding, 8 explicitly zeroing it, and anchored children placed by position(dx, dy) 49 times against 30 bare anchors. The shapes skill never mentioned padding, and backgrounds-and-panels sent every rounded card to a shape container, which is the fixed box — so the gutter was written as a per-child offset in the one primitive that will not size itself."
+  },
+  "promotedTo": null
+}

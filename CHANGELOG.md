@@ -5,6 +5,109 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## Unreleased
+
+### Engine knowledge
+
+- **Nothing told a template how to keep copy off a shape's border, so it was
+  written as an offset.** Across the seventeen generated templates in the
+  reference corpus: 38 shape containers, **none** carrying a real `padding(...)`,
+  8 explicitly setting `padding(DocumentInsets.zero())`, and anchored children
+  placed by `position(child, dx, dy, align)` 49 times against 30 bare anchors —
+  a gutter shared by every child, written once per child as a constant. The
+  shapes skill's "Child placement inside shapes" section offered `.center(...)`
+  and `.position(..., LayerAlign.X)` and never mentioned padding, though
+  `ShapeContainerBuilder.padding` is in the API surface.
+- **New probe `shape-padding`: padding is the right property, and the surface
+  that grows with its content is the flow builder — rounded corners included.**
+  Measured at 2.2.1. A **section** carrying its own `fillColor` is
+  content-driven: copy 34.8 pt tall with `padding(12)` lays out 58.8 pt tall,
+  and the copy wraps at 266.71 pt inside a 290.71 pt section — the width less
+  the padding. `softPanel(colour, 8, 12)` measures identically: fill, corner
+  radius and padding in one call, still content-sized. A **shape container** is
+  a fixed box: padding does inset an anchored child per side (`padding(top 6,
+  left 24)` moves a `topLeft` child 24 pt right, 6 pt down) and grows the box by
+  the full padding outside the declared rectangle (`rectangle(200, 40).padding(12)`
+  → 224 × 64), but content never stretches it — an 80 pt child leaves a 40 pt
+  box at 40 and overflows, and a paragraph inside wraps at 199 pt rather than
+  the 176 pt the padding implies.
+- **`backgrounds-and-panels.md` was sending every rounded card into that fixed
+  box.** Its Card recipe said "if the corners are rounded, the implementation
+  moves to a shape container", two sections above its own description of
+  `softPanel` as "a rounded, padded background" on the flow builder. Following
+  it meant giving up content sizing for a corner radius, and then doing the
+  padding arithmetic by hand — which is the shape the corpus is in. Both docs
+  now route on what the surface *is*: a panel or card, rounded or not, stays on
+  the flow builder; a shape container is for a shape a rectangle cannot express,
+  or a deliberately fixed band with layered children. Filed as
+  `shape-padding-insets-children-and-grows-the-box`.
+- **The same sentence was in all four skill packs**, 1.6 through 2.2, and the
+  engine never said it: GraphCompose's own `docs/recipes/shapes.md` recommends
+  `softPanel(color, radius, padding)`, `softPanel` is in its CHANGELOG from
+  v1.5.0, and nothing in its docs sends a rounded card to a container. This was
+  a flow-side divergence from the library it documents, copied forward across
+  every version pack. Corrected in all four.
+
+### Published bundles
+
+- **A flowing template's second dataset never left the revision.** The example
+  the bundle ships mirrors the reference — the visual gate compares them, so it
+  holds what a sample holds and therefore fits. That makes it the one dataset a
+  flowing template can never reach its own page break with, and
+  `<doc-kind>-data.overflow.json`, which exists precisely to cross one, was
+  staying behind: `luma-co-studio-invoice` shipped as a flowing invoice with
+  `pageCount: 1` and nothing on disk that could paginate it, and the bundle's own
+  render tier never walked that path either. It is copied now, named on the
+  manifest as `data.overflow`, and given its own line in the generated README —
+  the file table used to call both datasets "example content", which hid the only
+  one that reaches the page break, the repeated table header and the page
+  numbering. Manifest schemaVersion 1.3.0.
+- **The manifest schema was two versions behind the manifest.** The publisher has
+  written `schemaVersion: "1.2.0"` since v0.19.0, with `layout`, `layoutReason`,
+  `structure` and `sources` beside it; `template-manifest.schema.json` allowed
+  `1.0.0` and `1.1.0`, listed none of those four, and forbids additional
+  properties — so **every bundle published since v0.19.0 fails the repo's own
+  artifact contract**, five errors each. It went unseen because the only bundles
+  in this repository are 1.0.0 fixtures from before the consumer contract
+  existed, so the schema-validation gate had nothing newer to look at. The schema
+  now describes what is written, and a real workspace bundle validates against
+  it.
+
+### Authoring
+
+- **The instance-field refusal now has a rule to point at.** Publishing splits
+  the template into classes that hold statics, so one instance field publishes
+  three flat files instead of a project — and the loop keeps re-authoring the
+  same one: `private final Map<String, SvgIcon> iconCache = new HashMap<>()`.
+  Three of the fourteen templates in the reference corpus lose their published
+  layout to that line, and nothing in the authoring rules told the agent what to
+  write instead. `authoring-rules.md` now says it: every field
+  `private static final`, and the cache as
+  `private static final Map<String, SvgIcon> ICON_CACHE = new ConcurrentHashMap<>()`
+  — `ICONS_DIR` is already static, so a static cache reaches no further than the
+  icon paths do, and the concurrent type is what a map outliving one document
+  needs. The refusal message names the same edit.
+
+### Fixed
+
+- **The skill-validation report linked a checklist four levels up, which is a
+  level short of where a workspace puts it.** `../../../../validation/…` is
+  right for `<install>/examples/<project>/revisions/<id>/` and wrong for the
+  canonical `<host>/graphcompose-flow/projects/<project>/revisions/<id>/`, so
+  every report written in a workspace has carried a link to nothing — and
+  `repository-contract` fails on it the moment the workspace sits inside a clone
+  of the harness. The path is computed from the revision now, at write time,
+  which also retargets a body replayed from the verdict cache. A workspace in
+  the user's own tree cannot reach the checklist with dots at all, since it
+  lives in a versioned plugin-cache directory: there the file is named rather
+  than linked.
+- **`the harness's own examples still resolve in install mode` failed over the
+  existence of a workspace.** The test resolved from `repoRoot`, and a developer
+  running the flow inside their own clone has `graphcompose-flow/` sitting
+  there — discovery wins and install mode is never reached, so the test was
+  asserting the absence of a directory the layout invites. It resolves from a
+  temp directory now, which is the only cwd that proves the fallback.
+
 ## v0.19.1 — 2026-08-28
 
 ### Fixed
