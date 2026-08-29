@@ -9,8 +9,8 @@
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "enum": ["1.0.0", "1.1.0"],
-      "description": "On-disk contract version for this manifest. 1.0.0 is every bundle published before the consumer contract existed: it carries the flat className / specClass / specProviderClass triple and no entrypoint, data or resources block. 1.1.0 adds those, plus version, graphComposeVersion and pageCount. A reader must accept both; a writer emits 1.1.0."
+      "enum": ["1.0.0", "1.1.0", "1.2.0", "1.3.0"],
+      "description": "On-disk contract version for this manifest. 1.0.0 is every bundle published before the consumer contract existed: it carries the flat className / specClass / specProviderClass triple and no entrypoint, data or resources block. 1.1.0 adds those, plus version, graphComposeVersion and pageCount. 1.2.0 adds how src/ is laid out and what is in it — layout, layoutReason, structure, sources. 1.3.0 adds data.overflow, the second dataset a flowing template needs to reach its own page break. A reader must accept all four; a writer emits 1.3.0."
     },
     "id": {
       "type": "string",
@@ -81,6 +81,11 @@
           "type": "string",
           "minLength": 1,
           "description": "Filename the example is copied to in a consumer project, e.g. \"cv-data.json\". This is the name the spec provider looks for, so it is not a suggestion."
+        },
+        "overflow": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path to the second dataset, relative to the bundle root, e.g. \"data/invoice-data.overflow.json\". Absent unless the source revision had one, which is the case for a flowing document: the example mirrors the reference and therefore fits, so it is the only dataset that never reaches the page break, the repeated table header or the page numbering. Renamed to runtimeName the same way the example is — it is the same template reading the same provider, with more rows."
         }
       }
     },
@@ -102,6 +107,71 @@
           "description": "The resolved asset manifest, e.g. \"assets-manifest.json\". A template reads it rather than hardcoding an icon extension, so it must travel with the assets. Null when the bundle ships no assets."
         }
       }
+    },
+    "layout": {
+      "type": "string",
+      "enum": ["flat", "structured"],
+      "description": "How src/ is laid out. \"structured\" is the template split into theme/, sections/, composites/ and support/ beside the spec and the provider; \"flat\" is the whole document in one class beside them. Since schemaVersion 1.2.0. A consumer reads this rather than inferring the shape from the directory listing, and a catalog reads it to say which bundles are maintainable as projects."
+    },
+    "layoutReason": {
+      "type": ["string", "null"],
+      "description": "Why the layout is not the structured one, in the publisher's words — an instance field the split cannot place, a plan that names no method uniquely, or \"--layout flat\" when it was asked for. Null on a structured bundle. Since schemaVersion 1.2.0: a run that fell back needs to say so somewhere more durable than a console line."
+    },
+    "structure": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "description": "What the split produced, by fully-qualified name. Null on a flat bundle. Since schemaVersion 1.2.0.",
+      "required": ["className", "sections", "composites"],
+      "properties": {
+        "className": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Simple name of the template class the sections are called from."
+        },
+        "themeClass": {
+          "type": ["string", "null"],
+          "description": "FQCN of the theme holder, e.g. \"com.example.cv.theme.AcmeCvTheme\". Null when the template declared no constants to move."
+        },
+        "supportClass": {
+          "type": ["string", "null"],
+          "description": "FQCN of the support holder — asset resolution and text utilities. Null when there were none."
+        },
+        "sections": {
+          "type": "array",
+          "description": "One entry per emitted section class, in the order compose() calls them.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "method"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "minLength": 1,
+                "description": "FQCN of the section class."
+              },
+              "method": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The render method it was made from, e.g. \"renderSidebar\"."
+              },
+              "region": {
+                "type": ["string", "null"],
+                "description": "The region the architecture plan mapped to that method, which is the better name of the two. Null when the plan named no region for it."
+              }
+            }
+          }
+        },
+        "composites": {
+          "type": "array",
+          "description": "FQCNs of the emitted composite classes — what two or more sections share.",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "sources": {
+      "type": ["array", "null"],
+      "description": "Every .java in src/, bundle-relative, sorted. Since schemaVersion 1.2.0. Written after the stale sweep, so it describes the directory as published and not as it was before a structured bundle was republished flat.",
+      "items": { "type": "string", "minLength": 1 }
     },
     "graphComposeVersion": {
       "type": ["string", "null"],

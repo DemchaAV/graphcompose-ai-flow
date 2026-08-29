@@ -208,6 +208,20 @@ test("a republish regenerates above the marker and keeps everything below it", (
   assert.match(readme, /revision-003/, "the generated half was not regenerated");
 });
 
+test("the README tells a consumer which dataset paginates", () => {
+  const s = scenario({ label: "readme-overflow" });
+  write(path.join(s.revision, "cv-data.overflow.json"), { avatarImage: "assets/avatar.png" });
+
+  runCli(s.root, ["--json"]);
+
+  const readme = fs.readFileSync(path.join(s.bundle, "README.md"), "utf8");
+  // Two datasets in the file table, told apart. Labelling both "example
+  // content" hides the only one that reaches the page break.
+  assert.match(readme, /data\/cv-data\.example\.json\s+example content/);
+  assert.match(readme, /data\/cv-data\.overflow\.json\s+the same content, long enough/);
+  assert.match(readme, /Render `data\/cv-data\.overflow\.json` through the same provider/);
+});
+
 test("a README without the marker is left alone", () => {
   // A fully hand-written README is someone's work. Silently rewriting it is
   // the publisher-clobbers-content bug wearing a new hat.

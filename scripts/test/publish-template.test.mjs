@@ -231,7 +231,7 @@ test("the manifest carries the consumer contract, so a generator substitutes rat
 
   const manifest = JSON.parse(fs.readFileSync(path.join(bundleOf(root), "template.json"), "utf8"));
 
-  assert.equal(manifest.schemaVersion, "1.2.0");
+  assert.equal(manifest.schemaVersion, "1.3.0");
   // The published class is renamed from the revision's, and the package comes
   // from the file as copied — not from the revision, and not from a convention.
   assert.deepEqual(manifest.entrypoint, {
@@ -249,6 +249,45 @@ test("the manifest carries the consumer contract, so a generator substitutes rat
   assert.equal(manifest.graphComposeVersion, "2.2.0", "lifted out of dependencies for a catalog to print");
   assert.equal(manifest.version, "1.0.0");
   assert.ok(!("dataFile" in manifest), "dataFile is the deprecated half-answer; writers no longer emit it");
+});
+
+test("a flowing template's second dataset travels with the bundle", () => {
+  const { root, revision } = workspaceWith({ label: "overflow" });
+  // A flowing document's revision holds two datasets: the example mirrors the
+  // reference, so it fits, and this one is long enough to paginate. Only the
+  // first was published, which left the bundle's page break, repeated header and
+  // page numbering with nothing to render them.
+  write(
+    path.join(revision, "cv-data.overflow.json"),
+    JSON.stringify({ avatarImage: "assets/avatar.png", roles: Array(40).fill("row") }),
+  );
+
+  publish(root);
+
+  const bundle = bundleOf(root);
+  assert.ok(
+    fs.existsSync(path.join(bundle, "data", "cv-data.overflow.json")),
+    "the overflow dataset stayed in the revision",
+  );
+  // Named in the manifest, because nothing downstream may read the directory
+  // listing to discover what a bundle ships.
+  const manifest = JSON.parse(fs.readFileSync(path.join(bundle, "template.json"), "utf8"));
+  assert.deepEqual(manifest.data, {
+    example: "data/cv-data.example.json",
+    runtimeName: "cv-data.json",
+    overflow: "data/cv-data.overflow.json",
+  });
+});
+
+test("a fixed template ships one dataset and claims no second", () => {
+  const { root } = workspaceWith({ label: "no-overflow" });
+
+  publish(root);
+
+  const manifest = JSON.parse(fs.readFileSync(path.join(bundleOf(root), "template.json"), "utf8"));
+  // Absent, not null. A CV has no overflow fixture and that is the ordinary
+  // shape; a null would make a consumer command look for a file to copy.
+  assert.ok(!("overflow" in manifest.data), "claimed an overflow dataset it does not ship");
 });
 
 test("the bundle version is preserved across a republish, and only --version moves it", () => {

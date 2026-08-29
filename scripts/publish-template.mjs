@@ -32,11 +32,14 @@
  *     [--dry-run]                        (print plan only)
  *
  * The manifest it writes is `schemas/template-manifest.schema.json` at
- * schemaVersion 1.1.0: the flat fields every bundle has always carried, plus the
+ * schemaVersion 1.3.0: the flat fields every bundle has always carried, plus the
  * consumer contract — `entrypoint`, `data`, `resources`, `graphComposeVersion`,
  * `pageCount` — so a generated runner or pom substitutes names rather than
- * inferring them. Read a bundle back through `scripts/lib/template-bundle.mjs`,
- * which back-fills that contract for the 1.0.0 bundles already on disk.
+ * inferring them; plus how `src/` is laid out and what is in it (`layout`,
+ * `layoutReason`, `structure`, `sources`, since 1.2.0); plus `data.overflow`,
+ * the flowing template's second dataset (since 1.3.0). Read a bundle back
+ * through `scripts/lib/template-bundle.mjs`, which back-fills that contract for
+ * the 1.0.0 bundles already on disk.
  */
 
 import fs from "node:fs";
@@ -353,6 +356,19 @@ if (specProviderFqcn) {
 const sourceDataFile = path.join(revisionDir, `${docKind}-data.json`);
 if (fs.existsSync(sourceDataFile)) {
   copyFile(sourceDataFile, path.join(targetDataDir, `${docKind}-data.example.json`));
+
+  // And the second dataset, when the revision has one. The example mirrors the
+  // reference by construction — the visual gate compares them, so it holds what
+  // a sample holds and therefore fits — which makes it the one dataset a flowing
+  // template can never reach its own page break with. The page break, the
+  // repeated table header and the page numbering are rendered from the overflow
+  // fixture and nowhere else, and it was staying in the revision: a bundle
+  // shipped its pagination with nothing to walk it, and its own render tier
+  // never paginated either.
+  const sourceOverflowFile = sourceDataFile.replace(/\.json$/, ".overflow.json");
+  if (fs.existsSync(sourceOverflowFile)) {
+    copyFile(sourceOverflowFile, path.join(targetDataDir, `${docKind}-data.overflow.json`));
+  }
 } else {
   console.log(`[publish-template] data file ${display(sourceDataFile)} not found; skipping data copy. Templates that ship hard-coded content do not need a data file.`);
 }
@@ -512,7 +528,7 @@ const manifest = {
   layoutReason: layout === "structured" ? null : layoutReason,
   structure: layoutDetail,
   sources: bundleSources(targetDir),
-  schemaVersion: "1.2.0",
+  schemaVersion: "1.3.0",
   publishedAt: new Date().toISOString(),
   fonts: fontRoles,
   dependencies,

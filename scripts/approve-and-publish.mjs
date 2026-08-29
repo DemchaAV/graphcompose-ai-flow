@@ -684,7 +684,16 @@ function renderGeneratedHalf(manifest, bundleDir) {
             ["src/support/", "asset resolution and text utilities"],
           ]
         : []),
-      ...dataFiles.map((f) => [`data/${f}`, "example content — edit this, not the Java"]),
+      // The overflow dataset gets its own note. It is the same content in the
+      // same shape, and the difference — that it is long enough to paginate — is
+      // the only reason it is in the bundle at all; calling both "example
+      // content" hides the one file that reaches the page break.
+      ...dataFiles.map((f) => [
+        `data/${f}`,
+        f.includes(".overflow.")
+          ? "the same content, long enough to cross a page break"
+          : "example content — edit this, not the Java",
+      ]),
       ["assets/", "icons and images the template loads"],
       ["preview/", "rendered output, clean and with layout guides"],
       ["template.json", "the manifest this README is generated from"],
@@ -715,7 +724,16 @@ function renderGeneratedHalf(manifest, bundleDir) {
     `new ${manifest.className}().compose(session, ${manifest.specProviderClass ? `${simple(manifest.specProviderClass)}.create()` : "spec"});`,
     "```",
     "",
-    `Content changes are data changes: edit \`data/${dataFiles[0] ?? "<doc>-data.json"}\`.`,
+    // Named, not indexed. With a second dataset beside it, `dataFiles[0]` is
+    // whichever the directory listing hands back first.
+    `Content changes are data changes: edit \`${manifest.data?.example ?? `data/${dataFiles[0] ?? "<doc>-data.json"}`}\`.`,
+    ...(manifest.data?.overflow
+      ? [
+          `Render \`${manifest.data.overflow}\` through the same provider to see the`,
+          "document paginate — it is the only dataset here long enough to reach the",
+          "page break, the repeated table header and the page numbering.",
+        ]
+      : []),
     "Layout changes are template changes: open a revision in the harness rather",
     "than editing the published copy, so the change is rendered, compared and",
     "kept.",

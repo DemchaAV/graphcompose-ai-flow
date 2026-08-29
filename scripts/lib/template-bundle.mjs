@@ -196,7 +196,8 @@ export function previewPageCount(bundleDir) {
 }
 
 /**
- * Where the example data is, and what a consumer renames it to.
+ * Where the example data is, what a consumer renames it to, and — for a flowing
+ * template — where the dataset that crosses a page break is.
  *
  * A template that ships hard-coded content publishes no data file, and that is
  * a real shape — publish-template.mjs says so and continues. Returning a path
@@ -214,7 +215,18 @@ export function deriveData(bundleDir, docKind, legacyDataFile = null) {
   const runtimeName = docKind
     ? `${docKind}-data.json`
     : path.posix.basename(candidate).replace(/\.example(?=\.json$)/, "");
-  return { example: candidate, runtimeName };
+
+  // The second dataset, named only when it is there. A flowing template has one
+  // and a fixed one does not, so its absence is the ordinary case and not a
+  // finding — but a consumer cannot discover it from `example` alone, and the
+  // whole point of the manifest is that nothing downstream reads the directory
+  // listing.
+  const overflow = candidate.replace(/\.example(?=\.json$)/, ".overflow");
+  const hasOverflow = overflow !== candidate && fs.existsSync(path.join(bundleDir, overflow));
+
+  return hasOverflow
+    ? { example: candidate, runtimeName, overflow }
+    : { example: candidate, runtimeName };
 }
 
 /**
