@@ -158,16 +158,18 @@ export function classify(source, options = {}) {
   // Every emitted class is a holder of statics, so an instance field has nowhere
   // to live. The corpus has exactly one, in three templates: `private final
   // Map<String, SvgIcon> iconCache = new HashMap<>()`, whose own Javadoc says
-  // "parsed once *per document*". Publishing it as a static would quietly make
-  // that per-JVM and turn a per-instance `HashMap` into a shared one two threads
-  // can corrupt — a decision about the cache's lifetime, which belongs to
-  // whoever wrote the template. So the refusal names the change instead of
-  // making it.
+  // "parsed once *per document*". Publishing it as a static would turn a
+  // per-instance `HashMap` into a shared one two threads can corrupt — a
+  // decision about the cache's lifetime, which belongs to whoever wrote the
+  // template. So the refusal names the change instead of making it, and names it
+  // precisely: this is the one shape the loop keeps re-authoring, and the
+  // message is what it reads through `bundle-publishes-flat`.
   const instanceField = fields.find((f) => !f.static);
   if (instanceField) {
     return refusal(
-      `instance field: ${instanceField.name} — every split class holds statics, so this has to be `
-        + "static final in the revision (which shares it across documents) or go",
+      `instance field: ${instanceField.name} — every split class holds statics, so declare it `
+        + "static final in the revision (a mutable one wants a concurrent type, because it then "
+        + "outlives the document) or drop it",
       className,
       planDrift,
     );

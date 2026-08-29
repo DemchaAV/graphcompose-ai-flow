@@ -295,6 +295,37 @@ revision touched, and selective rollback restores exactly one of them.
 A region with no method of its own cannot be reviewed or rolled back
 independently.
 
+## The template class holds no instance state
+
+Every field is `private static final`. No instance fields, no
+constructor.
+
+Approving publishes the template as a project — `theme/` for the design
+constants, `sections/` for the regions, `composites/` for what two
+sections share, `support/` for asset and text helpers. Every emitted
+class is a holder of statics, so a single instance field has nowhere to
+go: the split refuses, and the bundle ships as three flat files with the
+reason on its manifest. In the fourteen-template reference corpus, three
+templates lose their published layout to exactly one line.
+
+It is the same line every time — the icon cache. Write it static:
+
+```java
+// ICONS_DIR is already static, so a static cache reaches no further
+// than the icon paths do. ConcurrentHashMap is the part that matters:
+// the map now outlives one document, and two render threads must not
+// meet inside a HashMap.
+private static final Map<String, SvgIcon> ICON_CACHE = new ConcurrentHashMap<>();
+```
+
+not `private final Map<String, SvgIcon> iconCache = new HashMap<>()`.
+If a cache cannot be written that way, do not cache.
+
+`scripts/check-structural-smells.mjs` reports this as
+`bundle-publishes-flat` on every render, while it is still one line to
+change. At approve time the only choices left are a flat bundle or no
+bundle.
+
 ## Never overwrite an approved revision
 
 Every change opens a new revision. Statuses are `DRAFT`, `APPROVED`,
