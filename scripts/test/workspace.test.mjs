@@ -197,7 +197,12 @@ test("a missing project is reported with the workspace and how it was found", ()
 });
 
 test("the harness's own examples still resolve in install mode", () => {
-  const ws = resolveWorkspace({ env: {}, cwd: repoRoot, install: repoRoot });
+  // Not `cwd: repoRoot`. Install mode is the branch discovery does not take, and
+  // a developer running the flow inside their clone has a workspace there — the
+  // layout the docs describe — so discovery would win and this would fail over
+  // the presence of a directory, not over the resolver. The cwd has to be
+  // somewhere no workspace can be walked up to.
+  const ws = resolveWorkspace({ env: {}, cwd: tempDir("no-workspace"), install: repoRoot });
   assert.equal(requireProjectDir(ws, "cv-reference"), path.join(repoRoot, "examples", "cv-reference"));
 });
 

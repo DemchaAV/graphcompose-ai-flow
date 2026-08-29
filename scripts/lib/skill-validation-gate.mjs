@@ -84,7 +84,7 @@ export function ensureSkillValidationVerdict({ repoRoot, revisionDir, project })
   if (lookup.status === 0) {
     const parsed = safeParseJson(lookup.stdout);
     if (parsed?.entry?.reportBody) {
-      writeReport(revisionDir, parsed.entry.reportBody);
+      writeReport(revisionDir, parsed.entry.reportBody, repoRoot);
       log(`HIT key=${parsed.key.slice(0, 12)} verdict=${parsed.entry.verdict}`);
       enforceHalt(parsed.entry.verdict, parsed.entry.reason);
       return { verdict: parsed.entry.verdict, source: "cache", key: parsed.key };
@@ -120,7 +120,7 @@ export function ensureSkillValidationVerdict({ repoRoot, revisionDir, project })
     cacheKey: computedKey,
   });
 
-  writeReport(revisionDir, autoReport);
+  writeReport(revisionDir, autoReport, repoRoot);
 
   const store = spawnSync(
     "node",
@@ -184,9 +184,52 @@ function compareSemver(a, b) {
   return 0;
 }
 
-function writeReport(revisionDir, body) {
+function writeReport(revisionDir, body, repoRoot) {
   const reportPath = path.join(revisionDir, "skill-validation-report.md");
-  fs.writeFileSync(reportPath, body, "utf8");
+  fs.writeFileSync(reportPath, retargetChecklistLink(body, revisionDir, repoRoot), "utf8");
+}
+
+/** `[…api-compatibility-checklist.md](<anything>)`, however deep it was written. */
+const CHECKLIST_LINK_RE = /\[([^\]]*api-compatibility-checklist\.md)\]\(([^)]*)\)/g;
+
+/**
+ * Point the report's checklist link at the checklist, from where the report is.
+ *
+ * <p>The link used to be the constant `../../../../validation/…`, which is four
+ * levels because that is what `<install>/examples/<project>/revisions/<id>/`
+ * needs. A workspace is one level deeper —
+ * `<host>/graphcompose-flow/projects/<project>/revisions/<id>/` — so every
+ * report written in the canonical layout has carried a link to nothing, and the
+ * repository-contract link check fails on it the moment the workspace sits
+ * inside a clone of the harness.</p>
+ *
+ * <p>A workspace in the user's own tree cannot reach the checklist with dots at
+ * all: it lives in the harness install, which is a plugin cache directory whose
+ * path carries a version. There the checklist is named and not linked — a
+ * broken link and a machine-specific one are both worse than a filename.</p>
+ *
+ * <p>Applied at write time rather than where the body is built, so a body
+ * replayed from the verdict cache — including one cached by a version that
+ * hardcoded the four levels — is retargeted for the revision it lands in.</p>
+ *
+ * @param {string} body report markdown
+ * @param {string} revisionDir absolute path to the revision folder
+ * @param {string} repoRoot absolute path to the harness root
+ * @returns {string} the body, with the checklist reference resolved
+ */
+export function retargetChecklistLink(body, revisionDir, repoRoot) {
+  const checklist = path.join(repoRoot, "validation", "api-compatibility-checklist.md");
+  const inHarness = isInside(repoRoot, revisionDir);
+  const target = path.relative(revisionDir, checklist).split(path.sep).join("/");
+  return body.replace(CHECKLIST_LINK_RE, (_match, label) =>
+    inHarness ? `[${label}](${target})` : `\`${label}\` (in the harness install)`,
+  );
+}
+
+/** Whether `child` is `parent` or sits under it. */
+function isInside(parent, child) {
+  const rel = path.relative(parent, child);
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
 }
 
 function safeParseJson(text) {
@@ -252,7 +295,11 @@ function buildAutoPopulatedReport({
     "commit, every fixture-backed skill has been re-validated.\n" +
     "\n" +
     "Fixture coverage is parsed from\n" +
-    "[validation/api-compatibility-checklist.md](../../../../validation/api-compatibility-checklist.md)\n" +
+    // The target is a placeholder: `retargetChecklistLink` rewrites it for the
+    // revision the report is written into, because how far the checklist is
+    // depends on the layout and on whether the workspace is in the harness at
+    // all. Do not hardcode a depth here.
+    "[validation/api-compatibility-checklist.md](validation/api-compatibility-checklist.md)\n" +
     "— rows whose `Fixture exists` AND `Fixture executed` columns\n" +
     "both start with `yes` are treated as fixture-backed.\n" +
     "\n" +
