@@ -1,0 +1,53 @@
+# A tag that ships without notes is a version nobody can decide about.
+#
+# Releases here were hand-made, so they were sporadic: v0.9.2, v0.11.2, v0.12.0
+# and v0.19.1 have a GitHub Release, and v0.13.0 through v0.20.0 have only a tag.
+# Someone deciding whether to update saw a version number and nothing else. This
+# publishes the release from the tag, with the CHANGELOG section as the notes, so
+# the decision always has something to read.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish notes for, e.g. v0.20.0'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: publish the release notes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The notes come from the CHANGELOG as it stood at the tag, not from
+          # whatever main says later.
+          ref: ${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Extract the section for this version
+        id: notes
+        run: node .github/scripts/release-notes.mjs "${{ inputs.tag || github.ref_name }}" --out "$RUNNER_TEMP/notes.md"
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          # Idempotent: a re-run of a published tag edits the notes rather than
+          # failing, which is what makes workflow_dispatch usable for backfill.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "${{ steps.notes.outputs.title }}" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$TAG" --title "${{ steps.notes.outputs.title }}" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
+          fi

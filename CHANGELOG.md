@@ -7,6 +7,16 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## v0.20.0 — 2026-08-29
 
+**Why update.** Two things the loop kept getting wrong now have rules it can
+follow: the icon cache that made three of fourteen templates publish as three
+flat files instead of a project, and the per-child offset written where a padded
+panel belongs — the shapes skill had been sending every rounded card into a
+fixed box, in all four version packs. Published bundles gain the dataset that
+paginates, so a flowing template can be exercised on the page break it was built
+for, and the bundle manifest validates against its own schema again — every
+bundle published since v0.19.0 did not. Nothing here rewrites an existing
+bundle: republish to pick it up.
+
 ### Engine knowledge
 
 - **Nothing told a template how to keep copy off a shape's border, so it was

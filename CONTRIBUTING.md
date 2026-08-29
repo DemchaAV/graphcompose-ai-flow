@@ -105,8 +105,24 @@ on the branch a user renders from.
 - **Release from a known-good `main`:**
   1. Move the `## Unreleased` notes in `CHANGELOG.md` under a new
      `## vX.Y.Z — <date>` heading (SemVer; the kit stays in `0.x`).
-  2. Tag it: `git tag vX.Y.Z && git push origin vX.Y.Z`.
-  3. The tag is the citable version in the compatibility matrix.
+  2. **Open that section with a `**Why update.**` paragraph** — two or three
+     sentences, in the second person, about what changes for someone already on
+     the previous version, and what they have to do to get it. It is the first
+     thing in the published release notes, and for most readers the only thing.
+     A section that opens with `### Fixed` tells a reader deciding whether to
+     update precisely nothing.
+  3. Flip the version in `package.json`, `.claude-plugin/plugin.json` and the
+     `/plugin marketplace add` line in `docs/plugin-installation.md`, and commit
+     as `release: vX.Y.Z — <phrase>`.
+  4. Tag it *annotated*, because the tag's subject becomes the release title:
+     `git tag -a vX.Y.Z -m "vX.Y.Z — <the same phrase>" && git push origin vX.Y.Z`.
+  5. The `release` workflow publishes the GitHub Release from the tag, taking
+     the notes from the CHANGELOG section and the title from the tag's subject.
+     Nothing is typed at publish time, so nothing can drift from the tag — both
+     hand-made releases in this repository did, and v0.13.0 through v0.20.0 got
+     no release at all. Re-run it for an older tag with
+     `gh workflow run release.yml -f tag=vX.Y.Z`.
+  6. The tag is the citable version in the compatibility matrix.
 
 The commit rules above still apply on branches: explicit staging, one logical
 change per commit, imperative subjects.
