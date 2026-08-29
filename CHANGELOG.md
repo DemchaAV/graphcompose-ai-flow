@@ -5,6 +5,32 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## Unreleased
+
+### Setup
+
+- **Setup said "Toolchain OK" on a machine that cannot run the gates.** It
+  checked Node, npm, Java and Maven, and deliberately did not look at
+  ImageMagick — correct in that nothing it builds needs it, wrong in that the
+  pixel-parity gates do, and they are a non-negotiable of the loop. So the
+  toolchain report passed and the first refactor-only revision failed, hours
+  later, somewhere else. ImageMagick is checked now as a **warning**: it does
+  not block the build, and the summary says what will fail until it is
+  installed.
+- **`docs/quickstart.md` never listed ImageMagick.** Its Requirements were Java,
+  Maven, Node and Git, so a contributor following the contributor path installed
+  everything except the thing the gates need —
+  `docs/plugin-installation.md`, the path a plugin user follows, has had it in a
+  table all along. Listed now, with `magick -version` in the check block.
+- **A missing tool now prints the command that installs it** — `winget` on
+  Windows, `brew` on macOS, `apt-get` elsewhere, for Java, Maven, ImageMagick
+  and Node. In `setup`, and in `preflight`, whose report already said "no setup
+  step installs these" and left the reader to go and find out how. `setup` still
+  installs nothing itself: these are system packages, and a script that installs
+  those unasked has overstepped. The mapping is a pure module with its own
+  tests, because the way it fails is silent — a wrong platform key would tell a
+  Windows user to run `apt-get` and nobody would hear.
+
 ## v0.20.0 — 2026-08-29
 
 **Why update.** Two things the loop kept getting wrong now have rules it can

@@ -36,6 +36,11 @@ Install these first:
 - Maven
 - Node.js 20 or newer
 - Git
+- **ImageMagick** — the pixel-parity gates run `magick compare`, and a
+  refactor-only revision has to prove `-metric AE == 0` against its
+  parent. Nothing in `npm run setup` needs it, so setup reports it as a
+  warning rather than an error; the loop stops at the first gate without
+  it.
 
 On Windows / PowerShell, check them with:
 
@@ -45,7 +50,13 @@ mvn -version
 node --version
 npm --version
 git --version
+magick -version
 ```
+
+`npm run setup` checks the same list and prints the command that installs
+whatever is missing (`winget` on Windows, `brew` on macOS, `apt-get`
+elsewhere). It never installs anything itself: these are system packages,
+and a setup script that installs those unasked has overstepped.
 
 GraphCompose 1.9.0 is resolved by Maven through Maven Central as:
 

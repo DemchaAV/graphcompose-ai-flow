@@ -36,6 +36,8 @@ import path from "node:path";
 import { homedir } from "node:os";
 import { spawnSync } from "node:child_process";
 
+import { installHint } from "./lib/install-hints.mjs";
+
 import {
   describeWorkspaceLine,
   installRoot,
@@ -853,6 +855,12 @@ function printText(r) {
   }
   if (r.tools.absent.length > 0) {
     lines.push(`Not on PATH: ${r.tools.absent.join(", ")} — no setup step installs these`);
+    // The line already says the reader is on their own; this is where the
+    // command belongs, rather than in a page they have to go and find.
+    for (const name of r.tools.absent) {
+      const command = installHint(name);
+      if (command) lines.push(`  ${name}: ${command}`);
+    }
   }
   // The gap this exists to make loud. Said before the next-commands list, because
   // a missing diagnostic changes which of those commands is worth running.

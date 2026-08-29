@@ -6,6 +6,16 @@
  * Node tools that have dependencies, and packages the Java preview-renderer.
  * Cross-platform: invoke via `npm run setup`, `./setup.sh`, or `.\setup.ps1`.
  *
+ * ImageMagick is checked but does not block: nothing built here needs it, and
+ * the pixel-parity gates do. Reporting it as a failure would stop a build that
+ * would have worked; not reporting it at all — which is what this did — lets
+ * someone finish setup, read "Toolchain OK", and meet the first gate hours
+ * later with `magick` missing. So it is a warning, and it says what breaks.
+ *
+ * A missing tool is printed with the command that installs it. `setup` still
+ * installs nothing itself: a JDK, Maven and ImageMagick are system packages,
+ * and a script that installs those unasked has overstepped.
+ *
  * Flags:
  *   --check   Only verify the toolchain; do not install or build.
  *
@@ -17,6 +27,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
+import { installHint } from './lib/install-hints.mjs';
+
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
 const checkOnly = process.argv.includes('--check');
@@ -27,8 +39,10 @@ const bold = (s) => paint('1', s);
 const dim = (s) => paint('2', s);
 const green = (s) => paint('32', s);
 const red = (s) => paint('31', s);
+const yellow = (s) => paint('33', s);
 
 const problems = [];
+const warnings = [];
 
 function head(title) {
   console.log(`\n${bold('▶ ' + title)}`);
@@ -48,7 +62,20 @@ function ok(name, detail) {
 
 function bad(name, detail) {
   console.log(`  ${red('✗')} ${name} ${detail || ''}`);
+  hint(name);
   problems.push(name);
+}
+
+function warn(name, detail) {
+  console.log(`  ${yellow('!')} ${name} ${detail || ''}`);
+  hint(name);
+  warnings.push(name);
+}
+
+/** The command that installs it here, when this module knows one. */
+function hint(name) {
+  const command = installHint(name);
+  if (command) console.log(dim(`      ${command}`));
 }
 
 function run(cmd, relCwd) {
@@ -79,12 +106,26 @@ const mvnOut = capture('mvn -version');
 const mvnM = mvnOut && mvnOut.match(/Apache Maven ([\d.]+)/);
 mvnM ? ok('Maven', `v${mvnM[1]}`) : bad('Maven', 'not found on PATH');
 
+// Not in `problems`: the build below does not touch it. It is the parity gates
+// that do, and they are a non-negotiable of the loop — so a machine without it
+// can set up, and finds out here rather than at the first refactor-only revision.
+const magickOut = capture('magick -version');
+const magickM = magickOut && magickOut.match(/ImageMagick ([\d.-]+)/);
+magickM
+  ? ok('ImageMagick', `v${magickM[1]}`)
+  : warn('ImageMagick', 'not found on PATH — the pixel-parity gates (`magick compare`) cannot run');
+
 if (problems.length) {
   console.log(`\n${red('Toolchain incomplete:')} ${problems.join(', ')}.`);
   console.log('Install the missing tools (docs/quickstart.md -> Requirements) and re-run.');
   process.exit(1);
 }
-console.log(`\n${green('Toolchain OK.')}`);
+console.log(
+  warnings.length
+    ? `\n${green('Toolchain OK')} for building, ${yellow(warnings.join(', ') + ' missing')} — ` +
+        'the gates that need it will fail until it is installed.'
+    : `\n${green('Toolchain OK.')}`,
+);
 
 if (checkOnly) process.exit(0);
 
