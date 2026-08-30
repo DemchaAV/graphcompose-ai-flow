@@ -105,15 +105,27 @@ export function buildProgram(): Command {
   projectOption(
     program
       .command('new-revision <message>')
-      .description('create a new DRAFT revision')
+      .description(
+        "create a new DRAFT revision, carrying the parent's sources forward (not its render or review)",
+      )
       .option('--base <revisionId>', 'parent revision id (defaults to current draft, then approved)')
-      .action(async (message: string, opts: CommonOptions & { base?: string }) => {
+      .option('--empty', "start from an empty folder instead of the parent's sources")
+      .action(async (message: string, opts: CommonOptions & { base?: string; empty?: boolean }) => {
         try {
           const root = resolveProjectRoot(opts.project);
-          const rev = await runNewRevision(root, message, { base: opts.base });
+          const rev = await runNewRevision(root, message, { base: opts.base, empty: opts.empty });
           process.stdout.write(
             `created ${rev.id} (parent: ${rev.parentRevisionId ?? '(none)'}) -- DRAFT\n`,
           );
+          if (rev.parentRevisionId) {
+            process.stdout.write(
+              rev.copiedFiles.length > 0
+                ? `carried ${rev.copiedFiles.length} source file(s) forward from ${rev.parentRevisionId}; ` +
+                    'render and review artifacts stay with the parent\n'
+                : `nothing carried forward from ${rev.parentRevisionId}` +
+                    (opts.empty ? ' (--empty)\n' : ' (it has no source files)\n'),
+            );
+          }
         } catch (err) {
           fail(err);
         }

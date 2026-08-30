@@ -24,7 +24,7 @@ template.
 | **Node 20+** | every tool in the harness | `node --version` |
 | **Java 21+** | compiling and rendering the template | `java -version` |
 | **Maven** | building the render runner | `mvn -v` |
-| **ImageMagick** | the pixel-parity gates (`magick compare`) | `magick -version` |
+| **ImageMagick** | importing jpg/webp references, measuring the reference (`reference.mjs`), matching typefaces (`typography.mjs`), rasterising icons. The pixel-parity gates themselves do **not** use it (`tools/visual-diff` is pure Node) | `magick -version` (IM6: set `MAGICK_BINARY=convert`) |
 | **A Java project pinning GraphCompose** | the version decides which skill pack is used | see below |
 
 GraphCompose itself comes from your project's build file, not from this

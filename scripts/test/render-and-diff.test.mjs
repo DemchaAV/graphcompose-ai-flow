@@ -120,6 +120,45 @@ function runCli(root, extra = []) {
   return { status: spawned.status, parsed, output: `${spawned.stdout ?? ""}${spawned.stderr ?? ""}` };
 }
 
+test("a pass with no review yet measures, says so, and forms no loop verdict", () => {
+  // The order of a pass is render → measure → the reviewer judges → the loop
+  // decides. Before this, the last step ran regardless and answered REVISE
+  // with "no visual-review.json" and no focus — an exit code the skill told
+  // the agent to branch on, carrying nothing.
+  const s = scenario({ label: "unreviewed" });
+  fs.rmSync(path.join(s.revision, "visual-review.json"));
+
+  const { status, parsed } = runCli(s.root, ["--json"]);
+  assert.equal(status, 2, "measured but unjudged is still 'keep going'");
+  assert.equal(parsed.loop.verdict, "REVISE");
+  assert.equal(parsed.loop.focus, "awaiting-review");
+  assert.equal(parsed.loop.focusSource, "harness");
+  assert.match(parsed.loop.next, /visual-review\.json/);
+  assert.match(parsed.loop.next, /iterate-status/);
+  // The measurement itself still happened.
+  assert.ok(fs.existsSync(path.join(s.revision, "visual-diff-stats.json")));
+  const verdictStep = parsed.steps.find((step) => step.name === "loop verdict");
+  assert.match(verdictStep.detail, /awaiting review/);
+});
+
+test("against the parent, the comparison is exact: threshold 0", () => {
+  // The parent gates are equality gates. pixelmatch's default 0.1 forgives a
+  // shifted anti-aliased edge, which is right against a rasterised design and
+  // wrong for two renders of the same renderer.
+  const s = scenario({ label: "exact", withParent: true });
+  // Parent and child differ by one faint pixel — under the default threshold
+  // that is "no difference"; under the gate it is one.
+  const png = fs.readFileSync(path.join(s.revision, "output.png"));
+  const img = PNG.sync.read(png);
+  const idx = (10 * img.width + 10) * 4;
+  img.data[idx] = Math.max(0, img.data[idx] - 12);
+  fs.writeFileSync(path.join(s.revision, "output.png"), PNG.sync.write(img));
+
+  const { parsed } = runCli(s.root, ["--json", "--against", "parent"]);
+  assert.equal(parsed.diff.against, "parent");
+  assert.equal(parsed.diff.mismatchPx, 1, `a one-pixel change must count: ${JSON.stringify(parsed.diff)}`);
+});
+
 test("one call scales, diffs, writes the evidence and answers with the verdict", () => {
   const s = scenario({ label: "happy" });
   const { status, parsed } = runCli(s.root, ["--json"]);

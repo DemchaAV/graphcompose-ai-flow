@@ -1,33 +1,38 @@
-# CLAUDE.md — GraphCompose AI Template Flow
+# CLAUDE.md — GraphCompose AI Flow
 
-**Read `AGENTS.md` (repo root) first, end-to-end, before doing anything in this
-repository.** It is the canonical onboarding file: entry-point dispatch, the
-11-agent chain, project anatomy, and the cross-cutting principles. This file is
-a thin pointer so Claude Code loads the same contract. The workflow lives in
-`skills/workflows/`; routing, gates and loop bounds in `config/pipeline.json`.
-These rules summarize `AGENTS.md` — if they ever differ, `AGENTS.md` wins.
+**Read [`AGENTS.md`](AGENTS.md) first, end-to-end.** It is the canonical
+onboarding file: which skill owns the task, the seven invariants, the
+commands, and where each contract is declared. This file is a thin
+pointer so Claude Code loads the same contract; if the two ever differ,
+`AGENTS.md` wins.
 
-## Non-negotiables
-- Every change creates a NEW revision under `examples/<project>/revisions/`.
-  Never overwrite an APPROVED revision. Statuses: DRAFT / APPROVED / REJECTED /
-  REVERTED / SUPERSEDED / FAILED.
-- Reconstruct documents with semantic GraphCompose primitives — never draw PDFs
-  with raw coordinates.
-- Relational geometry: derive widths/weights from base constants; hardcode pixels
-  only for genuinely independent dimensions.
-- Anchor-first: use `LayerAlign` / `TextAlign` / `weights(...)` instead of
-  hand-computed offsets.
-- Data-spec contract: variable content lives in `<doc-kind>-data.json`, loaded via
-  a `--spec-provider`; no content literals in Java.
-- Asset flow: Iconify icons via `tools/asset-resolver`, bundled Google Fonts via
-  `FontName.<NAME>`; `assets-manifest.json` is the source of truth.
-- Parity gate: refactor-only revisions must show `magick compare -metric AE == 0`
-  vs the parent; quote the metric verbatim in `visual-review.md`.
-- GraphCompose is the source of truth — never invent APIs; if a skill disagrees
-  with the library, fix the skill.
+## The shape of the work
 
-## Tooling entry points
-- Local setup: `npm run setup` (or `./setup.ps1` / `./setup.sh`).
-- New project from a template: `node tools/revision-manager/bin/graphcompose-flow.mjs init <name> --template invoice`.
-- See/run the agent chain for a project: `node scripts/run-pipeline.mjs <project-id>`.
-- Render a revision: `node scripts/render.mjs <project-id> <revision-id>`.
+- The workflow is four skills under `skills/workflows/` — `create-template`,
+  `revise-template`, `review-template`, `approve-template`. Routing, gates
+  and loop bounds are declared once in `config/pipeline.json`.
+- Work lands in the **user's Java project**, under
+  `<their project>/graphcompose-flow/projects/<id>/revisions/` — never in
+  this repository's `examples/`, which is the workspace only when
+  developing the harness itself.
+- Every change opens a new revision (`graphcompose-flow new-revision`,
+  which carries the parent's sources forward). Never overwrite an
+  APPROVED revision; statuses are owned by `tools/revision-manager`.
+
+## Non-negotiables (details in AGENTS.md)
+
+- Never invent GraphCompose API: the pinned pack's allow-list is closed.
+- Semantic primitives, relational geometry, anchors — never raw
+  coordinates or hand-computed offsets.
+- Content lives in `<doc-kind>-data.json` behind a typed spec.
+- Prove parity: `render-and-diff --against parent` reporting
+  `mismatchPx: 0` is a gate result; "looks identical" is not.
+- One loop pass is one `render-and-diff` call; a bare `render.mjs` leaves
+  the revision unmeasured.
+
+## Entry points
+
+- `node scripts/preflight.mjs --project-dir <java-project> [--project <id>]` — start here.
+- `node scripts/render-and-diff.mjs --project <id> --revision <id>` — render, diff, regions, evidence, gates.
+- `node scripts/iterate-status.mjs <id>` — may the loop continue (after `visual-review.json` is written).
+- `npm run setup` — build the tools that ship as source; `npm run verify` — every gate CI runs.

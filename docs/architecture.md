@@ -171,9 +171,9 @@ script decides:
 
 | Scope | Gate |
 |---|---|
-| refactor-only | `magick compare -metric AE` == 0 against the parent |
-| data-only | difference allowed in the affected regions, AE == 0 everywhere else |
-| asset-only | difference allowed in the asset regions, AE == 0 everywhere else |
+| refactor-only | `exact-diff`: `render-and-diff --against parent` reports `mismatchPx == 0` on every page (`tools/visual-diff`, pixelmatch at threshold 0 — the `AE == 0` the gate is named after) |
+| data-only | `region-diff`: difference allowed in the affected regions, 0 everywhere else |
+| asset-only | `region-diff`: difference allowed in the asset regions, 0 everywhere else |
 | visual-change / theme-only | layer-by-layer review against the reference image |
 | any | compilation exit code 0 |
 

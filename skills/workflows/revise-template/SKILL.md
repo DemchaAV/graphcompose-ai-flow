@@ -1,6 +1,6 @@
 ---
 name: revise-template
-description: Change an existing GraphCompose template — content, assets, theme, structure, or a pure refactor — as a new revision with the right gate. Use when the user asks for a modification to a document that already renders: "change the email", "make the header darker", "use Lato", "swap the icon set", "make the sidebar wider", "add a section", "rename that helper", "make it navy". Picks the narrowest scope the change really needs, runs only the stages that scope requires, and proves the result against the gate that scope implies.
+description: 'Change an existing GraphCompose template — content, assets, theme, structure, or a pure refactor — as a new revision with the right gate. Use when the user asks for a modification to a document that already renders: "change the email", "make the header darker", "use Lato", "swap the icon set", "make the sidebar wider", "add a section", "rename that helper", "make it navy". Picks the narrowest scope the change really needs, runs only the stages that scope requires, and proves the result against the gate that scope implies.'
 ---
 
 # Revise a GraphCompose template
@@ -116,22 +116,38 @@ Follow [the authoring rules](../references/authoring-rules.md)
 throughout: derived geometry, named anchors, no content literals in
 Java, no invented API.
 
-**4. Render.**
+**4. Render and measure — one command, against the baseline the scope
+names.**
 
 ```bash
-node scripts/render.mjs <project-id> <revision-id> [--root <workspace>]
+# refactor-only · data-only · asset-only: the parent revision is the baseline
+node scripts/render-and-diff.mjs --project <project-id> --revision <revision-id> --against parent
+
+# theme-only · visual-change: the reference is
+node scripts/render-and-diff.mjs --project <project-id> --revision <revision-id>
 ```
+
+Not `render.mjs` on its own. A bare render leaves no comparison beside
+it, and `iterate-status` then answers `REVISE` with the focus
+`unmeasured-render` whatever the render looks like — every gate the
+harness has lives inside `render-and-diff`. Against the parent it
+compares at pixel threshold 0, so its `mismatchPx` **is** the `AE`
+figure the gates below quote; there is nothing to run by hand.
 
 **5. Prove it against the gate.** Not "it looks right" — the gate:
 
-- `refactor-only` → `magick compare -metric AE` must be **0 on every
-  page** against the parent. Quote the number. A refactor that changes
+- `refactor-only` → `mismatchPx` must be **0 on every page** against
+  the parent (`exact-diff`). Quote the number from
+  `visual-diff-stats.json` into `gate.metric`. A refactor that changes
   one pixel is not a refactor; either it was a `visual-change` all
   along, or the refactor has a bug.
 - `data-only` / `asset-only` → affected regions may differ; every other
-  region must be `AE == 0` against the parent. A stray difference
-  outside the affected regions means the edit reached further than the
-  scope claimed.
+  region must report `0` in `region-diff-stats.json` (`region-diff`).
+  Run the gate form to make it decide rather than report:
+  `node tools/visual-diff/bin/region-diff.mjs --changed <region-ids> …`
+  exits 2 when a region outside the list carries a difference. A stray
+  difference outside the affected regions means the edit reached further
+  than the scope claimed.
 - `theme-only` / `visual-change` → layer-by-layer review against the
   reference (use `review-template`).
 

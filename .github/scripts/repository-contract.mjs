@@ -57,7 +57,12 @@ async function walk(dir, predicate) {
     for (const e of entries) {
       const full = path.join(d, e.name);
       if (e.isDirectory()) {
-        if (e.name === 'node_modules' || e.name === 'target' || e.name === 'dist' || e.name === '.git') {
+        // `graphcompose-flow/` at the root is a user's workspace created inside
+        // the checkout — their revisions, not the repository's contract.
+        if (
+          e.name === 'node_modules' || e.name === 'target' || e.name === 'dist' || e.name === '.git' ||
+          (e.name === 'graphcompose-flow' && d === repoRoot)
+        ) {
           continue;
         }
         await visit(full);

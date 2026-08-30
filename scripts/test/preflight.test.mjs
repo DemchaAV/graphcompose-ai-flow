@@ -42,8 +42,21 @@ function write(file, contents) {
   fs.writeFileSync(file, contents, "utf8");
 }
 
-function run(args) {
-  const result = spawnSync(process.execPath, [CLI, ...args], { encoding: "utf8" });
+/**
+ * An empty Claude config dir, so no assertion here depends on which plugin
+ * versions THIS machine happens to have installed. Two tests spawned preflight
+ * with the inherited environment and failed on every machine carrying a newer
+ * plugin than the checkout: the real `~/.claude/plugins/cache` made the tools
+ * parity check exit 5 before the assertion under test was reached.
+ */
+const ISOLATED_ENV = Object.freeze({
+  ...process.env,
+  CLAUDE_CONFIG_DIR: tempDir("noplugins"),
+  GRAPHCOMPOSE_FLOW_ROOT: "",
+});
+
+function run(args, env = ISOLATED_ENV) {
+  const result = spawnSync(process.execPath, [CLI, ...args], { encoding: "utf8", env });
   let parsed = null;
   try {
     parsed = JSON.parse(result.stdout);
@@ -277,6 +290,7 @@ test("--text prints a summary a person can read", () => {
   const { host } = scenario({}, "text");
   const result = spawnSync(process.execPath, [CLI, "--project-dir", host, "--project", "demo", "--text"], {
     encoding: "utf8",
+    env: ISOLATED_ENV,
   });
   assert.equal(result.status, 0);
   assert.match(result.stdout, /GraphCompose 2\.2\.0/);
@@ -448,6 +462,7 @@ test("--text names the missing files and the snapshot state", () => {
   const { host } = scenario({}, "captext");
   const result = spawnSync(process.execPath, [CLI, "--project-dir", host, "--project", "demo", "--text"], {
     encoding: "utf8",
+    env: ISOLATED_ENV,
   });
   assert.match(result.stdout, /Layout snapshot: (available|unavailable|unknown)/);
 });

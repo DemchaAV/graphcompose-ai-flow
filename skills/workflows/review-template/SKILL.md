@@ -1,6 +1,6 @@
 ---
 name: review-template
-description: Compare a rendered GraphCompose template against its reference or its parent revision and report what is still different, without opening a new revision. Use when the user asks "what's still different?", "review the current version", "compare it with the screenshot", "show me the diff", "how close are we?" — or when a create/revise pass has just rendered and needs a verdict before deciding whether to iterate again.
+description: 'Compare a rendered GraphCompose template against its reference or its parent revision and report what is still different, without opening a new revision. Use when the user asks "what''s still different?", "review the current version", "compare it with the screenshot", "show me the diff", "how close are we?" — or when a create/revise pass has just rendered and needs a verdict before deciding whether to iterate again.'
 ---
 
 # Review a GraphCompose render

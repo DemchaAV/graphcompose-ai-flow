@@ -47,6 +47,7 @@ import {
 import { resolveVersion } from "./lib/version-resolver.mjs";
 import {
   buildIdentity,
+  readResolvedVersion,
   resolvedVersionPath,
   writeResolvedVersion,
 } from "./lib/resolved-version.mjs";
@@ -92,7 +93,40 @@ for (let i = 0; i < process.argv.length - 2; i += 1) {
 }
 
 const workspace = resolveWorkspace({ explicitRoot: args.root ?? null, cwd: args.projectDir });
-const version = resolveVersion({ projectDir: args.projectDir, install: repoRoot });
+const version = resolveVersionWithFallback({ projectDir: args.projectDir, install: repoRoot, workspace });
+
+/**
+ * The build file decides the version. When there is none at or above
+ * `--project-dir` — a workspace created beside a harness checkout, or a run
+ * started from the workspace directory rather than the Java project — the
+ * workspace's own `resolved-version.json` still records what an earlier run
+ * resolved, from which build file. Reporting `unknown` there sends the reader
+ * to look for a pom the workspace already knows about, and hands the skills
+ * and knowledge blocks nothing to load.
+ *
+ * The record is a fallback, never an override: a build file that IS found wins,
+ * and the report says which of the two it used.
+ */
+function resolveVersionWithFallback({ projectDir, install, workspace: ws }) {
+  const fromBuildFile = resolveVersion({ projectDir, install });
+  if (fromBuildFile.status !== "unknown" || fromBuildFile.buildFile) {
+    return { ...fromBuildFile, source: "build-file" };
+  }
+  const record = readResolvedVersion(ws);
+  if (!record?.version) return { ...fromBuildFile, source: "build-file" };
+
+  const fromRecord = resolveVersion({ projectDir, install, version: record.version });
+  return {
+    ...fromRecord,
+    buildFile: record.buildFile ?? null,
+    coordinate: fromRecord.coordinate ?? record.coordinate ?? null,
+    source: "workspace-record",
+    message:
+      `no build file at or above ${path.resolve(projectDir)}; the version comes from ` +
+      `${resolvedVersionPath(ws)}, which an earlier run resolved from ${record.buildFile ?? "an unrecorded build file"}` +
+      (fromRecord.message ? `. ${fromRecord.message}` : ""),
+  };
+}
 
 /** The three that ship as source and have to be built before anything runs. */
 const BUILT_TOOLS = Object.freeze(["revisionManager", "visualDiff", "previewRenderer"]);
@@ -166,6 +200,8 @@ const report = {
     line: version.line ?? null,
     skillPack: version.skillPack ?? null,
     buildFile: version.buildFile ?? null,
+    // "build-file" or "workspace-record" — where the version above came from.
+    source: version.source ?? "build-file",
     availablePacks: version.availablePacks ?? [],
     // Which build the pin resolves to, and whether the three places that record
     // a version still agree. Both are cheap facts nobody was asked for: a run
@@ -175,12 +211,13 @@ const report = {
     pins: pins,
     build: build,
     resolvedVersionFile: resolvedRecord ? resolvedVersionPath(workspace) : null,
-    message: version.status === "supported" ? null : version.message,
+    message:
+      version.status === "supported" && version.source !== "workspace-record" ? null : version.message,
   },
   project,
   ...routing,
   skills: describeSkills(version.line, project?.docKind ?? null),
-  knowledge: describeKnowledge(version.line),
+  knowledge: describeKnowledge(version.line, workspace),
   tools,
   capabilities,
   nextCommands: nextCommands(project, routing, tools),
@@ -474,26 +511,47 @@ function startingPointFor(text, docKind) {
 
 // ---------------------------------------------------------------- knowledge ---
 
-/** What previous runs already established for this line, and what can be asked. */
-function describeKnowledge(line) {
+/**
+ * What previous runs already established for this line, and what can be asked.
+ *
+ * Two stores, read in this order: the install tree's `observations/` (what the
+ * release shipped) and the workspace's (what `observations record` writes — the
+ * skill says to write there precisely because the install tree is replaced on
+ * upgrade). This read only the first, so everything a run learned in this
+ * workspace was invisible to the next run's preflight: fourteen records in one
+ * real workspace, none surfaced, each re-discoverable at the price of a probe.
+ * A record with the same id in both places is the workspace's — it is the
+ * newer one.
+ */
+function describeKnowledge(line, ws) {
   const out = { observations: [], probes: [] };
   if (!line) return out;
 
-  const observationsDir = path.join(repoRoot, "observations", `graphcompose-${line}`);
-  if (fs.existsSync(observationsDir)) {
-    for (const file of fs.readdirSync(observationsDir).filter((f) => f.endsWith(".json"))) {
+  const stores = [
+    { dir: path.join(repoRoot, "observations", `graphcompose-${line}`), source: "shipped" },
+  ];
+  if (ws?.root && ws.mode !== "install") {
+    stores.push({ dir: path.join(ws.root, "observations", `graphcompose-${line}`), source: "learned here" });
+  }
+  const byId = new Map();
+  for (const store of stores) {
+    if (!fs.existsSync(store.dir)) continue;
+    for (const file of fs.readdirSync(store.dir).filter((f) => f.endsWith(".json"))) {
       try {
-        const body = JSON.parse(fs.readFileSync(path.join(observationsDir, file), "utf8"));
-        out.observations.push({
+        const body = JSON.parse(fs.readFileSync(path.join(store.dir, file), "utf8"));
+        if (!body?.id) continue;
+        byId.set(body.id, {
           id: body.id,
           confidence: body.confidence,
           behaviour: body.observedBehaviour?.split(". ")[0],
+          source: store.source,
         });
       } catch {
         /* the observations CLI reports malformed records */
       }
     }
   }
+  out.observations = [...byId.values()];
 
   const diagnostics = path.join(repoRoot, "tools", "diagnostics", `graphcompose-${line}`);
   if (fs.existsSync(diagnostics)) {
@@ -523,7 +581,14 @@ function describeTools() {
     revisionManager: built("tools/revision-manager/dist"),
     visualDiff: built("tools/visual-diff/dist"),
     previewRenderer: built("tools/preview-renderer/target/preview-renderer.jar"),
-    imagemagick: onPath("magick", ["-version"]),
+    // The same resolution import-reference and typography use: an explicit
+    // MAGICK_BINARY first, then the IM7 `magick`, then IM6's `convert`. Probing
+    // only `magick` reported the tool absent inside this repository's own
+    // devcontainer, which installs IM6 and sets MAGICK_BINARY=convert.
+    imagemagick:
+      [process.env.MAGICK_BINARY, "magick", "convert"]
+        .filter((name) => typeof name === "string" && name.trim() !== "")
+        .some((name) => onPath(name, ["-version"])),
     java: onPath("java", ["-version"]),
     maven: onPath(process.platform === "win32" ? "mvn.cmd" : "mvn", ["-v"]),
   };
@@ -535,14 +600,53 @@ function describeTools() {
   const unbuilt = BUILT_TOOLS.filter((name) => !tools[name]);
   const absent = EXTERNAL_TOOLS.filter((name) => !tools[name]);
 
+  // "Absent" and "installed but not on PATH" call for different actions, and on
+  // Windows the second is the common case: the installer offers PATH as a
+  // checkbox. Say where it was found so the fix is one line, not a download.
+  const hints = {};
+  if (!tools.imagemagick) {
+    const installed = imageMagickInstallDirs();
+    if (installed.length > 0) {
+      hints.imagemagick =
+        `ImageMagick is installed at ${installed[0]} but not on PATH. Add that directory to PATH, ` +
+        `or set MAGICK_BINARY=${path.join(installed[0], process.platform === "win32" ? "magick.exe" : "magick")}`;
+    }
+  }
+
   return {
     ...tools,
     ready: unbuilt.length === 0 && absent.length === 0,
     needsSetup: unbuilt.length > 0,
     unbuilt,
     absent,
+    ...(Object.keys(hints).length > 0 ? { hints } : {}),
     setupCommand: "npm run setup",
   };
+}
+
+/** Where an ImageMagick that is not on PATH usually is. Newest version first. */
+function imageMagickInstallDirs() {
+  const roots =
+    process.platform === "win32"
+      ? [process.env.ProgramFiles, process.env["ProgramFiles(x86)"], process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Programs")]
+      : ["/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin"];
+  const found = [];
+  for (const root of roots.filter(Boolean)) {
+    try {
+      if (process.platform === "win32") {
+        for (const entry of fs.readdirSync(root)) {
+          if (/^ImageMagick/i.test(entry) && fs.existsSync(path.join(root, entry, "magick.exe"))) {
+            found.push(path.join(root, entry));
+          }
+        }
+      } else if (fs.existsSync(path.join(root, "magick"))) {
+        found.push(root);
+      }
+    } catch {
+      /* a root that cannot be read is not an install */
+    }
+  }
+  return found.sort().reverse();
 }
 
 /**
@@ -800,12 +904,15 @@ function nextCommands(projectInfo, routing, tools) {
     });
   }
   if (projectInfo?.exists) {
+    // One loop pass, not a bare render. `render.mjs` alone leaves no comparison
+    // beside the render, and iterate-status then names the focus
+    // `unmeasured-render` — this list used to recommend exactly that pair.
     commands.push({
-      why: "render the revision this scope is about to work on",
-      run: `node scripts/render.mjs ${projectInfo.id} ${routing.routing?.revision ?? "revision-001"}`,
+      why: "one loop pass: render, diff against the reference, measure the regions, classify the worst, run the gates",
+      run: `node scripts/render-and-diff.mjs --project ${projectInfo.id} --revision ${routing.routing?.revision ?? "revision-001"}`,
     });
     commands.push({
-      why: "ask whether the loop may take another pass",
+      why: "after visual-review.json is written: ask whether the loop may take another pass",
       run: `node scripts/iterate-status.mjs ${projectInfo.id}`,
     });
   }

@@ -47,7 +47,7 @@ function usage(code = 0) {
       "  finish  [--project <id>]                     archive the run into the project\n" +
       "  cycles  [--json]                             per-cycle breakdown for this session\n" +
       "  baseline [--json] [--root <dir>]             recount the corpus; needs no session\n\n" +
-      "  --session <id>   override the host session id (default: $CLAUDE_SESSION_ID)\n" +
+      "  --session <id>   override the host session id (default: $CLAUDE_CODE_SESSION_ID, then the newest session on record)\n" +
       "  --root <dir>     workspace override\n",
   );
   process.exit(code);
@@ -92,7 +92,16 @@ if (command === "baseline") {
   process.exit(0);
 }
 
-const sessionId = args.session ?? process.env.CLAUDE_SESSION_ID ?? newestSession();
+// Claude Code exports the session to its Bash tool as CLAUDE_CODE_SESSION_ID —
+// the same id the hooks receive as `session_id` and this store files under.
+// This read `CLAUDE_SESSION_ID`, which nothing sets, so every call fell
+// through to newestSession(): fine with one terminal, and with several open
+// at once it filed six of eight recorded runs under the wrong project.
+const sessionId =
+  args.session ??
+  process.env.CLAUDE_SESSION_ID ??
+  process.env.CLAUDE_CODE_SESSION_ID ??
+  newestSession();
 
 if (!sessionId) {
   // Not an error: plenty of legitimate ways to be here.

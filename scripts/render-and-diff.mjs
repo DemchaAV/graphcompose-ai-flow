@@ -388,6 +388,15 @@ step("diff", (entry) => {
       // same-renderer, same-size by construction — if the sizes differ there,
       // something real changed and the diff must fail loudly, not resample.
       diffArgs.push("--scale-reference", "--save-scaled", pair.scaled);
+    } else {
+      // The parent gates are equality gates: `exact-diff` passes at AE == 0 and
+      // `region-diff` demands AE == 0 outside the changed regions. pixelmatch's
+      // default threshold (0.1) forgives small per-pixel colour distance, which
+      // is right against a rasterised design and wrong here — two renders of
+      // the same renderer differ only where something changed, and a gate that
+      // reads "0" while forgiving a shifted anti-aliased edge is not the gate
+      // the docs quote.
+      diffArgs.push("--threshold", "0");
     }
 
     const diffed = run(path.join(repoRoot, "tools", "visual-diff", "bin", "visual-diff.mjs"), diffArgs);
@@ -871,6 +880,34 @@ step("layout collateral", (entry) => {
 });
 
 step("loop verdict", (entry) => {
+  // The verdict is formed from the review, and on a fresh pass the review does
+  // not exist yet: this command renders and measures, the reviewer judges, and
+  // only then can iterate-status say whether the loop may continue. Asking it
+  // now produced REVISE with "no visual-review.json" and no focus on every first
+  // call — an exit code the skill told the agent to branch on, carrying nothing
+  // — and the agent then ran iterate-status again after writing the review, so
+  // "one call per pass" was two, and the first one was noise.
+  //
+  // With a review in place (a re-measure with --skip-render, or a pass whose
+  // review was written before re-running) the verdict is real and is asked for.
+  if (!fs.existsSync(path.join(revisionDir, "visual-review.json"))) {
+    result.loop = {
+      verdict: "REVISE",
+      focus: "awaiting-review",
+      focusSource: "harness",
+      rootCause: null,
+      iterations: null,
+      remaining: null,
+      failureCategory: null,
+      next:
+        "measured, not yet judged: read regions.ranked and evidence, write visual-review.json " +
+        "(review-template), then `node scripts/iterate-status.mjs " + args.project + "` decides " +
+        "whether the loop continues",
+    };
+    entry.detail = "awaiting review — no visual-review.json yet, so no loop verdict was formed";
+    return;
+  }
+
   const status = run(path.join(repoRoot, "scripts", "iterate-status.mjs"), [
     args.project,
     "--revision",

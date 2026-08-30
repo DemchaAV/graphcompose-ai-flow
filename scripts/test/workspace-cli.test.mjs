@@ -127,11 +127,17 @@ test("publish-template writes into the workspace named by --root, not the instal
 test("publish-template still reports install-mode paths relative to the repository", () => {
   // The workspace-aware display must not change the output people already read
   // when running inside this checkout.
-  const { code, out } = run("scripts/publish-template.mjs", [
-    "--project",
-    "cv-reference",
-    "--dry-run",
-  ]);
+  // Run from a directory with no workspace above it, so resolution falls
+  // through to install mode. Running from the checkout itself is not that on a
+  // machine whose user created a workspace inside it (`init-workspace
+  // --project-dir .`): discovery finds it first, and naming the checkout with
+  // --root finds the same manifest. Neither is a defect; this test is about
+  // install mode, so it has to stand somewhere install mode can be reached.
+  const { code, out } = run(
+    "scripts/publish-template.mjs",
+    ["--project", "cv-reference", "--dry-run"],
+    tempDir("install-mode"),
+  );
   assert.equal(code, 0, out);
   assert.match(out, /targetDir\s+= templates[\\/]mint-editorial-cv/);
   assert.ok(!out.includes("[workspace]"), "install mode should stay quiet about the workspace");

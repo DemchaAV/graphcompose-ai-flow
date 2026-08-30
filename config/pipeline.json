@@ -70,7 +70,8 @@
   "gates": {
     "exact-diff": {
       "summary": "Binary pixel diff against the parent revision.",
-      "rule": "magick compare -metric AE == 0 on every page; the metric is quoted verbatim in visual-review, never paraphrased.",
+      "rule": "render-and-diff --against parent reports mismatchPx == 0 on every page (tools/visual-diff at pixel threshold 0 — the AE == 0 this gate is named after); the metric is quoted verbatim in visual-review, never paraphrased.",
+      "enforcedBy": "tools/visual-diff/src/diff.ts",
       "comparedAgainst": "parent"
     },
     "region-diff": {

@@ -1,6 +1,6 @@
 ---
 name: approve-template
-description: Approve the current GraphCompose template draft and publish it as a template bundle. Use when the user signals acceptance of a rendered document — "approve", "save", "ship it", "looks good", "сохрани", "это хорошо" — after a create or revise pass has produced a render they are happy with. Flips DRAFT to APPROVED, supersedes the previous APPROVED revision, and rebuilds the published bundle under the workspace's templates/ directory.
+description: 'Approve the current GraphCompose template draft and publish it as a template bundle. Use when the user signals acceptance of a rendered document — "approve", "save", "ship it", "looks good", "сохрани", "это хорошо" — after a create or revise pass has produced a render they are happy with. Flips DRAFT to APPROVED, supersedes the previous APPROVED revision, and rebuilds the published bundle under the workspace''s templates/ directory.'
 ---
 
 # Approve a GraphCompose template

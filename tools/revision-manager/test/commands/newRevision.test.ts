@@ -54,4 +54,83 @@ describe('new-revision', () => {
     const rev3 = await runNewRevision(projectRoot, 'third', { base: 'revision-001' });
     expect(rev3.parentRevisionId).toBe('revision-001');
   });
+
+  it("carries the parent's sources forward and leaves its render and review behind", async () => {
+    const first = await runNewRevision(projectRoot, 'first');
+    expect(first.copiedFiles).toEqual([]);
+    const dir = path.join(projectRoot, 'revisions', 'revision-001');
+
+    // What a pass authors…
+    const sources: Record<string, string> = {
+      'GeneratedCvTemplate.java': 'class GeneratedCvTemplate {}',
+      'cv-data.json': '{"name":"A"}',
+      'cv-data.overflow.json': '{"name":"B"}',
+      'asset-request.json': '{}',
+      'assets-manifest.json': '{}',
+      'assets/icons/mail.svg': '<svg/>',
+      'visual-analysis.json': '{}',
+      'architecture-plan.json': '{}',
+      'data-schema.md': '# schema',
+    };
+    // …and what the render and the review write.
+    const artifacts = [
+      'output.pdf',
+      'output.png',
+      'output-debug.pdf',
+      'output-page-2.png',
+      'output-overflow.pdf',
+      'diff.png',
+      'diff-page-2.png',
+      'reference-scaled.png',
+      'layout-snapshot.json',
+      'visual-diff-stats.json',
+      'region-diff-stats.json',
+      'visual-review.json',
+      'visual-review.md',
+      'visual-review-classification.md',
+      'evidence.json',
+      'skill-validation-report.md',
+      'render.log',
+      'attempts/001/output.png',
+    ];
+    for (const [rel, body] of Object.entries(sources)) {
+      await fs.mkdir(path.dirname(path.join(dir, rel)), { recursive: true });
+      await fs.writeFile(path.join(dir, rel), body, 'utf8');
+    }
+    for (const rel of artifacts) {
+      await fs.mkdir(path.dirname(path.join(dir, rel)), { recursive: true });
+      await fs.writeFile(path.join(dir, rel), 'x', 'utf8');
+    }
+
+    const second = await runNewRevision(projectRoot, 'second');
+    const copied = second.copiedFiles.map((f) => f.replace(/\\/g, '/')).sort();
+    expect(copied).toEqual(Object.keys(sources).sort());
+
+    const next = path.join(projectRoot, 'revisions', 'revision-002');
+    for (const rel of Object.keys(sources)) {
+      await expect(fs.readFile(path.join(next, rel), 'utf8')).resolves.toBe(sources[rel]);
+    }
+    for (const rel of artifacts) {
+      await expect(fs.access(path.join(next, rel))).rejects.toThrow();
+    }
+    // The child writes its own request and metadata rather than inheriting them.
+    const req = await fs.readFile(path.join(next, 'user-request.md'), 'utf8');
+    expect(req).toContain('second');
+    expect(req).not.toContain('first');
+    expect(second.parentRevisionId).toBe('revision-001');
+  });
+
+  it('--empty starts from a bare folder', async () => {
+    await runNewRevision(projectRoot, 'first');
+    await fs.writeFile(
+      path.join(projectRoot, 'revisions', 'revision-001', 'cv-data.json'),
+      '{}',
+      'utf8',
+    );
+    const second = await runNewRevision(projectRoot, 'second', { empty: true });
+    expect(second.copiedFiles).toEqual([]);
+    await expect(
+      fs.access(path.join(projectRoot, 'revisions', 'revision-002', 'cv-data.json')),
+    ).rejects.toThrow();
+  });
 });

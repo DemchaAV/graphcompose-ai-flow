@@ -103,7 +103,7 @@ open a revision to explore.
 |---|---|---|---|
 | `data-only` | `region-diff` | parent revision | affected regions may differ; every other region is byte-equal (`AE == 0`) |
 | `asset-only` | `region-diff` | parent revision | same, for the regions using the swapped asset |
-| `refactor-only` | `exact-diff` | parent revision | `magick compare -metric AE` is **0 on every page** |
+| `refactor-only` | `exact-diff` | parent revision | `render-and-diff --against parent` reports `mismatchPx` **0 on every page** (`AE == 0`) |
 | `theme-only` | `visual-review` | reference image | layer-by-layer review; theme tokens are cross-cutting, so a parent diff would only prove "not byte-equal", not "correct" |
 | `visual-change` | `visual-review` | reference image | every mismatch is at most `MINOR` or `ACCEPTED_LIMITATION` |
 | `new` | `visual-review` | reference image | same as `visual-change` |

@@ -159,14 +159,15 @@ export async function copyRevisionBody(
   projectRoot: string,
   fromId: string,
   toId: string,
-  options: { exclude?: string[] } = {},
+  options: { exclude?: string[]; skip?: (relativePath: string) => boolean } = {},
 ): Promise<string[]> {
   const exclude = new Set([...(options.exclude ?? []), 'revision.json']);
+  const skip = options.skip ?? (() => false);
   const fromDir = revisionDirPath(projectRoot, fromId);
   const toDir = revisionDirPath(projectRoot, toId);
   await fs.mkdir(toDir, { recursive: true });
   const copied: string[] = [];
-  await copyTree(fromDir, toDir, exclude, '', copied);
+  await copyTree(fromDir, toDir, exclude, skip, '', copied);
   return copied;
 }
 
@@ -174,6 +175,7 @@ async function copyTree(
   fromDir: string,
   toDir: string,
   exclude: Set<string>,
+  skip: (relativePath: string) => boolean,
   relPrefix: string,
   copied: string[],
 ): Promise<void> {
@@ -181,12 +183,12 @@ async function copyTree(
   const entries = await fs.readdir(fromDir, { withFileTypes: true });
   for (const entry of entries) {
     const rel = relPrefix ? path.join(relPrefix, entry.name) : entry.name;
-    if (exclude.has(rel)) continue;
+    if (exclude.has(rel) || skip(rel)) continue;
     const src = path.join(fromDir, entry.name);
     const dst = path.join(toDir, entry.name);
     if (entry.isDirectory()) {
       await fs.mkdir(dst, { recursive: true });
-      await copyTree(src, dst, exclude, rel, copied);
+      await copyTree(src, dst, exclude, skip, rel, copied);
     } else if (entry.isFile()) {
       await fs.copyFile(src, dst);
       copied.push(rel);

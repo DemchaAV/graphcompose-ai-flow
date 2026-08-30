@@ -72,7 +72,9 @@ Seven rules. Everything else is judgement.
 5. **Content lives in `<doc-kind>-data.json`**, behind a typed spec. If
    changing an email means editing Java, the contract is broken.
 6. **Prove parity, do not assert it.** "Looks identical" is not a gate
-   result; `magick compare -metric AE == 0` is. Quote the metric.
+   result; `render-and-diff --against parent` reporting `mismatchPx: 0`
+   on every page is (the `AE == 0` the gates are named after; it is
+   measured by `tools/visual-diff` at threshold 0). Quote the metric.
 7. **One visible region, one named render method.** That name is what
    review, `changedComponents` and selective rollback all address.
 
