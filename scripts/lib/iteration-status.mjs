@@ -35,6 +35,7 @@ import path from "node:path";
 import { auditReviewClaims } from "./review-claims.mjs";
 import { describeSeal, sealState } from "./revision-seal.mjs";
 import { describeAttempts, readAttempts } from "./attempts.mjs";
+import { coveringLimitation, readLimitations } from "./limitations.mjs";
 
 /** Verdicts this module can return, in the order they end the loop. */
 export const VERDICTS = Object.freeze([
@@ -118,22 +119,52 @@ function loadLoop(projectDir, revisionId) {
  * pixels. It stays in front until a review marks it addressed, so it cannot be
  * lost to a louder measured mismatch appearing.
  */
-function focusOf(entry) {
+function focusOf(entry, limitations = []) {
   const review = entry.review;
-  if (!review) return { id: null, source: null };
+  if (!review) return { id: null, source: null, skipped: [] };
 
   const reported = review.humanReportedMismatch;
   if (reported?.id && reported.addressed !== true) {
-    return { id: reported.id, source: "human" };
+    return { id: reported.id, source: "human", skipped: [] };
   }
-  if (review.largestMismatch) return { id: review.largestMismatch, source: "measured" };
-  const first = Array.isArray(review.mismatches) ? review.mismatches[0] : null;
-  return { id: first?.id ?? null, source: first ? "measured" : null };
+
+  // An accepted limitation is never the focus. The corpus spent its same-cause
+  // budget on "substituted typeface" with the action "none available on this
+  // line" in eight projects — a fact about the fonts, re-litigated every pass
+  // while the defects a person later found waited behind it. Once accepted,
+  // the loop looks past it to the next mismatch the review actually rated.
+  const mismatches = Array.isArray(review.mismatches) ? review.mismatches : [];
+  const skipped = [];
+  const covered = (id) => {
+    const m = mismatches.find((x) => x?.id === id) ?? { id };
+    const hit = coveringLimitation(limitations, {
+      id: m.id,
+      rootCause: m.rootCause ?? null,
+      region: m.region ?? null,
+      cause: m.cause ?? null,
+    });
+    if (hit) skipped.push({ id, limitation: hit.id });
+    return Boolean(hit);
+  };
+
+  if (review.largestMismatch && !covered(review.largestMismatch)) {
+    return { id: review.largestMismatch, source: "measured", skipped };
+  }
+  // The next one the review rated blocking, then the next one at all.
+  const ranked = [
+    ...mismatches.filter((m) => m?.severity === "CRITICAL" || m?.severity === "MAJOR"),
+    ...mismatches.filter((m) => m?.severity !== "CRITICAL" && m?.severity !== "MAJOR"),
+  ];
+  for (const m of ranked) {
+    if (!m?.id || m.id === review.largestMismatch) continue;
+    if (!covered(m.id)) return { id: m.id, source: "measured", skipped };
+  }
+  return { id: null, source: skipped.length > 0 ? "measured" : null, skipped };
 }
 
 /** The mismatch this pass was about, if the review named one. */
-function mismatchOf(entry) {
-  return focusOf(entry).id;
+function mismatchOf(entry, limitations = []) {
+  return focusOf(entry, limitations).id;
 }
 
 /**
@@ -144,8 +175,8 @@ function mismatchOf(entry) {
  * the bound exists precisely to catch that, so it must see through the
  * symptoms to the cause.
  */
-function focusKeyOf(entry) {
-  const id = mismatchOf(entry);
+function focusKeyOf(entry, limitations = []) {
+  const id = mismatchOf(entry, limitations);
   if (!id) return null;
   const mismatches = Array.isArray(entry.review?.mismatches) ? entry.review.mismatches : [];
   const named = mismatches.find((m) => m.id === id);
@@ -165,10 +196,19 @@ function focusKeyOf(entry) {
  * damaged record as "zero blocking mismatches" would hand out an iteration
  * extension for having written a worse file.
  */
-function blockingSeverityCount(entry) {
+function blockingSeverityCount(entry, limitations = []) {
   const mismatches = entry.review?.mismatches;
   if (!Array.isArray(mismatches)) return null;
-  return mismatches.filter((m) => m?.severity === "CRITICAL" || m?.severity === "MAJOR").length;
+  return mismatches.filter(
+    (m) =>
+      (m?.severity === "CRITICAL" || m?.severity === "MAJOR") &&
+      !coveringLimitation(limitations, {
+        id: m.id,
+        rootCause: m.rootCause ?? null,
+        region: m.region ?? null,
+        cause: m.cause ?? null,
+      }),
+  ).length;
 }
 
 /**
@@ -216,7 +256,7 @@ function humanDirectedPasses(chain) {
  * have called the fix a regression. The severity ledger is what the review
  * actually reasoned about, so it is what progress is measured on.
  */
-function convergence(chain) {
+function convergence(chain, limitations = []) {
   const unmeasurable = { measurable: false, converging: false, from: null, to: null };
   if (chain.length < 2) return unmeasurable;
 
@@ -225,8 +265,8 @@ function convergence(chain) {
   // no review at all be granted an extension on the strength of an older one,
   // and the reason string would say "the last pass closed N" about a pass that
   // is not the last one.
-  const latest = blockingSeverityCount(chain[chain.length - 1]);
-  const previous = blockingSeverityCount(chain[chain.length - 2]);
+  const latest = blockingSeverityCount(chain[chain.length - 1], limitations);
+  const previous = blockingSeverityCount(chain[chain.length - 2], limitations);
   if (latest === null || previous === null) return unmeasurable;
 
   return { measurable: true, converging: latest < previous, from: previous, to: latest };
@@ -253,17 +293,17 @@ function convergence(chain) {
  * @returns {Array<{revision:string, mismatch:string|null, action:string|null,
  *                  percent:number|null, moved:number|null}>}
  */
-export function attemptHistory(chain, focusKey) {
+export function attemptHistory(chain, focusKey, limitations = []) {
   if (!focusKey) return [];
 
   const run = [];
   for (let i = chain.length - 1; i >= 0; i -= 1) {
-    if (focusKeyOf(chain[i]) !== focusKey) break;
+    if (focusKeyOf(chain[i], limitations) !== focusKey) break;
     run.unshift(chain[i]);
   }
 
   return run.map((entry, index) => {
-    const focus = focusOf(entry);
+    const focus = focusOf(entry, limitations);
     const mismatch = (entry.review?.mismatches ?? []).find((m) => m.id === focus.id) ?? null;
     const percent = typeof entry.stats?.percent === "number" ? round(entry.stats.percent, 3) : null;
     const before = index > 0 ? run[index - 1] : null;
@@ -388,9 +428,13 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
   }
 
   const latest = chain[chain.length - 1];
-  const focus = focusOf(latest);
+  // What this project has decided not to fix. Read once, threaded through every
+  // question below: the focus, the same-cause count, the blocking count, and
+  // the claim audit all look past an accepted limitation.
+  const limitations = readLimitations(projectDir);
+  const focus = focusOf(latest, limitations);
   const largestMismatch = focus.id;
-  const focusKey = focusKeyOf(latest);
+  const focusKey = focusKeyOf(latest, limitations);
 
   const iterations = chain.length;
   // The budget is about the agent circling, so it counts the agent's own
@@ -405,19 +449,26 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
   const humanDirected = reported.slice(0, exemptionCap);
   const exemptionsRefused = reported.slice(exemptionCap);
   const agentIterations = Math.max(0, iterations - humanDirected.length);
-  const converged = convergence(chain);
+  const converged = convergence(chain, limitations);
   const consecutiveBuildFailures = trailingRun(chain, isBuildFailure);
   const sameMismatchAttempts = focusKey
-    ? trailingRun(chain, (entry) => focusKeyOf(entry) === focusKey)
+    ? trailingRun(chain, (entry) => focusKeyOf(entry, limitations) === focusKey)
     : 0;
 
   const limits = config.limits;
   // What has already been tried against the cause in front, and whether those
   // attempts are still moving anything. Computed before the bounds so both the
   // bound's reason and the payload can name them.
-  const history = attemptHistory(chain, focusKey);
+  const history = attemptHistory(chain, focusKey, limitations);
   const stalling = diminishingReturns(history, limits.materialMovePercent ?? 0.25);
   const reasons = [];
+
+  for (const skip of focus.skipped ?? []) {
+    reasons.push(
+      `"${skip.id}" is covered by the accepted limitation "${skip.limitation}" — not the focus, ` +
+        "not counted toward the same-cause bound, and not blocking approval",
+    );
+  }
 
   // What the renders inside the revisions add up to. `iterations` counts
   // folders; this counts measurements, which is what the corpus showed the two
@@ -499,6 +550,7 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
   const claims = auditReviewClaims({
     revisionDir: path.join(projectDir, "revisions", latest.id),
     review: latest.review,
+    limitations,
   });
   for (const lift of claims.lifted) {
     reasons.push(`${latest.id}: ${lift.id} waived by gate.override — ${lift.reason}`);
@@ -678,6 +730,13 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     // Renders inside the revisions, from attempts.json: the measurements the
     // folder count hides. `total` is what the loop actually paid for.
     renders,
+    // What this project has decided not to fix, and which of the latest
+    // review's mismatches that covered. Reported so a reader knows why the
+    // focus is not the largest mismatch on the list.
+    limitations: {
+      active: limitations.map((l) => l.id),
+      skipped: focus.skipped ?? [],
+    },
     limits,
     remaining: {
       iterations: Math.max(0, limits.maxIterations - agentIterations),
@@ -692,7 +751,7 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
       id: entry.id,
       status: entry.revision.status,
       verdict: entry.review?.verdict ?? null,
-      mismatch: mismatchOf(entry),
+      mismatch: mismatchOf(entry, limitations),
     })),
     reasons,
   };

@@ -991,3 +991,88 @@ test("a re-run of unchanged sources is reported, and revisions without attempts.
   assert.equal(status.renders.latest.renders, 0);
   assert.ok(!status.reasons.some((r) => /re-runs/.test(r)));
 });
+
+// --------------------------------------------------------- limitations ---
+
+test("an accepted limitation is never the focus, never counts toward the same-cause bound, and never blocks READY", async () => {
+  const { acceptLimitation } = await import("../lib/limitations.mjs");
+  // Three passes at the typeface, exactly the corpus pattern (revolut-proposal 4/3).
+  const dir = projectWith(
+    [
+      { verdict: "REVISE", mismatch: "substituted-typeface" },
+      { verdict: "REVISE", mismatch: "substituted-typeface" },
+      {
+        verdict: "READY_FOR_APPROVAL",
+        mismatch: "substituted-typeface",
+        review: {
+          mismatches: [
+            { id: "substituted-typeface", severity: "MAJOR", reason: "Google Sans is not bundled", action: "none available" },
+            { id: "page-number-low", severity: "MAJOR", reason: "footer sits 9px low", action: "raise it" },
+            { id: "hairline-tint", severity: "MINOR", reason: "rule is a shade light", action: "darken" },
+          ],
+        },
+      },
+    ],
+    "limitations",
+  );
+
+  // Without the record, the bound fires and READY is refused.
+  const before = computeIterationStatus({ projectDir: dir, config });
+  assert.equal(before.verdict, "CONVERGENCE_LIMIT_REACHED");
+  assert.equal(before.largestMismatch, "substituted-typeface");
+
+  acceptLimitation(dir, {
+    id: "heading-face",
+    reason: "the reference sets its headings in Google Sans, which is not distributable; Lato is the nearest bundled family",
+    decidedBy: "user",
+    cause: "TYPOGRAPHY",
+    mismatchIds: ["substituted-typeface"],
+  });
+
+  const after = computeIterationStatus({ projectDir: dir, config });
+  // The focus moves to the next blocking mismatch the review rated.
+  assert.equal(after.largestMismatch, "page-number-low");
+  assert.equal(after.sameMismatchAttempts, 1, "the typeface passes no longer count against the new focus");
+  assert.deepEqual(after.limitations.active, ["heading-face"]);
+  assert.deepEqual(after.limitations.skipped, [{ id: "substituted-typeface", limitation: "heading-face" }]);
+  assert.ok(after.reasons.some((r) => /covered by the accepted limitation "heading-face"/.test(r)));
+  // READY still cannot stand: page-number-low is MAJOR and not covered.
+  assert.equal(after.verdict, "REVISE");
+  assert.ok(after.claims.blocking.some((c) => c.id === "unresolved-severity" && /page-number-low/.test(c.detail)));
+  assert.ok(!after.claims.blocking.some((c) => /substituted-typeface/.test(c.detail)));
+});
+
+test("with every blocking mismatch covered, READY stands", async () => {
+  const { acceptLimitation } = await import("../lib/limitations.mjs");
+  const dir = projectWith(
+    [
+      {
+        verdict: "READY_FOR_APPROVAL",
+        mismatch: "substituted-typeface",
+        review: {
+          mismatches: [
+            { id: "substituted-typeface", severity: "MAJOR", reason: "not bundled", action: "none" },
+            { id: "hairline-tint", severity: "MINOR", reason: "a shade light", action: "darken" },
+          ],
+        },
+      },
+    ],
+    "covered",
+  );
+  // The revision has to be measured for READY to stand at all.
+  const rev = path.join(dir, "revisions", "revision-001");
+  fs.writeFileSync(path.join(rev, "output.png"), "x");
+  fs.writeFileSync(path.join(rev, "visual-diff-stats.json"), JSON.stringify({ mismatchPx: 1, percent: 0.1, reference: path.join(rev, "reference-scaled.png") }));
+
+  assert.equal(computeIterationStatus({ projectDir: dir, config }).verdict, "REVISE");
+  acceptLimitation(dir, {
+    id: "heading-face",
+    reason: "the reference sets its headings in Google Sans, which is not distributable; Lato is the nearest bundled family",
+    decidedBy: "user",
+    cause: "TYPOGRAPHY",
+    mismatchIds: ["substituted-typeface"],
+  });
+  const status = computeIterationStatus({ projectDir: dir, config });
+  assert.equal(status.verdict, "READY_FOR_APPROVAL", JSON.stringify(status.reasons));
+  assert.equal(status.largestMismatch, "hairline-tint");
+});

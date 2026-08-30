@@ -52,6 +52,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { coveringLimitation } from "./limitations.mjs";
+
 /** Gate kinds whose rule is an equality measurement rather than a judgement. */
 const BINARY_GATES = Object.freeze(["exact-diff", "region-diff"]);
 
@@ -117,10 +119,22 @@ function comparisonOf(stats, revisionDir) {
  *   `lifted` records rules a valid override waived, so the caller can say so
  *   rather than silently reporting a clean audit.
  */
-export function auditReviewClaims({ revisionDir, review }) {
+export function auditReviewClaims({ revisionDir, review, limitations = [] }) {
   const blocking = [];
   const lifted = [];
   if (!review) return { blocking, lifted };
+
+  // A mismatch covered by an accepted limitation is, by the project's own
+  // decision, not a reason the document is unready — whatever severity the
+  // review gave it. The review should list it as ACCEPTED_LIMITATION; until it
+  // does, the record in accepted-limitations.json is what the audit believes.
+  const accepted = (m) =>
+    coveringLimitation(limitations, {
+      id: m?.id ?? null,
+      rootCause: m?.rootCause ?? null,
+      region: m?.region ?? null,
+      cause: m?.cause ?? null,
+    });
 
   const gate = review.gate ?? null;
   const override = overrideState(gate);
@@ -152,7 +166,7 @@ export function auditReviewClaims({ revisionDir, review }) {
 
   // --- unresolved-severity ------------------------------------------------
   const mismatches = Array.isArray(review.mismatches) ? review.mismatches : [];
-  const severe = mismatches.filter((m) => BLOCKING_SEVERITIES.includes(m?.severity));
+  const severe = mismatches.filter((m) => BLOCKING_SEVERITIES.includes(m?.severity) && !accepted(m));
   if (severe.length) {
     blocking.push({
       id: "unresolved-severity",

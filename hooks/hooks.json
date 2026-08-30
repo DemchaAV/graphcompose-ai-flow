@@ -1,7 +1,19 @@
 {
   "$schema": "https://code.claude.com/schemas/hooks.json",
-  "description": "Telemetry checkpoints for GraphCompose AI Flow. These only record timestamps and the transcript location; they call no model, decide nothing, and always exit 0 so a measurement can never block the work it measures.",
+  "description": "Two kinds of hook. The telemetry checkpoints (SessionStart, UserPromptSubmit, Stop, SubagentStop, SessionEnd) only record timestamps and the transcript location; they call no model, decide nothing, and always exit 0 so a measurement can never block the work it measures. The PreToolUse guard on Bash refuses four shortcuts the workflow skills forbid — reading a template or the layout snapshot through the shell, a raw `magick compare`, patching Java with an inline script — and names the harness command to run instead; GRAPHCOMPOSE_GUARD=off bypasses it.",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/guard-bash.mjs\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
