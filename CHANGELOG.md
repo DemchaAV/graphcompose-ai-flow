@@ -7,10 +7,24 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
-Phases 0 and 1 of the 2026-08-30 audit: what an audit of sixteen real projects
-and their transcripts found broken in the loop's machinery, and the first of
-what it found missing. Every item below was observed in a real run, not
-inferred.
+**Why update.** If you are on 0.20.0, two of the four workflow skills —
+`create-template` and `revise-template` — do not load in Claude Code at all
+(invalid YAML in their descriptions), and a loop pass costs about fifteen
+seconds of Maven and two JVMs, rendered into the same revision seven times
+over. This release registers the skills, makes a pass a six-second `pass`
+command with every render on the record, adds a perceptual figure beside a
+pixel count that never reached zero, measures the reference side of every
+region instead of trusting eyeballed bounds, refuses a template that is a
+calibration of one image at approval, and makes running several terminals at
+once safe. To get it: update the plugin, then run `npm run setup` once inside
+the new version directory (or let the first `preflight` do it); nothing in your
+workspace needs migrating — new files (`attempts.json`, `human-report.json`,
+`accepted-limitations.json`, `.render.lock`) appear beside the old ones as they
+are used.
+
+Everything below came out of an audit of sixteen real projects and their
+transcripts on 2026-08-30: what it found broken in the loop's machinery, and
+what it found missing. Every item was observed in a real run, not inferred.
 
 ### Added
 

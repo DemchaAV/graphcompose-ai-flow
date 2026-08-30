@@ -31,7 +31,9 @@ test("reading a template through the shell is refused, with source.mjs named", (
   blocked("sed -n 400,520p graphcompose-flow/projects/x/revisions/revision-001/generated-template.java", "template-read");
   blocked("head -100 StripeInvoiceTemplate.java", "template-read");
   blocked('Get-Content "D:\\ws\\revisions\\revision-002\\GeneratedProposalTemplate.java"', "template-read");
-  blocked("grep -n renderHeader GeneratedCvTemplate.java", "template-read");
+  // Searching is not dumping: one line back, for a question source.mjs does not answer.
+  allowed("grep -n renderHeader GeneratedCvTemplate.java");
+  allowed("rg ITEM_CELL_INSET revisions/revision-002/GeneratedInvoiceTemplate.java");
 });
 
 test("template sources may still be built, listed, hashed and edited through the harness", () => {

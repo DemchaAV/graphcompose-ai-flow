@@ -32,7 +32,10 @@ import fs from "node:fs";
 
 /** Template sources, by the names the harness and the runners give them. */
 const TEMPLATE_FILE = /(?:^|[\s"'/\\=])(?:[\w.-]*[/\\])?(?:[A-Z][\w]*Template\.java|generated-template\.java)\b/;
-const READER = /(?:^|[\s;&|(])(?:cat|sed|head|tail|less|more|type|Get-Content|gc|awk|grep|rg|findstr|nl|strings)\b/;
+// Dumping a file, not searching it: `grep`/`rg`/`findstr` for one string
+// across a template is a legitimate question source.mjs does not answer, and
+// returns a line, not the file.
+const READER = /(?:^|[\s;&|(])(?:cat|sed|head|tail|less|more|type|Get-Content|gc|awk|nl|strings)\b/;
 const SNAPSHOT_FILE = /layout-snapshot(?:-page-\d+)?\.json\b/;
 const RAW_MAGICK_COMPARE = /(?:^|[\s;&|(])(?:magick\s+compare|compare\s+-metric|magick\s+(?:[^\s|;&]+\s+)*-metric)\b/;
 const PYTHON_INLINE = /(?:^|[\s;&|(])python3?(?:\.exe)?\s+(?:-c\b|-\s*<<|<<)/;
