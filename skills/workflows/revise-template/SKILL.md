@@ -69,8 +69,15 @@ one clarifying question, asked before any revision is opened.
 change is a new revision.
 
 ```bash
-node tools/revision-manager/bin/graphcompose-flow.mjs new-revision "<the user's words>" --project <project-dir>
+node scripts/pass.mjs --project <project-id> --open "<the user's words>" [--report "<their words, when they named a symptom>"]
 ```
+
+That is `new-revision` plus the screen you would otherwise assemble by
+hand: the sources carried forward, the focus the loop is on, the
+evidence's owning node and properties for it, what earlier passes tried,
+and the budget. (`node tools/revision-manager/bin/graphcompose-flow.mjs
+new-revision "<the user's words>" --project <project-dir>` is the bare
+form.)
 
 The render refuses to run into a revision that already carries a
 `visual-review.json` — that revision's pass has been judged, and rendering
@@ -126,6 +133,9 @@ node scripts/render-and-diff.mjs --project <project-id> --revision <revision-id>
 # theme-only · visual-change: the reference is
 node scripts/render-and-diff.mjs --project <project-id> --revision <revision-id>
 ```
+
+Or, the same run with its result on one screen instead of a page of JSON:
+`node scripts/pass.mjs --project <project-id> [--against parent]`.
 
 Not `render.mjs` on its own. A bare render leaves no comparison beside
 it, and `iterate-status` then answers `REVISE` with the focus
