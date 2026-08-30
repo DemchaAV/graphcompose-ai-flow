@@ -12,7 +12,7 @@ the pass itself.
 node scripts/pass.mjs --project <id> --open "<what this pass fixes>"    # 1. open the next revision
 #   … edit the one owning property …
 node scripts/pass.mjs --project <id>                                    # 2. render, measure, every gate, one screen
-#   … write visual-review.json (review-template) …
+#   … look at both images, then write visual-review.json (review-template) …
 node scripts/iterate-status.mjs <id>                                    # 3. may the loop continue?
 ```
 
@@ -100,6 +100,32 @@ collateral. Each is a fact read from the file, and a dead link, a document
 defect or a furniture defect turns a ready verdict into `REVISE` on its
 own.
 
+**6. Then look at the two images.** Everything above is a number, and a
+screen of numbers describes the difference completely only to a reader who
+already knows what the document looks like. The pass prints the two paths
+under `look` for this step — the scaled reference and the render, at the
+same dimensions, worst page first:
+
+```text
+  look      read both as images before classifying anything:
+              reference  …/revision-004/reference-scaled.png
+              render     …/revision-004/output.png
+```
+
+Read them **region by region, in the priority order** geometry → surfaces
+→ anchors and spacing → typography → small marks → colour, comparing like
+with like: same page, same region. A block in the wrong place and a block
+in the wrong colour are the same few hundred grey pixels to a diff and
+nothing alike to an eye, which is why this step is not optional and not
+replaceable by the ranking that told you where to look.
+
+This is the one step in the loop with no tool behind it, so it is the one
+that disappears when a pass is in a hurry. A run on Gemini Flash rendered
+four revisions of an invoice without opening either raster once, wrote
+each review from the JSON schema alone, and closed a 12.5% page as
+anti-aliasing. Every number it read was correct. What it never did was
+look, and the review is where that shows.
+
 ## When the snapshot is not there
 
 `capabilities.layoutSnapshot.state` in the preflight payload says whether
@@ -150,7 +176,15 @@ reads `reference-scaled.png`, which only a measured pass writes.
 
 ## Then loop
 
-Write the review (`review-template`), then ask:
+Write the review — step 6 above is part of writing it, and
+[`review-template`](../review-template/SKILL.md) is the whole procedure:
+what each severity means, where a cause comes from, and why
+`ACCEPTED_LIMITATION` is read off the project's record rather than
+assigned. **READY has to quote the measured figure** in `gate.pages[]`:
+the audit compares it with `visual-diff-stats.json`, and a verdict that
+names no number is one nothing checked (`gate-metric-unquoted`).
+
+Then ask:
 
 ```bash
 node scripts/iterate-status.mjs <project-id> [--root <workspace>]

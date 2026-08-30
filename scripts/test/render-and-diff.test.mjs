@@ -81,6 +81,15 @@ function scenario({ verdict = "REVISE", withParent = false, label = "ws" } = {})
     schemaVersion: 1,
     verdict,
     largestMismatch: verdict === "REVISE" ? "header-height" : undefined,
+    // A READY verdict quotes the figure it rests on — see gate-metric-unquoted.
+    // These pages are solid colour and scale to a 0-pixel diff (the assertion in
+    // "a scaled reference of the same design diffs to nothing" fixes that), so
+    // zero is the measurement here rather than a placeholder. A REVISE fixture
+    // is mid-loop and is not asked for one.
+    gate:
+      verdict === "READY_FOR_APPROVAL"
+        ? { kind: "visual-review", passed: true, metric: "diff: 0 px (0.000%)", pages: [{ page: 1, mismatchPixels: 0 }] }
+        : undefined,
     mismatches:
       verdict === "REVISE"
         ? [{ id: "header-height", severity: "MAJOR", reason: "r", action: "a" }]
@@ -269,7 +278,9 @@ test("--skip-render with no render is a named failure, not a diff against nothin
   fs.rmSync(path.join(s.revision, "output.png"));
   const { status, parsed } = runCli(s.root, ["--json"]);
   assert.equal(status, 1);
-  assert.match(parsed.steps[0].error, /no output\.png/);
+  // By name, not by index: steps are added ahead of this one over time, and a
+  // positional assertion turns that into a failure about the wrong thing.
+  assert.match(parsed.steps.find((x) => x.name === "render (skipped)").error, /no output\.png/);
 });
 
 /** Give a scenario a data spec with one href, and a render that may or may not carry it. */
@@ -629,6 +640,18 @@ test("a page number lower than the reference's turns READY into REVISE, named", 
   };
   draw(path.join(s.project, "reference", "reference.png"), 510, 720, 650);
   draw(path.join(s.revision, "output.png"), 620, 875, 810 + 20);
+
+  // These images are this test's own, so the scenario's quoted zero is no longer
+  // the measurement. Take the real figure from a first pass and quote it, rather
+  // than hardcoding a pixel count that every change to the scaling would break:
+  // what is under test is the furniture defect, not the metric rules, and a
+  // review that misquotes would be caught by those instead.
+  const measured = runCli(s.root, ["--json"]).parsed.diff.mismatchPx;
+  const reviewFile = path.join(s.revision, "visual-review.json");
+  const review = JSON.parse(fs.readFileSync(reviewFile, "utf8"));
+  review.gate.pages = [{ page: 1, mismatchPixels: measured }];
+  review.gate.metric = `diff: ${measured} px`;
+  fs.writeFileSync(reviewFile, JSON.stringify(review, null, 2));
 
   const { status, parsed } = runCli(s.root, ["--json"]);
   assert.equal(status, 2, JSON.stringify(parsed?.loop));

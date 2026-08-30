@@ -47,6 +47,7 @@ import { createRequire } from "node:module";
 import { pagePairs } from "./lib/page-pairs.mjs";
 import { describeAttempts, readAttempts, recordAttempt } from "./lib/attempts.mjs";
 import { compareEdgeBands } from "./lib/edge-bands.mjs";
+import { describeIgnoredCopies, resolveTemplateSource } from "./lib/template-source.mjs";
 
 const repoRoot = installRoot();
 
@@ -169,6 +170,25 @@ function projectReferenceImage() {
   } catch {
     // A malformed manifest is reported by the tools that own it; here it just
     // means falling back to the canonical name.
+    return null;
+  }
+}
+
+/**
+ * The public class the project declares, simple name only, or null.
+ *
+ * The same field `publish-template.mjs` reads, so the two resolve the revision's
+ * template to the same file. A project that declares nothing is not a fault: the
+ * flow's own name is then the only candidate.
+ */
+function declaredTemplateClass() {
+  const file = path.join(projectDir, "template-project.json");
+  if (!fs.existsSync(file)) return null;
+  try {
+    const meta = JSON.parse(fs.readFileSync(file, "utf8"));
+    const declared = meta.render?.templateClass ?? meta.templateClass;
+    return typeof declared === "string" && declared.trim() !== "" ? declared.trim().split(".").pop() : null;
+  } catch {
     return null;
   }
 }
@@ -301,6 +321,25 @@ function finish(code) {
 }
 
 // -------------------------------------------------------------------- steps ---
+
+// Before the compile, not after: a second copy of the template costs a pass its
+// editing budget, and the cheapest moment to say so is before the budget is
+// spent. See lib/template-source.mjs for the run that paid it four times.
+step("template source", (entry) => {
+  const resolved = resolveTemplateSource({ revisionDir, canonicalName: declaredTemplateClass() });
+  if (!resolved.file) {
+    // No template yet is the ordinary state before the first authoring pass.
+    entry.detail = "not written yet";
+    return;
+  }
+  result.template = {
+    name: resolved.name,
+    ignored: resolved.ignored.map((c) => ({ name: c.name, divergent: c.divergent })),
+    divergent: resolved.divergent,
+  };
+  const note = describeIgnoredCopies(resolved);
+  entry.detail = note ? note : `${resolved.name} — one file, which is the build's`;
+});
 
 if (!args.skipRender) {
   step("render", (entry) => {

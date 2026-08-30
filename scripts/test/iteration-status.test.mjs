@@ -948,6 +948,61 @@ test("a claim IS checked when the stats file records the same comparison", () =>
   );
 });
 
+test("READY without any quoted pixel count is not a checked verdict", () => {
+  const dir = projectWith([
+    {
+      verdict: "READY_FOR_APPROVAL",
+      statsReferenceInside: true,
+      stats: { mismatchPx: 271604 },
+      review: {
+        comparedAgainst: "reference",
+        // The shape the corpus census found on twelve READY reviews: a metric
+        // written as prose, and no figure anything could compare it with.
+        gate: { kind: "visual-review", passed: true, metric: "magick compare -metric AE => 271604 px (12.50%)" },
+      },
+    },
+  ], "unquoted");
+
+  const status = statusOf(dir);
+  assert.deepEqual(status.claims.blocking.map((c) => c.id), ["gate-metric-unquoted"]);
+  assert.equal(status.verdict, "REVISE");
+});
+
+test("a pass still looping is not asked to quote a figure it has not settled on", () => {
+  const dir = projectWith([
+    {
+      verdict: "REVISE",
+      mismatch: "type-size",
+      statsReferenceInside: true,
+      stats: { mismatchPx: 271604 },
+      review: { comparedAgainst: "reference", gate: { kind: "visual-review", passed: false } },
+    },
+  ], "mid-loop");
+
+  // Its open MAJOR is the reason it is still looping; the quote is not asked for.
+  assert.equal(
+    statusOf(dir).claims.blocking.some((c) => c.id === "gate-metric-unquoted"),
+    false,
+  );
+});
+
+test("READY needs no quote where nothing was measured to compare it against", () => {
+  // No stats file: `unmeasured-render` is the fault, and iteration-status
+  // reports that one step earlier. Naming it twice in different words is how a
+  // reader learns to skim the reasons.
+  const dir = projectWith([
+    {
+      verdict: "READY_FOR_APPROVAL",
+      review: { comparedAgainst: "reference", gate: { kind: "visual-review", passed: true } },
+    },
+  ], "unmeasured");
+
+  assert.equal(
+    statusOf(dir).claims.blocking.some((c) => c.id === "gate-metric-unquoted"),
+    false,
+  );
+});
+
 // ------------------------------------------------------------- renders ---
 
 test("renders inside a revision are counted from attempts.json, and a stalled sweep is named", async () => {
@@ -1050,6 +1105,10 @@ test("with every blocking mismatch covered, READY stands", async () => {
         verdict: "READY_FOR_APPROVAL",
         mismatch: "substituted-typeface",
         review: {
+          // READY quotes the measured figure — see gate-metric-unquoted. This
+          // test is about limitation coverage, so the gate is here only to keep
+          // the fixture a valid READY rather than to be what is under test.
+          gate: { kind: "visual-review", passed: true, metric: "diff: 1 px (0.100%)", pages: [{ page: 1, mismatchPixels: 1 }] },
           mismatches: [
             { id: "substituted-typeface", severity: "MAJOR", reason: "not bundled", action: "none" },
             { id: "hairline-tint", severity: "MINOR", reason: "a shade light", action: "darken" },

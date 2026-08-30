@@ -319,6 +319,24 @@ revision touched, and selective rollback restores exactly one of them.
 A region with no method of its own cannot be reviewed or rolled back
 independently.
 
+## One template file per revision
+
+The revision holds **one** Java source. It answers to either name — the
+flow writes `generated-template.java`, and an IDE renames it to
+`<PublicClass>.java` the moment anyone opens it — and the build takes the
+canonical name when both are there.
+
+Do not write both. A run that did kept them in sync by hand for four
+revisions and applied every edit twice; the compiler read one of them the
+whole time, so half that editing went into a file no build opened. Once
+they drift, the render measures one and the review describes the other,
+and every gate downstream is comparing a document to an account of a
+different one.
+
+The pass says so on its `checks` line when a second copy appears, and
+`publish-template` refuses a revision whose two copies differ. If you
+find both: keep the one the pass names, delete the other.
+
 ## The template class holds no instance state
 
 Every field is `private static final`. No instance fields, no

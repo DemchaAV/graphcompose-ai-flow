@@ -25,7 +25,7 @@
  * model. It asks the narrower question a machine can answer: is this verdict
  * consistent with the evidence sitting in the same folder?
  *
- * Four ways it is not:
+ * Five ways it is not:
  *
  *   binary-gate-failed      exact-diff and region-diff measure equality. Their
  *                           `passed: false` is a fact, not an opinion, and
@@ -39,6 +39,10 @@
  *   gate-metric-unmeasured  the pixel count quoted in the review is not the one
  *                           visual-diff wrote to disk. The number is quoted
  *                           verbatim precisely so this comparison is possible.
+ *   gate-metric-unquoted    READY, and no pixel count quoted at all. The rule
+ *                           above needs one to compare; without it the check
+ *                           passes by not running, which is how twelve READY
+ *                           verdicts in the corpus were never checked.
  *
  * Deliberately NOT a rule: `passed: false` on the `visual-review` gate kind.
  * That gate compares against a rasterised design image whose anti-aliasing no
@@ -227,6 +231,42 @@ export function auditReviewClaims({ revisionDir, review, limitations = [] }) {
           "comparison that was not the one that ran",
       });
     }
+  }
+
+  // --- gate-metric-unquoted -----------------------------------------------
+  // The rule above is the strongest thing in this module: it compares a number
+  // the review wrote against the number that was measured. It is also, as
+  // written, entirely optional — it needs `gate.pages` to fire, the schema
+  // requires `pages` only inside a `gate` that already has it, and a review
+  // that simply omits the array skips the check without saying so.
+  //
+  // A census of 123 reviews across the corpus found 32 with no page-1
+  // mismatchPixels to check, and twelve of those had declared
+  // READY_FOR_APPROVAL — among them the run this rule was written for, which
+  // ended on a self-reported "12.50%" that nothing compared to anything. The
+  // omission is invisible in a way the wrong number is not: a mismatched
+  // metric is reported, a missing one reads as a clean audit.
+  //
+  // So READY has to quote it. Only when there is something to quote against —
+  // stats on disk, from the same comparison the review describes — because a
+  // revision nobody measured is `unmeasured-render`, which iteration-status
+  // already refuses one step earlier, and demanding a number there would
+  // report the same fault twice in different words.
+  if (
+    review.verdict === "READY_FOR_APPROVAL" &&
+    stats &&
+    sameComparison &&
+    Number.isFinite(stats.mismatchPx) &&
+    !Number.isFinite(claimedPage1?.mismatchPixels)
+  ) {
+    blocking.push({
+      id: "gate-metric-unquoted",
+      detail:
+        `visual-diff-stats.json records ${stats.mismatchPx} mismatched pixels on page 1 and this ` +
+        "review quotes no page-1 figure to compare it with. Add gate.pages[] with the measured " +
+        "mismatchPixels: READY rests on that number, and a verdict that never names it cannot be " +
+        "checked against the comparison that produced it",
+    });
   }
 
   return { blocking, lifted };

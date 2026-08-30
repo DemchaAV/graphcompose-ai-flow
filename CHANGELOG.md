@@ -5,6 +5,40 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.21.1 — in progress
+
+**Why update.** Three holes a run on a fast model fell through, found by
+replaying a `create-template` run on Gemini 3.7 Flash that produced four
+revisions of an invoice and declared a 12.5% page ready for approval. None of
+them needed a smarter model to avoid; each was a step the flow described but
+did not put in front of the agent.
+
+### Added
+
+- **The images are named where the judgement happens.** `pass` prints a `look`
+  line with the absolute paths of the scaled reference and the render — worst
+  page first — whenever the revision has no review yet, and carries them in
+  `--json` as `look`. Reading the two rasters is the one step in the loop with
+  no tool behind it, and it lived only in `review-template`, a file the failing
+  run never opened: it wrote every review from the JSON schema alone. Step 6 of
+  [create-4-loop.md](skills/workflows/references/create-4-loop.md) now carries
+  the procedure inline rather than pointing at it.
+- **READY has to quote what it rests on** (`gate-metric-unquoted`). The claim
+  audit already compared a review's page-1 pixel count with the measured one —
+  but only when the review supplied it, and a review that omits `gate.pages`
+  skipped the check silently. A census of 123 reviews across the corpus found
+  32 with nothing to check and twelve of those declaring
+  `READY_FOR_APPROVAL`. A READY verdict on a measured revision now needs the
+  figure; a pass still looping is not asked for one.
+- **One template file per revision.** `scripts/lib/template-source.mjs` is the
+  shared answer to "which file does the build read?" — the precedence the
+  render-runner pom, `render-runtime` and `publish-template` each had
+  separately. The pass reports a second copy on its `checks` line, and
+  `publish-template` refuses a revision whose two copies differ. The failing
+  run kept `GeneratedInvoiceTemplate.java` and `generated-template.java` in
+  sync by hand for four revisions, spending half its editing on a file no build
+  opened — and by revision-002 they had already drifted apart.
+
 ## v0.21.0 — 2026-08-30
 
 **Why update.** If you are on 0.20.0, two of the four workflow skills —

@@ -64,6 +64,7 @@ import {
 } from "./lib/template-bundle.mjs";
 import { blocking, formatFinding, known, scanPortability } from "./lib/bundle-portability.mjs";
 import { classify, emit, inspect } from "./lib/bundle-split.mjs";
+import { resolveTemplateSource } from "./lib/template-source.mjs";
 
 const repoRoot = installRoot();
 
@@ -189,25 +190,29 @@ mkdirp(targetSrcDir, targetDataDir, targetAssetsDir, targetIconsDir, targetPrevi
 // the moment anyone opens it. The pom has taken both since it was written; the
 // publisher took only the first, so a revision that had been opened in an IDE
 // approved cleanly and then failed to publish, with the approval already done.
-// The canonical name wins when both exist, matching the pom's condition.
+// The canonical name wins when both exist — `resolveTemplateSource` is that
+// precedence, shared with the render so the two cannot drift apart.
 const declaredClassName =
   simpleClassName(projectMeta.render && projectMeta.render.templateClass)
   || simpleClassName(projectMeta.templateClass);
-const flowName = path.join(revisionDir, "generated-template.java");
-const canonicalName = declaredClassName ? path.join(revisionDir, `${declaredClassName}.java`) : null;
-const sourceClassFile =
-  canonicalName && fs.existsSync(canonicalName) ? canonicalName : flowName;
+const resolvedSource = resolveTemplateSource({ revisionDir, canonicalName: declaredClassName });
+const sourceClassFile = resolvedSource.file;
 
 // Both names, when neither is there. Reporting one of two candidates is how the
 // failure this whole branch exists to fix stayed opaque: the reader is told a
 // file is missing and never learns the other name was tried too.
-if (!fs.existsSync(sourceClassFile)) {
+if (!sourceClassFile) {
+  abort(`no template source in ${revisionDir} — looked for ${resolvedSource.candidates.join(" and ")}`);
+}
+
+// A second copy that has drifted is a fork, and publishing picks a side in
+// silence. The revision is one file on purpose; say so before the bundle is
+// built out of one half of it.
+if (resolvedSource.divergent) {
   abort(
-    `no template source in ${revisionDir} — looked for ` +
-      [canonicalName, flowName]
-        .filter(Boolean)
-        .map((file) => path.basename(file))
-        .join(" and "),
+    `${revisionDir} holds two template sources that differ: ${resolvedSource.name} (what the build reads, `
+      + `and what this would publish) and ${resolvedSource.ignored.filter((c) => c.divergent).map((c) => c.name).join(", ")}. `
+      + "Delete the copy or move its changes into the one the build reads, then publish again",
   );
 }
 

@@ -46,6 +46,7 @@ import {
   resolveWorkspace,
 } from "./lib/workspace.mjs";
 import { describeAttempts, readAttempts } from "./lib/attempts.mjs";
+import { renderPageFile, scaledPageFile } from "./lib/page-pairs.mjs";
 
 const repoRoot = installRoot();
 
@@ -250,6 +251,9 @@ const report = {
   aimedAt: parentStatus?.largestMismatch ?? null,
   evidence,
   attempts,
+  // Null once the review exists: the images are named while there is still a
+  // judgement to make, not as a permanent field nobody reads twice.
+  look: reviewed ? null : lookPaths(revisionDir, pass),
   next: pass.loop?.next ?? null,
 };
 
@@ -300,6 +304,7 @@ if (pass.loop) {
 printTried(status);
 printLimitations(status);
 for (const reason of status?.reasons ?? []) console.log(`  - ${reason}`);
+if (!reviewed) printLook(revisionDir, pass);
 if (pass.loop?.next) console.log(`\n  next: ${pass.loop.next}\n`);
 process.exit(rad.status ?? 1);
 
@@ -323,6 +328,40 @@ function evidenceFor(dir, focusId) {
   if (!focusId) return packages;
   const focusFirst = packages.filter((p) => p.region === focusId || p.mismatch === focusId);
   return [...focusFirst, ...packages.filter((p) => !focusFirst.includes(p))];
+}
+
+/**
+ * The two images, by absolute path, at the moment the review has to be written.
+ *
+ * Everything else on this screen is a number, and a screen of numbers is a
+ * complete account of the difference only if you already know what the document
+ * looks like. `review-template` opens with "read the reference and the output as
+ * images" for that reason — but it says so in its own file, and a run that never
+ * loads it never learns that the step exists. One such run classified a 12.5%
+ * page as anti-aliasing across four revisions without opening either raster; the
+ * paths were always on disk and never in front of it.
+ *
+ * So they are printed here, where the loop already is. The scaled reference is
+ * preferred over the project's own: it is the render's exact dimensions, which
+ * is what makes a region-by-region comparison a comparison rather than an
+ * impression. The worst page leads when there is more than one, because that is
+ * the page the review is about.
+ */
+function lookPaths(dir, pass) {
+  const worst = pass?.diff?.worstPage ?? 1;
+  const reference = [scaledPageFile(dir, worst), scaledPageFile(dir, 1)].find((f) => fs.existsSync(f));
+  const render = [renderPageFile(dir, worst), renderPageFile(dir, 1)].find((f) => fs.existsSync(f));
+  if (!reference || !render) return null;
+  return { page: worst, pages: pass?.diff?.pages?.length ?? 1, reference, render };
+}
+
+function printLook(dir, pass) {
+  const look = lookPaths(dir, pass);
+  if (!look) return;
+  const page = look.pages > 1 ? ` (page ${look.page}, the worst)` : "";
+  console.log(`\n  look      read both as images before classifying anything${page}:`);
+  console.log(`              reference  ${look.reference}`);
+  console.log(`              render     ${look.render}`);
 }
 
 function printEvidence(evidence) {
@@ -369,6 +408,14 @@ function budgetLine(status) {
 
 function checksLine(pass) {
   const parts = [];
+  // First on the line when there is something to say, and silent otherwise: a
+  // revision with one template file is the normal case and does not need a word
+  // spent on it every pass.
+  if (pass.template?.ignored?.length) {
+    parts.push(
+      `template: ${pass.template.ignored.map((c) => c.name).join(", ")} ${pass.template.divergent ? "DIFFERS from" : "is never read, only"} ${pass.template.name}`,
+    );
+  }
   if (pass.links) parts.push(pass.links.missing?.length ? `links: ${pass.links.missing.length} dead` : "links ok");
   if (pass.document) parts.push(pass.document.defects?.length ? `document: ${pass.document.defects.map((d) => d.id).join(", ")}` : `document ok${pass.document.pageCount ? ` (${pass.document.pageCount} page(s)${pass.document.flow ? `, ${pass.document.flow}` : ""})` : ""}`);
   if (pass.roles) parts.push(pass.roles.findings?.length ? `roles: ${pass.roles.findings.length} finding(s)` : "roles ok");
