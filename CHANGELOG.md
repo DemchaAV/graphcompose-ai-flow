@@ -85,10 +85,9 @@ inferred.
   into REVISE. Four of the sixteen audited invoices were approved with the page
   number low and corrected only when the user said so.
 - **A render pass is faster, and safe to run from several terminals.**
-  Measured on a real invoice on this machine: 15.3 s → 11.6 s before the
-  compiler change, then the runner compiles through `javac` with the cached
-  classpath instead of a Maven `package` — see the figure in the commit that
-  landed it. The pieces: the runner's dependency classpath is resolved once
+  Measured on a real invoice on this machine, warm: 15.3 s → 11.6 s from the
+  classpath cache alone, then 6.1 s once the runner compiles through `javac`
+  with that classpath instead of a Maven `package`. The pieces: the runner's dependency classpath is resolved once
   per pom (a stamp beside it; a pom edit, a vanished jar or `RENDER_NO_SKIP=1`
   recomputes it); the debug render with guide lines runs only when asked
   (`pass --debug`, `RENDER_DEBUG=1`, or `render.debugPass: true`) — it was a
