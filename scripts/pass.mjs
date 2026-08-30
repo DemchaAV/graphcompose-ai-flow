@@ -59,6 +59,7 @@ function usage(code = 0) {
       "  --revision <id>    the revision to render (default: the project's current draft)\n" +
       "  --against          reference (default) or parent — the scope's gate decides\n" +
       "  --skip-render      measure the existing render only\n" +
+      "  --debug            also render the debug PDF with guide lines (current-debug.pdf); off by default\n" +
       "  --root <workspace> --json\n\n" +
       "exit (render): 0 ready | 2 revise | 3 blocked | 4 budget spent | 1 a step failed;  --open: 0 opened\n",
   );
@@ -75,6 +76,7 @@ function parseArgs(argv) {
     if (a === "--help" || a === "-h") usage(0);
     else if (a === "--json") out.json = true;
     else if (a === "--skip-render") out.skipRender = true;
+    else if (a === "--debug") out.debug = true;
     else if (a === "--project" || a === "-p") out.project = argv[++i];
     else if (a === "--revision" || a === "-r") out.revision = argv[++i];
     else if (a === "--open") out.open = argv[++i];
@@ -224,6 +226,9 @@ if (!args.skipRender && fs.existsSync(path.join(revisionDir, "visual-review.json
 
 const radArgs = ["--project", args.project, "--revision", revisionId, "--root", workspace.root, "--against", args.against, "--json"];
 if (args.skipRender) radArgs.push("--skip-render");
+// The debug render (guide lines) is for a person's eyes and runs only when
+// asked; the render runtime reads this from the environment.
+if (args.debug) process.env.RENDER_DEBUG = "1";
 const rad = run(["scripts", "render-and-diff.mjs"], radArgs);
 const pass = rad.parsed;
 if (!pass) {

@@ -26,6 +26,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { describeArtifact } from "./version-resolver.mjs";
+import { writeJsonAtomic } from "./atomic-write.mjs";
 
 export const RESOLVED_VERSION_FILE = "resolved-version.json";
 
@@ -141,7 +142,7 @@ export function writeResolvedVersion(workspace, { resolved, pins = null, hash = 
     accepted,
   };
 
-  fs.writeFileSync(resolvedVersionPath(workspace), `${JSON.stringify(record, null, 2)}\n`, "utf8");
+  writeJsonAtomic(resolvedVersionPath(workspace), record);
   return record;
 }
 
@@ -188,6 +189,6 @@ export function acceptBuild(workspace, { decision, resolved }) {
     decision: text,
     at: new Date().toISOString(),
   };
-  fs.writeFileSync(resolvedVersionPath(workspace), `${JSON.stringify(record, null, 2)}\n`, "utf8");
+  writeJsonAtomic(resolvedVersionPath(workspace), record);
   return record;
 }

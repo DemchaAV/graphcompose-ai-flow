@@ -28,6 +28,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { writeJsonAtomic } from "./atomic-write.mjs";
+
 export const ATTEMPTS_FILE = "attempts.json";
 
 /** What a render's outcome depends on: the template and its data. */
@@ -127,7 +129,7 @@ export function recordAttempt(revisionDir, attempt) {
       "Read by iterate-status; never edit by hand.",
     attempts: [...previous, entry],
   };
-  fs.writeFileSync(path.join(revisionDir, ATTEMPTS_FILE), `${JSON.stringify(body, null, 2)}\n`, "utf8");
+  writeJsonAtomic(path.join(revisionDir, ATTEMPTS_FILE), body);
   return entry;
 }
 

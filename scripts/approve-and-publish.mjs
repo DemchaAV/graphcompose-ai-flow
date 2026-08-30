@@ -575,6 +575,13 @@ try {
       counters: parsed.counters,
     };
   }
+  // Archive the run into the project's telemetry/ now that it has ended in an
+  // approval. `finish` was documented and never run: no project in the audited
+  // workspace had a telemetry/ directory, so nothing was comparable later.
+  run(path.join(repoRoot, "scripts", "telemetry", "run-metrics.mjs"), [
+    "finish", "--project", args.project,
+    ...(args.root ? ["--root", args.root] : []),
+  ]);
 } catch {
   /* no session, no hooks, or no transcript — all fine */
 }

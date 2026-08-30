@@ -34,6 +34,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { writeJsonAtomic } from "./atomic-write.mjs";
+
 export const LIMITATIONS_FILE = "accepted-limitations.json";
 export const MIN_REASON = 30;
 
@@ -78,7 +80,7 @@ function writeAll(projectDir, limitations) {
       "`node scripts/limitations.mjs accept …`, never by hand.",
     limitations,
   };
-  fs.writeFileSync(limitationsPath(projectDir), `${JSON.stringify(body, null, 2)}\n`, "utf8");
+  writeJsonAtomic(limitationsPath(projectDir), body);
 }
 
 /**

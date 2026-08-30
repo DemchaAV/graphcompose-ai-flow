@@ -27,6 +27,11 @@ blocked, 1 a step failed). Rendering with Maven yourself and judging the
 PDF by eye skips every gate at once — `iterate-status` calls such a
 revision `unmeasured-render` and `approve-and-publish` refuses it.
 
+The debug render with guide lines is for a person's eyes and runs only
+when asked (`pass --debug`); one render per project at a time — a second
+terminal on the same project is refused with the holder named, so work
+on another project or wait.
+
 ## Read the screen in this order
 
 **1. The page model, if it is named.** `missing-pages` (the reference has

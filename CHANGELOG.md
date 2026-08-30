@@ -84,6 +84,23 @@ inferred.
   defect (`bottom-band-lower`, `top-band-higher`, `…-missing`) that turns READY
   into REVISE. Four of the sixteen audited invoices were approved with the page
   number low and corrected only when the user said so.
+- **A render pass is faster, and safe to run from several terminals.**
+  Measured on a real invoice on this machine: 15.3 s → 11.6 s before the
+  compiler change, then the runner compiles through `javac` with the cached
+  classpath instead of a Maven `package` — see the figure in the commit that
+  landed it. The pieces: the runner's dependency classpath is resolved once
+  per pom (a stamp beside it; a pom edit, a vanished jar or `RENDER_NO_SKIP=1`
+  recomputes it); the debug render with guide lines runs only when asked
+  (`pass --debug`, `RENDER_DEBUG=1`, or `render.debugPass: true`) — it was a
+  second JVM and raster on every pass for a picture nobody opened on most; the
+  JVM opens a private copy of the renderer jar named by its build, so a
+  rebuild in one terminal cannot end another terminal's render with
+  `NoClassDefFoundError` or fail because the jar is held; one render per
+  project at a time (`.render.lock`, stale locks taken over) so two terminals
+  on one project get a clear refusal instead of a race on `target/`; the
+  workspace's records (resolved version, observations, attempts, accepted
+  limitations) are written atomically; and `approve-and-publish` archives the
+  run's telemetry with `finish`, which no project had ever done.
 - **The page model outranks the focus.** A page the render never produced is
   the focus on REVISE as well as on READY; a reference stretched to fit the
   render while the page size is still unanswered is the focus above

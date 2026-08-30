@@ -40,12 +40,63 @@
  */
 
 import { spawnSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import { createLiveMirror } from "./live-mirror.mjs";
+import { acquireProjectLock, ProjectLockedError } from "./project-lock.mjs";
 import { describeSeal, sealState } from "./revision-seal.mjs";
 import { ensureSkillValidationVerdict } from "./skill-validation-gate.mjs";
+
+/** A short content hash, for cache stamps. */
+function hashFile(file) {
+  try {
+    return crypto.createHash("sha1").update(fs.readFileSync(file)).digest("hex").slice(0, 16);
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * The renderer jar the JVM will actually open: a copy named by the install
+ * jar's size and mtime, under the OS temp directory.
+ *
+ * The install jar is shared mutable state between every session on the
+ * machine. A rebuild in one terminal while another terminal's JVM is reading
+ * it ends that render with NoClassDefFoundError (the JVM loads lazily; the
+ * class it needs next is in a jar that no longer exists), and on Windows the
+ * rebuild itself fails because the running JVM holds the file. Opening a
+ * private copy breaks both: the install jar is never open during a render,
+ * and a render's jar cannot change under it. The copy is made once per
+ * build (the name carries size and mtime) and reused by every session.
+ */
+function stableJarCopy(jar) {
+  try {
+    const stat = fs.statSync(jar);
+    const dir = path.join(os.tmpdir(), "graphcompose-flow", "renderer");
+    fs.mkdirSync(dir, { recursive: true });
+    const copy = path.join(dir, `preview-renderer-${stat.size}-${Math.round(stat.mtimeMs)}.jar`);
+    if (!fs.existsSync(copy)) {
+      const tmp = `${copy}.${process.pid}.tmp`;
+      fs.copyFileSync(jar, tmp);
+      try {
+        fs.renameSync(tmp, copy);
+      } catch {
+        // Another session won the rename; ours is redundant.
+        try {
+          fs.unlinkSync(tmp);
+        } catch {
+          /* fine */
+        }
+      }
+    }
+    return fs.existsSync(copy) ? copy : jar;
+  } catch {
+    return jar;
+  }
+}
 
 /**
  * Render one revision.
@@ -78,6 +129,17 @@ export function runRender({
     abort(`revision not found: ${revisionDir}`);
   }
 
+  // One render per project at a time. Two terminals on one project race on
+  // its target/, its classpath file and current.pdf; the loser's failure names
+  // a file the winner was busy with. Released on exit, whichever way this
+  // process leaves — `run()` exits on the first failing step.
+  try {
+    acquireProjectLock(projectDir);
+  } catch (err) {
+    if (err instanceof ProjectLockedError) abort(err.message);
+    throw err;
+  }
+
   const renderConfig = templateProject.render || {};
   const templateClass = renderConfig.templateClass;
   if (!templateClass) {
@@ -102,7 +164,15 @@ export function runRender({
   const specProviderClass =
     renderConfig.specProviderClass || templateProject.specProviderClass || null;
   const pages = Math.max(1, Number(renderConfig.pages) || 1);
-  const debugPass = renderConfig.debugPass !== false;
+  // The debug render (guide lines drawn on) is for a person's eyes; no diff,
+  // gate or evidence reads it. It was rendered on every pass — a second JVM,
+  // a second PDF, a second raster — for a picture nobody opened on most of
+  // them. It now runs when asked: RENDER_DEBUG=1 for one pass, or
+  // `render.debugPass: true` in template-project.json for every pass. A
+  // project that set it false keeps that.
+  const debugPass =
+    renderConfig.debugPass === true ||
+    (renderConfig.debugPass !== false && process.env.RENDER_DEBUG === "1");
   const runnerPomRelPath =
     renderConfig.runnerPomRelPath || "render-runner/pom.xml";
   const runnerPom = path.join(projectDir, runnerPomRelPath);
@@ -226,7 +296,10 @@ export function runRender({
     );
   }
 
-  // 3. mvn package
+  // 3. build the renderer if its sources moved; the runner compiles after the
+  // classpath is known (step 4), through javac when the pom is the shape the
+  // scaffold writes, and through Maven otherwise.
+  let runnerNeedsCompile = false;
   if (skipMavenPackage) {
     console.log(
       `> mvn package skipped (scope=${scope}; runner target/classes + preview-renderer.jar reused)`,
@@ -279,6 +352,34 @@ export function runRender({
           `and ${rendererSources} was not shipped. Reinstall the harness, or run npm run setup in a checkout.`,
       );
     }
+    runnerNeedsCompile = true;
+  }
+
+  // 4. classpath build — once per pom, not once per render.
+  //
+  // `dependency:build-classpath` ran on every pass and answered the same
+  // question every time: the runner's dependencies change when its pom
+  // changes and not otherwise. Measured on a warm machine it is a Maven
+  // start-up plus a resolution, several seconds a pass, times seven renders
+  // a revision. The answer is cached beside its input's hash; a pom edit, a
+  // jar that has since vanished from the local repository, or
+  // RENDER_NO_SKIP=1 recomputes it.
+  const classpathStamp = path.join(runnerDir, "target", "runtime-classpath.stamp");
+  const pomHash = hashFile(runnerPom);
+  const cachedClasspath =
+    !forceFullPipeline &&
+    fs.existsSync(classpathFile) &&
+    fs.existsSync(classpathStamp) &&
+    fs.readFileSync(classpathStamp, "utf8").trim() === pomHash &&
+    fs
+      .readFileSync(classpathFile, "utf8")
+      .trim()
+      .split(path.delimiter)
+      .filter(Boolean)
+      .every((entry) => fs.existsSync(entry));
+  if (cachedClasspath) {
+    console.log("> classpath reused (render-runner/pom.xml unchanged since it was resolved)");
+  } else {
     runMaven(
       [
         "-q",
@@ -286,26 +387,17 @@ export function runRender({
         "-f",
         runnerPom,
         `-Drevision.id=${revisionId}`,
-        "-DskipTests=true",
-        "package",
+        "dependency:build-classpath",
+        "-Dmdep.outputFile=target/runtime-classpath.txt",
       ],
       repoRoot,
     );
+    try {
+      fs.writeFileSync(classpathStamp, `${pomHash}\n`, "utf8");
+    } catch {
+      /* a stamp that cannot be written costs one more resolution next time */
+    }
   }
-
-  // 4. classpath build
-  runMaven(
-    [
-      "-q",
-      "-B",
-      "-f",
-      runnerPom,
-      `-Drevision.id=${revisionId}`,
-      "dependency:build-classpath",
-      "-Dmdep.outputFile=target/runtime-classpath.txt",
-    ],
-    repoRoot,
-  );
   const dependencyClasspath = fs.existsSync(classpathFile)
     ? fs.readFileSync(classpathFile, "utf8").trim()
     : "";
@@ -316,6 +408,19 @@ export function runRender({
     .filter(Boolean)
     .join(path.delimiter);
   fs.writeFileSync(renderClasspathFile, classpath, "utf8");
+
+  // 4b. compile the runner — the revision's template plus the runner's own
+  // sources — now that the classpath is known.
+  if (runnerNeedsCompile) {
+    compileRunner({
+      runnerDir,
+      runnerPom,
+      revisionId,
+      revisionDir,
+      dependencyClasspath,
+      forceMaven: forceFullPipeline || process.env.RENDER_USE_MAVEN === "1",
+    });
+  }
 
   // Spec provider logic:
   //   - data-driven project (dataFileName set, file present) → pass
@@ -347,6 +452,10 @@ export function runRender({
     console.log(`> spec-provider skipped (project has none)`);
   }
 
+  // The jar the JVM opens is a private copy of the install's; see stableJarCopy.
+  const rendererJar = stableJarCopy(previewRendererJar);
+  if (rendererJar !== previewRendererJar) console.log(`> renderer jar: ${rendererJar}`);
+
   // 5. Render pass 1 — clean PDF + output.png
   runJava(
     [
@@ -358,7 +467,7 @@ export function runRender({
       `-Dgraphcompose.revision.dir=${revisionDir}`,
       ...(dataFile ? [`-Dgraphcompose.data.file=${dataFile}`] : []),
       "-jar",
-      previewRendererJar,
+      rendererJar,
       "render",
       "--revision",
       revisionDir,
@@ -428,7 +537,7 @@ export function runRender({
       `-Dgraphcompose.revision.dir=${revisionDir}`,
       ...(dataFile ? [`-Dgraphcompose.data.file=${dataFile}`] : []),
       "-jar",
-      previewRendererJar,
+      rendererJar,
       "render",
       "--revision",
       revisionDir,
@@ -505,6 +614,117 @@ export function jarIsStale(jar, inputs) {
 
   if (newest <= jarTime) return null;
   return `${path.basename(newestPath ?? "a source")} is newer than the jar`;
+}
+
+/**
+ * Compile the render runner: its own sources plus the revision's template.
+ *
+ * Through javac when the pom is the shape `scaffold-runner` writes — an antrun
+ * copy of the revision's template into generated-sources, build-helper adding
+ * that directory, the compiler plugin, no resources — and through Maven
+ * otherwise, or when asked (RENDER_USE_MAVEN=1, RENDER_NO_SKIP=1). Maven's
+ * `package` on the runner is a JVM start-up, a plugin resolution and a jar
+ * nobody reads, for a compile of two or three files; javac with the cached
+ * classpath is the compile alone. A compile error surfaces the same way
+ * either route: the compiler's own output, and a non-zero exit.
+ */
+function compileRunner({ runnerDir, runnerPom, revisionId, revisionDir, dependencyClasspath, forceMaven }) {
+  const plan = forceMaven ? null : planFastCompile({ runnerDir, runnerPom, revisionDir });
+  if (!plan) {
+    if (!forceMaven) console.log("> runner: pom is not the scaffold's shape, or javac is absent — compiling through Maven");
+    runMaven(
+      ["-q", "-B", "-f", runnerPom, `-Drevision.id=${revisionId}`, "-DskipTests=true", "package"],
+      path.dirname(runnerDir),
+    );
+    return;
+  }
+
+  // What antrun would have done: the revision's template, under the package
+  // path the pom names, in generated-sources.
+  fs.mkdirSync(path.dirname(plan.generatedTemplate), { recursive: true });
+  fs.copyFileSync(plan.templateSource, plan.generatedTemplate);
+  const classesDir = path.join(runnerDir, "target", "classes");
+  fs.mkdirSync(classesDir, { recursive: true });
+
+  const sources = [...plan.sources, plan.generatedTemplate];
+  // An argument file, so a long classpath never meets a command-line limit.
+  const argFile = path.join(runnerDir, "target", "javac.args");
+  const quote = (s) => `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  fs.writeFileSync(
+    argFile,
+    [
+      "-d", quote(classesDir),
+      "-encoding", "UTF-8",
+      ...(plan.release ? ["--release", plan.release] : []),
+      "-cp", quote(dependencyClasspath),
+      ...sources.map(quote),
+    ].join("\n"),
+    "utf8",
+  );
+  console.log(`> javac ${sources.length} source(s) (runner + ${path.basename(plan.templateSource)}), classpath cached`);
+  run("javac", [`@${argFile}`], runnerDir);
+}
+
+/**
+ * Everything the fast path needs, read off the pom — or null when the pom is
+ * not the shape it reads.
+ */
+function planFastCompile({ runnerDir, runnerPom, revisionDir }) {
+  if (!javacAvailable()) return null;
+  let pom;
+  try {
+    pom = fs.readFileSync(runnerPom, "utf8");
+  } catch {
+    return null;
+  }
+  // The scaffold's three plugins, and nothing that would change what a compile
+  // means: a resources directory, extra source roots, annotation-processor
+  // paths, or a second module.
+  if (!/maven-antrun-plugin/.test(pom) || !/build-helper-maven-plugin/.test(pom)) return null;
+  if (/<resources>|<annotationProcessorPaths>|<modules>/.test(pom)) return null;
+  if (fs.existsSync(path.join(runnerDir, "src", "main", "resources"))) return null;
+
+  const toFile = /tofile="\$\{revision\.generated\.sources\}\/([^"]+)"/.exec(pom)?.[1];
+  const canonical = /value="\$\{project\.basedir\}\/\.\.\/revisions\/\$\{revision\.id\}\/([^"]+)"/.exec(pom)?.[1];
+  const legacy = /else="\$\{project\.basedir\}\/\.\.\/revisions\/\$\{revision\.id\}\/([^"]+)"/.exec(pom)?.[1];
+  if (!toFile || (!canonical && !legacy)) return null;
+
+  const candidates = [canonical, legacy].filter(Boolean).map((name) => path.join(revisionDir, name));
+  const templateSource = candidates.find((file) => fs.existsSync(file));
+  if (!templateSource) return null;
+
+  const release = /<maven\.compiler\.(?:release|source)>(\d+)<\//.exec(pom)?.[1] ?? null;
+  const sources = [];
+  const walk = (dir) => {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile() && entry.name.endsWith(".java")) sources.push(full);
+    }
+  };
+  walk(path.join(runnerDir, "src", "main", "java"));
+
+  return {
+    sources,
+    templateSource,
+    generatedTemplate: path.join(runnerDir, "target", "generated-sources", "revision", ...toFile.split("/")),
+    release,
+  };
+}
+
+let javacProbe = null;
+function javacAvailable() {
+  if (javacProbe === null) {
+    try {
+      // No shell: CreateProcess resolves javac.exe from PATH on Windows, and a
+      // shell with arguments is the thing Node deprecates (DEP0190).
+      javacProbe = spawnSync("javac", ["-version"], { encoding: "utf8" }).status === 0;
+    } catch {
+      javacProbe = false;
+    }
+  }
+  return javacProbe;
 }
 
 function runMaven(args, cwd) {

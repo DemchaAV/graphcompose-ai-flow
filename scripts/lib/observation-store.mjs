@@ -32,6 +32,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { versionLine } from "./version-resolver.mjs";
+import { writeJsonAtomic } from "./atomic-write.mjs";
 
 export const OBSERVATIONS_DIR = "observations";
 
@@ -195,7 +196,7 @@ export function recordObservation({ workspace, install, body, force = false }) {
   }
 
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(file, `${JSON.stringify(body, null, 2)}\n`, "utf8");
+  writeJsonAtomic(file, body);
   return { file, line, replaced };
 }
 
@@ -226,7 +227,7 @@ export function recordVerification({ workspace, install, subject, entry }) {
   };
 
   if (subject.origin === "workspace") {
-    fs.writeFileSync(subject.file, `${JSON.stringify(body, null, 2)}\n`, "utf8");
+    writeJsonAtomic(subject.file, body);
     return { file: subject.file, copied: false };
   }
 
