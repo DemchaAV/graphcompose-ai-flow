@@ -57,7 +57,8 @@ function usage(code = 0) {
       "                                     --record files the verdict in verifiedAgainst[]\n" +
       "  record <file.json>                 file a new observation in this workspace\n" +
       "                                     exit: 0 written | 1 not a workspace, or not a record\n" +
-      "  promote <id> --into <file>         fold a confirmed observation into a skill pack\n\n" +
+      "  promote <id> --into <file>         fold a confirmed observation into a skill pack\n" +
+      "  issue <id> [--repo owner/name]     write a GitHub issue for an engine defect, and the gh command to file it\n\n" +
       "  --root <workspace>                 where records are read from and written to\n" +
       "  --force                            with record: replace an existing id\n" +
       "  --version <line>                   the GraphCompose line to judge against\n" +
@@ -88,6 +89,7 @@ for (let i = 1; i < argv.length; i += 1) {
   else if (a === "--id") args.id = argv[++i];
   else if (a === "--version" || a === "-v") args.version = argv[++i];
   else if (a === "--into") args.into = argv[++i];
+  else if (a === "--repo") args.repo = argv[++i];
   else if (a === "--root") args.root = argv[++i];
   else if (a === "--force") args.force = true;
   else if (a === "--record") args.record = true;
@@ -568,6 +570,95 @@ if (command === "verify") {
 /** How many of these are on record as no longer true. */
 function retiredCount(list) {
   return list.filter(({ body }) => body.confidence === "retired").length;
+}
+
+if (command === "issue") {
+  // An engine defect on record here is a workaround the harness will teach
+  // forever, in every template, unless it reaches the library. The user
+  // maintains GraphCompose; the distance between "recorded as ENGINE DEFECT"
+  // and "filed" was that nobody wrote the issue. This writes it, from the
+  // record, and prints the one command that files it.
+  const id = args.positional ?? args.id;
+  if (!id) usage(2);
+  const found = load().find((o) => o.body.id === id);
+  if (!found) {
+    process.stderr.write(`[observations] no observation with id "${id}"\n`);
+    process.exit(1);
+  }
+  const body = found.body;
+  const defect = body.engineDefect;
+  if (!defect?.isDefect) {
+    process.stderr.write(
+      `[observations] "${id}" is not recorded as an engine defect (engineDefect.isDefect). ` +
+        "A behaviour that is merely surprising is a skill-pack note, not an issue.\n",
+    );
+    process.exit(1);
+  }
+  if (defect.fixedIn) {
+    process.stderr.write(`[observations] "${id}" is recorded as fixed in ${defect.fixedIn}; nothing to file.\n`);
+    process.exit(1);
+  }
+  if (defect.reportedTo) {
+    process.stderr.write(`[observations] "${id}" was already reported: ${defect.reportedTo}\n`);
+    process.exit(1);
+  }
+  const repo = args.repo ?? "DemchaAV/GraphCompose";
+  const repro = body.minimalReproduction ?? {};
+  const title = `${body.api?.[0] ?? "engine"}: ${firstSentence(body.observedBehaviour ?? id)}`.slice(0, 120);
+  const lines = [
+    `## Observed (GraphCompose ${body.graphComposeVersion ?? "?"}${defect.affectedVersions ? `; affects ${defect.affectedVersions}` : ""})`,
+    "",
+    body.observedBehaviour ?? "(no description recorded)",
+    "",
+    "## API involved",
+    "",
+    ...(body.api ?? []).map((a) => `- \`${a}\``),
+    "",
+    "## Minimal reproduction",
+    "",
+    ...(repro.arrangement ? [repro.arrangement, ""] : []),
+    ...(repro.command ? ["```bash", repro.command, "```", ""] : []),
+    ...(repro.probe ? [`Probe: \`${repro.probe}\` in the graphcompose-ai-flow harness (\`tools/diagnostics/\`).`, ""] : []),
+    "## Measured",
+    "",
+    "```json",
+    JSON.stringify(body.probeResult ?? {}, null, 2),
+    "```",
+    "",
+    "## Workaround in use",
+    "",
+    body.workaround ?? "(none)",
+    "",
+    "## Where it was found",
+    "",
+    body.sourceRun
+      ? `${body.sourceRun.project ?? "?"} / ${body.sourceRun.revision ?? "?"} on ${body.sourceRun.date ?? "?"}` +
+        (body.sourceRun.note ? ` — ${body.sourceRun.note}` : "")
+      : "(not recorded)",
+    "",
+    `_Generated from observation \`${id}\` by graphcompose-ai-flow._`,
+    "",
+  ];
+  const issuesDir = path.join(path.dirname(found.file), "issues");
+  fs.mkdirSync(issuesDir, { recursive: true });
+  const file = path.join(issuesDir, `${id}.md`);
+  fs.writeFileSync(file, lines.join("\n"), "utf8");
+  const ghCommand = `gh issue create --repo ${repo} --title ${JSON.stringify(title)} --body-file ${JSON.stringify(file)} --label engine-defect`;
+  if (args.json) {
+    process.stdout.write(`${JSON.stringify({ id, file, title, repo, command: ghCommand }, null, 2)}\n`);
+  } else {
+    process.stdout.write(
+      `wrote ${file}\n\nfile it:\n  ${ghCommand}\n\nthen record the URL so nobody files it twice:\n` +
+        `  set engineDefect.reportedTo in ${found.file} to the issue URL\n`,
+    );
+  }
+  process.exit(0);
+}
+
+function firstSentence(text) {
+  const t = String(text).trim();
+  const stop = t.search(/\.\s|\.$/);
+  return stop > 0 ? t.slice(0, stop) : t;
 }
 
 if (command === "promote") {

@@ -464,3 +464,68 @@ test("the default verification tier renders the bundle, because compiling is not
   const help = spawnSync(process.execPath, [CLI, "--help"], { encoding: "utf8" });
   assert.match(help.stdout, /default: render/);
 });
+
+// --- the quality gate ------------------------------------------------------------
+
+const CALIBRATED_TEMPLATE = `package com.demchaav.cv;
+
+public final class GeneratedCvTemplate {
+    private static final float PAGE_W = 595f;
+    private static final float REFERENCE_PX_WIDTH = 1055.0f;
+    private static final float PX = PAGE_W / REFERENCE_PX_WIDTH;
+    private static final float CAP_RATIO_BOLD = 0.723f;
+
+    private DocumentNode renderHeader(CvSpec spec) {
+        SectionBuilder s = new SectionBuilder();
+        s.margin(new DocumentInsets(px(668 - 648) - CAP_RATIO_BOLD * 12f, 0, 0, 0));
+        s.padding(px(51));
+        return s.build();
+    }
+
+    private static float px(float referencePixels) {
+        return referencePixels * PX;
+    }
+}
+`;
+
+test("a calibrated template is refused at approval, with the findings in the refusal", () => {
+  const s = scenario({ label: "calibrated" });
+  fs.writeFileSync(path.join(s.revision,"generated-template.java"), CALIBRATED_TEMPLATE, "utf8");
+  const { status, parsed } = runCli(s.root, ["--json"]);
+  assert.equal(status, 1, JSON.stringify(parsed?.steps));
+  const gate = parsed.steps.find((step) => step.name === "quality gate");
+  assert.equal(gate.ok, false);
+  assert.match(gate.error, /reference-pixel-arithmetic/);
+  assert.match(gate.error, /font-metric-constant/);
+  assert.match(gate.error, /--waive-quality/);
+  assert.equal(parsed.approved, null, "nothing was approved");
+  const revision = JSON.parse(fs.readFileSync(path.join(s.revision,"revision.json"), "utf8"));
+  assert.equal(revision.status, "DRAFT");
+});
+
+test("a waiver with a reason approves over the gate and is recorded beside the revision", () => {
+  const s = scenario({ label: "waived" });
+  fs.writeFileSync(path.join(s.revision,"generated-template.java"), CALIBRATED_TEMPLATE, "utf8");
+  const short = runCli(s.root, ["--json", "--waive-quality", "ship it"]);
+  assert.equal(short.status, 1, "a shrug is not a waiver");
+  assert.match(short.parsed.steps.find((step) => step.name === "quality gate").error, /7 characters/);
+
+  const reason =
+    "the reference is a one-off certificate that will never take other data; the calibration is the deliverable and was reviewed as such";
+  const { status, parsed } = runCli(s.root, ["--json", "--waive-quality", reason]);
+  assert.equal(status, 0, JSON.stringify(parsed?.steps));
+  assert.equal(parsed.quality.waived.reason, reason);
+  assert.ok(parsed.quality.blocking.length >= 2);
+  const waiver = JSON.parse(fs.readFileSync(path.join(s.revision,"quality-waiver.json"), "utf8"));
+  assert.equal(waiver.revision, "revision-002");
+  assert.equal(parsed.approved, "revision-002");
+});
+
+test("a derived template passes the gate and says so", () => {
+  const s = scenario({ label: "derived" });
+  const { status, parsed } = runCli(s.root, ["--json"]);
+  assert.equal(status, 0, JSON.stringify(parsed?.steps));
+  const gate = parsed.steps.find((step) => step.name === "quality gate");
+  assert.equal(gate.ok, true);
+  assert.deepEqual(parsed.quality.blocking, []);
+});

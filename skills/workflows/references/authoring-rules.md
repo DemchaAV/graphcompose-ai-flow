@@ -68,6 +68,30 @@ construction is right. `scripts/check-knowledge-drift.mjs` fails the
 build when a document still teaches a construction the pinned pack has
 replaced.
 
+## The theme first, and the calibration lives there or nowhere
+
+Write the theme class before the first render method: the type scale as
+named sizes, the margins and gutters as named lengths, the palette as
+named colours. Every render method reads those names and never a number
+that could have been one of them.
+
+This is where a pixel target does its damage otherwise. One approved
+invoice, read in full: a `PX` scale from the reference's pixel width,
+`px(668 - 648)` inside a render method, `CAP_RATIO_BOLD = 0.723` and
+`TEXT_TOP_BEARING = 0.235` as layout terms, `sizeB(46.53)` — every value
+a measurement of one image in one face, all of them wrong together the
+moment the font, the page or a line of data changes. It matched the
+reference and it was not a template.
+
+`node scripts/check-calibration.mjs --project <id> --revision <id>` reads
+the source for exactly those four shapes — a reference-pixel scale,
+reference-pixel arithmetic in a render method, a face's metric as a
+layout term, two-decimal literals nobody derived — and
+`approve-and-publish` refuses a template that carries them, unless a
+person records why it ships anyway (`--waive-quality "<reason>"`). A
+theme may carry calibrated tokens: that is what a theme is for. A render
+method may not.
+
 ## Relational geometry over pixel constants
 
 Widths and weights are **derived** from a small set of base constants

@@ -100,6 +100,23 @@ inferred.
   workspace's records (resolved version, observations, attempts, accepted
   limitations) are written atomically; and `approve-and-publish` archives the
   run's telemetry with `finish`, which no project had ever done.
+- **The approval gate reads the code, not only the render.**
+  `approve-and-publish` now runs `check-structural-smells` and the new
+  `check-calibration` before approving, and refuses a template with a
+  negative-inset cluster, a repeated sibling inset, a hand-built semantic
+  pattern, reference-pixel arithmetic in a render method, a face's metric as
+  a layout term, or more than ten two-decimal layout literals — unless
+  `--waive-quality "<reason ≥ 60 chars>"` records why it ships anyway
+  (`quality-waiver.json` beside the revision). One approved invoice read in
+  full was exactly that: `px(668 - 648)`, `CAP_RATIO_BOLD = 0.723`,
+  `sizeB(46.53)` — a calibration of one image in one face, which the
+  authoring rules forbid and nothing enforced. The rules now say the theme
+  comes first and calibrated values live there or nowhere.
+- **`observations issue <id>`** writes a GitHub issue for an engine defect
+  from the record — behaviour, API, reproduction, measurements, workaround —
+  and prints the `gh issue create` command for the library's repository. An
+  engine defect on record is a workaround the harness teaches forever unless
+  it reaches GraphCompose; the distance was that nobody wrote the issue.
 - **The page model outranks the focus.** A page the render never produced is
   the focus on REVISE as well as on READY; a reference stretched to fit the
   render while the page size is still unanswered is the focus above

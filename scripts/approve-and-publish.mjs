@@ -69,6 +69,9 @@ function usage(code = 0) {
       "                      manifest; none skips verification entirely)\n" +
       "  --readme-only       the bundle is already published and only its README is\n" +
       "                      missing; regenerate and verify, skipping approve\n" +
+      "  --waive-quality <reason>  approve over the quality gate (structural smells, a calibrated\n" +
+      "                      template); at least 60 characters saying what was judged and why,\n" +
+      "                      recorded beside the revision as quality-waiver.json\n" +
       "  --json              machine-readable result\n",
   );
   process.exit(code);
@@ -91,6 +94,7 @@ function parseArgs(argv) {
     else if (a === "--revision" || a === "-r") out.revision = argv[++i];
     else if (a === "--root") out.root = argv[++i];
     else if (a === "--verify") out.verify = argv[++i];
+    else if (a === "--waive-quality") out.waiveQuality = argv[++i];
     else {
       process.stderr.write(`[approve-and-publish] unknown argument: ${a}\n`);
       usage(2);
@@ -425,6 +429,72 @@ step("links", (entry) => {
         "directly if shipping them dead is deliberate.",
     );
   }
+});
+
+step("quality gate", (entry) => {
+  // The bundle is Java someone will maintain, and the two source checks that
+  // say whether it can be were evidence only: every one of the audited
+  // corpus's approved templates carried negative-inset clusters (75 across
+  // 50 revisions), and the one read in full was a calibration of its
+  // reference — pixel arithmetic in the render methods, a face's cap-height
+  // ratio as a layout term — which the authoring rules forbid and nothing
+  // enforced. The person approving judged the render; this is about the code
+  // behind it, which they did not read. A waiver records that they chose to.
+  const smells = run(path.join(repoRoot, "scripts", "check-structural-smells.mjs"), [
+    "--project", args.project, "--revision", revisionId,
+    ...(args.root ? ["--root", args.root] : []),
+    "--json",
+  ]);
+  const calibration = run(path.join(repoRoot, "scripts", "check-calibration.mjs"), [
+    "--project", args.project, "--revision", revisionId,
+    ...(args.root ? ["--root", args.root] : []),
+    "--json",
+  ]);
+  let smellFindings = [];
+  let calibrated = null;
+  try {
+    const parsed = JSON.parse(smells.stdout);
+    smellFindings = Array.isArray(parsed?.findings) ? parsed.findings : Array.isArray(parsed) ? parsed : [];
+  } catch {
+    /* not measured; the gate stands on what it could read */
+  }
+  try {
+    calibrated = JSON.parse(calibration.stdout);
+  } catch {
+    calibrated = null;
+  }
+  const BLOCKING_SMELLS = new Set(["negative-margin-cluster", "repeated-sibling-offset", "manual-semantic-pattern"]);
+  const blocking = [
+    ...smellFindings.filter((f) => BLOCKING_SMELLS.has(f.kind)).map((f) => ({ id: f.kind, detail: f.detail })),
+    ...(calibrated?.blocking ?? []).map((b) => ({ id: `calibration:${b.id}`, detail: b.detail })),
+  ];
+  result.quality = {
+    smells: smellFindings.length,
+    calibration: calibrated?.verdict ?? "not measured",
+    blocking,
+    waived: null,
+  };
+  if (blocking.length === 0) {
+    entry.detail = `${smellFindings.length} smell(s), template ${result.quality.calibration}`;
+    return;
+  }
+  const reason = typeof args.waiveQuality === "string" ? args.waiveQuality.trim() : "";
+  if (reason.length >= 60) {
+    const waiver = { reason, at: new Date().toISOString(), revision: revisionId, blocking };
+    const revisionDir = path.join(projectDir, "revisions", revisionId);
+    fs.writeFileSync(path.join(revisionDir, "quality-waiver.json"), `${JSON.stringify(waiver, null, 2)}\n`, "utf8");
+    result.quality.waived = waiver;
+    entry.detail = `${blocking.length} finding(s) waived: ${reason.slice(0, 80)}${reason.length > 80 ? "…" : ""}`;
+    return;
+  }
+  throw new Error(
+    `the template is not the code the authoring rules describe — ${blocking.length} finding(s):\n` +
+      blocking.map((b) => `  - ${b.id}: ${b.detail}`).join("\n") +
+      "\nFix them (move calibrated values into the theme as tokens; replace reference-pixel arithmetic with " +
+      "anchors and derived constants; put a shared inset on the parent), or approve with " +
+      '--waive-quality "<at least 60 characters saying what was judged and why it ships anyway>"' +
+      (reason ? ` — the reason given was ${reason.length} characters` : ""),
+  );
 });
 
 step("approve", (entry) => {
