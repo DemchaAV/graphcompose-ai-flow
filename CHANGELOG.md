@@ -5,7 +5,7 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
-## Unreleased
+## v0.21.0 — 2026-08-30
 
 **Why update.** If you are on 0.20.0, two of the four workflow skills —
 `create-template` and `revise-template` — do not load in Claude Code at all
