@@ -40,6 +40,21 @@ inferred.
   patch of Java — naming the harness command to run instead. Measured across
   23 sessions before it: 450, 89, 402 and 528 of those, respectively, against
   49 editor edits. `GRAPHCOMPOSE_GUARD=off` bypasses it.
+- **`pass` — one loop pass as two commands and one screen.** `node
+  scripts/pass.mjs --project <id> --open "<what this pass fixes>"` opens the
+  next revision with the sources carried forward (and the user's report, with
+  `--report`) and prints what the pass is aimed at — focus, the evidence's
+  owning node and properties, what was tried, the budget; `pass` renders and
+  measures the current draft through `render-and-diff` and prints one screen
+  with the figure and its movement, the worst regions with cause and owner,
+  the gates, the loop line and the next step, exiting with the verdict. A
+  judged revision is refused with both ways forward in the refusal.
+- **`create-template` is four phases, loaded as you reach them.** The 38 KB
+  skill became a 6 KB dispatcher and four reference pages — set up, analyse,
+  author, loop (`skills/workflows/references/create-{1..4}-*.md`). The rules
+  and the commands are unchanged; the narratives around them were trimmed to
+  the measurement each one rests on. A create run no longer carries the loop's
+  instructions through analysis, or the analysis rules through the loop.
 - **The page model outranks the focus.** A page the render never produced is
   the focus on REVISE as well as on READY; a reference stretched to fit the
   render while the page size is still unanswered is the focus above

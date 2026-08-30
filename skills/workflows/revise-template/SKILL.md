@@ -340,7 +340,7 @@ between them cannot tell you. When no snapshot is available, `reference.mjs
 compare` gives both sides in reference pixels; the ownership question is
 still yours to settle before you move anything. The full routing, including
 what to do when the snapshot is missing, is in
-[create-template](../create-template/SKILL.md#after-the-first-render--diagnose-before-you-measure).
+[create, phase 4 — the loop](../references/create-4-loop.md#when-the-snapshot-is-not-there).
 
 ## Reporting back
 
