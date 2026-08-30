@@ -29,6 +29,30 @@ To refresh it, re-render the project and copy the file again — do not patch it
 `Implementation-Version` manifest attribute the writer reads. The schema allows
 it, and the inspector must not assume otherwise.
 
+## `charcoal-gold-cv/revision-00{9,10}.*` and `olive-curve-invoice/`
+
+The Java the bundle splitter is measured against, and the architecture plan that
+names revision-009's sections. Copies, for the reason above and one more: the
+test that reads them used to read their real paths —
+`examples/charcoal-gold-cv/revisions/revision-00{9,10}/` and
+`templates/olive-curve-invoice/src/` — neither of which is tracked. It guarded
+that with a skip, so **CI checked one of the four templates and reported the
+other three as passing tests**. The three that were skipped are the ones that
+found every defect in the v0.18.0–v0.20.0 split work: an over-wide plan entry,
+an overloaded helper, a nested record's package-private members.
+
+charcoal-gold revision-009 carries a plan and revision-010 does not, which is the
+pair the splitter's naming rule needs: the plan enriches the section list, and the
+`render*` prefix is what selects it. `OliveCurveInvoiceTemplate.java` is the
+published bundle's own source, copied rather than referenced because the bundle
+itself does not pass `verify-published-template` — its README names a
+`revisions/` path that exists only inside the harness — and committing a bundle
+that fails the gate would fail CI for a reason that has nothing to do with these
+tests.
+
+None of the three may be edited. They are what a real run produced; a fixture
+someone tidied is a fixture that stopped being evidence.
+
 ## `layout-diff-pair/`
 
 Two snapshots of the same document differing by **exactly one property**:

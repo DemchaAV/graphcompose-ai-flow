@@ -7,6 +7,24 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
+### Tests
+
+- **CI checked one of the four templates the splitter is measured against and
+  reported the other three as passing.** `bundle-split.test.mjs` read
+  charcoal-gold revisions 009 and 010 and the olive-curve-invoice bundle from
+  paths that are not tracked in git, and guarded that with
+  `t.skip("not in this checkout")` — so on a clean checkout three assertions
+  vanished silently, and they are the three that found every defect in the
+  v0.18.0–v0.20.0 split work: a stale plan entry, an overloaded helper, a nested
+  record's package-private members. The four files are fixtures under
+  `scripts/test/fixtures/` now, the way `layout-snapshot.json` already was and
+  for the reason its README already gives, and the skip is gone: a missing
+  fixture fails.
+- **Local run leftovers removed** — four `examples/` projects and
+  `validation/diffs/`, none of them tracked, referenced by no script or test,
+  and about 26 MB. They were also the whole of `validate-schemas`' 16
+  violations, which is now zero.
+
 ### Setup
 
 - **Setup said "Toolchain OK" on a machine that cannot run the gates.** It

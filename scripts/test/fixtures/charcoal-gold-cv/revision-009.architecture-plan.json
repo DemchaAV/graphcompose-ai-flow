@@ -1,0 +1,300 @@
+{
+  "schemaVersion": 1,
+  "targetGraphComposeVersion": "2.2.1",
+  "templateSurface": {
+    "lane": "V2 layered",
+    "documentKind": "cv",
+    "upstreamCheatsheet": "skills/versions/graphcompose-2.2/guides/09-recipe-cv-and-cover-letter.md"
+  },
+  "componentMapping": [
+    {
+      "region": "page-background",
+      "renderMethod": "renderPageChrome",
+      "primitives": [
+        "DocumentSession.pageBackgrounds",
+        "PageBackgroundFill.leftColumn",
+        "PageBackgroundFill.rightColumn"
+      ],
+      "notes": "Both columns reach all four paper edges on every page, which is the page-background contract and not a container fill. A fillColor on the sidebar section would stop where its content stops and leave the charcoal short of the bottom edge — the exact failure backgrounds-and-panels.md opens with."
+    },
+    {
+      "region": "profile-photo",
+      "renderMethod": "renderProfilePhoto",
+      "primitives": [
+        "AbstractFlowBuilder.addCircle",
+        "ShapeContainerBuilder.clipPolicy",
+        "ShapeContainerBuilder.stroke",
+        "ShapeContainerBuilder.center",
+        "ImageBuilder.source",
+        "ImageBuilder.fitMode",
+        "DocumentImageFitMode.COVER",
+        "ClipPolicy.CLIP_PATH"
+      ],
+      "notes": "The circle owns the photograph: the image is the circle's centred child under CLIP_PATH, so the silhouette is the container's, not a pre-clipped picture. The light ring is the same circle's stroke rather than a second shape. No margin goes on this container — shape-container-margin-paints-high says a bottom margin moves the paint but not the children; the gap under the photo is the sidebar section's spacing instead."
+    },
+    {
+      "region": "sidebar-contact",
+      "renderMethod": "renderContact",
+      "primitives": [
+        "AbstractFlowBuilder.addSection",
+        "ParagraphBuilder.inlineSvgIcon",
+        "ParagraphBuilder.inlineText",
+        "ParagraphBuilder.inlineLink",
+        "SvgIcon.read",
+        "AbstractFlowBuilder.addLine"
+      ],
+      "notes": "Each row is ONE paragraph: the icon is an inline SVG run on the text baseline, the value an inline text run, and the href an inline link on that run. This is the anchor-first answer to 'icon level with its label' — an inline run is measured into the line box, so the two share a baseline by construction and no row wrapper is needed. It also keeps four LayerStack wrappers out of the sidebar."
+    },
+    {
+      "region": "sidebar-skills",
+      "renderMethod": "renderSkills",
+      "primitives": [
+        "AbstractFlowBuilder.addLayerStack",
+        "LayerStackBuilder.layer",
+        "RowBuilder.weights",
+        "RowBuilder.verticalAlign",
+        "ParagraphBuilder.dot",
+        "ParagraphBuilder.align",
+        "TextAlign.RIGHT",
+        "RowVerticalAlign.CENTER"
+      ],
+      "notes": "The rating is five inline dots in one right-aligned paragraph — geometry, not a glyph, so it cannot fall victim to font coverage. Name and rating are a genuine two-column pair, so the row is real; it reaches the page through a LayerStack layer because a bare row is refused inside a row cell on 2.2.1 (observations: layered-row-survives-a-row-cell)."
+    },
+    {
+      "region": "sidebar-languages",
+      "renderMethod": "renderLanguages",
+      "primitives": [
+        "AbstractFlowBuilder.addLayerStack",
+        "LayerStackBuilder.layer",
+        "RowBuilder.weights",
+        "AbstractFlowBuilder.addLine"
+      ],
+      "notes": "Same layered-row shape as the skills block, weighted 0.36 / 0.64 so the level column shares one left edge down all four rows."
+    },
+    {
+      "region": "sidebar-education",
+      "renderMethod": "renderEducation",
+      "primitives": [
+        "AbstractFlowBuilder.addSection",
+        "ParagraphBuilder.dot",
+        "ParagraphBuilder.inlineText",
+        "AbstractFlowBuilder.addSection"
+      ],
+      "notes": "The gold bullet is an inline dot on the degree line; the institution and year lines are siblings in a section indented to the degree's text, so the whole entry hangs off one indent constant."
+    },
+    {
+      "region": "masthead",
+      "renderMethod": "renderMasthead",
+      "primitives": [
+        "AbstractFlowBuilder.addParagraph",
+        "DocumentTextStyle.Builder.size",
+        "AbstractFlowBuilder.addLine",
+        "LineBuilder.horizontal"
+      ],
+      "notes": "Two paragraphs, not one line in two colours: the surname is set at 1.24x the given name and both are flush left. The rule under the job title is a line whose width is derived from the main content width (0.093 of it), not a measured 33pt."
+    },
+    {
+      "region": "summary",
+      "renderMethod": "renderSummary",
+      "primitives": ["AbstractFlowBuilder.addParagraph", "ParagraphBuilder.lineSpacing"],
+      "notes": "Two paragraphs at the same line spacing and no extra gap between them, which is what the reference's constant 21px pitch across the paragraph boundary says."
+    },
+    {
+      "region": "experience",
+      "renderMethod": "renderExperience",
+      "primitives": [
+        "AbstractFlowBuilder.addLayerStack",
+        "LayerStackBuilder.layer",
+        "RowBuilder.weights",
+        "AbstractFlowBuilder.accentLeft",
+        "AbstractFlowBuilder.addCircle",
+        "ShapeContainerBuilder.stroke",
+        "AbstractFlowBuilder.addList",
+        "ListBuilder.marker"
+      ],
+      "notes": "NOT addTimeline. GraphCompose's timeline draws its rail as a left border on the entry and puts the marker to the right of it with the meta line under the title; this reference puts the date to the LEFT of the rail and centres an open marker ON it. So the rail is built as accentLeft on the entry-content cell — the same auto-stretching left border the timeline uses internally, addressed directly — and each entry is a layered row of [date | marker | content]. Entry rows carry zero spacing between them and hold their gap as bottom padding inside the content cell, so consecutive accents butt together into one continuous rail. The marker is an open circle stroked in the rule colour and filled with the page tone, which is what hides the rail where it crosses."
+    },
+    {
+      "region": "certifications",
+      "renderMethod": "renderCertifications",
+      "primitives": [
+        "AbstractFlowBuilder.addSection",
+        "AbstractFlowBuilder.addLayerStack",
+        "RowBuilder.weights",
+        "AbstractFlowBuilder.addSvgIcon",
+        "SvgIcon.read",
+        "AbstractFlowBuilder.addLine"
+      ],
+      "notes": "The icon is a column of its own beside a three-line text block, so unlike the contact rows this is a real row — the icon is taller than one line and top-aligned with the first. Nested two layer-stacks deep (credentials row, then entry row); the column-nesting probe confirms the innermost pair still lays out horizontally at that depth."
+    },
+    {
+      "region": "achievements",
+      "renderMethod": "renderAchievements",
+      "primitives": [
+        "AbstractFlowBuilder.addSection",
+        "AbstractFlowBuilder.addLayerStack",
+        "RowBuilder.weights",
+        "AbstractFlowBuilder.addSvgIcon",
+        "AbstractFlowBuilder.addLine"
+      ],
+      "notes": "Same entry shape as the certifications column, sharing one credentialEntry helper; only the column weight and the icon tokens differ."
+    },
+    {
+      "region": "credentials-divider",
+      "renderMethod": "renderCredentialsDivider",
+      "primitives": ["AbstractFlowBuilder.addLine", "LineBuilder.vertical"],
+      "notes": "A vertical line in the middle cell of the credentials row, so it is centred in the gutter by the row's own weights rather than by a measured x."
+    },
+    {
+      "region": "technical-tools",
+      "renderMethod": "renderTechnicalTools",
+      "primitives": [
+        "AbstractFlowBuilder.addParagraph",
+        "ParagraphBuilder.inlineText",
+        "ParagraphBuilder.align",
+        "TextAlign.CENTER"
+      ],
+      "notes": "One centred paragraph of alternating name and separator runs. The reference's six slots are sized to their text — each name's midpoint sits within a pixel of its separator pair's midpoint — which is what a run of inline text does naturally and what a six-column table would not."
+    }
+  ],
+  "baseConstants": [
+    {
+      "name": "PAGE_WIDTH",
+      "value": 595.276,
+      "derivation": "DocumentPageSize.A4.width(). Every horizontal dimension below is a fraction of this."
+    },
+    {
+      "name": "SIDEBAR_WEIGHT",
+      "value": 0.3197,
+      "derivation": "Measured 337px of 1054. The main column is 1 - SIDEBAR_WEIGHT, and the page-background columns take the same two numbers, so the fill and the content column cannot drift apart."
+    },
+    {
+      "name": "SIDEBAR_PAD",
+      "value": 17.0,
+      "derivation": "0.0285 x PAGE_WIDTH (30px of 1054). Applied left and right; the sidebar's content width is SIDEBAR_WEIGHT x PAGE_WIDTH - 2 x SIDEBAR_PAD."
+    },
+    {
+      "name": "MAIN_PAD_LEFT",
+      "value": 23.7,
+      "derivation": "0.0398 x PAGE_WIDTH (42px), the gap between the sidebar edge and the main column's text."
+    },
+    {
+      "name": "MAIN_PAD_RIGHT",
+      "value": 28.8,
+      "derivation": "0.0484 x PAGE_WIDTH (51px), fixed by where the EXPERIENCE hairline stops."
+    },
+    {
+      "name": "MAIN_CONTENT_WIDTH",
+      "value": "(1 - SIDEBAR_WEIGHT) * PAGE_WIDTH - MAIN_PAD_LEFT - MAIN_PAD_RIGHT",
+      "derivation": "352.5pt. The masthead rule, the credential column weights and the timeline's date/rail/content split are all fractions of this rather than separate measurements."
+    },
+    {
+      "name": "TIMELINE_DATE_WEIGHT",
+      "value": 0.194,
+      "derivation": "Date column as a fraction of MAIN_CONTENT_WIDTH; the marker column is MARKER_DIAMETER wide and the content takes the rest."
+    },
+    {
+      "name": "CREDENTIAL_LEFT_WEIGHT",
+      "value": 0.402,
+      "derivation": "Certifications column, measured 251px of the 624px main content. The gutter is 0.124 and achievements 0.474; the three sum to 1 by construction."
+    },
+    {
+      "name": "BODY_SIZE",
+      "value": 10.5,
+      "derivation": "Everything typographic is a multiple: surname 4.3x, given name 3.5x, section heading 0.85x, meta 0.8x."
+    },
+    {
+      "name": "MARKER_DIAMETER",
+      "value": 6.2,
+      "derivation": "Independent. Measured 11px; the marker is a fixed mark, not a scaled one."
+    },
+    {
+      "name": "RATING_DOT_DIAMETER",
+      "value": 4.5,
+      "derivation": "Independent. Measured 8px, at a 8.2pt pitch across five dots."
+    },
+    {
+      "name": "CONTACT_ICON_SIZE",
+      "value": 9.0,
+      "derivation": "Independent, and read from assets-manifest.json's pointSize rather than written in Java, so the flow decides icon size."
+    }
+  ],
+  "themeTokens": [
+    { "token": "SIDEBAR", "value": "#272D32", "role": "sidebar-background" },
+    { "token": "PAPER", "value": "#FEFEFE", "role": "page-background" },
+    { "token": "ACCENT", "value": "#BA9458", "role": "accent" },
+    { "token": "INK", "value": "#272D32", "role": "body-text" },
+    { "token": "SIDEBAR_INK", "value": "#FBFBFB", "role": "sidebar-text" },
+    { "token": "RULE", "value": "#DADADB", "role": "rule" },
+    { "token": "SIDEBAR_RULE", "value": "#3D4345", "role": "sidebar-rule" },
+    { "token": "RATING_EMPTY", "value": "#777A7D", "role": "rating-empty" },
+    { "token": "BODY_FONT", "value": "FontName.LATO", "role": "body" }
+  ],
+  "selectedSkills": [
+    "graphcompose-basics",
+    "visual-to-graphcompose-mapping",
+    "layout-primitives",
+    "spacing-and-alignment",
+    "typography",
+    "backgrounds-and-panels",
+    "shapes-and-containers",
+    "layer-stacks-and-overlays",
+    "themes-and-colors"
+  ],
+  "dataModel": {
+    "specClass": "com.demcha.examples.cv.CharcoalGoldCvSpec",
+    "providerClass": "com.demcha.examples.cv.CharcoalGoldCvSpecProvider#create()",
+    "dataFile": "cv-data.json"
+  },
+  "pagination": {
+    "pageModel": "uniform",
+    "keepRules": [
+      {
+        "region": "experience",
+        "rule": "keepTogether",
+        "why": "An entry is a date, a marker and its achievement list on one rail. Split across a page the marker keeps its date and loses its bullets, and the rail restarts at the top of the next page under no marker at all. The block is curated to one page, so this rule never fires on the sample — which is exactly why it has to be declared rather than discovered."
+      },
+      {
+        "region": "certifications",
+        "rule": "keepTogether",
+        "why": "A credential is four lines and an icon; there is no reading of it that survives being cut in half, and the paired achievements column would then sit alongside a fragment."
+      },
+      {
+        "region": "achievements",
+        "rule": "keepTogether",
+        "why": "Same as certifications, and the two columns must break together or not at all."
+      },
+      {
+        "region": "technical-tools",
+        "rule": "keepWithNext",
+        "why": "The heading and its one line of tools are a two-line block; orphaning the heading at the foot of a page would leave a labelled nothing."
+      }
+    ],
+    "notes": "The reference is one page and the content is curated to fit it, so there are no explicit breaks and no per-page margin rules. The keep rules above are the answer to what happens when someone edits this template for a candidate with more to say — the sample render never exercises them, which is why they are decided here instead of after the first overflow."
+  },
+  "visualRisks": [
+    "The masthead weight. The reference sets both name lines light; Lato ships regular as its lightest weight here, so ANASTASIA and SMITH will render heavier than the reference. Expect this to be the loudest measured difference in the masthead crop and to be unfixable without a font drop.",
+    "Letter-spacing. 2.2 has no tracking on DocumentTextStyle, and the reference tracks the job title hard (~3.2pt) and the section headings lightly (~0.85pt). The job title is spaced by inserting spaces between characters; the section headings are left untracked in this revision, so their measured width will run about 10% short.",
+    "The continuous timeline rail. It depends on consecutive entry accents butting together with zero row spacing. If the layer-stack wrapper introduces any gap of its own, the rail will read as three segments rather than one line, and the fix is to move the inter-entry gap inside the content cell rather than to add spacing back.",
+    "The accent gold. Sampled from the surname's stroke interiors at #BA9458, but the same gold reads as bright as #DAA95D on the charcoal sidebar. The sidebar's rating dots and accent bars may come out perceptibly dark.",
+    "Baseline seating of the inline contact icons. An inline SVG run is measured into the line box, but where it sits on the baseline is the engine's decision; the reference has the icon optically centred on the x-height."
+  ],
+  "knownLimitations": [
+    {
+      "limitation": "No letter-spacing / tracking exists on DocumentTextStyle in 2.2.1 — verified by searching the allow-list for both letterSpacing and tracking, which return nothing. The workaround is to insert spaces between characters, which is a text transform and shows up in the PDF's extracted text as 'P R O J E C T'. It is applied only to the job title, where the reference's tracking is too large to ignore.",
+      "verifiedAgainstVersion": "2.2.1"
+    },
+    {
+      "limitation": "Lato is used at regular and bold only. The reference's masthead is a lighter weight than either, and GraphCompose's bundled font catalogue exposes families rather than weights, so the display lines cannot be set light without dropping a TTF into assets/fonts and registering a FontFamilyDefinition — deferred rather than done, because a font drop changes every metric on the page and this revision has nothing to compare it against yet.",
+      "verifiedAgainstVersion": "2.2.1"
+    },
+    {
+      "limitation": "The headshot is cropped out of the reference image itself, because no separate photograph came with it. It is sample data, not part of the template: the data file points at assets/images/profile.png and the template loads whatever is there.",
+      "verifiedAgainstVersion": "2.2.1"
+    }
+  ],
+  "notes": [
+    "One structural fact shapes the whole template and was settled by measurement before a line was written. The page is a two-column row, so every horizontal pair inside either column lives in a row cell — and on 2.2.1 a bare row is still refused there ('cannot contain a nested horizontal row'), while a row wrapped in a LayerStack layer lays out horizontally, and still does when nested two wrappers deep. That is what the `column-nesting` probe was written to answer and what `observations/graphcompose-2.2/layered-row-survives-a-row-cell.json` now records. Every horizontal pair in this template therefore goes through one helper, `layeredRow`, rather than through addRow directly.",
+    "The same probe is the reason addTimeline is not used for the experience block. It builds a row internally, so it is refused in a row cell for exactly the same reason; wrapping it in a layer would make it build, but its geometry is wrong for this reference anyway — the rail is a left border with the marker beside it, and the reference wants the marker centred on the rail with the date on the far side. Reaching for accentLeft directly gets the auto-stretching rail without the parts that do not fit."
+  ]
+}

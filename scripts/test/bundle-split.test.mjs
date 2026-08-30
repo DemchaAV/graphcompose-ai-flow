@@ -405,17 +405,22 @@ test("pascal folds every separator a region id or a method name can use", () => 
 // contract has to survive. A rule that holds on a fixture and not on
 // charcoal-gold's 1,051 lines is not a rule.
 
+// Three of these were read from their real paths, which are not tracked in git,
+// so CI checked one template out of four and said nothing about it: the guard
+// below skipped the rest as "not in this checkout" on every run. They are copies
+// under `fixtures/` now, for the reason `fixtures/README.md` already gives, and a
+// missing one is a failure rather than a silent pass.
 const REAL = [
   {
     label: "charcoal-gold revision-009, with its architecture plan",
-    source: "examples/charcoal-gold-cv/revisions/revision-009/generated-template.java",
-    plan: "examples/charcoal-gold-cv/revisions/revision-009/architecture-plan.json",
+    source: "scripts/test/fixtures/charcoal-gold-cv/revision-009.generated-template.java",
+    plan: "scripts/test/fixtures/charcoal-gold-cv/revision-009.architecture-plan.json",
     sections: 17,
     named: "SidebarContactSection",
   },
   {
     label: "charcoal-gold revision-010, which has no plan",
-    source: "examples/charcoal-gold-cv/revisions/revision-010/generated-template.java",
+    source: "scripts/test/fixtures/charcoal-gold-cv/revision-010.generated-template.java",
     plan: null,
     sections: 17,
     named: "ContactSection",
@@ -429,7 +434,7 @@ const REAL = [
   },
   {
     label: "the published olive-curve-invoice bundle",
-    source: "templates/olive-curve-invoice/src/OliveCurveInvoiceTemplate.java",
+    source: "scripts/test/fixtures/olive-curve-invoice/OliveCurveInvoiceTemplate.java",
     plan: null,
     sections: 15,
     named: "ItemsSection",
@@ -437,12 +442,8 @@ const REAL = [
 ];
 
 for (const fixture of REAL) {
-  test(`classifies ${fixture.label}`, (t) => {
+  test(`classifies ${fixture.label}`, () => {
     const source = path.join(repoRoot, fixture.source);
-    if (!fs.existsSync(source)) {
-      t.skip(`${fixture.source} is not in this checkout`);
-      return;
-    }
     const plan = fixture.plan ? JSON.parse(fs.readFileSync(path.join(repoRoot, fixture.plan), "utf8")) : null;
     const result = classify(fs.readFileSync(source, "utf8"), { plan });
 
