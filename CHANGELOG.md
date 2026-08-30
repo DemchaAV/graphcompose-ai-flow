@@ -38,6 +38,15 @@ the full visual-baseline pass is the gate to `1.0.0`.
   three skills name, checked only for a missing build. All four now route
   through the package's guard, and the contract test enumerates `bin/` instead
   of a hand-kept list, so a new entry point cannot be added without one.
+- **A build that is only behind is rebuilt, not reinstalled.** Folding staleness
+  into `preflight`'s tool report sent a one-file `tsc` edit through the full
+  `npm run setup` — `npm ci` for four packages plus a Maven package of the
+  renderer — on every run until it was fixed, and `preflight` is the command the
+  docs say to start with. It now runs `npm run build --prefix tools/<tool>` for
+  a tool that exists and is behind (six seconds, measured), and falls back to
+  `setup` for one that was never built, which may have no `node_modules` either.
+  The report separates the two as `stale` and `unbuilt`, and `nextCommands`
+  recommends the cheap command when it covers the whole problem.
 - **A spawned command's failure is legible in the test that spawned it.**
   `pass.test.mjs` asserted exit codes with only `stdout` as the message, so a
   child that printed its reason on `stderr` failed with the `[workspace]` banner

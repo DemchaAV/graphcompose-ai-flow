@@ -57,7 +57,7 @@ export function planSetup(tools, options = {}) {
     };
   }
   if (!tools?.needsSetup) {
-    return { run: false, reason: "everything that ships as source is built", blockedBy: [] };
+    return { run: false, reason: "everything that ships as source is built and current", blockedBy: [] };
   }
 
   // ImageMagick is deliberately not in this list. The gates need it; `setup`
@@ -73,5 +73,15 @@ export function planSetup(tools, options = {}) {
     };
   }
 
-  return { run: true, reason: `${unbuilt.join(", ")} ship as source and are not built here`, blockedBy: [] };
+  return {
+    run: true,
+    // "not built here" covers both shapes the tool report folds together: no
+    // dist/ at all, and a dist/ compiled before the src/ it came from. Setup
+    // fixes them with the same command, and the second is the one nobody
+    // suspects, so it is named.
+    reason:
+      `${unbuilt.join(", ")} ${unbuilt.length === 1 ? "ships as source and is" : "ship as source and are"} ` +
+      `not built here — missing, or compiled before ${unbuilt.length === 1 ? "its" : "their"} src/`,
+    blockedBy: [],
+  };
 }

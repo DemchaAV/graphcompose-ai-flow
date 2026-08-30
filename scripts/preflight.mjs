@@ -36,6 +36,7 @@ import path from "node:path";
 import { homedir } from "node:os";
 import { spawnSync } from "node:child_process";
 
+import { isBuildStale } from "./lib/build-freshness.mjs";
 import { installHint } from "./lib/install-hints.mjs";
 
 import {
@@ -130,6 +131,19 @@ function resolveVersionWithFallback({ projectDir, install, workspace: ws }) {
 
 /** The three that ship as source and have to be built before anything runs. */
 const BUILT_TOOLS = Object.freeze(["revisionManager", "visualDiff", "previewRenderer"]);
+
+/**
+ * What rebuilds one Node CLI on its own, for a build that exists and is merely
+ * behind its sources. `npm run setup` is still the answer for a tool that was
+ * never built — that one may have no node_modules either — but it reinstalls
+ * four packages and repackages the Java renderer, which is a heavy price for a
+ * `tsc` run. preview-renderer has no entry: its jar is Maven's to rebuild, and
+ * `lib/render-runtime.mjs` already does it against its sources at render time.
+ */
+const REBUILD_COMMAND = Object.freeze({
+  revisionManager: "npm run build --prefix tools/revision-manager",
+  visualDiff: "npm run build --prefix tools/visual-diff",
+});
 
 /** The three that have to already be on the machine; no setup step installs them. */
 const EXTERNAL_TOOLS = Object.freeze(["imagemagick", "java", "maven"]);
@@ -576,11 +590,37 @@ function describeKnowledge(line, ws) {
  * finds out now rather than at the first render, twenty minutes in.
  */
 function describeTools() {
-  const built = (relative) => fs.existsSync(path.join(repoRoot, relative));
+  // Built *and* current. `existsSync` alone called a dist/ compiled before its
+  // src/ ready, and that build is not merely old: the CLI it loads rejects flags
+  // it predates and silently skips work it does not know about. Since dist/ is
+  // gitignored, reverting local changes never clears it — so it is worth an
+  // mtime walk here, where the report can still turn it into one build.
+  //
+  // The verdict is kept, not just the boolean: "never built" and "built before
+  // its sources" are fixed by different commands, and collapsing them charged a
+  // one-file `tsc` edit a full `npm ci` of four packages plus a Maven package.
+  //
+  // preview-renderer's jar has no src/ sibling under target/, so it is unchanged
+  // by this: staleness of a Maven artifact is Maven's own to decide, and
+  // lib/render-runtime.mjs already decides it against the real sources.
+  const verdicts = {};
+  const built = (name, relative) => {
+    const out = path.join(repoRoot, relative);
+    if (!fs.existsSync(out)) {
+      verdicts[name] = "missing";
+      return false;
+    }
+    if (isBuildStale(out, path.join(path.dirname(out), "src"))) {
+      verdicts[name] = "stale";
+      return false;
+    }
+    verdicts[name] = "current";
+    return true;
+  };
   const tools = {
-    revisionManager: built("tools/revision-manager/dist"),
-    visualDiff: built("tools/visual-diff/dist"),
-    previewRenderer: built("tools/preview-renderer/target/preview-renderer.jar"),
+    revisionManager: built("revisionManager", "tools/revision-manager/dist"),
+    visualDiff: built("visualDiff", "tools/visual-diff/dist"),
+    previewRenderer: built("previewRenderer", "tools/preview-renderer/target/preview-renderer.jar"),
     // The same resolution import-reference and typography use: an explicit
     // MAGICK_BINARY first, then the IM7 `magick`, then IM6's `convert`. Probing
     // only `magick` reported the tool absent inside this repository's own
@@ -617,11 +657,19 @@ function describeTools() {
     }
   }
 
+  // Which of the unbuilt are merely behind, and the one command each needs.
+  // `rebuildCommands` is only offered when it covers the whole problem: half a
+  // fix recommended as the fix is worse than the expensive one that works.
+  const stale = unbuilt.filter((name) => verdicts[name] === "stale");
+  const rebuildable = stale.length === unbuilt.length && stale.every((name) => REBUILD_COMMAND[name]);
+
   return {
     ...tools,
     ready: unbuilt.length === 0 && absent.length === 0,
     needsSetup: unbuilt.length > 0,
     unbuilt,
+    stale,
+    ...(rebuildable && stale.length > 0 ? { rebuildCommands: stale.map((name) => REBUILD_COMMAND[name]) } : {}),
     absent,
     ...(Object.keys(hints).length > 0 ? { hints } : {}),
     setupCommand: "npm run setup",
@@ -665,6 +713,16 @@ function imageMagickInstallDirs() {
  * The build's own output goes to stderr, never stdout: this command's stdout is
  * JSON that a caller parses, and a Maven log in the middle of it is a parse
  * error rather than a build log.
+ *
+ * ## The cheap pass first
+ *
+ * A CLI that exists and is merely behind its sources needs `tsc`, not the whole
+ * toolchain. Sending it to `setup` — which does `npm ci` for four packages and
+ * `mvn package` for the renderer — charged every preflight tens of seconds for
+ * one edited `.ts`, and preflight is the command the docs say to start with. So
+ * the targeted rebuilds run first; whatever they do not fix falls through to
+ * `planSetup` exactly as before, and a rebuild that fails changes nothing but
+ * the log, because the tools are re-read afterwards either way.
  */
 function runSetupIfNeeded(tools) {
   // The version verdict decides the run: an unsupported line exits 3 and a
@@ -678,13 +736,36 @@ function runSetupIfNeeded(tools) {
       : version.status === "unknown"
         ? "this is not a GraphCompose project"
         : null;
-  const plan = planSetup(tools, { optedOut: args.noSetup, runWillStop: willStop });
+
+  let current = tools;
+  let rebuilt = [];
+  if (!args.noSetup && !willStop && tools.stale.length > 0) {
+    rebuilt = rebuildStaleTools(tools.stale);
+    // Re-read rather than patch: the rebuild is what makes the rest of the
+    // report describe the tree as it now is. What was rebuilt is reported under
+    // `setup`, beside whether setup itself ran, not repeated at the top level.
+    if (rebuilt.length > 0) current = describeTools();
+  }
+
+  const plan = planSetup(current, { optedOut: args.noSetup, runWillStop: willStop });
   if (!plan.run) {
-    return { ...tools, setup: { ran: false, ok: null, reason: plan.reason, blockedBy: plan.blockedBy } };
+    // `ran` stays false: it means scripts/setup.mjs ran, and nextCommands reads
+    // it before `blockedBy` to choose its wording. A targeted rebuild is
+    // reported in its own field so neither message has to lie about the other.
+    return {
+      ...current,
+      setup: {
+        ran: false,
+        ok: null,
+        reason: plan.reason,
+        blockedBy: plan.blockedBy,
+        ...(rebuilt.length > 0 ? { rebuilt } : {}),
+      },
+    };
   }
 
   const startedAt = process.hrtime.bigint();
-  if (args.text) process.stderr.write(`[preflight] building ${tools.unbuilt.join(", ")} — this happens once\n`);
+  if (args.text) process.stderr.write(`[preflight] building ${current.unbuilt.join(", ")} — this happens once\n`);
 
   const built = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "setup.mjs")], {
     cwd: repoRoot,
@@ -707,10 +788,42 @@ function runSetupIfNeeded(tools) {
       // What the build actually changed, rather than what it was asked to do.
       // A setup that exits 0 and leaves a tool unbuilt is the failure worth
       // naming, and its exit code alone would not name it.
-      built: tools.unbuilt.filter((name) => !stillUnbuilt.includes(name)),
+      built: current.unbuilt.filter((name) => !stillUnbuilt.includes(name)),
       stillUnbuilt,
+      ...(rebuilt.length > 0 ? { rebuilt } : {}),
     },
   };
+}
+
+/**
+ * `tsc` for each Node CLI that exists but is behind its sources. Returns the
+ * ones that now build clean, so the caller can re-read the tools and let the
+ * expensive path handle whatever is left.
+ *
+ * A failure here is not reported as an error: the fallback is `setup`, which
+ * does everything this does and more, and telling someone a build failed twice
+ * is worse than telling them once with the log that matters.
+ *
+ * @param {string[]} stale  tool names, as in BUILT_TOOLS
+ * @returns {string[]}      the ones whose rebuild exited 0
+ */
+function rebuildStaleTools(stale) {
+  const rebuilt = [];
+  for (const name of stale) {
+    const command = REBUILD_COMMAND[name];
+    if (!command) continue;
+    if (args.text) process.stderr.write(`[preflight] ${name} is behind its sources — ${command}\n`);
+    // Single command string + shell:true: `npm` on Windows is a shim, and the
+    // args+shell form trips Node's DEP0190. Nothing here comes from user input.
+    const done = spawnSync(command, {
+      cwd: repoRoot,
+      shell: true,
+      // Same rule as setup: a build log never lands on stdout, which is JSON.
+      stdio: ["ignore", 2, 2],
+    });
+    if (done.status === 0) rebuilt.push(name);
+  }
+  return rebuilt;
 }
 
 // ------------------------------------------------------------- capabilities ---
@@ -886,14 +999,30 @@ function nextCommands(projectInfo, routing, tools) {
   // just built reports nothing; one where the build failed says so, because
   // being told to run a command that has already failed is worse than silence.
   if (tools?.needsSetup) {
-    commands.push({
-      why: tools.setup?.ran
-        ? `setup ran here and ${tools.unbuilt.join(", ")} are still not built; the error is above, and without them the first render exits 69`
-        : tools.setup?.blockedBy?.length
-          ? `${tools.setup.reason}; without ${tools.unbuilt.join(", ")} the first render exits 69`
-          : `${tools.unbuilt.join(", ")} ship as source and are not built here; without them the first render exits 69`,
-      run: tools.setupCommand,
-    });
+    // One `tsc` when that is the whole story, `setup` otherwise. Recommending
+    // the toolchain reinstall for a CLI that only needs recompiling is advice
+    // that costs tens of seconds and teaches the wrong habit; `rebuildCommands`
+    // is present only when it covers every unbuilt tool.
+    if (tools.rebuildCommands?.length > 0) {
+      const one = tools.stale.length === 1;
+      for (const run of tools.rebuildCommands) {
+        commands.push({
+          why:
+            `${tools.stale.join(", ")} ${one ? "was" : "were"} compiled before ${one ? "its" : "their"} src/; ` +
+            "a build that is behind would run anyway with the previous release's behaviour, so the tools refuse it and the first render exits 69",
+          run,
+        });
+      }
+    } else {
+      commands.push({
+        why: tools.setup?.ran
+          ? `setup ran here and ${tools.unbuilt.join(", ")} are still not built; the error is above, and without them the first render exits 69`
+          : tools.setup?.blockedBy?.length
+            ? `${tools.setup.reason}; without ${tools.unbuilt.join(", ")} the first render exits 69`
+            : `${tools.unbuilt.join(", ")} ${tools.unbuilt.length === 1 ? "ships as source and is" : "ship as source and are"} not built here — missing, or compiled before ${tools.unbuilt.length === 1 ? "its" : "their"} src/; either way the first render exits 69`,
+        run: tools.setupCommand,
+      });
+    }
   }
 
   if (workspace.mode === "install") {
