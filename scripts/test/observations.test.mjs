@@ -247,7 +247,12 @@ test("verify never reports a retired observation as a failure", () => {
   const retired = records().filter(({ body }) => body.confidence === "retired");
   if (retired.length === 0) return; // nothing retired in this checkout
 
-  const result = run(["verify"]);
+  // From a cwd with no workspace above it: `verify` also walks the discovered
+  // workspace's own store, and a developer running the flow inside their clone
+  // has one there, carrying records this test never read — one of which can
+  // legitimately disagree with its probe and fail an assertion about the
+  // SHIPPED store.
+  const result = run(["verify"], { cwd: os.tmpdir() });
   // 0 measured and held, 4 could not measure — two different things, and the
   // caller reads the code rather than the prose. What must never happen is 1,
   // which claims the library changed under a record.
