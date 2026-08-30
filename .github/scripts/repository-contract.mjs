@@ -61,7 +61,7 @@ async function walk(dir, predicate) {
         // the checkout — their revisions, not the repository's contract.
         if (
           e.name === 'node_modules' || e.name === 'target' || e.name === 'dist' || e.name === '.git' ||
-          (e.name === 'graphcompose-flow' && d === repoRoot)
+          (e.name === 'graphcompose-flow' && path.resolve(d) === path.resolve(ROOT))
         ) {
           continue;
         }
