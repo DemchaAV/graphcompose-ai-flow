@@ -1,25 +1,16 @@
 #!/usr/bin/env node
 /**
- * The CLI is TypeScript compiled into dist/, which is gitignored — so on a
- * fresh clone or a fresh plugin install this file has nothing to import. Say
- * that in one line instead of letting Node print a module-resolution stack
- * trace, because this is the most likely first failure a new user ever sees.
+ * This bin goes through the package's guard before it touches dist/: it is
+ * gitignored, so a fresh clone has nothing to import, and a dist/ left behind
+ * src/ is worse than a missing one because it loads and runs — rejecting flags
+ * it predates and silently doing less than it was asked. The rationale in full
+ * is in ./require-build.mjs.
+ *
+ * The dist import must stay dynamic and stay below the guard call: a static
+ * `import '../dist/…'` is hoisted and would run before the check.
  */
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { requireBuild } from "./require-build.mjs";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const entry = path.join(here, "..", "dist", "cli.js");
-
-if (!fs.existsSync(entry)) {
-  process.stderr.write(
-    "graphcompose-flow is not built yet (tools/revision-manager/dist is missing).\n" +
-      "Run the one-time setup from the repository root:\n\n" +
-      "    npm run setup\n\n" +
-      "It installs and builds the Node tools; see docs/plugin-installation.md.\n",
-  );
-  process.exit(69); // EX_UNAVAILABLE — a missing service, not a usage error
-}
+requireBuild("graphcompose-flow", "cli.js");
 
 await import("../dist/cli.js");

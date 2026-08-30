@@ -110,13 +110,20 @@ function runPass(root, extra) {
   } catch {
     /* text */
   }
-  return { status: spawned.status, parsed, stdout: spawned.stdout ?? "", stderr: spawned.stderr ?? "" };
+  const stdout = spawned.stdout ?? "";
+  const stderr = spawned.stderr ?? "";
+  // `output` — not `stdout` — is what an assertion message should carry. pass.mjs
+  // puts a failing child's reason on stderr and exits; asserting the exit code
+  // with only stdout as the message printed the `[workspace]` banner and nothing
+  // else, which is how `error: unknown option '--report'` from a stale
+  // revision-manager dist/ stayed invisible through a whole debugging session.
+  return { status: spawned.status, parsed, stdout, stderr, output: `${stdout}${stderr}` };
 }
 
 test("--open opens the next revision with the sources carried, records the report, and says what to edit", () => {
   const s = scenario({ reviewed: true, label: "open" });
-  const { status, stdout } = runPass(s.root, ["--open", "fix the header", "--report", "the header looks too tall"]);
-  assert.equal(status, 0, stdout);
+  const { status, stdout, output } = runPass(s.root, ["--open", "fix the header", "--report", "the header looks too tall"]);
+  assert.equal(status, 0, output);
   assert.match(stdout, /opened revision-002 from revision-001, 2 source file\(s\) carried forward/);
   assert.match(stdout, /report\s+"the header looks too tall"/);
   assert.match(stdout, /aimed at\s+"header-height"/);
@@ -134,8 +141,8 @@ test("--open opens the next revision with the sources carried, records the repor
 
 test("--open --json carries the same facts as data", () => {
   const s = scenario({ reviewed: true, label: "open-json" });
-  const { status, parsed } = runPass(s.root, ["--open", "fix the header", "--json"]);
-  assert.equal(status, 0);
+  const { status, parsed, output } = runPass(s.root, ["--open", "fix the header", "--json"]);
+  assert.equal(status, 0, output);
   assert.equal(parsed.opened, "revision-002");
   assert.equal(parsed.parent, "revision-001");
   assert.equal(parsed.carriedFiles, 2);
@@ -145,8 +152,8 @@ test("--open --json carries the same facts as data", () => {
 
 test("a judged revision is refused, with both ways forward in the refusal", () => {
   const s = scenario({ reviewed: true, label: "judged" });
-  const { status, stderr } = runPass(s.root, []);
-  assert.equal(status, 2);
+  const { status, stderr, output } = runPass(s.root, []);
+  assert.equal(status, 2, output);
   assert.match(stderr, /already carries a visual-review\.json/);
   assert.match(stderr, /--open/);
   assert.match(stderr, /--skip-render/);
@@ -154,8 +161,8 @@ test("a judged revision is refused, with both ways forward in the refusal", () =
 
 test("a render pass prints one screen and exits with render-and-diff's verdict", () => {
   const s = scenario({ reviewed: false, label: "render" });
-  const { status, stdout } = runPass(s.root, ["--skip-render"]);
-  assert.equal(status, 2, stdout);
+  const { status, stdout, output } = runPass(s.root, ["--skip-render"]);
+  assert.equal(status, 2, output);
   assert.match(stdout, /^pass\s+demo \/ revision-001/m);
   assert.match(stdout, /diff\s+\d+\.\d{3}% \(\d+ px\) — \w+ vs reference/);
   assert.match(stdout, /checks\s+/);
@@ -166,8 +173,8 @@ test("a render pass prints one screen and exits with render-and-diff's verdict",
 
 test("--json returns the pass, the attempt summary and the next step as data", () => {
   const s = scenario({ reviewed: false, label: "render-json" });
-  const { status, parsed } = runPass(s.root, ["--skip-render", "--json"]);
-  assert.equal(status, 2);
+  const { status, parsed, output } = runPass(s.root, ["--skip-render", "--json"]);
+  assert.equal(status, 2, output);
   assert.equal(parsed.revision, "revision-001");
   assert.equal(parsed.pass.loop.focus, "awaiting-review");
   assert.equal(parsed.pass.attempt.n, 1);
@@ -177,8 +184,8 @@ test("--json returns the pass, the attempt summary and the next step as data", (
 
 test("with a review in place, --skip-render re-measures and reports the loop's budget and what was tried", () => {
   const s = scenario({ reviewed: true, label: "remeasure" });
-  const { status, stdout } = runPass(s.root, ["--skip-render"]);
-  assert.equal(status, 2, stdout);
+  const { status, stdout, output } = runPass(s.root, ["--skip-render"]);
+  assert.equal(status, 2, output);
   assert.match(stdout, /loop\s+REVISE — focus "header-height" \(measured\) · iterations 1\/8 · same cause 1\/3/);
   assert.match(stdout, /next: fix "header-height"/);
 });
