@@ -110,13 +110,32 @@ export function buildProgram(): Command {
       )
       .option('--base <revisionId>', 'parent revision id (defaults to current draft, then approved)')
       .option('--empty', "start from an empty folder instead of the parent's sources")
-      .action(async (message: string, opts: CommonOptions & { base?: string; empty?: boolean }) => {
+      .option(
+        '--report <quote>',
+        "the user's own words naming a difference; kept in front of the loop until a review marks it addressed",
+      )
+      .option('--report-id <id>', 'stable kebab-case id for --report (derived from the words when absent)')
+      .action(
+        async (
+          message: string,
+          opts: CommonOptions & { base?: string; empty?: boolean; report?: string; reportId?: string },
+        ) => {
         try {
           const root = resolveProjectRoot(opts.project);
-          const rev = await runNewRevision(root, message, { base: opts.base, empty: opts.empty });
+          const rev = await runNewRevision(root, message, {
+            base: opts.base,
+            empty: opts.empty,
+            report: opts.report,
+            reportId: opts.reportId,
+          });
           process.stdout.write(
             `created ${rev.id} (parent: ${rev.parentRevisionId ?? '(none)'}) -- DRAFT\n`,
           );
+          if (opts.report) {
+            process.stdout.write(
+              `recorded the user's report in ${rev.id}/human-report.json — it stays the loop's focus until a review marks it addressed\n`,
+            );
+          }
           if (rev.parentRevisionId) {
             process.stdout.write(
               rev.copiedFiles.length > 0

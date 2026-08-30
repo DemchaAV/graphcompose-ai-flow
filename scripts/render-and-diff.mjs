@@ -171,6 +171,26 @@ function projectReferenceImage() {
 }
 
 /** The revision's overflow dataset, by name, or null. */
+/**
+ * Has the page size been measured and answered? `page-size.mjs` owns the
+ * question (exit 0 settled, 5 unanswered); a failure to ask is read as settled
+ * so a missing tool cannot turn every pass into a page-size question.
+ */
+function pageSizeSettled() {
+  const asked = run(path.join(repoRoot, "scripts", "page-size.mjs"), [
+    "--project", args.project,
+    "--root", workspace.root,
+    "--json",
+  ]);
+  if (asked.status === 5) return false;
+  if (asked.status !== 0) return true;
+  try {
+    return JSON.parse(asked.stdout).settled !== false;
+  } catch {
+    return true;
+  }
+}
+
 function overflowFixture() {
   if (!fs.existsSync(revisionDir)) return null;
   const found = fs.readdirSync(revisionDir).filter((f) => /-data\.overflow\.json$/.test(f));
@@ -993,12 +1013,33 @@ if (result.document?.defects?.length && result.loop?.verdict === "READY_FOR_APPR
   result.loop.next = `fix ${first.id}: ${first.detail}`;
 }
 
+// The page model outranks every other finding, including a user's report and
+// the mismatch the review named: while the render has a different number of
+// pages from the reference, or was measured against a reference stretched
+// into a shape it does not have, no other comparison means anything. The
+// corpus carried fifteen revisions with the "reference was distorted" banner
+// and four proposals rendering one page against two, each pass aimed at a
+// region while the page was wrong underneath it. So these two override the
+// focus on REVISE as well as on READY; only BLOCKED stays as it is.
+const pageModelOpen = result.loop && result.loop.verdict !== "BLOCKED";
+if (pageModelOpen && (result.diff?.aspectMismatchPages ?? []).length > 0 && !pageSizeSettled()) {
+  const worst = result.diff.aspectMismatchPages[0];
+  result.loop.verdict = "REVISE";
+  result.loop.focus = "page-size-unsettled";
+  result.loop.focusSource = "page-parity";
+  result.loop.next =
+    `the reference was stretched to fit the render before the pixels were compared (page ${worst.page}), ` +
+    "so every figure above understates the difference and no region fix can close it. Settle the page " +
+    `size first: \`node scripts/page-size.mjs --project ${args.project}\` prints the question to put to ` +
+    "the user, and `--use <A4|LETTER|LEGAL|WxH> --decision \"…\"` records the answer once";
+}
+
 // The verdict is formed from page 1, because that is the diff every downstream
 // tool reads. On a one-page document that is the whole document and nothing
 // here fires. On a proposal or a book it is the cover: a continuation page can
 // be wrong in every way page 1 is right, and the pass would have called it
 // ready without ever having looked.
-if (result.loop?.verdict === "READY_FOR_APPROVAL") {
+if (pageModelOpen && result.loop.focus !== "page-size-unsettled") {
   const missing = result.diff?.missingFromRender ?? [];
   const bad = (result.diff?.pages ?? []).filter(
     (p) => p.page > 1 && (p.classification === "MAJOR" || p.classification === "CRITICAL"),
@@ -1022,7 +1063,10 @@ if (result.loop?.verdict === "READY_FOR_APPROVAL") {
         : `the reference has ${result.diff.referencePages} page(s) and the render produced ` +
           `${result.diff.renderPages}: page(s) ${missing.join(", ")} were never compared. ` +
           `Set render.pages in template-project.json to ${result.diff.referencePages} and render again`;
-  } else if (bad.length) {
+  } else if (bad.length && result.loop.verdict === "READY_FOR_APPROVAL") {
+    // Only on READY: against a rasterised reference every page classifies
+    // MAJOR or worse, so letting this override a reviewer's REVISE focus
+    // would make "page N" the permanent focus of every multi-page document.
     const worst = bad.reduce((a, b) => (b.percent > a.percent ? b : a));
     result.loop.verdict = "REVISE";
     result.loop.focus = `page-${worst.page}`;

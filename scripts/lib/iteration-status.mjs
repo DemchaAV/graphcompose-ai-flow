@@ -94,6 +94,7 @@ function loadLoop(projectDir, revisionId) {
 
     chain.unshift({
       id: cursor,
+      dir,
       revision,
       review: readJsonOr(path.join(dir, "visual-review.json")),
       // What the pass actually measured, so "is this still moving?" is a
@@ -107,7 +108,42 @@ function loadLoop(projectDir, revisionId) {
     });
     cursor = revision.parentRevisionId;
   }
+  carryReportsForward(chain);
   return { chain, truncatedAt };
+}
+
+/**
+ * A user's report, made once, stays in front until a review addresses it.
+ *
+ * `human-report.json` is written by `new-revision --report "<their words>"`
+ * beside the revision the report was made against. A review may carry
+ * `humanReportedMismatch` itself; when it does not, the open report is
+ * attached to the review here, so `focusOf` and the human-directed exemption
+ * see it without the model having to restate a field every pass. In the
+ * corpus, stripe-proposal reached 9/8 with five passes the user had asked for
+ * and none recorded — the exemption existed and nothing on disk triggered it.
+ *
+ * Addressed is addressed: a review that sets `addressed: true` for the id
+ * closes it for every later pass. A newer report replaces an older open one.
+ */
+function carryReportsForward(chain) {
+  let open = null;
+  for (const entry of chain) {
+    const file = readJsonOr(path.join(entry.dir, "human-report.json"));
+    if (file?.id && file.addressed !== true) {
+      open = { id: file.id, quote: file.quote ?? null, addressed: false, from: entry.id, source: "file" };
+    }
+    const review = entry.review;
+    const inReview = review?.humanReportedMismatch;
+    if (inReview?.id) {
+      if (inReview.addressed === true && open?.id === inReview.id) open = null;
+      else if (inReview.addressed !== true) open = { ...inReview, addressed: false, from: entry.id, source: "review" };
+      continue;
+    }
+    if (open && review && typeof review === "object") {
+      review.humanReportedMismatch = { id: open.id, quote: open.quote, addressed: false, carriedFrom: open.from };
+    }
+  }
 }
 
 /**

@@ -1076,3 +1076,58 @@ test("with every blocking mismatch covered, READY stands", async () => {
   assert.equal(status.verdict, "READY_FOR_APPROVAL", JSON.stringify(status.reasons));
   assert.equal(status.largestMismatch, "hairline-tint");
 });
+
+// -------------------------------------------------------- human report ---
+
+test("a report written to human-report.json is the focus until a review marks it addressed", () => {
+  const dir = projectWith(
+    [
+      { verdict: "REVISE", mismatch: "header-height" },
+      // The user spoke; the revision opened with --report carries the file and
+      // this review says nothing about it.
+      { verdict: "REVISE", mismatch: "header-height" },
+      // A later pass whose review still says nothing about it.
+      { verdict: "REVISE", mismatch: "hairline-tint" },
+    ],
+    "report-file",
+  );
+  fs.writeFileSync(
+    path.join(dir, "revisions", "revision-002", "human-report.json"),
+    JSON.stringify({ schemaVersion: 1, id: "timeline-rail-overshoot", quote: "the timeline looks wrong", addressed: false }),
+  );
+
+  const status = computeIterationStatus({ projectDir: dir, config });
+  assert.equal(status.largestMismatch, "timeline-rail-overshoot");
+  assert.equal(status.focusSource, "human");
+  assert.deepEqual(
+    status.humanDirected.map((h) => h.report),
+    ["timeline-rail-overshoot"],
+    "the pass the user asked for is exempt from the budget, once",
+  );
+  assert.equal(status.agentIterations, 2);
+  // Still open, so READY could not stand either.
+  assert.ok(status.claims.blocking.some((c) => c.id === "human-report-open"));
+});
+
+test("a review that marks the report addressed closes it for every later pass", () => {
+  const dir = projectWith(
+    [
+      { verdict: "REVISE", mismatch: "header-height" },
+      {
+        verdict: "REVISE",
+        mismatch: "header-height",
+        reported: { id: "timeline-rail-overshoot", quote: "the timeline looks wrong", addressed: true },
+      },
+      { verdict: "REVISE", mismatch: "hairline-tint" },
+    ],
+    "report-closed",
+  );
+  fs.writeFileSync(
+    path.join(dir, "revisions", "revision-001", "human-report.json"),
+    JSON.stringify({ schemaVersion: 1, id: "timeline-rail-overshoot", quote: "the timeline looks wrong", addressed: false }),
+  );
+  const status = computeIterationStatus({ projectDir: dir, config });
+  assert.equal(status.largestMismatch, "hairline-tint");
+  assert.equal(status.focusSource, "measured");
+  assert.ok(!status.claims.blocking.some((c) => c.id === "human-report-open"));
+});

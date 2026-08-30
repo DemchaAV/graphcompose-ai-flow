@@ -100,7 +100,7 @@ function scenario({ verdict = "REVISE", withParent = false, label = "ws" } = {})
 
   // The render, and a reference at a DIFFERENT resolution — the normal case.
   writePng(path.join(revision, "output.png"), 124, 175, 200);
-  writePng(path.join(project, "reference", "reference.png"), 102, 154, 200);
+  writePng(path.join(project, "reference", "reference.png"), 102, 144, 200);
 
   return { root, project, revision };
 }
@@ -403,7 +403,7 @@ test("a suffixed render writes only its own PDF and never the live preview", () 
 /** Add continuation pages to a scenario, on either or both sides. */
 function addPages(s, { reference = [], render = [] }) {
   for (const [page, value] of reference) {
-    writePng(path.join(s.project, "reference", `reference-page-${page}.png`), 102, 154, value);
+    writePng(path.join(s.project, "reference", `reference-page-${page}.png`), 102, 144, value);
   }
   for (const [page, value] of render) {
     writePng(path.join(s.revision, `output-page-${page}.png`), 124, 175, value);
@@ -568,4 +568,44 @@ test("a failed render surfaces the reason, not the chatter around it", () => {
   // error signature through its own path. It must not crowd out the reason.
   const reported = output.split("render failed:")[1] ?? "";
   assert.doesNotMatch(reported, /\[workspace\]/, "workspace chatter reached the excerpt");
+});
+
+// --- the page model outranks the focus ------------------------------------------
+
+test("a page the render never produced is the focus even when the review already said REVISE", () => {
+  // Before: the missing-page stop fired only on READY, so a proposal could
+  // spend five REVISE passes aimed at a region while page 2 was never rendered.
+  const s = scenario({ verdict: "REVISE", label: "missing-on-revise" });
+  addPages(s, { reference: [[2, 200]] });
+  const { status, parsed } = runCli(s.root, ["--json"]);
+  assert.equal(status, 2);
+  assert.equal(parsed.loop.focus, "missing-pages", JSON.stringify(parsed.loop));
+  assert.equal(parsed.loop.focusSource, "page-parity");
+  assert.match(parsed.loop.next, /render\.pages/);
+});
+
+test("a stretched reference with the page size unsettled is the focus, above everything", () => {
+  const s = scenario({ verdict: "REVISE", label: "aspect-unsettled" });
+  // A reference whose shape the render does not have: 6.6% off, well past 1%.
+  writePng(path.join(s.project, "reference", "reference.png"), 102, 154, 200);
+  const { status, parsed } = runCli(s.root, ["--json"]);
+  assert.equal(status, 2);
+  assert.ok((parsed.diff.aspectMismatchPages ?? []).length > 0, "the scenario should have stretched the reference");
+  assert.equal(parsed.loop.focus, "page-size-unsettled", JSON.stringify(parsed.loop));
+  assert.match(parsed.loop.next, /page-size\.mjs/);
+});
+
+test("once the page size is settled, a stretched reference no longer overrides the focus", () => {
+  const s = scenario({ verdict: "REVISE", label: "aspect-settled" });
+  writePng(path.join(s.project, "reference", "reference.png"), 102, 154, 200);
+  const projectFile = path.join(s.project, "template-project.json");
+  const project = JSON.parse(fs.readFileSync(projectFile, "utf8"));
+  project.referenceGeometry = {
+    verdict: "decided",
+    aspect: 0.662,
+    pageSize: { format: "custom", widthPt: 595, heightPt: 898, source: "user", decision: "keep the reference's proportions" },
+  };
+  fs.writeFileSync(projectFile, JSON.stringify(project, null, 2));
+  const { parsed } = runCli(s.root, ["--json"]);
+  assert.notEqual(parsed.loop.focus, "page-size-unsettled", JSON.stringify(parsed.loop));
 });

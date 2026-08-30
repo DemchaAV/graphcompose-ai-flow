@@ -120,6 +120,32 @@ describe('new-revision', () => {
     expect(second.parentRevisionId).toBe('revision-001');
   });
 
+  it("--report writes the user's words to human-report.json, with a stable id, and does not carry it forward", async () => {
+    await runNewRevision(projectRoot, 'first');
+    const second = await runNewRevision(projectRoot, 'the timeline looks wrong', {
+      report: 'Кольцо таймлайна должно закрывать рельс, а не пропускать его сквозь себя',
+    });
+    const file = path.join(projectRoot, 'revisions', second.id, 'human-report.json');
+    const report = JSON.parse(await fs.readFile(file, 'utf8'));
+    expect(report.id).toBe('reported-кольцо-таймлайна-должно-закрывать-рельс-а');
+    expect(report.quote).toContain('Кольцо таймлайна');
+    expect(report.addressed).toBe(false);
+
+    const explicit = await runNewRevision(projectRoot, 'again', {
+      report: 'the rail overshoots',
+      reportId: 'timeline-rail-overshoot',
+    });
+    const again = JSON.parse(
+      await fs.readFile(path.join(projectRoot, 'revisions', explicit.id, 'human-report.json'), 'utf8'),
+    );
+    expect(again.id).toBe('timeline-rail-overshoot');
+
+    const fourth = await runNewRevision(projectRoot, 'no report this time');
+    await expect(
+      fs.access(path.join(projectRoot, 'revisions', fourth.id, 'human-report.json')),
+    ).rejects.toThrow();
+  });
+
   it('--empty starts from a bare folder', async () => {
     await runNewRevision(projectRoot, 'first');
     await fs.writeFile(

@@ -27,6 +27,29 @@ export interface NewRevisionOptions {
   base?: string;
   /** Do not copy the parent's sources forward (the pre-0.20 behaviour). */
   empty?: boolean;
+  /**
+   * The user's own words naming a difference ("the timeline looks wrong").
+   * Written to `human-report.json` so iterate-status keeps it in front until a
+   * review marks it addressed — without the model having to remember a field.
+   */
+  report?: string;
+  /** Stable kebab-case id for the report; derived from the words when absent. */
+  reportId?: string;
+}
+
+/** The file a user's report lives in, beside the revision it was made against. */
+export const HUMAN_REPORT_FILE = 'human-report.json';
+
+/** A stable id from a sentence: the first six words, kebab-cased. */
+export function reportIdFrom(quote: string): string {
+  const words = quote
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 6);
+  const id = words.join('-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  return id.length > 0 ? `reported-${id}` : `reported-${Date.now()}`;
 }
 
 /**
@@ -47,6 +70,7 @@ export const RENDER_ARTIFACT_PATTERNS: readonly RegExp[] = [
   /^skill-validation-report\.md$/i,
   /^(render|build|test-result)\.(log|md)$/i,
   /^user-request\.md$/i, // the new revision writes its own
+  /^human-report\.json$/i, // a report is made against one revision; iterate-status carries it forward itself
   /^attempts\.json$/i, // every render-and-diff run on the parent, recorded by the harness
   /^attempts[/\\]/i, // in-revision render attempts, when a loop records them
 ];
@@ -98,6 +122,20 @@ export async function runNewRevision(
   };
 
   await fs.writeFile(path.join(dir, 'user-request.md'), buildUserRequestBody(message), 'utf8');
+  if (options.report && options.report.trim().length > 0) {
+    const report = {
+      schemaVersion: 1,
+      id: options.reportId ?? reportIdFrom(options.report),
+      quote: options.report.trim(),
+      reportedAt: nowIso(),
+      addressed: false,
+      $comment:
+        'What the user said looks wrong, verbatim. iterate-status keeps it in front of every ' +
+        'measured mismatch until a visual-review.json sets humanReportedMismatch.addressed: true ' +
+        'for this id.',
+    };
+    await fs.writeFile(path.join(dir, HUMAN_REPORT_FILE), `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  }
   await saveRevision(projectRoot, revision);
 
   const updated = touchProject({ ...project, currentDraftRevisionId: id });
