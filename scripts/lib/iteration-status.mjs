@@ -34,6 +34,7 @@ import path from "node:path";
 
 import { auditReviewClaims } from "./review-claims.mjs";
 import { describeSeal, sealState } from "./revision-seal.mjs";
+import { describeAttempts, readAttempts } from "./attempts.mjs";
 
 /** Verdicts this module can return, in the order they end the loop. */
 export const VERDICTS = Object.freeze([
@@ -98,6 +99,10 @@ function loadLoop(projectDir, revisionId) {
       // question about pixels rather than about how many mismatches the review
       // chose to list. A pass can rename its findings and look like progress.
       stats: readJsonOr(path.join(dir, "visual-diff-stats.json")),
+      // Every render-and-diff run on this revision, not just the last one the
+      // stats file describes. A revision rendered ten times is ten measurements,
+      // and the bounds below are about measurements, not folders.
+      attempts: readAttempts(dir),
     });
     cursor = revision.parentRevisionId;
   }
@@ -413,6 +418,38 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
   const history = attemptHistory(chain, focusKey);
   const stalling = diminishingReturns(history, limits.materialMovePercent ?? 0.25);
   const reasons = [];
+
+  // What the renders inside the revisions add up to. `iterations` counts
+  // folders; this counts measurements, which is what the corpus showed the two
+  // disagreeing about by a factor of seven. Evidence: it is reported and it
+  // names a stalled sweep, but it ends nothing — a sweep over five type sizes
+  // is a legitimate way to settle one, and the bound that catches circling is
+  // the same-cause count on the reviews.
+  const materialPercent = limits.materialMovePercent ?? 0.25;
+  const perRevision = chain.map((entry) => ({
+    revision: entry.id,
+    ...describeAttempts(entry.attempts ?? [], materialPercent),
+  }));
+  const renders = {
+    total: perRevision.reduce((sum, r) => sum + r.renders, 0),
+    reruns: perRevision.reduce((sum, r) => sum + r.reruns, 0),
+    perRevision,
+    latest: perRevision[perRevision.length - 1] ?? null,
+  };
+  const latestRenders = renders.latest;
+  if (latestRenders && latestRenders.renders >= 3 && latestRenders.stalled) {
+    reasons.push(
+      `${latest.id} has been rendered ${latestRenders.renders} times ` +
+        `(${latestRenders.trail.map((p) => `${p}%`).join(" → ")}) and the last two moved under ` +
+        `${materialPercent}% — a sweep that has stopped buying anything; settle it or change approach`,
+    );
+  }
+  if (latestRenders && latestRenders.reruns > 0) {
+    reasons.push(
+      `${latest.id}: ${latestRenders.reruns} of its ${latestRenders.renders} renders had the same sources as ` +
+        "the render before — re-runs that measured nothing new",
+    );
+  }
   /** Set when the iteration ceiling was lifted for a converging loop. */
   let grantedExtension = null;
 
@@ -638,6 +675,9 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     // Whether those passes are still buying anything. Evidence, never a
     // verdict: a threshold nobody measured should not be what ends a loop.
     diminishingReturns: stalling,
+    // Renders inside the revisions, from attempts.json: the measurements the
+    // folder count hides. `total` is what the loop actually paid for.
+    renders,
     limits,
     remaining: {
       iterations: Math.max(0, limits.maxIterations - agentIterations),

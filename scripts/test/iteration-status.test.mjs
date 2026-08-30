@@ -947,3 +947,47 @@ test("a claim IS checked when the stats file records the same comparison", () =>
     ["gate-metric-unmeasured"],
   );
 });
+
+// ------------------------------------------------------------- renders ---
+
+test("renders inside a revision are counted from attempts.json, and a stalled sweep is named", async () => {
+  const { recordAttempt } = await import("../lib/attempts.mjs");
+  const dir = projectWith(
+    [
+      { verdict: "REVISE", mismatch: "type-size" },
+      { verdict: "REVISE", mismatch: "type-size" },
+    ],
+    "renders",
+  );
+  const first = path.join(dir, "revisions", "revision-001");
+  const second = path.join(dir, "revisions", "revision-002");
+  fs.writeFileSync(path.join(first, "GeneratedCvTemplate.java"), "a");
+  recordAttempt(first, { percent: 7.0, mismatchPx: 700 });
+
+  // Four renders of the second revision, each a different source, the last two
+  // moving under the material threshold.
+  [6.622, 6.651, 6.62, 6.598].forEach((percent, i) => {
+    fs.writeFileSync(path.join(second, "GeneratedCvTemplate.java"), `v${i}`);
+    recordAttempt(second, { percent, mismatchPx: Math.round(percent * 1000) });
+  });
+
+  const status = computeIterationStatus({ projectDir: dir, config });
+  assert.equal(status.iterations, 2, "folders are still what iterations count");
+  assert.equal(status.renders.total, 5, "renders count measurements");
+  assert.equal(status.renders.latest.renders, 4);
+  assert.equal(status.renders.latest.stalled, true);
+  assert.ok(
+    status.reasons.some((r) => /rendered 4 times/.test(r) && /stopped buying anything/.test(r)),
+    JSON.stringify(status.reasons),
+  );
+  // Evidence, not a verdict: the loop is still allowed to continue.
+  assert.equal(status.verdict, "REVISE");
+});
+
+test("a re-run of unchanged sources is reported, and revisions without attempts.json still work", () => {
+  const dir = projectWith([{ verdict: "REVISE", mismatch: "x" }], "reruns");
+  const status = computeIterationStatus({ projectDir: dir, config });
+  assert.equal(status.renders.total, 0);
+  assert.equal(status.renders.latest.renders, 0);
+  assert.ok(!status.reasons.some((r) => /re-runs/.test(r)));
+});

@@ -43,6 +43,7 @@ import {
   resolveWorkspace,
 } from "./lib/workspace.mjs";
 import { pagePairs } from "./lib/page-pairs.mjs";
+import { describeAttempts, readAttempts, recordAttempt } from "./lib/attempts.mjs";
 
 const repoRoot = installRoot();
 
@@ -877,6 +878,39 @@ step("layout collateral", (entry) => {
   if (diff.ownership.length) parts.push(`${diff.ownership.length} ownership finding(s)`);
   if (result.layout.unexpected?.length) parts.push(`${result.layout.unexpected.length} outside expectedAffectedNodes`);
   entry.detail = diff.totals.changed === 0 ? "nothing moved" : parts.join(", ");
+});
+
+step("attempt", (entry) => {
+  // Every render on the record. The loop's bounds count revisions and a
+  // revision was meant to be one render; the corpus shows seven, reported in
+  // prose where nothing could read it. This writes each one down —
+  // what it measured, what the evidence said, and a fingerprint of the sources
+  // that produced it — so iterate-status counts what actually happened.
+  //
+  // Evidence, never a gate. A --skip-render re-measure is recorded as such.
+  if (!result.diff) {
+    entry.detail = "nothing measured, nothing recorded";
+    return;
+  }
+  const written = recordAttempt(revisionDir, {
+    rendered: !args.skipRender,
+    against: args.against,
+    mismatchPx: result.diff.mismatchPx,
+    percent: result.diff.percent,
+    worstRegions: result.regions?.ranked ?? [],
+    causes: result.evidence?.packages ?? [],
+  });
+  const summary = describeAttempts(readAttempts(revisionDir));
+  result.attempt = { ...written, revisionSummary: summary };
+
+  const trail = summary.trail.length > 1 ? ` — ${summary.trail.map((p) => `${p.toFixed(2)}%`).join(" → ")}` : "";
+  entry.detail =
+    `#${written.n} on this revision` +
+    (written.sameSourcesAsPrevious ? " (same sources as the previous one: a re-run, not a try)" : "") +
+    trail +
+    (summary.renders >= 3 && summary.stalled
+      ? "; the last two renders moved under 0.25% — the sweep has stopped buying anything"
+      : "");
 });
 
 step("loop verdict", (entry) => {

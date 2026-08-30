@@ -47,6 +47,7 @@ export const RENDER_ARTIFACT_PATTERNS: readonly RegExp[] = [
   /^skill-validation-report\.md$/i,
   /^(render|build|test-result)\.(log|md)$/i,
   /^user-request\.md$/i, // the new revision writes its own
+  /^attempts\.json$/i, // every render-and-diff run on the parent, recorded by the harness
   /^attempts[/\\]/i, // in-revision render attempts, when a loop records them
 ];
 

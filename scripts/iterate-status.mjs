@@ -112,6 +112,19 @@ if (args.json) {
         `   (last pass closed ${g.from - g.to} blocking mismatch(es))`,
     );
   }
+  // Measurements, not folders. One revision rendered ten times is ten of these
+  // and one of the above; the difference is what a sweep costs.
+  if (status.renders?.total > 0) {
+    const r = status.renders;
+    const latest = r.latest;
+    console.log(
+      `  renders                 ${r.total} across ${iterations} revision(s)` +
+        (latest && latest.renders > 1
+          ? `   (${status.revision}: ${latest.renders}, ${latest.trail.map((p) => `${p}%`).join(" → ")})`
+          : "") +
+        (r.reruns > 0 ? `   ${r.reruns} re-run(s) of unchanged sources` : ""),
+    );
+  }
   console.log(
     `  consecutive build fails ${status.consecutiveBuildFailures}/${limits.maxConsecutiveBuildFailures}`,
   );
