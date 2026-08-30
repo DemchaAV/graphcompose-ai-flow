@@ -38,6 +38,11 @@ records one in a form that could be counted honestly.
 ```text
 hooks/hooks.json          SessionStart · UserPromptSubmit · Stop · SubagentStop · SessionEnd
                           (Gemini: SessionStart · BeforeAgent · AfterAgent · SessionEnd)
+                          — plus one PreToolUse hook on Bash that is NOT telemetry:
+                            scripts/hooks/guard-bash.mjs refuses reading a template or the
+                            layout snapshot through the shell, a raw `magick compare`, and
+                            inline-script patches of Java, naming the harness command instead.
+                            Exit 2 blocks; GRAPHCOMPOSE_GUARD=off bypasses it.
    ↓
 claude-hook.mjs           the host's entry point; gemini-hook.mjs is the same, with
 gemini-hook.mjs           Gemini's event names translated

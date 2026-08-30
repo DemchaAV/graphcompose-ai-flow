@@ -723,6 +723,19 @@ agent is the last thing qualified to judge whether it is circling. The
 priority order for choosing what to fix is in
 [the iteration loop](../references/iteration-loop.md).
 
+Every render is on the record: `render-and-diff` appends each run to the
+revision's `attempts.json`, and `iterate-status` reports renders beside
+revisions — a sweep over five sizes is five measurements, and the trail it
+prints is what stops the next pass proposing a value already rendered.
+Open a new revision for each pass rather than re-rendering the same one;
+`new-revision` carries the sources forward, so it costs nothing.
+
+When the mismatch in front is a fact about the line — a typeface no
+bundled family reproduces, an API the version lacks — do not spend passes
+on it. Ask the user once and record the answer with
+`node scripts/limitations.mjs accept …`; the loop then routes around it
+(see [accepted limitations](../references/iteration-loop.md#accepted-limitations)).
+
 When it says stop, report:
 
 - what the document is and where it lives

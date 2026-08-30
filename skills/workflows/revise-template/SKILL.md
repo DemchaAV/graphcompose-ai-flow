@@ -164,6 +164,18 @@ it names and go round again, 3 means blocked (stop and report the
 that repetition is what the tool counts. See
 [the iteration loop](../references/iteration-loop.md).
 
+When the mismatch it names is a fact about the line rather than a defect
+— the reference's typeface is not among the bundled families, the version
+has no letter-spacing — do not spend a pass on it and do not rename it.
+Put the question to the user once, and record their answer:
+
+```bash
+node scripts/limitations.mjs accept <limitation-id> --project <project-id> --reason "<what was measured and why it is acceptable>" --mismatch <mismatch-id> --cause TYPOGRAPHY
+```
+
+From then on `iterate-status` looks past it to the next mismatch the
+review rated, and it never blocks approval.
+
 **7. Record what moved.** `changedComponents` on the revision lists the
 render methods actually touched. This is what makes selective rollback
 work later ("keep the new awards but restore the old header").
@@ -280,11 +292,18 @@ Sometimes the user reports a symptom rather than requesting an edit —
 "the timeline is visually incorrect". That is a **redirect, not a
 specification**: it says where to look, not what to do.
 
-Record it in the new revision's review so the loop honours it:
+Record it when you open the revision, in their words, so the loop honours
+it without anyone having to restate it later:
 
-```json
-"humanReportedMismatch": { "id": "<stable-kebab-id>", "quote": "<their words>", "addressed": false }
+```bash
+node tools/revision-manager/bin/graphcompose-flow.mjs new-revision "fix the timeline" --report "<their words, verbatim>" --project <project-dir>
 ```
+
+That writes `human-report.json`; `iterate-status` keeps it in front of
+every measured mismatch, carries it through later passes, and exempts the
+pass it opened from the budget — until a review sets
+`humanReportedMismatch.addressed: true` for its id. (A review may also open
+one itself, with `addressed: false`, when the words arrive mid-pass.)
 
 Then diagnose it yourself. Do not ask them why it looks wrong, and do not
 treat their phrasing as a design instruction. In the acceptance run the

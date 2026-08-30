@@ -7,9 +7,45 @@ the full visual-baseline pass is the gate to `1.0.0`.
 
 ## Unreleased
 
-Phase 0 of the 2026-08-30 audit: what an audit of sixteen real projects and
-their transcripts found broken in the loop's machinery. Every item below was
-observed in a real run, not inferred.
+Phases 0 and 1 of the 2026-08-30 audit: what an audit of sixteen real projects
+and their transcripts found broken in the loop's machinery, and the first of
+what it found missing. Every item below was observed in a real run, not
+inferred.
+
+### Added
+
+- **Every render is on the record.** `render-and-diff` appends each run to the
+  revision's `attempts.json` — page figure, worst regions, causes, and a
+  fingerprint of the sources — and `iterate-status` reports renders beside
+  revisions, names a sweep whose last two renders moved under the material
+  threshold, and counts re-runs of unchanged sources. The corpus had 358
+  renders for 50 revisions and the bounds saw the 50.
+- **Accepted limitations.** `node scripts/limitations.mjs accept <id> --reason
+  … --mismatch …` records a fact about the line (a typeface no bundled family
+  reproduces, an API the version lacks) once, with who decided and why.
+  `iterate-status` never makes a covered mismatch the focus, never counts it
+  toward the same-cause bound, and the claim audit no longer refuses READY on
+  it; `review-template` reads `ACCEPTED_LIMITATION` off the record instead of
+  assigning it by judgement. The same-cause bound had fired on "substituted
+  typeface" with the action "none available" in eight projects.
+- **The user's report is a file.** `new-revision --report "<their words>"`
+  writes `human-report.json`; `iterate-status` carries an open report forward
+  through later reviews that say nothing about it, keeps it in front of every
+  measured mismatch, exempts the pass it opened from the budget, and refuses
+  READY while it is open. stripe-proposal reached 9/8 with five user-directed
+  passes and none recorded.
+- **A guard on the four shell shortcuts.** A `PreToolUse` hook on Bash
+  (`scripts/hooks/guard-bash.mjs`) refuses reading a template or the layout
+  snapshot through the shell, a raw `magick compare`, and an inline-script
+  patch of Java — naming the harness command to run instead. Measured across
+  23 sessions before it: 450, 89, 402 and 528 of those, respectively, against
+  49 editor edits. `GRAPHCOMPOSE_GUARD=off` bypasses it.
+- **The page model outranks the focus.** A page the render never produced is
+  the focus on REVISE as well as on READY; a reference stretched to fit the
+  render while the page size is still unanswered is the focus above
+  everything, with `page-size.mjs` named as the way to settle it. Fifteen
+  revisions had carried the "reference was distorted" banner into region
+  fixes.
 
 ### Fixed
 

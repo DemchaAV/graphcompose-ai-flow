@@ -23,21 +23,30 @@ places the loop ends on its own.
 
 ## What the user said comes first
 
-A difference the user names outranks the measured one. Record it in the
-review:
+A difference the user names outranks the measured one. Record it when you
+open the revision for it, in their words:
+
+```bash
+node tools/revision-manager/bin/graphcompose-flow.mjs new-revision "fix the timeline" --report "the timeline visually isn't aligned correctly" --project <project-dir>
+```
+
+That writes `human-report.json` beside the revision. `iterate-status` then
+names it as the next target instead of whatever occupies the most pixels,
+carries it forward through every later pass whose review says nothing
+about it, and keeps naming it until a review sets it addressed:
 
 ```json
 "humanReportedMismatch": {
-  "id": "timeline-marker-placement",
+  "id": "reported-the-timeline-visually-isn-t-aligned",
   "quote": "the timeline visually isn't aligned correctly",
-  "addressed": false
+  "addressed": true
 }
 ```
 
-`iterate-status` then names it as the next target instead of whatever
-occupies the most pixels, and keeps naming it until a review sets
-`addressed: true` — so a report cannot be lost to a louder measured
-mismatch appearing.
+A report cannot be lost to a louder measured mismatch appearing, and the
+pass it opened is not charged to the agent's budget. The file is the
+record; the review field is how it is closed. (A review may also open one
+directly, with `addressed: false`, when the user's words arrive mid-pass.)
 
 Keep the quote verbatim. A paraphrase turns their observation into your
 interpretation of it, and the difference matters when the diagnosis turns
@@ -239,6 +248,53 @@ behave?" by running the library. The inspector answers "how did *this*
 template lay out?" by reading what the renderer measured. Reach for the
 probe when you do not know what a primitive does, and for the inspector
 when you do not know where a node went.
+
+## Every render is on the record
+
+`render-and-diff` appends each run to the revision's `attempts.json`: the
+page figure, the three worst regions, the causes the evidence assigned,
+and a fingerprint of the sources that produced it. `iterate-status`
+reports them beside the revision count:
+
+```text
+  iterations              3/8   (5 left)
+  renders                 11 across 3 revision(s)   (revision-003: 6, 6.62% → 6.65% → 6.60% → 6.61% → 6.59% → 6.60%)
+```
+
+Sixteen real projects produced 50 revisions and 358 renders — seven per
+revision — and the bounds saw the 50. A sweep over five type sizes is a
+legitimate way to settle one; it is still five measurements that cost five
+builds, and now they are counted as such. Two things the record says that
+the folder count cannot: a render whose sources did not change since the
+last one is a re-run, not a try; and a revision whose last two renders moved
+under the material threshold has a sweep that stopped buying anything.
+Both are evidence — `iterate-status` names them and ends nothing.
+
+## Accepted limitations
+
+Some mismatches are facts about the line, not defects: a typeface no
+bundled family reproduces, letter-spacing the version cannot set. In the
+corpus the same-cause bound fired on exactly these — eight projects spent
+their budget re-attempting "substituted typeface" with the action "none
+available" — while the defects a person later found waited behind them.
+
+Record such a fact once, with the reason, and the loop routes around it:
+
+```bash
+node scripts/limitations.mjs accept heading-face --project <id> --reason "the reference sets its headings in Google Sans, which is not distributable; Lato is the nearest bundled family" --mismatch substituted-typeface --cause TYPOGRAPHY
+```
+
+From then on a covered mismatch is never the focus, never counts toward
+`maxSameMismatchAttempts`, and never blocks `READY_FOR_APPROVAL`; the
+review lists it as `ACCEPTED_LIMITATION`. `list` shows what is on record,
+`covers --mismatch <id>` answers for one, `retire <id> --note "…"` ends it
+when the font arrives or the API lands.
+
+Who may decide: a person, always; the harness only for `TYPOGRAPHY` and
+`ASSET`, on a measurement (`typography.mjs match` finding no bundled family
+within reach). Nothing measures "this cannot be laid out", so geometry is
+never accepted on the harness's say-so — a limitation that could have been
+a fix is the one failure this record must not make easier.
 
 ## Bounds
 

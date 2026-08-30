@@ -218,8 +218,19 @@ then colour. Compare like with like — same page, same region.
 **3. Classify, twice.** Every difference gets a **severity** from
 the closed set — `CRITICAL`, `MAJOR`, `MINOR`,
 `ACCEPTED_LIMITATION`, `INTENTIONAL_DIFFERENCE`. Do not invent
-classifications. `ACCEPTED_LIMITATION` is never assigned
-automatically — it requires a human note saying it was accepted.
+classifications. `ACCEPTED_LIMITATION` is never assigned by
+judgement — it is read off the project's record:
+
+```bash
+node scripts/limitations.mjs list --project <id>
+node scripts/limitations.mjs covers --project <id> --mismatch <mismatch-id>   # exit 0 covered
+```
+
+A mismatch the record covers is `ACCEPTED_LIMITATION`, with the record's
+reason. One it does not cover keeps the severity it earns, however often
+it has come up: if it is genuinely a fact about the line, the way to say
+so is `limitations.mjs accept …` with the reason — after which
+`iterate-status` routes around it — not a lower severity.
 
 Record a **`cause`** beside it, from the second closed set:
 `GEOMETRY`, `TYPOGRAPHY`, `PAINT`, `ASSET`, `CONTENT`,
