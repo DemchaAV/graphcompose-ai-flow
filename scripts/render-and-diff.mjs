@@ -42,8 +42,11 @@ import {
   projectDir as workspaceProjectDir,
   resolveWorkspace,
 } from "./lib/workspace.mjs";
+import { createRequire } from "node:module";
+
 import { pagePairs } from "./lib/page-pairs.mjs";
 import { describeAttempts, readAttempts, recordAttempt } from "./lib/attempts.mjs";
+import { compareEdgeBands } from "./lib/edge-bands.mjs";
 
 const repoRoot = installRoot();
 
@@ -607,6 +610,43 @@ step("regions", (entry) => {
     : `${regions.regions.length} regions measured — none carries a difference`;
 });
 
+step("furniture", (entry) => {
+  // The page's edges, compared: the lowest band of ink in the reference's
+  // bottom strip against the render's, and the highest in the top strip.
+  // Four of sixteen audited invoices were approved with the page number lower
+  // than the reference's and corrected only when a person said so; a pixel
+  // percentage cannot see a dozen grey rows, and a region ranking will not
+  // rank a band nobody drew a region around. One subtraction sees it.
+  if (args.against !== "reference" || !pagePair1) {
+    entry.detail = "reference comparison only";
+    return;
+  }
+  const scaled = fs.existsSync(pagePair1.scaled) ? pagePair1.scaled : null;
+  if (!scaled) {
+    entry.detail = "no scaled reference to compare against";
+    return;
+  }
+  let compared;
+  try {
+    const { PNG } = createRequire(path.join(repoRoot, "tools", "visual-diff", "package.json"))("pngjs");
+    const reference = PNG.sync.read(fs.readFileSync(scaled));
+    const render = PNG.sync.read(fs.readFileSync(pagePair1.render));
+    compared = compareEdgeBands(reference, render);
+  } catch (err) {
+    entry.detail = `not compared: ${err.message}`;
+    return;
+  }
+  result.furniture = {
+    tolerancePx: compared.tolerancePx,
+    top: compared.top ? { delta: compared.top.delta, reference: compared.top.reference, render: compared.top.render } : null,
+    bottom: compared.bottom ? { delta: compared.bottom.delta, reference: compared.bottom.reference, render: compared.bottom.render } : null,
+    defects: compared.defects,
+  };
+  entry.detail = compared.defects.length
+    ? compared.defects.map((d) => d.id).join(", ")
+    : `top ${compared.top?.delta ?? "—"}px, bottom ${compared.bottom?.delta ?? "—"}px — within ${compared.tolerancePx}px of the reference`;
+});
+
 step("source change", (entry) => {
   // How much of the template stopped being the one that was reviewed.
   //
@@ -1122,6 +1162,17 @@ if (result.roles?.findings?.length && result.loop?.verdict === "READY_FOR_APPROV
   result.loop.focus = first.region;
   result.loop.focusSource = "region-role";
   result.loop.next = `${first.kind} in ${first.region}: ${first.detail}`;
+}
+
+// Furniture out of place is a defect the comparison scores as anti-aliasing
+// and a region ranking never ranks. Only READY is downgraded, like the others:
+// a reviewer's own focus stands, and the finding is on the screen either way.
+if (result.furniture?.defects?.length && result.loop?.verdict === "READY_FOR_APPROVAL") {
+  const first = result.furniture.defects[0];
+  result.loop.verdict = "REVISE";
+  result.loop.focus = first.id;
+  result.loop.focusSource = "furniture";
+  result.loop.next = `${first.id}: ${first.detail}`;
 }
 
 if (result.links?.missing?.length && result.loop?.verdict === "READY_FOR_APPROVAL") {

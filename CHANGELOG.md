@@ -77,6 +77,13 @@ inferred.
   --regions`; hairline rules go to `regions.hairlines`. In 13 of 14
   multi-revision projects the three "worst" regions had been the same three
   dividers every pass, at 0.1–1.5% of the page's difference.
+- **The furniture at the page's edges is compared.** `render-and-diff` reads
+  the lowest band of ink in the reference's bottom strip against the render's,
+  and the highest in the top strip; a band more than 0.75% of the page height
+  out of place — a page number too low, a masthead too high — is a named
+  defect (`bottom-band-lower`, `top-band-higher`, `…-missing`) that turns READY
+  into REVISE. Four of the sixteen audited invoices were approved with the page
+  number low and corrected only when the user said so.
 - **The page model outranks the focus.** A page the render never produced is
   the focus on REVISE as well as on READY; a reference stretched to fit the
   render while the page size is still unanswered is the focus above

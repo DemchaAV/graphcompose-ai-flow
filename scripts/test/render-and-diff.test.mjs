@@ -609,3 +609,52 @@ test("once the page size is settled, a stretched reference no longer overrides t
   const { parsed } = runCli(s.root, ["--json"]);
   assert.notEqual(parsed.loop.focus, "page-size-unsettled", JSON.stringify(parsed.loop));
 });
+
+// --- the furniture at the page's edges -------------------------------------------
+
+test("a page number lower than the reference's turns READY into REVISE, named", () => {
+  const s = scenario({ verdict: "READY_FOR_APPROVAL", label: "furniture" });
+  // Same shape as the scenario's pair (aspects within 1%), with a dark band
+  // near the bottom of each — the render's 20 rows lower.
+  const draw = (file, w, h, bandY) => {
+    const png = new PNG({ width: w, height: h });
+    png.data.fill(255);
+    for (let y = bandY; y < bandY + 4; y += 1) {
+      for (let x = Math.round(w * 0.4); x < Math.round(w * 0.6); x += 1) {
+        const i = (y * w + x) * 4;
+        png.data[i] = 20; png.data[i + 1] = 20; png.data[i + 2] = 20;
+      }
+    }
+    fs.writeFileSync(file, PNG.sync.write(png));
+  };
+  draw(path.join(s.project, "reference", "reference.png"), 510, 720, 650);
+  draw(path.join(s.revision, "output.png"), 620, 875, 810 + 20);
+
+  const { status, parsed } = runCli(s.root, ["--json"]);
+  assert.equal(status, 2, JSON.stringify(parsed?.loop));
+  assert.equal(parsed.loop.focus, "bottom-band-lower");
+  assert.equal(parsed.loop.focusSource, "furniture");
+  assert.match(parsed.loop.next, /lower in the render/);
+  assert.ok(parsed.furniture.defects.length >= 1);
+});
+
+test("furniture where the reference has it leaves READY alone", () => {
+  const s = scenario({ verdict: "READY_FOR_APPROVAL", label: "furniture-ok" });
+  const draw = (file, w, h, bandY) => {
+    const png = new PNG({ width: w, height: h });
+    png.data.fill(255);
+    for (let y = bandY; y < bandY + 4; y += 1) {
+      for (let x = Math.round(w * 0.4); x < Math.round(w * 0.6); x += 1) {
+        const i = (y * w + x) * 4;
+        png.data[i] = 20; png.data[i + 1] = 20; png.data[i + 2] = 20;
+      }
+    }
+    fs.writeFileSync(file, PNG.sync.write(png));
+  };
+  draw(path.join(s.project, "reference", "reference.png"), 510, 720, 650);
+  draw(path.join(s.revision, "output.png"), 620, 875, 790);
+
+  const { parsed } = runCli(s.root, ["--json"]);
+  assert.deepEqual(parsed.furniture.defects, []);
+  assert.notEqual(parsed.loop.focusSource, "furniture");
+});

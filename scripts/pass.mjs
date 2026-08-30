@@ -368,6 +368,7 @@ function checksLine(pass) {
   if (pass.links) parts.push(pass.links.missing?.length ? `links: ${pass.links.missing.length} dead` : "links ok");
   if (pass.document) parts.push(pass.document.defects?.length ? `document: ${pass.document.defects.map((d) => d.id).join(", ")}` : `document ok${pass.document.pageCount ? ` (${pass.document.pageCount} page(s)${pass.document.flow ? `, ${pass.document.flow}` : ""})` : ""}`);
   if (pass.roles) parts.push(pass.roles.findings?.length ? `roles: ${pass.roles.findings.length} finding(s)` : "roles ok");
+  if (pass.furniture) parts.push(pass.furniture.defects?.length ? `furniture: ${pass.furniture.defects.map((d) => d.id).join(", ")}` : "furniture ok");
   if (pass.structure) parts.push(pass.structure.findings?.length ? `structure: ${pass.structure.findings.length} smell(s)` : "structure ok");
   if (pass.layout) parts.push(pass.layout.collateral?.length ? `collateral: ${pass.layout.collateral.length} node(s) moved that no edit explains` : "collateral none");
   return parts.join(" · ") || "(none ran)";

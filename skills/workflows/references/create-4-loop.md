@@ -87,9 +87,13 @@ no edit to explain it. **Never read `layout-snapshot.json` into context**
 **5. The checks.** Dead links (an annotation has no pixels, so a document
 whose every link is dead diffs identically to one where they work); the
 document's page count and enumeration; regions built against their role;
-structural smells; layout collateral. Each is a fact read from the file,
-and a dead link or a document defect turns a ready verdict into `REVISE`
-on its own.
+the **furniture** at the page's edges (the lowest band of ink in the
+reference's bottom strip against the render's, the highest in the top
+strip — a page number too low or a masthead too high is a named defect,
+`bottom-band-lower`, `top-band-higher`); structural smells; layout
+collateral. Each is a fact read from the file, and a dead link, a document
+defect or a furniture defect turns a ready verdict into `REVISE` on its
+own.
 
 ## When the snapshot is not there
 
