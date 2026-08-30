@@ -55,6 +55,28 @@ inferred.
   and the commands are unchanged; the narratives around them were trimmed to
   the measurement each one rests on. A create run no longer carries the loop's
   instructions through analysis, or the analysis rules through the loop.
+- **A perceptual figure beside the pixel count.** `visual-diff` reports
+  `perceptual.ssim` — SSIM over the downsampled, blurred luminance, which
+  anti-aliasing does not inflate — with its own provisional classification.
+  Over the audited corpus the pixel percentage sat at 5–12% on every one of
+  fifty revisions, the approved ones included; the perceptual figure ordered
+  them from 0.44 (a one-page render against page 1 of two) to 0.95 (invoices
+  approved as finished). `render-and-diff` and `pass` print it.
+- **The region's reference side is measured, not eyeballed.**
+  `scripts/lib/region-measure.mjs` finds the region's ink on the reference and
+  on the render in one pixel space and subtracts them — or, when the ink boxes
+  are clipped by a neighbour, correlates the reference crop over the render.
+  `evidence.mjs` runs it for every package and lets the measured shift decide
+  GEOMETRY over the snapshot-vs-bounds displacement, which compared an engine
+  box to bounds a person read off an image at a 3pt tolerance and came back
+  UNKNOWN for 125 of 147 packages. A snapshot with no matching node now says
+  so instead of "no layout snapshot".
+- **Evidence is built for the regions carrying the difference by mass.**
+  `render-and-diff` ranks by share of the page's difference × concentration
+  over regions large enough to be a layout, and passes those to `evidence
+  --regions`; hairline rules go to `regions.hairlines`. In 13 of 14
+  multi-revision projects the three "worst" regions had been the same three
+  dividers every pass, at 0.1–1.5% of the page's difference.
 - **The page model outranks the focus.** A page the render never produced is
   the focus on REVISE as well as on READY; a reference stretched to fit the
   render while the page size is still unanswered is the focus above

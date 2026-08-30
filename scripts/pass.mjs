@@ -266,6 +266,12 @@ if (pass.diff) {
   const moved = attempt && attempt.moved !== null ? ` (${attempt.moved >= 0 ? "+" : ""}${attempt.moved.toFixed(3)} vs the previous render)` : "";
   const pages = d.pages && d.pages.length > 1 ? ` · pages ${d.renderPages}/${d.referencePages}, worst page ${d.worstPage}` : "";
   console.log(`  diff      ${d.percent.toFixed(3)}% (${d.mismatchPx} px) — ${d.classification} vs ${d.against}${moved}${pages}`);
+  if (d.perceptual) {
+    console.log(
+      `  perceptual ${d.perceptual.ssim} — ${d.perceptual.classification} (provisional; 0.93+ is where approved invoices sit)` +
+        (d.perceptual.worstWindow ? ` · worst ${d.perceptual.worstWindow.size}px window at (${d.perceptual.worstWindow.x}, ${d.perceptual.worstWindow.y})` : ""),
+    );
+  }
   if (attempts.trail.length > 1) console.log(`  trail     ${attempts.trail.map((p) => `${p.toFixed(2)}%`).join(" → ")}${attempts.stalled ? "   ← the last two moved under 0.25%" : ""}`);
   if (attempt?.sameSourcesAsPrevious) console.log("  note      same sources as the previous render — a re-run, not a try");
   if (d.aspectMismatchPages?.length) console.log("  WARNING   the reference was stretched to fit the render; every figure above understates the difference");

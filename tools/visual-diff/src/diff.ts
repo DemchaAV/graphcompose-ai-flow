@@ -10,6 +10,7 @@ import { PNG } from 'pngjs';
 import pixelmatch from 'pixelmatch';
 
 import { classifyPercent, parityScore, type Classification } from './classify.js';
+import { perceptualSimilarity, type PerceptualResult } from './perceptual.js';
 
 export interface LoadedPng {
   width: number;
@@ -40,6 +41,13 @@ export interface DiffResult {
   diffImage: Buffer;
   threshold: number;
   includeAA: boolean;
+  /**
+   * The perceptual similarity beside the pixel count: SSIM over the
+   * downsampled, blurred luminance. Never zero-inflated by anti-aliasing the
+   * way `percent` is. See perceptual.ts for why it exists and what its
+   * thresholds are worth.
+   */
+  perceptual: PerceptualResult;
 }
 
 /**
@@ -130,6 +138,7 @@ export function runDiff(
   const classification = classifyPercent(percent);
 
   const diffImage = PNG.sync.write(diffPng);
+  const perceptual = perceptualSimilarity(reference, output);
 
   return {
     width,
@@ -142,6 +151,7 @@ export function runDiff(
     diffImage,
     threshold,
     includeAA,
+    perceptual,
   };
 }
 

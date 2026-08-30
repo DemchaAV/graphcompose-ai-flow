@@ -455,3 +455,79 @@ test("displacement reports the two edges a reader can act on", () => {
   assert.equal(d.deltaX, -10);
   assert.equal(d.deltaY, 4);
 });
+
+// ---------------------------------------------------------- measured ---
+
+test("a measured shift on the rasters decides GEOMETRY without any node, in pixels when no snapshot scales it", () => {
+  const pkg = buildEvidencePackage({
+    region: { id: "hero", bounds: { x: 0.1, y: 0.1, w: 0.5, h: 0.2 } },
+    measured: {
+      space: { width: 1240, height: 1753 },
+      reference: { bounds: { x: 0.1, y: 0.1, w: 0.5, h: 0.2 }, inkFraction: 0.3, clipped: false },
+      render: { bounds: { x: 0.12, y: 0.1, w: 0.5, h: 0.2 }, inkFraction: 0.3, clipped: false },
+      shift: { dx: 25, dy: 0, dWidth: 0, dHeight: 0 },
+      correlation: { dx: 24, dy: 0, score: 0.98 },
+    },
+  });
+  assert.equal(pkg.cause, "GEOMETRY");
+  assert.equal(pkg.measured.unit, "px");
+  assert.equal(pkg.measured.shiftSource, "ink-box");
+  assert.match(pkg.causeBasis, /25px right/);
+  assert.match(pkg.causeBasis, /ink box against ink box/);
+});
+
+test("a measured shift is converted to points by the snapshot, and overrides a displacement against guessed bounds", () => {
+  // The owner is placed where the reference has it in reality, but the
+  // analysis bounds are off by 30pt — the old comparison would say GEOMETRY.
+  const node = resolveNode(model, "Sidebar");
+  const wrong = boundsForNode(node, canvas);
+  wrong.x += 30 / canvas.pageWidth;
+  const pkg = buildEvidencePackage({
+    region: { id: "sidebar", bounds: wrong },
+    model,
+    measured: {
+      space: { width: canvas.pageWidth * 2, height: canvas.pageHeight * 2 },
+      reference: { bounds: wrong, inkFraction: 0.5, clipped: false },
+      render: { bounds: wrong, inkFraction: 0.5, clipped: false },
+      shift: { dx: 1, dy: 0, dWidth: 0, dHeight: 0 }, // half a point
+      correlation: { dx: 0, dy: 0, score: 0.99 },
+    },
+  });
+  assert.equal(pkg.measured.unit, "pt");
+  assert.equal(pkg.measured.shift.dx, 0.5);
+  assert.notEqual(pkg.cause, "GEOMETRY", pkg.causeBasis);
+  assert.match(pkg.causeBasis, /measured on the rasters, the region's ink is where the reference has it/);
+});
+
+test("when the ink boxes are clipped, the correlation is the shift; below 0.6 nothing is measured", () => {
+  const measured = {
+    space: { width: 1240, height: 1753 },
+    reference: { bounds: { x: 0.1, y: 0.1, w: 0.5, h: 0.2 }, inkFraction: 0.3, clipped: true },
+    render: { bounds: { x: 0.1, y: 0.1, w: 0.5, h: 0.2 }, inkFraction: 0.3, clipped: false },
+    shift: { dx: 200, dy: 0, dWidth: 0, dHeight: 0 }, // the neighbourhood, not the region
+    correlation: { dx: 0, dy: 40, score: 0.9 },
+  };
+  const byCorrelation = buildEvidencePackage({ region: { id: "r", bounds: { x: 0.1, y: 0.1, w: 0.5, h: 0.2 } }, measured });
+  assert.equal(byCorrelation.measured.shiftSource, "correlation");
+  assert.equal(byCorrelation.cause, "GEOMETRY");
+  assert.match(byCorrelation.causeBasis, /40px down/);
+  assert.match(byCorrelation.causeBasis, /correlating/);
+
+  const nothing = buildEvidencePackage({
+    region: { id: "r", bounds: { x: 0.1, y: 0.1, w: 0.5, h: 0.2 } },
+    measured: { ...measured, correlation: { dx: 0, dy: 40, score: 0.3 } },
+  });
+  assert.equal(nothing.measured.shiftSource, null);
+  assert.equal(nothing.cause, "UNKNOWN");
+  assert.match(nothing.causeBasis, /no layout snapshot/);
+});
+
+test("a snapshot with no owner says so, rather than claiming there is no snapshot", () => {
+  const pkg = buildEvidencePackage({
+    region: { id: "nowhere", bounds: { x: 0.95, y: 0.95, w: 0.04, h: 0.04 } },
+    model,
+  });
+  assert.equal(pkg.cause, "UNKNOWN");
+  assert.doesNotMatch(pkg.causeBasis, /no layout snapshot/);
+  assert.match(pkg.causeBasis, /no node/);
+});

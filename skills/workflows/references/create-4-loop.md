@@ -36,18 +36,32 @@ with `page-size.mjs`), `page-N` (page 1 matches, a continuation page does
 not). While one of these is open no other comparison means anything, and
 the loop refuses to aim elsewhere.
 
-**2. The regions, before the page percentage.** The page number against a
-rasterised reference is never zero and is mostly glyph anti-aliasing; it
-can only be explained, never checked. Each region reports its own
+**2. The perceptual figure, then the regions, before the page percentage.**
+The page's pixel percentage against a rasterised reference is never zero
+and is mostly glyph anti-aliasing — every one of fifty real revisions
+classified CRITICAL on it, the approved ones included — so it can only be
+explained, never checked. Beside it the pass prints `perceptual`: SSIM
+over the downsampled luminance, which anti-aliasing does not inflate.
+Over the same fifty revisions it ran from 0.44 (one page measured against
+two) to 0.95 (the invoices approved as finished); quote it, and read its
+classification as provisional. Then the regions: each reports its own
 mismatch and a `concentration` — its share of the page's difference over
 its share of the page's area. Even wear sits near `1.00x`; a region well
-above it carries a structural defect whatever the page total says. That
-is where the next pass goes.
+above it carries a structural defect whatever the page total says. The
+evidence is built for the regions carrying the most difference by
+**mass** (share of the page's difference × concentration, over regions
+large enough to be a layout); hairline rules go to their own list, and
+`check-border-topology` is the tool for those.
 
-**3. The cause, and what it forbids.** The pass classifies the three worst
-regions (`evidence.json`) and prints each with its owning node,
-displacement and the properties that produced its position. A cause is a
-**restriction on the fix**:
+**3. The cause, and what it forbids.** The pass classifies the three
+heaviest regions (`evidence.json`) and prints each with its owning node,
+the properties that produced its position, and a **measured** line: the
+region's ink on the reference and on the render, in one pixel space,
+subtracted — or, when the ink boxes are clipped by neighbours, the shift
+at which the reference crop correlates best over the render. That line
+involves no bounds anyone guessed; when it says the region is where the
+reference has it, the cause is not geometry however far the node's box
+sits from the analysis rectangle. A cause is a **restriction on the fix**:
 
 | cause | what may change |
 |---|---|

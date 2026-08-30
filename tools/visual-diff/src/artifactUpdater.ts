@@ -20,6 +20,7 @@ import { randomBytes } from 'node:crypto';
 
 import type { Classification } from './classify.js';
 import type { AspectMismatch } from './aspect.js';
+import type { PerceptualResult } from './perceptual.js';
 
 export interface VisualDiffStats {
   reference: string;
@@ -34,6 +35,11 @@ export interface VisualDiffStats {
   classification: Classification;
   threshold: number;
   includeAA: boolean;
+  /**
+   * SSIM over the downsampled, blurred luminance, with its own classification.
+   * Optional so a stats file written before it existed still parses.
+   */
+  perceptual?: PerceptualResult;
   /**
    * Present only when the reference was scaled to a different SHAPE, not just a
    * different size.
@@ -146,6 +152,20 @@ export function renderClassificationMarkdown(stats: VisualDiffStats): string {
     `- mismatch pixels: \`${stats.mismatchPx} / ${stats.totalPx}\``,
     `- pixelmatch threshold: \`${stats.threshold}\``,
     `- include anti-aliased pixels: \`${stats.includeAA}\``,
+    ...(stats.perceptual
+      ? [
+          '',
+          '## Perceptual Similarity',
+          '',
+          `- ssim: \`${stats.perceptual.ssim}\` (downsample ${stats.perceptual.downsample}, blurred: ${stats.perceptual.blurred})`,
+          `- classification: \`${stats.perceptual.classification}\` (provisional thresholds — quote the number)`,
+          ...(stats.perceptual.worstWindow
+            ? [
+                `- worst window: ssim \`${stats.perceptual.worstWindow.ssim}\` at (${stats.perceptual.worstWindow.x}, ${stats.perceptual.worstWindow.y}), ${stats.perceptual.worstWindow.size}px`,
+              ]
+            : []),
+        ]
+      : []),
     '',
     '## Notes',
     '',

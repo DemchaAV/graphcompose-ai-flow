@@ -163,6 +163,7 @@ async function runCli(
     classification: result.classification,
     threshold: result.threshold,
     includeAA: result.includeAA,
+    perceptual: result.perceptual,
     ...(aspectMismatch ? { aspectMismatch } : {}),
   };
 

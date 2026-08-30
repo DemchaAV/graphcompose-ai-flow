@@ -271,7 +271,10 @@ function finish(code) {
     }
     if (result.diff) {
       console.log(
-        `\n  diff: ${result.diff.mismatchPx} px (${result.diff.percent.toFixed(3)}%) — ${result.diff.classification}`,
+        `\n  diff: ${result.diff.mismatchPx} px (${result.diff.percent.toFixed(3)}%) — ${result.diff.classification}` +
+          (result.diff.perceptual
+            ? ` · perceptual ${result.diff.perceptual.ssim} — ${result.diff.perceptual.classification} (provisional)`
+            : ""),
       );
     }
     for (const d of result.document?.defects ?? []) {
@@ -431,6 +434,13 @@ step("diff", (entry) => {
       percent: stats.percent,
       classification: stats.classification,
       parityScore: stats.parityScore,
+      // The perceptual similarity beside the pixel count: SSIM over the
+      // downsampled luminance, which anti-aliasing does not inflate. Over the
+      // audited corpus the pixel count sat at 5–12% on every revision; this
+      // ordered them from 0.44 (one page against two) to 0.95 (approved).
+      perceptual: stats.perceptual
+        ? { ssim: stats.perceptual.ssim, classification: stats.perceptual.classification, worstWindow: stats.perceptual.worstWindow ?? null }
+        : null,
       diffImage: stats.diff,
       // Present only when --scale-reference changed the reference's SHAPE and
       // not just its size. It travels with the numbers because it is a fact
@@ -456,6 +466,7 @@ step("diff", (entry) => {
     percent: first.percent,
     classification: first.classification,
     parityScore: first.parityScore,
+    perceptual: first.perceptual ?? null,
     diffImage: first.diffImage,
     referencePages: pages.referencePages,
     renderPages: pages.renderPages,
@@ -553,11 +564,30 @@ step("regions", (entry) => {
     // whose whole purpose is to point somewhere.
     .filter((r) => r.shareOfPageArea < 90);
 
+  // Two rankings, because concentration alone sent the evidence to the wrong
+  // places. In 13 of 14 multi-revision projects the three "worst" regions
+  // were the same three hairline dividers every pass — each at 40–75% of its
+  // own area but 0.1–1.5% of the page's difference — while the regions
+  // carrying the mass (line items, a hero, a table) ranked below them.
+  // `ranked` keeps the concentration order for reading; `byMass` is what the
+  // evidence is built on: share of the page's difference × concentration,
+  // over regions large enough to be a layout rather than a rule. The rules go
+  // to `hairlines`, which check-border-topology exists for.
+  const HAIRLINE_AREA_PERCENT = 0.5;
+  const byMass = ranked
+    .filter((r) => r.shareOfPageArea >= HAIRLINE_AREA_PERCENT)
+    .map((r) => ({ id: r.id, mass: (r.shareOfPageMismatch ?? 0) * (r.concentration ?? 0) }))
+    .sort((a, b) => b.mass - a.mass)
+    .map((r) => r.id);
+  const hairlines = ranked.filter((r) => r.shareOfPageArea < HAIRLINE_AREA_PERCENT).map((r) => r.id);
+
   result.regions = {
     analysis: path.relative(revisionDir, analysis) || path.basename(analysis),
     source: `${regions.width}x${regions.height}`,
     pageMismatchPx: regions.pageMismatchPx,
     stats: "region-diff-stats.json",
+    byMass,
+    hairlines,
     ranked: ranked.map((r) => ({
       id: r.id,
       role: r.role ?? null,
@@ -651,11 +681,14 @@ step("evidence", (entry) => {
     return;
   }
 
+  // By mass when the ranking has one, so the packages describe the regions
+  // carrying the difference rather than the three thinnest rules on the page.
+  const targets = (result.regions.byMass ?? []).slice(0, EVIDENCE_REGIONS);
   const built = run(path.join(repoRoot, "scripts", "evidence.mjs"), [
     "--project", args.project,
     "--revision", args.revision,
     "--root", workspace.root,
-    "--worst", String(EVIDENCE_REGIONS),
+    ...(targets.length ? ["--regions", targets.join(",")] : ["--worst", String(EVIDENCE_REGIONS)]),
     "--out", path.join(revisionDir, "evidence.json"),
     "--json",
   ]);

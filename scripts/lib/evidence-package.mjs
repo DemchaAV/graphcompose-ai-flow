@@ -269,7 +269,27 @@ export function displacement(node, rect) {
  *
  * @returns {{cause: string, basis: string, candidates: string[]}}
  */
-export function classifyCause({ pagination = null, displaced = null, tolerance = null, role = null, interiorPercent = null, substitutedFonts = [], regionRect = null, typographyReported = false }) {
+export function classifyCause({
+  pagination = null,
+  displaced = null,
+  tolerance = null,
+  role = null,
+  interiorPercent = null,
+  substitutedFonts = [],
+  regionRect = null,
+  typographyReported = false,
+  /**
+   * The region's ink measured on both rasters, in one pixel space, with the
+   * shift already in the tolerance's unit (points when a snapshot scaled it,
+   * pixels otherwise). When present it outranks the snapshot displacement:
+   * the displacement compares an engine box to bounds a person read off an
+   * image, this compares ink to ink.
+   */
+  measured = null,
+  /** Why no owner was named, when a snapshot exists and none matched. */
+  ownerBasis = null,
+  hasModel = false,
+}) {
   if (pagination && pagination.expected != null && pagination.actual != null && pagination.expected !== pagination.actual) {
     return {
       cause: "PAGINATION",
@@ -296,20 +316,59 @@ export function classifyCause({ pagination = null, displaced = null, tolerance =
     };
   }
 
-  if (!displaced) {
+  // Ink against ink, before any node is consulted. The region's tightest box of
+  // non-background pixels on the reference and on the render, in one pixel
+  // space, subtract to a displacement that involves no bounds anyone guessed.
+  // Over the audited corpus the snapshot-vs-bounds comparison below came back
+  // UNKNOWN for 125 of 147 packages; this is the measurement it lacked.
+  let inPlaceMeasured = false;
+  if (measured?.shift && tolerance != null) {
+    const unit = measured.unit ?? "pt";
+    const dx = measured.shift.dx ?? 0;
+    const dy = measured.shift.dy ?? 0;
+    const worstMeasured = Math.max(Math.abs(dx), Math.abs(dy));
+    const where = (v, pos, neg) => (Math.abs(v) < 0.05 ? null : `${round(Math.abs(v))}${unit} ${v > 0 ? pos : neg}`);
+    const described = [where(dx, "right", "left"), where(dy, "down", "up")].filter(Boolean).join(" and ");
+    if (worstMeasured > tolerance) {
+      return {
+        cause: "GEOMETRY",
+        basis:
+          `measured on the rasters (${measured.source === "correlation" ? "by correlating the reference crop over the render" : "ink box against ink box"}): ` +
+          `the region sits ${described} of where the reference has it (tolerance ${round(tolerance)}${unit})` +
+          (measured.correlation?.score != null ? `; the crop correlates at ${measured.correlation.score}` : ""),
+        candidates: [],
+      };
+    }
+    inPlaceMeasured = true;
+    const sizeOff = Math.max(Math.abs(measured.shift.dWidth ?? 0), Math.abs(measured.shift.dHeight ?? 0));
+    if (sizeOff > tolerance * 2) {
+      return {
+        cause: "UNKNOWN",
+        basis:
+          `measured on the rasters: the region's ink starts within ${round(tolerance)}${unit} of the reference's ` +
+          `but its box is ${round(measured.shift.dWidth ?? 0)}${unit} wider and ${round(measured.shift.dHeight ?? 0)}${unit} taller — ` +
+          "more or less content, a different face, or a different wrap, none of which a move would fix",
+        candidates: ["TYPOGRAPHY", "CONTENT", "GEOMETRY"],
+      };
+    }
+  }
+
+  if (!displaced && !inPlaceMeasured) {
     return {
       cause: "UNKNOWN",
-      basis: "no layout snapshot for this revision, so nothing here can separate a geometry defect from an appearance one",
+      basis: hasModel
+        ? `${ownerBasis ?? "no node in the layout matches this region"}, so nothing here can separate a geometry defect from an appearance one`
+        : "no layout snapshot for this revision, so nothing here can separate a geometry defect from an appearance one",
       candidates: ["GEOMETRY", "TYPOGRAPHY", "PAINT", "ASSET", "CONTENT"],
     };
   }
 
-  const worst = Math.max(Math.abs(displaced.deltaX ?? 0), Math.abs(displaced.deltaY ?? 0));
+  const worst = inPlaceMeasured ? 0 : Math.max(Math.abs(displaced.deltaX ?? 0), Math.abs(displaced.deltaY ?? 0));
   // Are the two boxes even the same size? If not, the corners disagree about
   // what the region *is*, and subtracting them measures that rather than the
   // layout.
   const sizeError =
-    regionRect && regionRect.width > 0 && regionRect.height > 0
+    displaced && regionRect && regionRect.width > 0 && regionRect.height > 0
       ? Math.max(
           Math.abs(displaced.deltaWidth ?? 0) / regionRect.width,
           Math.abs(displaced.deltaHeight ?? 0) / regionRect.height,
@@ -353,13 +412,14 @@ export function classifyCause({ pagination = null, displaced = null, tolerance =
   // answers and a reader acts differently on each.
   return {
     cause: "UNKNOWN",
-    basis: typographyReported
+    basis: (inPlaceMeasured ? "measured on the rasters, the region's ink is where the reference has it: " : "") +
+      (typographyReported
       ? "the box is where the reference puts it, so this is not geometry, and the font it was set in is " +
         "the one the style asked for. What is left — the size, the colour, the words — needs a comparison " +
         "against the reference's own type, which is scripts/typography.mjs and needs a crop"
       : "the box is where the reference puts it, so this is not geometry. This render reports no typography " +
         "(it predates GraphCompose 2.2.2), so a wrong font here would be invisible — re-render before " +
-        "ruling one out. Size, colour and wording need a comparison against the reference's own type",
+        "ruling one out. Size, colour and wording need a comparison against the reference's own type"),
     candidates: ["TYPOGRAPHY", "PAINT", "CONTENT"],
   };
 }
@@ -452,6 +512,12 @@ export function buildEvidencePackage({
   model = null,
   pagination = null,
   crops = [],
+  /**
+   * From scripts/lib/region-measure.mjs: the region's ink on both rasters in
+   * one pixel space, plus `space: {width, height}` of that space. Converted
+   * to points here when a snapshot gives the scale; kept in pixels otherwise.
+   */
+  measured = null,
 }) {
   if (!region || typeof region.id !== "string") {
     throw new TypeError("an evidence package needs a region with an id");
@@ -573,6 +639,58 @@ export function buildEvidencePackage({
     }
   }
 
+  // The measured half. A snapshot gives points per pixel; without one the
+  // shift stays in pixels and the tolerance is computed in pixels too, so the
+  // two are always in one unit.
+  let measuredForCause = null;
+  if (measured && (measured.reference || measured.render)) {
+    const space = measured.space ?? null;
+    const scale = model && space?.width ? model.canvas.pageWidth / space.width : null;
+    const unit = scale ? "pt" : "px";
+    const conv = (v) => (typeof v === "number" ? round(scale ? v * scale : v) : null);
+    if (tolerance == null && space?.width && space?.height) {
+      tolerance = Math.min(space.width, space.height) * GEOMETRY_TOLERANCE_FRACTION;
+    }
+    pkg.measured = {
+      unit,
+      analysisBounds: measured.analysisBounds ?? region.bounds ?? null,
+      reference: measured.reference ? { bounds: measured.reference.bounds, inkFraction: measured.reference.inkFraction, clipped: measured.reference.clipped ?? false } : null,
+      render: measured.render ? { bounds: measured.render.bounds, inkFraction: measured.render.inkFraction, clipped: measured.render.clipped ?? false } : null,
+      shift: measured.shift
+        ? { dx: conv(measured.shift.dx), dy: conv(measured.shift.dy), dWidth: conv(measured.shift.dWidth), dHeight: conv(measured.shift.dHeight) }
+        : null,
+      correlation: measured.correlation
+        ? { dx: conv(measured.correlation.dx), dy: conv(measured.correlation.dy), score: measured.correlation.score }
+        : null,
+      tolerance: tolerance == null ? null : round(tolerance),
+      note: measured.shift
+        ? "ink against ink, in one pixel space; positive dx is the render to the right, positive dy lower"
+        : measured.reference
+          ? "the render carries no ink in this region's window"
+          : "the reference carries no ink in this region's window",
+    };
+    // Which shift to believe. The ink boxes subtract cleanly only when neither
+    // touched its window — on a dense page the window takes in a neighbour's
+    // ink and the box is the neighbourhood, not the region. Then the
+    // correlation, which matches the crop's own pattern and ignores what
+    // surrounds it, is the measurement; below 0.6 it matched nothing.
+    const clipped = Boolean(pkg.measured.reference?.clipped || pkg.measured.render?.clipped);
+    if (pkg.measured.shift && !clipped) {
+      pkg.measured.shiftSource = "ink-box";
+      measuredForCause = { shift: pkg.measured.shift, correlation: pkg.measured.correlation, unit, source: "ink-box" };
+    } else if (pkg.measured.correlation && pkg.measured.correlation.score >= 0.6) {
+      pkg.measured.shiftSource = "correlation";
+      measuredForCause = {
+        shift: { dx: pkg.measured.correlation.dx, dy: pkg.measured.correlation.dy, dWidth: null, dHeight: null },
+        correlation: pkg.measured.correlation,
+        unit,
+        source: "correlation",
+      };
+    } else {
+      pkg.measured.shiftSource = null;
+    }
+  }
+
   const verdict = classifyCause({
     pagination,
     displaced,
@@ -582,6 +700,9 @@ export function buildEvidencePackage({
     substitutedFonts,
     regionRect: pkg.ownership?.referenceRect ?? null,
     typographyReported: Boolean(pkg.typography?.reported),
+    measured: measuredForCause,
+    ownerBasis: pkg.ownership?.basis ?? null,
+    hasModel: Boolean(model),
   });
   pkg.cause = verdict.cause;
   pkg.causeBasis = verdict.basis;

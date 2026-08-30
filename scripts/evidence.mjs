@@ -32,9 +32,31 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { describeWorkspaceLine, projectDir, resolveWorkspace } from "./lib/workspace.mjs";
+import { createRequire } from "node:module";
+
+import { describeWorkspaceLine, installRoot, projectDir, resolveWorkspace } from "./lib/workspace.mjs";
 import { loadSnapshot } from "./lib/layout-inspector.mjs";
 import { buildEvidencePackage, summarise } from "./lib/evidence-package.mjs";
+import { measureRegion } from "./lib/region-measure.mjs";
+
+// The same pngjs visual-diff uses; the harness root carries no node_modules of its own.
+const require = createRequire(path.join(installRoot(), "tools", "visual-diff", "package.json"));
+
+/** The scaled reference and the render, decoded, when a measured pass left both. */
+function loadRasters(revisionDir) {
+  const referenceFile = path.join(revisionDir, "reference-scaled.png");
+  const renderFile = path.join(revisionDir, "output.png");
+  if (!fs.existsSync(referenceFile) || !fs.existsSync(renderFile)) return null;
+  try {
+    const { PNG } = require("pngjs");
+    const reference = PNG.sync.read(fs.readFileSync(referenceFile));
+    const render = PNG.sync.read(fs.readFileSync(renderFile));
+    return { reference, render };
+  } catch (err) {
+    process.stderr.write(`[evidence] rasters not readable, measuring from the snapshot alone: ${err.message}\n`);
+    return null;
+  }
+}
 
 function usage(code = 0) {
   process.stdout.write(
@@ -43,6 +65,7 @@ function usage(code = 0) {
       "  --mismatch <id>    build it for the region this mismatch names\n" +
       "  --all              one package per mismatch in visual-review.json\n" +
       "  --worst <n>        the n regions carrying the most measured difference, no review\n" +
+      "  --regions <a,b,c>  these regions, in this order (what render-and-diff ranks by mass)\n" +
       "                     needed — this is what a loop pass can ask before one exists\n" +
       "  --out <file>       also write the JSON there\n" +
       "  --root <dir>       workspace override (default: discovered)\n" +
@@ -65,6 +88,7 @@ function parseArgs(argv) {
     mismatch: null,
     all: false,
     worst: 0,
+    regions: [],
     out: null,
     root: null,
     json: false,
@@ -79,6 +103,7 @@ function parseArgs(argv) {
     else if (a === "--region") out.region = argv[++i];
     else if (a === "--mismatch") out.mismatch = argv[++i];
     else if (a === "--worst") out.worst = Number.parseInt(argv[++i], 10) || 0;
+    else if (a === "--regions") out.regions = String(argv[++i] ?? "").split(",").map((s) => s.trim()).filter(Boolean);
     else if (a === "--out") out.out = argv[++i];
     else if (a === "--root") out.root = argv[++i];
     else {
@@ -90,8 +115,8 @@ function parseArgs(argv) {
     process.stderr.write("[evidence] --project and --revision are both required\n");
     usage(2);
   }
-  if (!out.region && !out.mismatch && !out.all && !out.worst) {
-    process.stderr.write("[evidence] name a --region, a --mismatch, or pass --all / --worst <n>\n");
+  if (!out.region && !out.mismatch && !out.all && !out.worst && out.regions.length === 0) {
+    process.stderr.write("[evidence] name a --region, a --mismatch, --regions <a,b>, or pass --all / --worst <n>\n");
     usage(2);
   }
   return out;
@@ -183,6 +208,22 @@ function render(pkg) {
     lines.push("");
     lines.push("  Edit the owner named above, not the node that shows the symptom.");
   }
+  if (pkg.measured) {
+    const m = pkg.measured;
+    lines.push("");
+    if (m.shift) {
+      lines.push(
+        `  measured  ${m.shiftSource === "correlation" ? "by correlation (ink boxes clipped)" : m.shiftSource === "ink-box" ? "ink against ink" : "ink boxes (clipped; no shift believed)"}: dx ${m.shift.dx}${m.unit} dy ${m.shift.dy}${m.unit}` +
+          ` (width ${m.shift.dWidth >= 0 ? "+" : ""}${m.shift.dWidth}, height ${m.shift.dHeight >= 0 ? "+" : ""}${m.shift.dHeight}; tolerance ${m.tolerance}${m.unit})` +
+          (m.correlation ? ` · correlation dx ${m.correlation.dx} dy ${m.correlation.dy} at ${m.correlation.score}` : ""),
+      );
+    } else {
+      lines.push(`  measured  ${m.note}`);
+    }
+    if (m.reference?.clipped || m.render?.clipped) {
+      lines.push("            the ink ran past the widest window tried; the box is clipped and the shift is a lower bound");
+    }
+  }
   if (pkg.crops.length) {
     lines.push("");
     lines.push(`  crops     ${pkg.crops.join("  ")}`);
@@ -224,7 +265,16 @@ function main() {
 
   /** Region id + the mismatch that named it, for each thing asked for. */
   const targets = [];
-  if (args.worst) {
+  if (args.regions.length > 0) {
+    // Named by the caller, in the caller's order — what render-and-diff ranks
+    // by mass rather than by concentration alone.
+    for (const id of args.regions) {
+      const region = regions.find((r) => r.id === id);
+      if (!region) fail(3, `no region with id ${JSON.stringify(id)}. Declared: ${regions.map((r) => r.id).join(", ")}`);
+      const mismatch = (review?.mismatches ?? []).find((m) => m.region === region.id) ?? null;
+      targets.push({ region, mismatch });
+    }
+  } else if (args.worst) {
     // The ranking a loop pass can ask for before a review exists. `--all`
     // needs mismatches, and mismatches are written by the review — which is
     // the step that was supposed to consult this and did not, because by the
@@ -271,6 +321,22 @@ function main() {
     targets.push({ region, mismatch });
   }
 
+  // The rasters, when the pass left them: reference-scaled.png has the render's
+  // dimensions, so the two are one pixel space and a region's ink can be
+  // measured on both and subtracted. Absent (a bare render, an old revision),
+  // the package answers from the snapshot alone, as before.
+  const rasters = loadRasters(revisionDir);
+  const measure = (region) => {
+    if (!rasters || !region.bounds) return null;
+    try {
+      const m = measureRegion(rasters.reference, rasters.render, region.bounds);
+      return { ...m, space: { width: rasters.render.width, height: rasters.render.height } };
+    } catch (err) {
+      process.stderr.write(`[evidence] could not measure ${region.id} on the rasters: ${err.message}\n`);
+      return null;
+    }
+  };
+
   const packages = targets.map(({ region, mismatch }) =>
     buildEvidencePackage({
       region,
@@ -279,6 +345,7 @@ function main() {
       model,
       pagination,
       crops: (mismatch?.evidence ?? []).slice(0, 2),
+      measured: measure(region),
     }),
   );
 
