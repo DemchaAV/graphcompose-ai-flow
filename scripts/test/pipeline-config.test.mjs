@@ -366,20 +366,35 @@ test("every skill carries topic tags, and the always-loaded ones say so", () => 
   }
 });
 
-test("the built CLIs fail with an instruction, not a stack trace, when unbuilt", () => {
-  // dist/ is gitignored, so a fresh clone or plugin install has none. This is
-  // the first failure most new users would hit; it must be actionable.
-  for (const bin of [
-    "tools/revision-manager/bin/graphcompose-flow.mjs",
-    "tools/visual-diff/bin/visual-diff.mjs",
-  ]) {
-    const source = fs.readFileSync(path.join(repoRoot, bin), "utf8");
-    assert.match(source, /existsSync/, `${bin} does not check for its build output`);
-    assert.match(source, /npm run setup/, `${bin} does not name the fix`);
-    assert.ok(
-      !/^import ['"]\.\.\/dist/m.test(source),
-      `${bin} imports dist unconditionally, so the guard cannot run first`,
-    );
+test("no bin reaches dist/ without its package's build guard in front of it", () => {
+  // dist/ is gitignored, so a fresh clone or plugin install has none, and a
+  // checkout can carry one compiled before its src/. Both are handled in each
+  // package's bin/require-build.mjs — but only for the bins that call it, and
+  // `region-diff.mjs` and `mask-regions.mjs` were once two lines that imported
+  // dist/ directly, which is how a stale region ranking got reported as a
+  // measured one. This enumerates bin/ instead of a hand-kept list, so a new
+  // entry point cannot be added without a guard. What the guard then *does* is
+  // driven for real in scripts/test/build-freshness.test.mjs.
+  for (const tool of ["revision-manager", "visual-diff"]) {
+    const binDir = path.join(repoRoot, "tools", tool, "bin");
+    const guard = path.join(binDir, "require-build.mjs");
+    assert.ok(fs.existsSync(guard), `tools/${tool}/bin has no require-build.mjs`);
+
+    const guardSource = fs.readFileSync(guard, "utf8");
+    assert.match(guardSource, /existsSync/, `tools/${tool}: the guard does not check for its build output`);
+    assert.match(guardSource, /npm run setup/, `tools/${tool}: the guard does not name the fix`);
+    assert.match(guardSource, /npm run build --prefix/, `tools/${tool}: the guard does not name the cheap rebuild`);
+
+    const bins = fs.readdirSync(binDir).filter((name) => name.endsWith(".mjs") && name !== "require-build.mjs");
+    assert.ok(bins.length > 0, `tools/${tool}/bin has no entry points`);
+    for (const name of bins) {
+      const source = fs.readFileSync(path.join(binDir, name), "utf8");
+      assert.ok(
+        !/^import ['"]\.\.\/dist/m.test(source),
+        `tools/${tool}/bin/${name} imports dist statically, so the guard cannot run first`,
+      );
+      assert.match(source, /requireBuild\(/, `tools/${tool}/bin/${name} does not run the build guard`);
+    }
   }
 });
 

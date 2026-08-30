@@ -5,6 +5,44 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.22.0 — in progress
+
+### Fixed
+
+- **A stale build is refused, not run.** `revision-manager` and `visual-diff`
+  ship as TypeScript and run from a gitignored `dist/`. Every guard in the tree
+  asked whether that directory existed; none asked whether it was current, and
+  the two failures are not alike. A missing `dist/` exits 69 naming the fix. A
+  `dist/` merely *behind* `src/` loads and runs: it rejects flags it predates —
+  `error: unknown option '--report'` — and, worse, quietly does less than it was
+  asked, exiting 0 from a `new-revision` that carried no sources forward because
+  it was compiled before carrying them existed. Each package now owns one guard
+  (`bin/require-build.mjs`) that compares the newest mtime under `src/` against
+  the newest under `dist/` and stops with the one-line rebuild, `npm run build
+  --prefix tools/<tool>`. An absent `src/` is taken as current — the published
+  package ships `bin/` and `dist/` and no sources, and so does the adapters'
+  runtime copy.
+
+  This is what two red `pass.mjs --open` tests were: not a bug in `pass`, a
+  `dist/` compiled five days before the `--report` and carry-forward work. It
+  survived every attempt to revert it away, because `dist/` is gitignored and a
+  stash does not reach it, and it never showed in CI, which builds fresh on
+  every run.
+- **Every bin is guarded, not just the one named after its package.**
+  `visual-diff` has four entry points into one `dist/`, and `region-diff.mjs` —
+  the one `render-and-diff` spawns to rank regions — was two lines that imported
+  `dist/` directly, with no check of any kind. A stale build there returned an
+  older release's ranking as a measured one, and a missing build returned a
+  module-resolution stack trace that `render-and-diff` folded into
+  `not measured:`. `mask-regions.mjs` was the same; `crop-region.mjs`, which
+  three skills name, checked only for a missing build. All four now route
+  through the package's guard, and the contract test enumerates `bin/` instead
+  of a hand-kept list, so a new entry point cannot be added without one.
+- **A spawned command's failure is legible in the test that spawned it.**
+  `pass.test.mjs` asserted exit codes with only `stdout` as the message, so a
+  child that printed its reason on `stderr` failed with the `[workspace]` banner
+  and nothing else. Assertion messages now carry both streams.
+
 ## v0.21.0 — 2026-08-30
 
 **Why update.** If you are on 0.20.0, two of the four workflow skills —
