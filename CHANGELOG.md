@@ -134,6 +134,18 @@ inferred.
   tests — the branches that only exist on Windows (`mvn.cmd`, `cmd.exe` for
   Maven, the shell-less `javac` probe, the renderer-jar copy under `%TEMP%`,
   the project lock) had never run in CI.
+- **A guide for someone who has never done any of this.**
+  `docs/getting-started-from-zero.md`: which agent to pick and what to expect
+  from each, every tool with its download and its check, a Java project that
+  pins GraphCompose, the install per host, the first template step by step,
+  and a table of what each error means. The README points to it beside the
+  requirements.
+- **The hosts are described as they perform.** Codex has carried templates to
+  an approved published bundle to the same standard as Claude Code and is
+  recommended alongside it. Gemini CLI runs the workflow, and the templates
+  it produces are noticeably weaker — more passes, more corrections, more
+  hand-finishing — which is the model behind the host, not the harness. The
+  README, the Gemini adapter's README and the contract test say so.
 - **The page model outranks the focus.** A page the render never produced is
   the focus on REVISE as well as on READY; a reference stretched to fit the
   render while the page size is still unanswered is the focus above

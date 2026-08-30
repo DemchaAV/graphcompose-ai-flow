@@ -354,15 +354,26 @@ test("the README does not oversell what has not been verified", () => {
   const end = lines.findIndex((line, i) => i > start && /^- \*\*/.test(line));
   const codexSection = start === -1 ? "" : lines.slice(start, end === -1 ? undefined : end).join("\n");
   assert.ok(codexSection, "the README says nothing about Codex at all");
-  assert.match(
-    codexSection,
-    /\bnot\b[\s\S]{0,80}\brecorded\b/i,
-    "the README no longer says what about Codex is still unrecorded",
-  );
+  // The fact changed again on 2026-08-30: Codex has carried templates to an
+  // approved published bundle, to the same standard as Claude Code. What the
+  // README must still do is name that standard rather than wave at "works".
   assert.match(
     codexSection,
     /approved published bundle/i,
-    "the README does not name the thing still missing on Codex: a run carried to a published bundle",
+    "the README does not say what Codex has been carried through to: an approved published bundle",
+  );
+  // And the host whose results are weaker has to say so where a reader decides
+  // which agent to install. Gemini CLI runs the workflow; the templates it
+  // produces need more passes and more hand-finishing, and that is the model,
+  // not the packaging. A README that lists three hosts as equals oversells one.
+  const geminiStart = lines.findIndex((line) => /^- \*\*Gemini/i.test(line));
+  const geminiEnd = lines.findIndex((line, i) => i > geminiStart && /^- /.test(line));
+  const geminiSection = geminiStart === -1 ? "" : lines.slice(geminiStart, geminiEnd === -1 ? undefined : geminiEnd).join("\n");
+  assert.ok(geminiSection, "the README says nothing about Gemini CLI at all");
+  assert.match(
+    geminiSection,
+    /\b(weaker|weak|poor|not where to start|more corrections)\b/i,
+    "the README no longer says that Gemini's results are weaker than the other hosts'",
   );
   assert.match(readme, /needs-validation/, "the README hides the fixture/validation gap");
 });

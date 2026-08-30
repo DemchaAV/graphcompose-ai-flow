@@ -2,6 +2,14 @@
 
 Same skills, same tools, same contracts — only the packaging differs.
 
+**What to expect.** The extension installs and the workflow runs, and the
+templates Gemini CLI produces are noticeably weaker than Claude Code's or
+Codex's on the same reference: more passes to a comparable render, more
+corrections from you, more hand-finishing before approval. That is the
+model behind the host, not the harness — the skills and the tools are
+identical on all three. Use it when Gemini is the agent you have; start
+with one of the other two when you can.
+
 Gemini CLI has no plugins. It has **extensions**: one directory under
 `~/.gemini/extensions/<name>/` with a `gemini-extension.json` manifest,
 and conventional subdirectories the CLI picks up by itself — `commands/`

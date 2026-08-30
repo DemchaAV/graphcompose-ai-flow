@@ -76,6 +76,11 @@ You need Node 20+, Java 21+, Maven and ImageMagick, plus a Java project
 that pins GraphCompose — the version in *your* build file decides which
 skill pack the agent authors against.
 
+**Never done any of this before?** Start with
+[`docs/getting-started-from-zero.md`](docs/getting-started-from-zero.md):
+which agent to pick, every tool with its download and its check, the
+first template step by step, and what each error means.
+
 ### Sixty seconds, end to end
 
 Open your Java project — the one whose `pom.xml` or `build.gradle` pins
@@ -302,11 +307,14 @@ integration, no MCP server, no standalone runtime.
 - **Claude Code** is the host the loop was tuned on: sixteen templates —
   invoices, proposals, CVs, a poster — carried to an approved published
   bundle in one workspace, and every number above is from that corpus.
-- **Codex** fires the skill from a plain sentence, and the install is
-  self-contained with the clone deleted. What is **not** recorded there
-  is a run carried through to an approved published bundle.
-- **Gemini CLI** is packaged and validated structurally; no run has been
-  recorded on it.
+- **Codex** runs the same workflow to the same standard — templates
+  carried to an approved published bundle — and the install is
+  self-contained with the clone deleted. Recommended alongside Claude Code.
+- **Gemini CLI** is packaged, and the workflow runs on it; the templates
+  it produces are noticeably weaker — more passes, more corrections, more
+  hand-finishing. That is the model behind the host, not the harness:
+  the skills and tools are identical on all three. Usable; not where to
+  start.
 - The GraphCompose **2.2 pack** ships with five fixtures rendering
   identically to their baselines; the conceptual skills stay
   `needs-validation` on coverage — five fixtures are a subset of what
