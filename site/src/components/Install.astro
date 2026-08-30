@@ -20,7 +20,7 @@ const installs = [
     code: `/plugin marketplace add DemchaAV/graphcompose-ai-flow
 /plugin install ${project.pluginName}@${project.marketplaceName}`,
     after:
-      'Then, once: `npm run setup`. Two of the tools are TypeScript compiled into `dist/`, which is not committed, so a fresh install has no build output.',
+      'Then, once, inside the installed copy — `~/.claude/plugins/cache/graphcompose/graphcompose-flow/<version>/` — run `npm run setup`: two of the tools are TypeScript compiled into `dist/`, which is not committed. Again after every `/plugin update`, or let the first `preflight` of a run do it.',
     href: `${repoUrl}/blob/main/docs/plugin-installation.md`,
     label: 'docs/plugin-installation.md',
   },

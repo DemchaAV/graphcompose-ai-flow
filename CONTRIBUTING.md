@@ -9,19 +9,18 @@ honest about its limitations.
 
 ## Current state
 
-Phases 1 through 7 of the project plan are shipped. See
-[docs/roadmap.md](docs/roadmap.md) for the per-phase table and
-[docs/implementation-status.md](docs/implementation-status.md) for the
-honest claim-vs-reality matrix. GraphCompose 1.9.0 is reachable for
-fixture validation through Maven Central as
-`io.github.demchaav:graph-compose:1.9.0` (older pins ≤ 1.6.5 still
-resolve via JitPack as `com.github.DemchaAV:GraphCompose:vX.Y.Z`), and
-the five committed skill fixtures compile and run against it. The
-preview renderer now executes compiled templates and writes
-`output.pdf` / `output.png` (see the invoice and CV reference
-examples). The remaining gate is the full visual-baseline
-orchestration; until that pass lands, every skill in the manifest
-stays at `status: needs-validation`.
+The harness is an installable plugin for Claude Code, with Codex and
+Gemini CLI adapters: four workflow skills under `skills/workflows/`, the
+GraphCompose knowledge in versioned packs under `skills/versions/` (the
+active line is 2.2; 1.9, 1.7 and 1.6 are frozen), and the deterministic
+tools under `scripts/` and `tools/`. See [docs/roadmap.md](docs/roadmap.md)
+for the phase table and [docs/architecture.md](docs/architecture.md) for
+the layer split. The five committed skill fixtures compile, run and
+render against `io.github.demchaav:graph-compose:2.2.0` from Maven
+Central (pins ≤ 1.6.5 still resolve via JitPack as
+`com.github.DemchaAV:GraphCompose:vX.Y.Z`). The conceptual skills stay at
+`status: needs-validation` on coverage — five fixtures are a subset of
+what fourteen skills describe.
 
 Open contribution areas:
 
@@ -94,11 +93,12 @@ on the branch a user renders from.
 - **Branch per change.** Cut a topic branch off `main` for every flow update:
   `feat/<slug>`, `fix/<slug>`, `docs/<slug>`, or `chore/<slug>`. Do the work,
   render, and review there; `main` stays usable the whole time.
-- **Document work vs flow work.** Day-to-day template work (new revisions under
-  `examples/<project>/revisions/`) is the product output and lands through the
-  normal revision flow. Changes to the *tooling* — `scripts/`, the `tools/`
-  modules, `prompts/`, `skills/`, the docs — are "flow updates" and belong on a
-  topic branch.
+- **Document work vs flow work.** Day-to-day template work (new revisions in a
+  user's workspace, or under `examples/<project>/revisions/` when developing
+  the harness) is the product output and lands through the normal revision
+  flow. Changes to the *tooling* — `scripts/`, the `tools/` modules,
+  `skills/`, `config/`, `schemas/`, the docs — are "flow updates" and belong on
+  a topic branch.
 - **Merge when it is done.** When the change is finished and reviewed, merge the
   branch into `main` (fast-forward or PR) so `main` only ever moves forward in
   releasable steps.
@@ -138,7 +138,7 @@ Before requesting review:
       Cross-check every concrete method name against the real library
       before claiming it as supported.
 - [ ] Cross-references use the canonical paths under `docs/`, `skills/`,
-      `prompts/`, `examples/`, and `validation/`.
+      `scripts/`, `examples/`, and `validation/`.
 - [ ] If a revision-related change is made, the revision quality rules in
       the revision model docs still hold.
 - [ ] If a skill-related change is made, the skill quality rules in the

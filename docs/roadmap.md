@@ -9,9 +9,9 @@ the harness migration — described below and in
 ## Current phase
 
 The harness migration (Phase 0 of the new arc) has started. The
-seven original phases are shipped. GraphCompose 1.9.0
+seven original phases are shipped. GraphCompose 2.2.0
 is reachable for fixture validation through Maven Central as
-`io.github.demchaav:graph-compose:1.9.0` (JitPack
+`io.github.demchaav:graph-compose:2.2.0` (JitPack
 `com.github.DemchaAV:GraphCompose:vX.Y.Z` remains the fallback for
 pre-1.6.7 pins), and the five skill fixtures compile and run against
 it. `preview-renderer render` can

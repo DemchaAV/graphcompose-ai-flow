@@ -136,17 +136,38 @@ The repository's own test suite covers the same ground structurally
 
 ## One-time setup after installing
 
-**This step is not optional.** Two of the tools are TypeScript compiled
-into `dist/`, which is not committed, so a freshly installed copy has no
-build output and their dependencies are not installed:
+**This step is not optional, and it runs inside the installed copy.**
+Claude Code clones the marketplace and puts the plugin under
+
+```text
+~/.claude/plugins/cache/graphcompose/graphcompose-flow/<version>/
+```
+
+(`%USERPROFILE%\.claude\plugins\cache\…` on Windows). Two of the tools
+are TypeScript compiled into `dist/`, which is not committed, so that
+copy has no build output and its dependencies are not installed:
 
 ```bash
+cd ~/.claude/plugins/cache/graphcompose/graphcompose-flow/<version>
 npm run setup
 ```
 
 It checks the toolchain, then installs and builds the Node tools. Until
 it has run, `graphcompose-flow` and `visual-diff` exit with code 69 and
 tell you to run it — that message is the symptom, this is the fix.
+
+**After every `/plugin update`, again.** An update lands a new
+`<version>` directory beside the old one, unbuilt. The first
+`node scripts/preflight.mjs` of a run notices and runs setup for you
+(`--no-setup` to only report), so a run that starts with preflight — as
+the skills do — never meets the exit-69 message; a run that starts with a
+render does.
+
+The install is the whole repository — about 35 MB tracked plus the
+tools' `node_modules` after setup — because Claude Code copies the plugin
+source as-is; there is no trim list the way the Codex and Gemini
+adapters have. `examples/` and `assets/readme/` are documentation and are
+never read by a run.
 
 To check the toolchain without installing anything:
 

@@ -13,7 +13,7 @@
 > creates when it goes stale itself: it tells the reader what to trust.
 
 Current claim/reality matrix for the Phase 1-7 deliverables and CI.
-This file supersedes the historical audit notes in `AUDIT.md` when
+This file supersedes the historical audit notes in `history/AUDIT-2026-05.md` when
 they disagree with the current tree.
 
 Last checked: 2026-05-18.

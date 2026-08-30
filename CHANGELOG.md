@@ -117,6 +117,23 @@ inferred.
   and prints the `gh issue create` command for the library's repository. An
   engine defect on record is a workaround the harness teaches forever unless
   it reaches GraphCompose; the distance was that nobody wrote the issue.
+- **The install path is written down where a newcomer meets it.** The README
+  and `docs/plugin-installation.md` say *where* `npm run setup` runs — inside
+  `~/.claude/plugins/cache/graphcompose/graphcompose-flow/<version>/` — and
+  that every `/plugin update` lands a new, unbuilt version directory (the
+  first `preflight` builds it). The README opens with a sixty-second path
+  that includes `init-workspace`, which it had never mentioned, and its
+  status section is six bullets instead of forty-six lines. A new
+  `docs/how-similarity-is-measured.md` says what each figure a pass prints
+  is and why none of them is a gate. `CONTRIBUTING.md`, `docs/quickstart.md`,
+  `docs/limitations.md`, `docs/roadmap.md` and `docs/overview.md` no longer
+  describe GraphCompose 1.9.0 as the line under test or `prompts/` as a
+  directory; the 2026-05 audit moved to `docs/history/`.
+- **CI walks the Windows path.** A `windows-latest` job runs `setup.ps1`,
+  preflight against the harness's own example project, and the harness
+  tests — the branches that only exist on Windows (`mvn.cmd`, `cmd.exe` for
+  Maven, the shell-less `javac` probe, the renderer-jar copy under `%TEMP%`,
+  the project lock) had never run in CI.
 - **The page model outranks the focus.** A page the render never produced is
   the focus on REVISE as well as on READY; a reference stretched to fit the
   render while the page size is still unanswered is the focus above

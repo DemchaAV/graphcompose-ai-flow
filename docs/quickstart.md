@@ -58,10 +58,10 @@ whatever is missing (`winget` on Windows, `brew` on macOS, `apt-get`
 elsewhere). It never installs anything itself: these are system packages,
 and a setup script that installs those unasked has overstepped.
 
-GraphCompose 1.9.0 is resolved by Maven through Maven Central as:
+The active line, GraphCompose 2.2.x, is resolved by Maven through Maven Central as:
 
 ```text
-io.github.demchaav:graph-compose:1.9.0
+io.github.demchaav:graph-compose:2.2.0
 ```
 
 Older pins (≤ v1.6.5) continue to resolve through JitPack as
@@ -296,7 +296,7 @@ That runner shows how to:
 
 - copy the selected revision's `generated-template.java` into Maven
   generated sources
-- compile it against GraphCompose 1.9.0
+- compile it against the GraphCompose version the project pins (2.2.x today)
 - provide sample business data through a spec provider
 - call `tools/preview-renderer` to write `output.pdf` and `output.png`
 

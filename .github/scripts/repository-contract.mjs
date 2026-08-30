@@ -2,7 +2,7 @@
 // Repository-contract checks. Run from the repo root.
 //
 // Validates that the on-disk state of the repository matches the
-// contract the plan and AUDIT.md spell out:
+// contract the plan and the 2026-05 audit (docs/history/AUDIT-2026-05.md) spell out:
 //
 //   1. Every skill listed in skills/skill-manifest.json exists AND
 //      has YAML frontmatter with skillId / targetVersion / status /

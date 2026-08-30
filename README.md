@@ -27,11 +27,20 @@ file, the assets resolved and recorded, and every revision kept.
 /plugin install graphcompose-flow@graphcompose
 ```
 
-Then, once: `npm run setup` — two of the tools are TypeScript compiled
-into `dist/`, which is not committed, so a fresh install has no build
-output. Until setup has run, those two exit with code 69 and say so.
-Full instructions and troubleshooting:
-[`docs/plugin-installation.md`](docs/plugin-installation.md).
+Then, once, **inside the installed plugin** — Claude Code puts it under
+`~/.claude/plugins/cache/graphcompose/graphcompose-flow/<version>/`:
+
+```bash
+cd ~/.claude/plugins/cache/graphcompose/graphcompose-flow/<version>
+npm run setup
+```
+
+Two of the tools are TypeScript compiled into `dist/`, which is not
+committed, so a fresh install has no build output; until setup has run,
+those two exit with code 69 and say so. Every `/plugin update` lands a
+new `<version>` directory, so run it again after updating — or let the
+first `preflight` of a run do it, which it will. Full instructions and
+troubleshooting: [`docs/plugin-installation.md`](docs/plugin-installation.md).
 
 ### Codex
 
@@ -66,6 +75,24 @@ clone is not needed afterwards either. Restart Gemini CLI, then
 You need Node 20+, Java 21+, Maven and ImageMagick, plus a Java project
 that pins GraphCompose — the version in *your* build file decides which
 skill pack the agent authors against.
+
+### Sixty seconds, end to end
+
+Open your Java project — the one whose `pom.xml` or `build.gradle` pins
+`io.github.demchaav:graph-compose` — in Claude Code, and:
+
+```text
+1.  node scripts/preflight.mjs --project-dir .        # version, pack, tools; builds what is unbuilt
+2.  node scripts/init-workspace.mjs --project-dir . --project my-invoice
+3.  drop the reference in the chat and say: "Create a GraphCompose invoice template from this"
+```
+
+The workspace step matters more than it looks: without it the work lands
+inside the plugin install, which is replaced on the next update. From
+there the skill runs the loop — analyse, author, render, compare, fix one
+cause, repeat — and stops at `READY_FOR_APPROVAL` with the paths to
+`output.pdf` and `output.png`. Say "approve" when it is right, and the
+bundle lands under `graphcompose-flow/templates/`.
 
 ### Keep the document open while it works
 
@@ -270,52 +297,27 @@ Five things make that more than a prompt:
 including what this project deliberately does **not** build: no LLM API
 integration, no MCP server, no standalone runtime.
 
-## What is honest about the current state
+## What is proven, and what is not
 
-- The four workflow skills, the tools, the schemas, the packaging and
-  the CI gates are in place; `npm run verify` runs every gate locally.
-  The eleven-agent prompt chain they replaced has been removed.
-- **Claude Code acceptance has been run** three times. Twice on the
-  templates above — the skill fired from a plain sentence, the version
-  came from the project's `pom.xml`, the workspace landed in the Java
-  project, and both reached an approved published bundle. A third, an
-  invoice, walked the flowing-document path end to end: five line items
-  render one page reading "Page 1 of 1", thirty render three pages
-  numbered through with the table header repeated and no row lost. It
-  stopped at ready-for-approval and was not approved.
-- **Codex fires the skill from a plain sentence too** — observed, with
-  Codex announcing the workflow by name before doing anything. So skill
-  discovery and natural-language activation are no longer open questions
-  on either host, and the install is proven self-contained with the clone
-  deleted. What is **not** recorded there is a full run carried through to
-  an approved published bundle; until it is, host parity rests on the
-  contract test rather than on a second measured run.
-- **Gemini CLI is packaged, and no run has been recorded there.** The
-  extension installs, `gemini extensions validate` accepts it on 0.36.0,
-  and the contract tests hold — the manifest, the four commands, the
-  hooks on Gemini's event names, and the runtime sitting inside the skill
-  directory because that is the only thing activation grants read access
-  to. What is missing is use: no activation from a plain sentence
-  observed, and no template carried to an approved bundle. It is the
-  newest packaging, proven structurally and not yet in anger.
-- The GraphCompose **2.2 pack ships** and its five fixtures compile,
-  test and render against 2.2.0 with every render identical to its
-  baseline. The conceptual skills stay `needs-validation` on coverage —
-  five fixtures are a subset of what fourteen skills describe. See
-  [`skills/README.md`](skills/README.md).
-- **The layout diagnostics are built and their effect is not proven.**
-  The tools measurably do what they were built to do: 749 of 988
-  coordinate queries on a real CV resolve to an exact derivation, an
-  evidence package is 78× smaller than the snapshot it replaces, the font
-  matcher names the right family first six times out of six. But no
-  project has yet been *authored* with them in place, so the corpus has
-  not moved and all three headline metrics — owner correct on first
-  attempt, renders per geometry correction, collateral nodes per revision
-  — are still null. Capability and effect are different claims;
-  [`docs/benchmarks.md`](docs/benchmarks.md) keeps them apart and says
-  exactly what would settle the second.
-- Details and scope limits: [`docs/limitations.md`](docs/limitations.md),
-  progress: [`docs/roadmap.md`](docs/roadmap.md).
+- **Claude Code** is the host the loop was tuned on: sixteen templates —
+  invoices, proposals, CVs, a poster — carried to an approved published
+  bundle in one workspace, and every number above is from that corpus.
+- **Codex** fires the skill from a plain sentence, and the install is
+  self-contained with the clone deleted. What is **not** recorded there
+  is a run carried through to an approved published bundle.
+- **Gemini CLI** is packaged and validated structurally; no run has been
+  recorded on it.
+- The GraphCompose **2.2 pack** ships with five fixtures rendering
+  identically to their baselines; the conceptual skills stay
+  `needs-validation` on coverage — five fixtures are a subset of what
+  fourteen skills describe.
+- The pixel figure never reaches zero against a rasterised reference and
+  never will; the perceptual figure beside it is provisional until it has
+  been measured against a person's judgement. Both are quoted, neither is
+  a gate — [`docs/how-similarity-is-measured.md`](docs/how-similarity-is-measured.md)
+  says exactly what each number is.
+- Scope limits: [`docs/limitations.md`](docs/limitations.md). The measured
+  baseline and what would move it: [`docs/benchmarks.md`](docs/benchmarks.md).
 
 ## For agents
 

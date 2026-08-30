@@ -232,3 +232,31 @@ jobs:
       # The strict visual-diff vs baseline is a local developer check.
       - name: render skill fixtures through preview-renderer
         run: node scripts/validate-skills.mjs --render-only
+
+  windows-install:
+    # The path a Windows user actually walks, which nothing above walks: the
+    # setup script through PowerShell, preflight resolving a version from a
+    # pom, one revision rendered through the javac fast path, and the harness
+    # tests. Everything else runs on Linux, and the Windows-only branches —
+    # mvn.cmd, cmd.exe for Maven, the shell-less javac probe, the renderer-jar
+    # copy under %TEMP%, the project lock — were never exercised by CI.
+    name: windows install and one render
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: setup (the script a user runs once)
+        shell: pwsh
+        run: ./setup.ps1
+      - name: preflight against the harness's own example project
+        shell: pwsh
+        run: node scripts/preflight.mjs --no-setup --project-dir examples/cv-reference/render-runner --json
+      - name: harness tests
+        shell: pwsh
+        run: npm test
