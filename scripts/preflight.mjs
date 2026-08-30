@@ -586,9 +586,13 @@ function describeTools() {
     // only `magick` reported the tool absent inside this repository's own
     // devcontainer, which installs IM6 and sets MAGICK_BINARY=convert.
     imagemagick:
-      [process.env.MAGICK_BINARY, "magick", "convert"]
-        .filter((name) => typeof name === "string" && name.trim() !== "")
-        .some((name) => onPath(name, ["-version"])),
+      // An explicit MAGICK_BINARY is a path, and the hint this report prints
+      // suggests one with spaces in it (Program Files); through a shell that
+      // splits on spaces it would never verify. A path is checked as a file.
+      (typeof process.env.MAGICK_BINARY === "string" &&
+        process.env.MAGICK_BINARY.trim() !== "" &&
+        (fs.existsSync(process.env.MAGICK_BINARY) || onPath(process.env.MAGICK_BINARY, ["-version"]))) ||
+      ["magick", "convert"].some((name) => onPath(name, ["-version"])),
     java: onPath("java", ["-version"]),
     maven: onPath(process.platform === "win32" ? "mvn.cmd" : "mvn", ["-v"]),
   };

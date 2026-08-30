@@ -172,9 +172,15 @@ export function scanCalibration(source, options = {}) {
 
 /** Which of a revision's Java files is which. */
 export function classifyJavaFile(name, source) {
+  // The file name first: a template with a nested Theme class is still the
+  // template, and must not be exempted from the gate by a substring in it.
   if (/Test\.java$/i.test(name)) return "other";
-  if (/Theme\w*\.java$/i.test(name) || /\bclass\s+\w*Theme\b/.test(source)) return "theme";
   if (/Spec(Provider)?\.java$/i.test(name)) return "other";
-  if (/Template\.java$/i.test(name) || /generated-template\.java$/i.test(name) || /\bclass\s+\w*Template\b/.test(source)) return "template";
+  if (/Template\.java$/i.test(name) || /generated-template\.java$/i.test(name)) return "template";
+  if (/Theme\w*\.java$/i.test(name)) return "theme";
+  // Only when the name says nothing: classify by the top-level class declared.
+  const declared = /^\s*(?:public\s+)?(?:final\s+)?class\s+(\w+)/m.exec(source)?.[1] ?? "";
+  if (/Template$/.test(declared)) return "template";
+  if (/Theme$/.test(declared)) return "theme";
   return "other";
 }

@@ -190,11 +190,62 @@ export function correlateShift(referencePng, renderPng, bounds, { radius = 0.06,
     }
   }
   if (best.score === -Infinity) return null;
-  // The template's origin in the search window at the coarse level is
-  // (crop.x0 - search.x0) / factor; the offset from there is the shift.
-  const dx = (best.ox * factor + search.x0) - crop.x0;
-  const dy = (best.oy * factor + search.y0) - crop.y0;
-  return { dx, dy, score: Math.round(best.score * 1000) / 1000, radiusPx };
+  // The coarse answer is quantised to `factor` pixels, against a tolerance of
+  // a few points. Refine at full resolution in a one-cell neighbourhood of
+  // the best coarse offset — the template is scored at every integer offset
+  // within ±factor of it — so the shift is exact to the pixel.
+  const coarseX = best.ox * factor + search.x0;
+  const coarseY = best.oy * factor + search.y0;
+  const full = refineShift(referencePng, renderPng, crop, coarseX, coarseY, factor);
+  const dx = full.x - crop.x0;
+  const dy = full.y - crop.y0;
+  return { dx, dy, score: Math.round(full.score * 1000) / 1000, radiusPx };
+}
+
+/** NCC at full resolution over the offsets within ±radius of (x0, y0). */
+function refineShift(referencePng, renderPng, crop, x0, y0, radius) {
+  const w = crop.x1 - crop.x0;
+  const h = crop.y1 - crop.y0;
+  const t = new Float32Array(w * h);
+  let tMean = 0;
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      const v = luma(referencePng.data, ((crop.y0 + y) * referencePng.width + (crop.x0 + x)) * 4);
+      t[y * w + x] = v;
+      tMean += v;
+    }
+  }
+  tMean /= t.length;
+  let tVar = 0;
+  for (let i = 0; i < t.length; i += 1) {
+    t[i] -= tMean;
+    tVar += t[i] * t[i];
+  }
+  let best = { x: x0, y: y0, score: -Infinity };
+  if (tVar < 1e-6) return { x: x0, y: y0, score: 0 };
+  for (let oy = y0 - radius; oy <= y0 + radius; oy += 1) {
+    if (oy < 0 || oy + h > renderPng.height) continue;
+    for (let ox = x0 - radius; ox <= x0 + radius; ox += 1) {
+      if (ox < 0 || ox + w > renderPng.width) continue;
+      let sMean = 0;
+      for (let y = 0; y < h; y += 1) {
+        for (let x = 0; x < w; x += 1) sMean += luma(renderPng.data, ((oy + y) * renderPng.width + (ox + x)) * 4);
+      }
+      sMean /= t.length;
+      let num = 0;
+      let sVar = 0;
+      for (let y = 0; y < h; y += 1) {
+        for (let x = 0; x < w; x += 1) {
+          const b = luma(renderPng.data, ((oy + y) * renderPng.width + (ox + x)) * 4) - sMean;
+          num += t[y * w + x] * b;
+          sVar += b * b;
+        }
+      }
+      const score = sVar < 1e-6 ? 0 : num / Math.sqrt(tVar * sVar);
+      if (score > best.score) best = { x: ox, y: oy, score };
+    }
+  }
+  return best.score === -Infinity ? { x: x0, y: y0, score: 0 } : best;
 }
 
 /**

@@ -24,10 +24,13 @@ export function writeFileAtomic(file, content, encoding = "utf8") {
     fs.renameSync(tmp, file);
   } catch (err) {
     // Windows refuses to rename over a file another process holds open.
-    // Fall back to an in-place write rather than leaving nothing, and remove
-    // the temp file either way.
+    // Fall back to an in-place write; a fallback that succeeded is a success,
+    // whatever the rename said. The temp file goes either way.
     try {
       fs.writeFileSync(file, content, encoding);
+      return;
+    } catch (fallback) {
+      throw fallback;
     } finally {
       try {
         fs.unlinkSync(tmp);
@@ -35,7 +38,6 @@ export function writeFileAtomic(file, content, encoding = "utf8") {
         /* already gone */
       }
     }
-    if (err?.code !== "EPERM" && err?.code !== "EBUSY" && err?.code !== "EEXIST") throw err;
   }
 }
 

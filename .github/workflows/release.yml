@@ -43,11 +43,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag || github.ref_name }}
+          # Through the environment, never interpolated into the script: the
+          # title comes from the CHANGELOG, and a quote or a dollar in it would
+          # otherwise be shell.
+          TITLE: ${{ steps.notes.outputs.title }}
         run: |
           # Idempotent: a re-run of a published tag edits the notes rather than
           # failing, which is what makes workflow_dispatch usable for backfill.
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --title "${{ steps.notes.outputs.title }}" --notes-file "$RUNNER_TEMP/notes.md"
+            gh release edit "$TAG" --title "$TITLE" --notes-file "$RUNNER_TEMP/notes.md"
           else
-            gh release create "$TAG" --title "${{ steps.notes.outputs.title }}" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
+            gh release create "$TAG" --title "$TITLE" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
           fi

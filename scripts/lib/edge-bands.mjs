@@ -45,8 +45,28 @@ export function edgeBand(png, edge, { fraction = EDGE_FRACTION } = {}) {
   const bands = inkBands(png, window, { gap: 1 }).filter((b) => b.y1 - b.y0 >= MIN_BAND_HEIGHT);
   if (bands.length === 0) return null;
   const band = edge === "top" ? bands[0] : bands[bands.length - 1];
+  // Furniture stands apart from the body: a page number has blank rows above
+  // it, a masthead blank rows below. A band that runs straight into its
+  // neighbour is the body's last (or first) line, and comparing that would
+  // turn a wrap difference into a "footer" finding on a footerless page.
+  const clearance = Math.max(2, Math.round(png.height * FURNITURE_CLEARANCE_FRACTION));
+  const neighbour = edge === "top" ? bands[1] : bands[bands.length - 2];
+  const separated = edge === "top"
+    ? (neighbour ? neighbour.y0 - band.y1 >= clearance : true)
+    : (neighbour ? band.y0 - neighbour.y1 >= clearance : bandStandsClear(png, band, clearance));
+  if (!separated) return null;
   return { y0: band.y0, y1: band.y1, x0: band.x0, x1: band.x1, height: band.y1 - band.y0 };
 }
+
+/** Blank rows above a band, measured on the page rather than inside the strip. */
+function bandStandsClear(png, band, clearance) {
+  const above = { x0: 0, x1: png.width, y0: Math.max(0, band.y0 - clearance), y1: band.y0 };
+  if (above.y1 <= above.y0) return true;
+  return inkBands(png, above, { gap: 0 }).length === 0;
+}
+
+/** Blank rows that have to separate furniture from the body, as a page fraction. */
+export const FURNITURE_CLEARANCE_FRACTION = 0.01;
 
 /**
  * Compare the furniture at both edges.

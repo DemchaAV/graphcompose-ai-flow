@@ -658,3 +658,28 @@ test("furniture where the reference has it leaves READY alone", () => {
   assert.deepEqual(parsed.furniture.defects, []);
   assert.notEqual(parsed.loop.focusSource, "furniture");
 });
+
+test("the harness's focus is written beside the review, and iterate-status reports the same focus", () => {
+  const s = scenario({ verdict: "REVISE", label: "harness-focus" });
+  addPages(s, { reference: [[2, 200]] });
+  const { parsed } = runCli(s.root, ["--json"]);
+  assert.equal(parsed.loop.focus, "missing-pages");
+  const written = JSON.parse(fs.readFileSync(path.join(s.revision, "harness-focus.json"), "utf8"));
+  assert.equal(written.focus, "missing-pages");
+  assert.equal(written.focusSource, "page-parity");
+
+  const status = spawnSync(
+    process.execPath,
+    [path.join(repoRoot, "scripts", "iterate-status.mjs"), "demo", "--root", s.root, "--json"],
+    { encoding: "utf8" },
+  );
+  const parsedStatus = JSON.parse(status.stdout);
+  assert.equal(parsedStatus.largestMismatch, "missing-pages", "the two commands must name one focus");
+  assert.equal(parsedStatus.focusSource, "page-parity");
+
+  // Once the page model closes, the file goes and the review's focus is back.
+  addPages(s, { render: [[2, 200]] });
+  const again = runCli(s.root, ["--json"]);
+  assert.equal(again.parsed.loop.focus, "header-height");
+  assert.ok(!fs.existsSync(path.join(s.revision, "harness-focus.json")));
+});

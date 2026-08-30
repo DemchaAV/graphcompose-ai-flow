@@ -36,6 +36,16 @@ test("reading a template through the shell is refused, with source.mjs named", (
   allowed("rg ITEM_CELL_INSET revisions/revision-002/GeneratedInvoiceTemplate.java");
 });
 
+test("a reader in another pipeline segment, git and Maven output, and the env prefix all pass", () => {
+  allowed("mvn -q -f render-runner/pom.xml package 2>&1 | grep -i Template.java");
+  allowed("git log --oneline -- revisions/revision-002/GeneratedCvTemplate.java | head -5");
+  allowed("git diff HEAD~1 -- GeneratedCvTemplate.java | cat");
+  allowed("ls revisions/revision-002/ && head -3 cv-data.json");
+  allowed("GRAPHCOMPOSE_GUARD=off cat GeneratedCvTemplate.java");
+  const verdict = judgeCommand("cat GeneratedCvTemplate.java");
+  assert.match(verdict.message, /prefix the command: GRAPHCOMPOSE_GUARD=off/);
+});
+
 test("template sources may still be built, listed, hashed and edited through the harness", () => {
   allowed("node scripts/source.mjs symbol renderHeader --project x --revision revision-001");
   allowed("ls revisions/revision-001/");

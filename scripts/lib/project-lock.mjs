@@ -57,11 +57,13 @@ export function acquireProjectLock(projectDir, options = {}) {
   const session = options.session ?? options.env?.CLAUDE_CODE_SESSION_ID ?? process.env.CLAUDE_CODE_SESSION_ID ?? null;
   const record = { pid: process.pid, session, since: new Date().toISOString() };
 
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  let held = false;
+  for (let attempt = 0; attempt < 3 && !held; attempt += 1) {
     try {
       const fd = fs.openSync(file, "wx");
       fs.writeSync(fd, `${JSON.stringify(record, null, 2)}\n`);
       fs.closeSync(fd);
+      held = true;
       break;
     } catch (err) {
       if (err?.code !== "EEXIST") throw err;
@@ -74,13 +76,32 @@ export function acquireProjectLock(projectDir, options = {}) {
       if (holder && holder.pid !== process.pid && alive(holder.pid)) {
         throw new ProjectLockedError(holder, file);
       }
-      // Stale (dead pid, unreadable, or our own): take it over.
+      if (!holder) {
+        // Unreadable: either a stale fragment or another process mid-write.
+        // Give a writer a moment before deciding it is stale.
+        const started = Date.now();
+        while (Date.now() - started < 150) {
+          /* spin briefly; the lock is taken synchronously by design */
+        }
+        try {
+          holder = JSON.parse(fs.readFileSync(file, "utf8"));
+          if (holder && holder.pid !== process.pid && alive(holder.pid)) {
+            throw new ProjectLockedError(holder, file);
+          }
+        } catch (again) {
+          if (again instanceof ProjectLockedError) throw again;
+        }
+      }
+      // Stale (dead pid, still unreadable, or our own): take it over.
       try {
         fs.unlinkSync(file);
       } catch {
         /* someone else removed it first; the retry will tell */
       }
     }
+  }
+  if (!held) {
+    throw new Error(`[render] could not take the render lock at ${file} after three attempts; another render keeps winning it`);
   }
 
   let released = false;

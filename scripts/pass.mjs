@@ -46,7 +46,6 @@ import {
   resolveWorkspace,
 } from "./lib/workspace.mjs";
 import { describeAttempts, readAttempts } from "./lib/attempts.mjs";
-import { readLimitations } from "./lib/limitations.mjs";
 
 const repoRoot = installRoot();
 

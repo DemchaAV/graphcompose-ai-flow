@@ -423,7 +423,10 @@ step("diff", (entry) => {
       // the same renderer differ only where something changed, and a gate that
       // reads "0" while forgiving a shifted anti-aliased edge is not the gate
       // the docs quote.
-      diffArgs.push("--threshold", "0");
+      // And with anti-aliased pixels counted: pixelmatch's detector would
+      // otherwise discard a shifted glyph edge as "anti-aliasing", and an
+      // exact gate that forgives a one-pixel text shift is not exact.
+      diffArgs.push("--threshold", "0", "--include-aa");
     }
 
     const diffed = run(path.join(repoRoot, "tools", "visual-diff", "bin", "visual-diff.mjs"), diffArgs);
@@ -1007,6 +1010,11 @@ step("attempt", (entry) => {
 });
 
 step("loop verdict", (entry) => {
+  // This pass re-derives the harness's focus from what it just measured; a
+  // file left by the previous pass must not be read back as this pass's
+  // finding, or a closed page model would stay the focus forever.
+  fs.rmSync(path.join(revisionDir, "harness-focus.json"), { force: true });
+
   // The verdict is formed from the review, and on a fresh pass the review does
   // not exist yet: this command renders and measures, the reviewer judges, and
   // only then can iterate-status say whether the loop may continue. Asking it
@@ -1018,13 +1026,40 @@ step("loop verdict", (entry) => {
   // With a review in place (a re-measure with --skip-render, or a pass whose
   // review was written before re-running) the verdict is real and is asked for.
   if (!fs.existsSync(path.join(revisionDir, "visual-review.json"))) {
+    // The bounds still apply to an unreviewed render: three build failures
+    // in a row, or a chain whose budget is spent, is BLOCKED whether or not
+    // this pass has been judged yet. Ask, and let BLOCKED stand; anything else
+    // is "awaiting review".
+    const bounds = run(path.join(repoRoot, "scripts", "iterate-status.mjs"), [
+      args.project, "--revision", args.revision, "--root", workspace.root, "--json",
+    ]);
+    let status = null;
+    try {
+      status = JSON.parse(bounds.stdout);
+    } catch {
+      status = null;
+    }
+    if (status?.verdict === "BLOCKED") {
+      result.loop = {
+        verdict: "BLOCKED",
+        focus: status.largestMismatch,
+        focusSource: status.focusSource,
+        rootCause: status.rootCause,
+        iterations: status.iterations,
+        remaining: status.remaining,
+        failureCategory: status.failureCategory,
+        next: `stop: ${status.failureCategory} — ${status.reasons?.[0] ?? "a bound was reached"}`,
+      };
+      entry.detail = `BLOCKED (${status.failureCategory}) before any review: ${status.reasons?.[0] ?? ""}`;
+      return;
+    }
     result.loop = {
       verdict: "REVISE",
       focus: "awaiting-review",
       focusSource: "harness",
       rootCause: null,
-      iterations: null,
-      remaining: null,
+      iterations: status?.iterations ?? null,
+      remaining: status?.remaining ?? null,
       failureCategory: null,
       next:
         "measured, not yet judged: read regions.ranked and evidence, write visual-review.json " +
@@ -1183,6 +1218,36 @@ if (result.links?.missing?.length && result.loop?.verdict === "READY_FOR_APPROVA
   result.loop.next =
     `wire ${result.links.missing.length} declared link(s) into the render: ${targets}` +
     ` — the data has the href, the PDF has no such target`;
+}
+
+// The harness's own focus, when one of the overrides above set it, written
+// beside the review so iterate-status forms the same answer. Before this the
+// overrides lived only in this command's rewrite of result.loop: pass printed
+// "page-size-unsettled" while iterate-status — which computes the same-cause
+// bound — printed the review's largestMismatch, and a reviewer naming a
+// different region each pass reset the bound every time. One file, two
+// readers, one focus.
+const HARNESS_FOCUS_SOURCES = new Set(["page-parity", "furniture", "region-role", "link-integrity", "document-integrity"]);
+const harnessFocusFile = path.join(revisionDir, "harness-focus.json");
+if (result.loop && HARNESS_FOCUS_SOURCES.has(result.loop.focusSource)) {
+  fs.writeFileSync(
+    harnessFocusFile,
+    `${JSON.stringify(
+      {
+        schemaVersion: 1,
+        focus: result.loop.focus,
+        focusSource: result.loop.focusSource,
+        next: result.loop.next,
+        at: new Date().toISOString(),
+        $comment: "Written by render-and-diff when a measured fact outranks the review's focus; read by iterate-status. Rewritten or removed on the next pass.",
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+} else if (fs.existsSync(harnessFocusFile)) {
+  fs.unlinkSync(harnessFocusFile);
 }
 
 const EXIT = { READY_FOR_APPROVAL: 0, REVISE: 2, BLOCKED: 3, CONVERGENCE_LIMIT_REACHED: 4 };

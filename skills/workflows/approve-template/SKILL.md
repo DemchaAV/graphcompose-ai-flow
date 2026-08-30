@@ -55,6 +55,21 @@ What it enforces, so you do not have to:
 - A `REVISE` verdict does not block — the human approving *is* the
   decision — but it is recorded as `verdictAtApproval`, and you should
   mention it in one sentence when reporting.
+- **The quality gate does block, and it is about the code, not the
+  render.** Before approving, the command reads the template for what the
+  authoring rules forbid: a negative-inset cluster, a repeated sibling
+  inset, a hand-built semantic pattern, reference-pixel arithmetic in a
+  render method, a face's metric as a layout term, more than ten
+  two-decimal layout literals (`check-structural-smells`,
+  `check-calibration`). The person approving judged the render and did not
+  read the code; this is the one step that does. On a refusal, report the
+  findings and the fix each names — move calibrated values into the theme
+  as tokens, replace reference arithmetic with anchors, put a shared inset
+  on the parent — and open a revision for it. If the user decides it ships
+  anyway, the waiver is theirs to give, in their words:
+  `--waive-quality "<at least 60 characters saying what was judged and why it ships>"`,
+  recorded as `quality-waiver.json` beside the revision. Never write the
+  waiver on their behalf.
 - A link declared in the data that never reached the rendered PDF stops
   the approval, also before anything changes, and names the targets.
   This is the one thing the user cannot have judged: they were looking

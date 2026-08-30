@@ -92,6 +92,10 @@ describe('new-revision', () => {
       'skill-validation-report.md',
       'render.log',
       'attempts/001/output.png',
+      'attempts.json',
+      'human-report.json',
+      'quality-waiver.json',
+      'harness-focus.json',
     ];
     for (const [rel, body] of Object.entries(sources)) {
       await fs.mkdir(path.dirname(path.join(dir, rel)), { recursive: true });

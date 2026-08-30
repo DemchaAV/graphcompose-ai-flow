@@ -71,6 +71,8 @@ export const RENDER_ARTIFACT_PATTERNS: readonly RegExp[] = [
   /^(render|build|test-result)\.(log|md)$/i,
   /^user-request\.md$/i, // the new revision writes its own
   /^human-report\.json$/i, // a report is made against one revision; iterate-status carries it forward itself
+  /^quality-waiver\.json$/i, // a waiver is a decision about one revision's code, never inherited
+  /^harness-focus\.json$/i, // the harness's focus for one measured render; the next pass writes its own
   /^attempts\.json$/i, // every render-and-diff run on the parent, recorded by the harness
   /^attempts[/\\]/i, // in-revision render attempts, when a loop records them
 ];

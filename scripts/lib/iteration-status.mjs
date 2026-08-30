@@ -105,6 +105,10 @@ function loadLoop(projectDir, revisionId) {
       // stats file describes. A revision rendered ten times is ten measurements,
       // and the bounds below are about measurements, not folders.
       attempts: readAttempts(dir),
+      // A measured fact that outranks the review's focus — a missing page, a
+      // stretched reference, furniture out of place, a dead link — written by
+      // render-and-diff so that this module and that command name one focus.
+      harnessFocus: readJsonOr(path.join(dir, "harness-focus.json")),
     });
     cursor = revision.parentRevisionId;
   }
@@ -157,6 +161,13 @@ function carryReportsForward(chain) {
  */
 function focusOf(entry, limitations = []) {
   const review = entry.review;
+  // The harness's own focus outranks the review's and the user's: while a
+  // page is missing or the reference was stretched, no other comparison means
+  // anything, and a dead link or a misplaced footer is a fact the review did
+  // not judge. Stable across passes, so the same-cause bound sees it.
+  if (entry.harnessFocus?.focus && typeof entry.harnessFocus.focus === "string") {
+    return { id: entry.harnessFocus.focus, source: entry.harnessFocus.focusSource ?? "harness", skipped: [] };
+  }
   if (!review) return { id: null, source: null, skipped: [] };
 
   const reported = review.humanReportedMismatch;

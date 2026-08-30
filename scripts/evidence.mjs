@@ -211,12 +211,25 @@ function render(pkg) {
   if (pkg.measured) {
     const m = pkg.measured;
     lines.push("");
-    if (m.shift) {
-      lines.push(
-        `  measured  ${m.shiftSource === "correlation" ? "by correlation (ink boxes clipped)" : m.shiftSource === "ink-box" ? "ink against ink" : "ink boxes (clipped; no shift believed)"}: dx ${m.shift.dx}${m.unit} dy ${m.shift.dy}${m.unit}` +
-          ` (width ${m.shift.dWidth >= 0 ? "+" : ""}${m.shift.dWidth}, height ${m.shift.dHeight >= 0 ? "+" : ""}${m.shift.dHeight}; tolerance ${m.tolerance}${m.unit})` +
-          (m.correlation ? ` · correlation dx ${m.correlation.dx} dy ${m.correlation.dy} at ${m.correlation.score}` : ""),
-      );
+    if (m.shift || m.correlation) {
+      // The headline is the shift the cause was decided on; the other
+      // measurement follows as the secondary figure.
+      const size = m.shift
+        ? ` (width ${m.shift.dWidth >= 0 ? "+" : ""}${m.shift.dWidth}, height ${m.shift.dHeight >= 0 ? "+" : ""}${m.shift.dHeight})`
+        : "";
+      if (m.shiftSource === "correlation" && m.correlation) {
+        lines.push(
+          `  measured  by correlation (ink boxes clipped): dx ${m.correlation.dx}${m.unit} dy ${m.correlation.dy}${m.unit} at ${m.correlation.score}` +
+            ` (tolerance ${m.tolerance}${m.unit})` +
+            (m.shift ? ` · ink boxes, clipped: dx ${m.shift.dx} dy ${m.shift.dy}${size}` : ""),
+        );
+      } else if (m.shift) {
+        lines.push(
+          `  measured  ${m.shiftSource === "ink-box" ? "ink against ink" : "ink boxes (clipped; no shift believed)"}: dx ${m.shift.dx}${m.unit} dy ${m.shift.dy}${m.unit}${size}` +
+            ` (tolerance ${m.tolerance}${m.unit})` +
+            (m.correlation ? ` · correlation dx ${m.correlation.dx} dy ${m.correlation.dy} at ${m.correlation.score}` : ""),
+        );
+      }
     } else {
       lines.push(`  measured  ${m.note}`);
     }

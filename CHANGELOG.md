@@ -160,6 +160,26 @@ what it found missing. Every item was observed in a real run, not inferred.
   it produces are noticeably weaker — more passes, more corrections, more
   hand-finishing — which is the model behind the host, not the harness. The
   README, the Gemini adapter's README and the contract test say so.
+- **One focus, two readers.** `render-and-diff` writes the harness's own focus
+  — a missing page, a stretched reference, furniture out of place, a dead
+  link — to `harness-focus.json` beside the review, and `iterate-status` reads
+  it before the review's `largestMismatch`. Before this the override lived
+  only in `render-and-diff`'s output: `pass` said `page-size-unsettled`,
+  `iterate-status` said whatever the reviewer named, and a reviewer naming a
+  different region each pass reset the same-cause bound every time. The file
+  is re-derived on every pass and removed when the fact closes. Found by the
+  pre-release review, with: `--against parent` counting anti-aliased pixels so
+  the exact gate is exact; a perceptual figure of `null`/`UNMEASURED` for an
+  image too small to hold a window (it read `IDENTICAL`) and the trailing
+  strip of a page now scored; the correlation refined to the pixel instead of
+  quantised to four; the furniture check requiring blank rows between a band
+  and the body so a footerless page's last line is not a footer; the guard
+  matching the reader and the template in one pipeline segment, passing git
+  and Maven, and honouring `GRAPHCOMPOSE_GUARD=off` as a command prefix;
+  stale `output-debug.*` removed when the debug pass is skipped; a fresh
+  `target/classes` before `javac`; `quality-waiver.json` and
+  `harness-focus.json` never carried into a child revision; the release title
+  passed to `gh` through the environment.
 - **The page model outranks the focus.** A page the render never produced is
   the focus on REVISE as well as on READY; a reference stretched to fit the
   render while the page size is still unanswered is the focus above

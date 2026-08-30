@@ -1131,3 +1131,30 @@ test("a review that marks the report addressed closes it for every later pass", 
   assert.equal(status.focusSource, "measured");
   assert.ok(!status.claims.blocking.some((c) => c.id === "human-report-open"));
 });
+
+// -------------------------------------------------------- harness focus ---
+
+test("a harness focus written by render-and-diff outranks the review's, and the bound counts it", () => {
+  // The same reviewer names a different region each pass while the page size
+  // stays unsettled; without the file the same-cause bound would reset every
+  // pass and only the flat ceiling would end the loop.
+  const dir = projectWith(
+    [
+      { verdict: "REVISE", mismatch: "header-height" },
+      { verdict: "REVISE", mismatch: "sidebar-width" },
+      { verdict: "REVISE", mismatch: "footer-gap" },
+    ],
+    "harness-focus",
+  );
+  for (const id of ["revision-001", "revision-002", "revision-003"]) {
+    fs.writeFileSync(
+      path.join(dir, "revisions", id, "harness-focus.json"),
+      JSON.stringify({ schemaVersion: 1, focus: "page-size-unsettled", focusSource: "page-parity", next: "settle it" }),
+    );
+  }
+  const status = computeIterationStatus({ projectDir: dir, config });
+  assert.equal(status.largestMismatch, "page-size-unsettled");
+  assert.equal(status.focusSource, "page-parity");
+  assert.equal(status.sameMismatchAttempts, 3, "three passes with the page model open are three attempts at it");
+  assert.equal(status.verdict, "CONVERGENCE_LIMIT_REACHED");
+});

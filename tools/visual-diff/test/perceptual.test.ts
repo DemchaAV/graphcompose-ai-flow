@@ -69,6 +69,24 @@ describe('perceptualSimilarity', () => {
     expect(r.ssim).toBeGreaterThan(0.3);
   });
 
+  it('an image too small for one window is UNMEASURED, not IDENTICAL', () => {
+    const a = page(30, 30, { x: 2, y: 2, w: 10, h: 10 });
+    const b = page(30, 30, null);
+    const r = perceptualSimilarity(a, b);
+    expect(r.ssim).toBeNull();
+    expect(r.classification).toBe('UNMEASURED');
+  });
+
+  it('the trailing strip of a page whose size is not a multiple of the window still counts', () => {
+    // 260 wide: 8 windows of 32 cover 256, and the block at x 256..260 is only
+    // seen by the edge-anchored window.
+    const a = page(260, 128, null);
+    const b = page(260, 128, { x: 244, y: 40, w: 16, h: 40 });
+    const r = perceptualSimilarity(a, b);
+    expect(r.ssim).toBeLessThan(1);
+    expect(r.worstWindow).not.toBeNull();
+  });
+
   it('refuses images of different sizes', () => {
     expect(() => perceptualSimilarity(page(64, 64, null), page(32, 64, null))).toThrow(/differ/);
   });

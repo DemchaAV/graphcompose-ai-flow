@@ -31,7 +31,8 @@
  *   - dataFileName        — defaults to "<docKind>-data.json"
  *   - pages               — defaults to 1 (only output.png is written)
  *   - runnerPomRelPath    — defaults to "render-runner/pom.xml"
- *   - debugPass           — defaults to true
+ *   - debugPass           — defaults to false; true renders the guide-line PDF on
+ *                           every pass (RENDER_DEBUG=1 does it for one pass)
  *   - assetResolverEnabled — defaults to true (and only fires when
  *                            asset-request.json actually exists in the
  *                            revision folder)
@@ -520,7 +521,17 @@ export function runRender({
   live.manifest({ projectId, revisionId, revisionDir, hasDebug: false });
 
   if (!debugPass) {
-    console.log(`> debug pass skipped by project config`);
+    // A debug render from an earlier pass describes an earlier render; left
+    // in place it would be published beside this one as "the same page with
+    // guides on" and served by the live mirror as current. Remove it.
+    for (const stale of fs.readdirSync(revisionDir).filter((n) => /^output-debug.*\.(pdf|png)$/i.test(n))) {
+      try {
+        fs.unlinkSync(path.join(revisionDir, stale));
+      } catch {
+        /* a locked viewer; the next debug pass overwrites it */
+      }
+    }
+    console.log("> debug pass skipped (RENDER_DEBUG=1, `pass --debug`, or render.debugPass: true to render it)");
     live.announce();
     return;
   }
@@ -643,7 +654,11 @@ function compileRunner({ runnerDir, runnerPom, revisionId, revisionDir, dependen
   // path the pom names, in generated-sources.
   fs.mkdirSync(path.dirname(plan.generatedTemplate), { recursive: true });
   fs.copyFileSync(plan.templateSource, plan.generatedTemplate);
+  // A fresh classes directory: javac does not remove the class files of a
+  // source that no longer exists, and target/classes sits first on the
+  // classpath — a class from an earlier revision would stay loadable.
   const classesDir = path.join(runnerDir, "target", "classes");
+  fs.rmSync(classesDir, { recursive: true, force: true });
   fs.mkdirSync(classesDir, { recursive: true });
 
   const sources = [...plan.sources, plan.generatedTemplate];

@@ -32,11 +32,16 @@ export interface PerceptualOptions {
   window?: number;
 }
 
-export type PerceptualClassification = 'IDENTICAL' | 'MINOR' | 'MAJOR' | 'CRITICAL';
+export type PerceptualClassification = 'IDENTICAL' | 'MINOR' | 'MAJOR' | 'CRITICAL' | 'UNMEASURED';
 
 export interface PerceptualResult {
-  /** Mean SSIM over the windows, in [0, 1]. */
-  ssim: number;
+  /**
+   * Mean SSIM over the windows, in [0, 1] — or null when the image is too
+   * small to hold one window after the downsample (under 32 source pixels on
+   * a side at the defaults), in which case the classification is UNMEASURED.
+   * A crop that cannot be measured must not read as IDENTICAL.
+   */
+  ssim: number | null;
   /** The worst window, so a page that is right everywhere but one block still says so. */
   worstWindow: { ssim: number; x: number; y: number; size: number } | null;
   downsample: number;
@@ -139,8 +144,20 @@ export function ssimWindows(a: Gray, b: Gray, window: number): { mean: number; w
   let total = 0;
   let count = 0;
   let worst: PerceptualResult['worstWindow'] = null;
-  for (let wy = 0; wy + window <= a.height; wy += window) {
-    for (let wx = 0; wx + window <= a.width; wx += window) {
+  // Window origins on the stride, plus one anchored at the far edge when the
+  // dimension is not a multiple of the window — otherwise the trailing strip
+  // (up to 28 source pixels at the defaults) never contributes to any score,
+  // and a page's right margin and footer line are exactly there.
+  const origins = (extent: number): number[] => {
+    const out: number[] = [];
+    for (let o = 0; o + window <= extent; o += window) out.push(o);
+    if (extent >= window && (out.length === 0 || (out[out.length - 1] ?? 0) + window < extent)) out.push(extent - window);
+    return out;
+  };
+  const ys = origins(a.height);
+  const xs = origins(a.width);
+  for (const wy of ys) {
+    for (const wx of xs) {
       let ma = 0;
       let mb = 0;
       const n = window * window;
@@ -203,6 +220,11 @@ export function perceptualSimilarity(
     b = boxBlur(b);
   }
   const { mean, worst } = ssimWindows(a, b, window);
+  if (worst === null) {
+    // Not one window fits: under 32 source pixels on a side at the defaults.
+    // Say so rather than reporting a perfect score for nothing measured.
+    return { ssim: null, worstWindow: null, downsample, blurred: blur, window, classification: 'UNMEASURED' };
+  }
   const ssim = Math.max(0, Math.min(1, mean));
   return {
     ssim: Math.round(ssim * 10000) / 10000,

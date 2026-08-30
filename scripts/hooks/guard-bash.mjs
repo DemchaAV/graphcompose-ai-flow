@@ -49,9 +49,19 @@ const PATCH_VERBS = /\b(?:re\.sub|replace\(|write_text|open\([^)]*['"][wa]['"]|w
 export function judgeCommand(command) {
   const text = String(command ?? "");
   if (text.trim() === "") return allow();
+  // The off switch works as an env prefix on the command too: the hook reads
+  // its own environment, not the command's, so "GRAPHCOMPOSE_GUARD=off cat …"
+  // has to be honoured here or the refusal's own advice cannot be followed.
+  if (/(?:^|[\s;&|(])GRAPHCOMPOSE_GUARD=off\b/.test(text)) return allow();
+  // git and Maven print template paths in their own output; a pipe from them
+  // into a reader is reading git or Maven, not the template.
+  if (/^\s*(?:git|mvn|mvn\.cmd)\b/.test(text)) return allow();
 
-  // 1. Reading the template through the shell.
-  if (READER.test(text) && TEMPLATE_FILE.test(text) && !/source\.mjs/.test(text)) {
+  // 1. Reading the template through the shell — the reader verb and the
+  // template path in the same pipeline segment, not merely both somewhere.
+  const segments = text.split(/\|\||&&|;|\|/);
+  const readsTemplate = segments.some((seg) => READER.test(seg) && TEMPLATE_FILE.test(seg));
+  if (readsTemplate && !/source\.mjs/.test(text)) {
     return block(
       "template-read",
       "Read the template through the harness, not the shell — a template is a thousand lines and a " +
@@ -104,7 +114,13 @@ function allow() {
 }
 
 function block(rule, message) {
-  return { block: true, rule, message: `[graphcompose-flow guard: ${rule}] ${message}\nSet GRAPHCOMPOSE_GUARD=off to bypass this once, on purpose.` };
+  return {
+    block: true,
+    rule,
+    message:
+      `[graphcompose-flow guard: ${rule}] ${message}\n` +
+      "To bypass this once, on purpose, prefix the command: GRAPHCOMPOSE_GUARD=off <command>",
+  };
 }
 
 /** Entry point when run as a hook. */
