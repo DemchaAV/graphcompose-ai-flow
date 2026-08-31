@@ -6,12 +6,33 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    # A pack goes stale when GraphCompose publishes, which produces no push here.
+    - cron: '0 6 * * 1'
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # A pack one patch version behind is not a cosmetic lag. The allow-list is a
+  # closed set, so anything added in the newer release reads to an agent as API
+  # that does not exist — and the only symptom is a flow quietly reporting the
+  # older version. Nothing noticed when the 2.2 pack sat at 2.2.1 against a
+  # published 2.2.2, missing the whole layout-diagnostic snapshot API.
+  #
+  # Scheduled as well as on push: a pack goes stale when GraphCompose releases,
+  # which is not an event in this repository.
+  pack-freshness:
+    name: pack freshness (newest line vs Maven Central)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node tools/api-surface/check-pack-freshness.mjs
+
   revision-manager:
     name: revision-manager (Node 20)
     runs-on: ubuntu-latest

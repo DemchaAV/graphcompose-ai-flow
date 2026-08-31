@@ -2,10 +2,10 @@
 skillId: graphcompose-api-surface
 targetLibrary: GraphCompose
 targetVersion: 2.2.x
-verifiedAgainst: 2.2.1
+verifiedAgainst: 2.2.2
 status: active
 generator: tools/api-surface/extract-api.mjs
-generatedFrom: "io.github.demchaav:graph-compose-core:2.2.1, io.github.demchaav:graph-compose-templates:2.2.1"
+generatedFrom: "io.github.demchaav:graph-compose-core:2.2.2, io.github.demchaav:graph-compose-templates:2.2.2"
 note: "Generated from the pinned artifact's class files. Authoritative closed set: a symbol absent here does not exist for this version. Regenerate, do not hand-edit."
 ---
 
@@ -21,9 +21,9 @@ note: "Generated from the pinned artifact's class files. Authoritative closed se
 >
 > Ask it a question instead of reading it: `node scripts/api-query.mjs --search <term>`.
 
-**GraphCompose version:** 2.2.1
+**GraphCompose version:** 2.2.2
 
-Types: 363 · methods: 2812 · constants: 339 · compiler-generated members: 1351
+Types: 368 · methods: 2848 · constants: 339 · compiler-generated members: 1379
 
 ## com.demcha.compose
 
@@ -104,6 +104,7 @@ Types: 363 · methods: 2812 · constants: 339 · compiler-generated members: 135
 - `double availableHeight()`
 - `List<DocumentNode> roots()`
 - `LayoutGraph layoutGraph()`
+- `LayoutDiagnosticSnapshot layoutSnapshot(LayoutSnapshotOptions options)`
 - `LayoutSnapshot layoutSnapshot()`
 - `PageIndex pageIndex()`
 - `<R> R render(FixedLayoutBackend<R> backend)`
@@ -1894,6 +1895,12 @@ Types: 363 · methods: 2812 · constants: 339 · compiler-generated members: 135
 - `double innerHeight()`
 - `LayoutInsetsSnapshot margin()`
 
+### LayoutDiagnosticSnapshot (record)
+- `new LayoutDiagnosticSnapshot(String, LayoutSnapshot, List<LayoutTypographySnapshot>)`
+- `String formatVersion()`
+- `LayoutSnapshot layout()`
+- `List<LayoutTypographySnapshot> typography()`
+
 ### LayoutInsetsSnapshot (record)
 - `new LayoutInsetsSnapshot(double, double, double, double)`
 - `double top()`
@@ -1929,6 +1936,44 @@ Types: 363 · methods: 2812 · constants: 339 · compiler-generated members: 135
 - `LayoutCanvasSnapshot canvas()`
 - `int totalPages()`
 - `List<LayoutNodeSnapshot> nodes()`
+
+### LayoutSnapshotOptions (class)
+- `LayoutSnapshotOptions defaults()`
+- `LayoutSnapshotOptions.Builder builder()`
+- `boolean typography()`
+- `boolean isDefault()`
+
+### LayoutSnapshotOptions.Builder (class)
+- `LayoutSnapshotOptions.Builder typography(boolean enabled)`
+- `LayoutSnapshotOptions build()`
+
+### LayoutTextLineSnapshot (record)
+- `new LayoutTextLineSnapshot(int, double, double, double, double, double, boolean)`
+- `int index()`
+- `double x()`
+- `double y()`
+- `double width()`
+- `double height()`
+- `double baseline()`
+- `boolean baselineExact()`
+
+### LayoutTypographySnapshot (record)
+- `new LayoutTypographySnapshot(String, int, int, String, String, String, boolean, double, int, double, double, double, double, String, List<LayoutTextLineSnapshot>)`
+- `String path()`
+- `int fragmentIndex()`
+- `int page()`
+- `String declaredFont()`
+- `String resolvedFamily()`
+- `String decoration()`
+- `boolean fontSubstituted()`
+- `double fontSize()`
+- `int lineCount()`
+- `double textX()`
+- `double textY()`
+- `double textWidth()`
+- `double textHeight()`
+- `String verticalAlign()`
+- `List<LayoutTextLineSnapshot> lines()`
 
 ### PageIndex (class)
 - `new PageIndex(Collection<PageReference> references, int totalPages)`
@@ -3696,6 +3741,7 @@ Types: 363 · methods: 2812 · constants: 339 · compiler-generated members: 135
 - `<F> void addFont(FontName name, F font)`
 - `<F> void addFont(FontSet<F> set)`
 - `Set<FontName> availableFonts()`
+- `FontName resolveFamily(FontName fontName)`
 
 ### FontName (class)
 - `FontName of(String name)`

@@ -133,6 +133,6 @@ unverified copy of the GraphCompose source:
 allow-list → engine guides → Javadoc → fixture → ask the user) and the
 meaning of `@Beta` / `@since` tags in the published Javadoc. The
 allow-list is regenerated per release by
-[`tools/api-surface/api-index.py`](../tools/api-surface/api-index.py); the
+[`tools/api-surface/extract-api.mjs`](../tools/api-surface/extract-api.mjs); the
 engine guides are re-synced by
 [`tools/api-surface/sync-engine-guides.mjs`](../tools/api-surface/sync-engine-guides.mjs).

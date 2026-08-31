@@ -107,9 +107,11 @@ references are authoritative, in this order:
 
 1. **The allow-list — [`00-api-surface.md`](00-api-surface.md) in this
    pack.** It is the COMPLETE, source-generated list of every public
-   authoring method and constant for the resolved target version
-   (generated from the `v2.2.0` tag by
-   [`tools/api-surface/api-index.py`](../../../tools/api-surface/api-index.py)).
+   authoring method and constant for the resolved target version, read
+   from the **compiled class files** of the release named in this pack's
+   `verifiedAgainst` front-matter — so members Lombok generates
+   (`builder()`, `toBuilder()`, getters, nested `…Builder` types) are
+   present, which a source parser cannot see.
    It is a CLOSED SET: **if a method, overload, or enum constant is not
    listed there, it does not exist for this version — do not invent
    one.** Before writing a call, grep the builder you are about to use

@@ -2,21 +2,21 @@
   "schemaVersion": 1,
   "targetLibrary": "GraphCompose",
   "targetVersion": "2.2.x",
-  "verifiedAgainst": "2.2.1",
+  "verifiedAgainst": "2.2.2",
   "generator": "tools/api-surface/extract-api.mjs",
   "generatedFrom": [
-    "io.github.demchaav:graph-compose-core:2.2.1",
-    "io.github.demchaav:graph-compose-templates:2.2.1"
+    "io.github.demchaav:graph-compose-core:2.2.2",
+    "io.github.demchaav:graph-compose-templates:2.2.2"
   ],
   "parameterNamesFrom": [
     "graph-compose-core:sources",
     "graph-compose-templates:sources"
   ],
   "counts": {
-    "types": 363,
-    "methods": 2812,
+    "types": 368,
+    "methods": 2848,
     "constants": 339,
-    "generated": 1351
+    "generated": 1379
   },
   "packages": [
     {
@@ -1043,6 +1043,20 @@
               "typeParameters": null,
               "returns": "LayoutGraph",
               "params": []
+            },
+            {
+              "kind": "method",
+              "name": "layoutSnapshot",
+              "static": false,
+              "origin": "source",
+              "typeParameters": null,
+              "returns": "LayoutDiagnosticSnapshot",
+              "params": [
+                {
+                  "type": "LayoutSnapshotOptions",
+                  "name": "options"
+                }
+              ]
             },
             {
               "kind": "method",
@@ -25866,6 +25880,66 @@
           ]
         },
         {
+          "name": "LayoutDiagnosticSnapshot",
+          "binaryName": "com.demcha.compose.document.snapshot.LayoutDiagnosticSnapshot",
+          "kind": "record",
+          "modifiers": [
+            "final"
+          ],
+          "artifact": "graph-compose-core",
+          "members": [
+            {
+              "kind": "constructor",
+              "name": "LayoutDiagnosticSnapshot",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": null,
+              "params": [
+                {
+                  "type": "String",
+                  "name": null
+                },
+                {
+                  "type": "LayoutSnapshot",
+                  "name": null
+                },
+                {
+                  "type": "List<LayoutTypographySnapshot>",
+                  "name": null
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "formatVersion",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "String",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "layout",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "LayoutSnapshot",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "typography",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "List<LayoutTypographySnapshot>",
+              "params": []
+            }
+          ]
+        },
+        {
           "name": "LayoutInsetsSnapshot",
           "binaryName": "com.demcha.compose.document.snapshot.LayoutInsetsSnapshot",
           "kind": "record",
@@ -26275,6 +26349,415 @@
               "origin": "generated",
               "typeParameters": null,
               "returns": "List<LayoutNodeSnapshot>",
+              "params": []
+            }
+          ]
+        },
+        {
+          "name": "LayoutSnapshotOptions",
+          "binaryName": "com.demcha.compose.document.snapshot.LayoutSnapshotOptions",
+          "kind": "class",
+          "modifiers": [
+            "final"
+          ],
+          "artifact": "graph-compose-core",
+          "members": [
+            {
+              "kind": "method",
+              "name": "defaults",
+              "static": true,
+              "origin": "source",
+              "typeParameters": null,
+              "returns": "LayoutSnapshotOptions",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "builder",
+              "static": true,
+              "origin": "source",
+              "typeParameters": null,
+              "returns": "LayoutSnapshotOptions.Builder",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "typography",
+              "static": false,
+              "origin": "source",
+              "typeParameters": null,
+              "returns": "boolean",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "isDefault",
+              "static": false,
+              "origin": "source",
+              "typeParameters": null,
+              "returns": "boolean",
+              "params": []
+            }
+          ]
+        },
+        {
+          "name": "LayoutSnapshotOptions.Builder",
+          "binaryName": "com.demcha.compose.document.snapshot.LayoutSnapshotOptions$Builder",
+          "kind": "class",
+          "modifiers": [
+            "final"
+          ],
+          "artifact": "graph-compose-core",
+          "members": [
+            {
+              "kind": "method",
+              "name": "typography",
+              "static": false,
+              "origin": "source",
+              "typeParameters": null,
+              "returns": "LayoutSnapshotOptions.Builder",
+              "params": [
+                {
+                  "type": "boolean",
+                  "name": "enabled"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "build",
+              "static": false,
+              "origin": "source",
+              "typeParameters": null,
+              "returns": "LayoutSnapshotOptions",
+              "params": []
+            }
+          ]
+        },
+        {
+          "name": "LayoutTextLineSnapshot",
+          "binaryName": "com.demcha.compose.document.snapshot.LayoutTextLineSnapshot",
+          "kind": "record",
+          "modifiers": [
+            "final"
+          ],
+          "artifact": "graph-compose-core",
+          "members": [
+            {
+              "kind": "constructor",
+              "name": "LayoutTextLineSnapshot",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": null,
+              "params": [
+                {
+                  "type": "int",
+                  "name": null
+                },
+                {
+                  "type": "double",
+                  "name": null
+                },
+                {
+                  "type": "double",
+                  "name": null
+                },
+                {
+                  "type": "double",
+                  "name": null
+                },
+                {
+                  "type": "double",
+                  "name": null
+                },
+                {
+                  "type": "double",
+                  "name": null
+                },
+                {
+                  "type": "boolean",
+                  "name": null
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "index",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "int",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "x",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "double",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "y",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "double",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "width",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "double",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "height",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "double",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "baseline",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "double",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "baselineExact",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "boolean",
+              "params": []
+            }
+          ]
+        },
+        {
+          "name": "LayoutTypographySnapshot",
+          "binaryName": "com.demcha.compose.document.snapshot.LayoutTypographySnapshot",
+          "kind": "record",
+          "modifiers": [
+            "final"
+          ],
+          "artifact": "graph-compose-core",
+          "members": [
+            {
+              "kind": "constructor",
+              "name": "LayoutTypographySnapshot",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": null,
+              "params": [
+                {
+                  "type": "String",
+                  "name": null
+                },
+                {
+                  "type": "int",
+                  "name": null
+                },
+                {
+                  "type": "int",
+                  "name": null
+                },
+                {
+                  "type": "String",
+                  "name": null
+                },
+                {
+                  "type": "String",
+                  "name": null
+                },
+                {
+                  "type": "String",
+                  "name": null
+                },
+                {
+                  "type": "boolean",
+                  "name": null
+                },
+                {
+                  "type": "double",
+                  "name": null
+                },
+                {
+                  "type": "int",
+                  "name": null
+                },
+                {
+                  "type": "double",
+                  "name": null
+                },
+                {
+                  "type": "double",
+                  "name": null
+                },
+                {
+                  "type": "double",
+                  "name": null
+                },
+                {
+                  "type": "double",
+                  "name": null
+                },
+                {
+                  "type": "String",
+                  "name": null
+                },
+                {
+                  "type": "List<LayoutTextLineSnapshot>",
+                  "name": null
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "path",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "String",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "fragmentIndex",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "int",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "page",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "int",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "declaredFont",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "String",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "resolvedFamily",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "String",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "decoration",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "String",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "fontSubstituted",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "boolean",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "fontSize",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "double",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "lineCount",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "int",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "textX",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "double",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "textY",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "double",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "textWidth",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "double",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "textHeight",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "double",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "verticalAlign",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "String",
+              "params": []
+            },
+            {
+              "kind": "method",
+              "name": "lines",
+              "static": false,
+              "origin": "generated",
+              "typeParameters": null,
+              "returns": "List<LayoutTextLineSnapshot>",
               "params": []
             }
           ]
@@ -47542,6 +48025,20 @@
               "typeParameters": null,
               "returns": "Set<FontName>",
               "params": []
+            },
+            {
+              "kind": "method",
+              "name": "resolveFamily",
+              "static": true,
+              "origin": "source",
+              "typeParameters": null,
+              "returns": "FontName",
+              "params": [
+                {
+                  "type": "FontName",
+                  "name": "fontName"
+                }
+              ]
             }
           ]
         },
