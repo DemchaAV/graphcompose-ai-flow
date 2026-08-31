@@ -5,6 +5,56 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.22.0 — in progress
+
+**Why update.** A GraphCompose knowledge bundle could be imported and then not
+asked. `import-bundle.mjs` installs `api/` split per surface, `routing/` and
+`claims/` into a version pack; `api-query.mjs` went on reading the flat
+`api-surface.json` the local extractor writes, so a 2.3 pack would have reported
+no allow-list while carrying a larger one than the line had ever had. The half
+with no flat equivalent at all — routing — had no command.
+
+### Added
+
+- **`--task` and `--tasks`: which way, not just what exists.** A surface says a
+  symbol exists; it cannot say which of three ways is right, and that is where
+  wrong-API choices come from — a skills list in two columns is a row with
+  weights, and nothing in a signature says so. `--tasks` lists the intents the
+  pack's `routing/tasks.json` answers; `--task <id>` returns the decision: the
+  recommended route and why, the alternatives with what each costs, the named
+  engine constraints, and the symbols to verify. A miss exits 3 with the near
+  matches, so a caller can branch on it. The route's `docs` anchors are paths in
+  the GraphCompose repository — the bundle ships knowledge, not prose — and the
+  answer says so rather than sending a reader after a file this workspace has
+  never had. A route with no `confirmedBy` comes back `confirmed: false`, so an
+  unreviewed recommendation does not read like a reviewed one.
+- **`--surface`, and the surface in every answer.** A bundle pack splits the API
+  five ways, and which surface a type sits in decides whether a template may
+  call it at all. `--surface <name>` restricts the search; every answer now
+  carries `surface`, and `stability` when it is not stable, because "does it
+  exist" and "is it something I should be calling yet" are the same question
+  asked twice and an answer omitting the second reads as a green light. It is
+  refused alongside `--task`: a route is not a search over surfaces, and a flag
+  accepted but not honoured makes an answer look filtered when it is not.
+
+### Fixed
+
+- **The query CLI reads all three pack layouts.** `api/` + `manifest.json` from
+  a bundle import, the flat `api-surface.json` from the local extractor, and
+  `00-api-surface.md` for packs that predate it — a bundle pack wins where both
+  are present. An old pack's answer is unchanged byte for byte: `surface` and
+  `stability` are omitted rather than nulled, so nothing reading these has to
+  learn a second shape. `--surface` on a flat pack, and `--task` on a pack with
+  no routing table, each say which command would bring what is missing instead
+  of failing as if the pack were broken. `excluded.json` is never read as a
+  surface, so a deliberately excluded symbol is not reported as public API.
+- **`create-3-author.md` asks for the route before choosing a primitive.** It
+  told the agent to grep `00-api-surface.md`, which is the cost `api-query`
+  exists to remove, and said nothing about routing. It now opens with the five
+  rules — ask routing, take `recommended`, honour `constraints`, verify
+  `symbols` against this line, and treat `docs` as an anchor rather than a file
+  you have — and falls through to `--search` when the line has no routing table.
+
 ## v0.21.1 — 2026-08-31
 
 **Why update.** Three holes a run on a fast model fell through, found by

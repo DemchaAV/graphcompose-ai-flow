@@ -13,10 +13,40 @@ once; they are not restated here.
 The loading map (`skills.startingPoint` in the preflight payload, or the
 pack's `00-loading-map.md`) names four to six files for this document
 kind. Load a topic file because the reference has the thing — a table, a
-timeline, an overlap — not because the kind usually does. Grep
-`00-api-surface.md` for each builder you are about to call rather than
-reading it; `node scripts/api-query.mjs --query <topic>` answers the same
-question from the jar.
+timeline, an overlap — not because the kind usually does. Ask the pack
+about each builder you are about to call rather than reading or grepping
+it: `node scripts/api-query.mjs --search <topic>` answers the same
+question from the jar, in a few lines.
+
+## Before you choose a primitive, ask for the route
+
+The surfaces say what exists. They cannot say which of three ways is the
+right one, and that is where wrong-API choices come from — a skills list
+in two columns is a row with weights, and nothing in a signature says so.
+
+```bash
+node scripts/api-query.mjs --tasks                      # every intent it answers
+node scripts/api-query.mjs --task layout.two-columns    # the decision for one
+```
+
+1. **Ask routing first.** Exit 3 means no route for that intent; fall
+   through to `--search` and choose as before.
+2. **Take `recommended` when there is one.** `alternatives` say when the
+   other ways are right and what each costs; take one only when its
+   `useWhen` is your case, and say which in the architecture plan.
+3. **Honour `constraints`.** They are named engine behaviours, not
+   advice — `row.rejects-a-nested-row` is a rejection, not a preference.
+4. **Verify `symbols` before you call them.** A route names the symbols;
+   `--exists` confirms them against this line. A route from an older pack
+   can name a symbol this version does not have.
+5. **`docs` is an anchor, not a file you have.** Those paths live in the
+   GraphCompose repository, and the answer says so. The decision is in the
+   route itself — do not go looking for the page.
+
+Routing arrives with a GraphCompose knowledge bundle
+(`tools/api-surface/import-bundle.mjs`). A pack that predates it says so
+and names that command; that is not an error to work around, it means
+this line has no routing table and step 1 falls through.
 
 ## When the library surprises you
 
@@ -39,11 +69,15 @@ of Java to find out how something behaves is the last step, not the first.
 
    ```bash
    node scripts/api-query.mjs --exists TimelineBuilder.entry
-   node scripts/api-query.mjs --query footer
+   node scripts/api-query.mjs --search footer
+   node scripts/api-query.mjs --surface authoring --search footer   # bundle packs
    ```
 
    The allow-list is generated from the pinned artifact's class files, so
-   absent means it does not exist. Members Lombok generates (`builder()`,
+   absent means it does not exist. On a bundle-imported pack the answer
+   also carries `surface` and, when it is not stable, `stability`: a
+   `[beta]` member is callable and its contract may still move, and a
+   symbol outside `authoring` is not yours to call from a template. Members Lombok generates (`builder()`,
    getters, nested `…Builder` types) are in it; a value type with no
    visible constructor is still constructible through its builder.
 

@@ -16,12 +16,35 @@
  * The answer to "does this method exist, and what is its signature" is ten
  * lines of JSON. This gives that.
  *
- * **The pack's `api-surface.json` is the source.** It is what
- * `tools/api-surface/extract-api.mjs` writes from the pinned artifact's class
- * files, and `00-api-surface.md` is generated from it — so the two cannot
- * drift, and this reads the structured form rather than re-parsing prose. A
- * pack that predates the extractor has only the Markdown, which is still
- * parsed, so an older line keeps answering.
+ * ## Three pack layouts, one question
+ *
+ * A pack is whatever the line it describes could produce, and this reads all
+ * three so an older line keeps answering:
+ *
+ *   `api/` + `manifest.json`   imported from a GraphCompose knowledge bundle
+ *                              (`tools/api-surface/import-bundle.mjs`). The API
+ *                              is split per surface, and the bundle also brings
+ *                              `routing/tasks.json` — see below.
+ *   `api-surface.json`         one file, written by the local extractor from
+ *                              the pinned artifact's class files.
+ *   `00-api-surface.md`        prose, for packs that predate the extractor.
+ *
+ * The Markdown is generated from the JSON wherever both exist, so the two
+ * cannot drift and this reads the structured form.
+ *
+ * ## Routing: which way, not just what exists
+ *
+ * A surface says a symbol exists. It cannot say which of three ways is the
+ * right one, and that is where wrong-API choices actually come from — a skills
+ * list in two columns is a row with weights, and nothing in a signature says
+ * so. `--tasks` and `--task` answer that from the bundle's `routing/tasks.json`,
+ * which only a bundle-imported pack carries.
+ *
+ * What comes back is the decision, not the guide: the recommended route, the
+ * alternatives with their costs, the constraints, and the symbols to verify.
+ * The `docs` anchors are paths inside the GraphCompose repository — the bundle
+ * ships knowledge, not prose — so the answer says as much rather than sending a
+ * reader after a file this workspace does not have.
  *
  * Exit codes: 0 found, 3 nothing matched (so a caller can branch), 2 usage.
  */
@@ -46,7 +69,12 @@ function usage(code = 0) {
       "  --search <term>        types, methods and constants matching a term\n" +
       "  --constant <NAME>      which types declare a constant\n" +
       "  --package <pkg>        the types in a package\n" +
+      "  --task <id>            how to do a thing: the route, the alternatives,\n" +
+      "                         the constraints, and the symbols to verify\n" +
+      "  --tasks                every intent the routing table answers\n" +
       "  --dump                 the whole surface as JSON, on stdout\n\n" +
+      "  --surface <name>       restrict to one surface (authoring, templates,\n" +
+      "                         backends, testing, extension-spi). Default: all\n" +
       "  --version <line>       2.2, 1.9, ... (default: the newest pack)\n" +
       "  --project-dir <dir>    resolve the line from a Java project's pin instead\n" +
       "  --json                 machine-readable (default for --dump)\n",
@@ -58,6 +86,7 @@ function parseArgs(argv) {
   const out = {
     version: null, projectDir: null, type: null, method: null, exists: null,
     search: null, constant: null, package: null, dump: false, json: false,
+    surface: null, task: null, tasks: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -72,14 +101,30 @@ function parseArgs(argv) {
     else if (a === "--search" || a === "-s" || a === "--query" || a === "-q") out.search = argv[++i];
     else if (a === "--constant") out.constant = argv[++i];
     else if (a === "--package") out.package = argv[++i];
+    else if (a === "--surface") out.surface = argv[++i];
+    else if (a === "--task") out.task = argv[++i];
+    else if (a === "--tasks") out.tasks = true;
     else {
       process.stderr.write(`[api-query] unknown argument: ${a}\n`);
       usage(2);
     }
   }
-  const asked = out.type || out.method || out.exists || out.search || out.constant || out.package || out.dump;
+  const asked =
+    out.type || out.method || out.exists || out.search || out.constant || out.package ||
+    out.dump || out.task || out.tasks;
   if (!asked) {
     process.stderr.write("[api-query] nothing asked\n");
+    usage(2);
+  }
+  // A route is not a search over surfaces, so there is nothing for --surface to
+  // narrow. Accepting it and doing nothing is the worse half of the two: the
+  // answer would look filtered, and on a flat pack the combination would slip
+  // past the "--surface needs a bundle-imported pack" refusal entirely.
+  if (out.surface && (out.task || out.tasks)) {
+    process.stderr.write(
+      "[api-query] --surface does not apply to --task or --tasks: a route is not a search.\n" +
+        "  The route names its own surfaces in the answer.\n",
+    );
     usage(2);
   }
   return out;
@@ -89,10 +134,33 @@ const args = parseArgs(process.argv.slice(2));
 
 const line = resolveLine();
 const packDir = path.join(PACKS_DIR, `graphcompose-${line}`);
+const apiDir = path.join(packDir, "api");
+const tasksPath = path.join(packDir, "routing", "tasks.json");
+
+// A bundle-imported pack wins over anything the local extractor left behind:
+// it is the tree GraphCompose itself published, split per surface, and it is
+// the only layout that carries routing at all.
+const usingBundle = fs.existsSync(apiDir) && fs.existsSync(path.join(packDir, "manifest.json"));
+
+// Routing is answered from its own file and needs no surfaces loaded, so it
+// works on a pack whose API half is still the old single file — and says so
+// plainly when the pack predates routing entirely.
+const routing = args.tasks || args.task ? routingAnswer() : null;
+
+if (!routing && args.surface && !usingBundle) {
+  process.stderr.write(
+    `[api-query] --surface needs a bundle-imported pack; ${line} carries a single flat surface\n` +
+      "  Import one:  node tools/api-surface/import-bundle.mjs <bundle.zip>\n",
+  );
+  process.exit(2);
+}
+
 const canonicalPath = path.join(packDir, CANONICAL_FILE);
 const usingCanonical = fs.existsSync(canonicalPath);
-const surfacePath = usingCanonical ? canonicalPath : path.join(packDir, SURFACE_FILE);
-if (!fs.existsSync(surfacePath)) {
+const surfacePath = usingBundle ? apiDir : usingCanonical ? canonicalPath : path.join(packDir, SURFACE_FILE);
+// A routing question is already answered and never touches the surfaces, so a
+// pack with a routing table and no allow-list must not be refused here.
+if (!routing && !usingBundle && !fs.existsSync(surfacePath)) {
   // Which lines CAN answer. Two of the packs on disk are prose written before
   // the surface was extracted from the jar, and a bare "no allow-list" left the
   // reader unable to tell a missing generation step from a typo in --version.
@@ -116,16 +184,27 @@ if (!fs.existsSync(surfacePath)) {
 process.exit(1);
 }
 
-const surface = usingCanonical
-  ? loadCanonical(JSON.parse(fs.readFileSync(surfacePath, "utf8")), line)
-  : parseSurface(fs.readFileSync(surfacePath, "utf8"), line);
+// Not loaded for a routing question: routing is answered from its own file, and
+// parsing half a megabyte of surfaces to print a route nobody asked the API for
+// is work with no reader.
+const surface = routing
+  ? null
+  : usingBundle
+    ? loadBundleSurfaces(apiDir, args.surface, line)
+    : usingCanonical
+      ? loadCanonical(JSON.parse(fs.readFileSync(surfacePath, "utf8")), line)
+      : parseSurface(fs.readFileSync(surfacePath, "utf8"), line);
 
 // `process.exit()` after a large write truncates it: writes to a pipe are
 // asynchronous and exiting does not wait for them to drain. --dump is half a
 // megabyte, so a caller reading it through a pipe got a cut-off document and a
 // JSON parse error — which is how CI failed on Linux while Windows passed.
-// Setting exitCode lets the process end once stdout has flushed.
-if (args.dump) {
+// Setting exitCode lets the process end once stdout has flushed. Every answer
+// leaves through here, routing included, so there is one place to get it right.
+if (routing) {
+  process.stdout.write(`${JSON.stringify(routing.answer, null, 2)}\n`);
+  process.exitCode = routing.code;
+} else if (args.dump) {
   process.stdout.write(`${JSON.stringify(surface, null, 2)}\n`);
   process.exitCode = 0;
 } else {
@@ -163,7 +242,171 @@ function resolveLine() {
   return packs[0];
 }
 
+// ----------------------------------------------------------------- routing ---
+
+/**
+ * Answer an intent instead of a symbol.
+ *
+ * Returns `{ answer, code }` rather than writing: every JSON answer this file
+ * produces leaves through the one writer at the bottom, which sets `exitCode`
+ * instead of calling `process.exit`. That is not a style preference — a write
+ * to a pipe is asynchronous and exiting does not wait for it to drain, which is
+ * how `--dump` once handed a caller half a document and failed CI on Linux
+ * while passing on Windows.
+ *
+ * Deliberately not the guide: restating the prose here would make this a copy
+ * of documentation that lives in another repository and would go stale the
+ * moment that one changed. What a route ends is the *choice* — which way, why
+ * that way, what the alternatives cost, and which symbols to verify afterwards.
+ *
+ * `docs` anchors are paths inside the GraphCompose repository, because that is
+ * where the pages are; the bundle ships knowledge, not prose. They are handed
+ * back labelled rather than silently, so a reader does not go looking for a
+ * file this workspace has never had.
+ */
+function routingAnswer() {
+  if (!fs.existsSync(tasksPath)) {
+    process.stderr.write(
+      `[api-query] no routing table for GraphCompose ${line}: ${path.relative(repoRoot, tasksPath).split(path.sep).join("/")}\n` +
+        "  Routing arrives with a GraphCompose knowledge bundle; this pack predates it.\n" +
+        "  Import one:  node tools/api-surface/import-bundle.mjs <bundle.zip>\n",
+    );
+    process.exit(1);
+  }
+  const doc = JSON.parse(fs.readFileSync(tasksPath, "utf8"));
+  const tasks = doc.tasks ?? [];
+
+  if (args.tasks) {
+    return {
+      answer: {
+        graphComposeLine: line,
+        found: tasks.length > 0,
+        tasks: tasks.map((t) => ({ task: t.task, intent: t.intent })),
+      },
+      code: tasks.length > 0 ? 0 : 3,
+    };
+  }
+
+  const route = tasks.find((t) => t.task === args.task);
+  if (!route) {
+    // Near-misses before the full list: an intent is usually mistyped or
+    // half-remembered, and "layout.two-column" should not read the same as an
+    // intent the table has never had.
+    const near = tasks
+      .map((t) => t.task)
+      .filter((t) => t.includes(args.task) || args.task.includes(t.split(".").pop()));
+    return {
+      answer: {
+        graphComposeLine: line,
+        query: { task: args.task },
+        found: false,
+        didYouMean: near,
+        available: tasks.map((t) => t.task),
+      },
+      code: 3,
+    };
+  }
+
+  return {
+    answer: {
+      graphComposeLine: line,
+      query: { task: args.task },
+      found: true,
+      ...route,
+      // Two things a caller cannot infer from the route itself: where the
+      // anchors point, and whether a human has signed off on the choice.
+      docsIn: route.docs?.length ? "the GraphCompose repository, not this workspace" : undefined,
+      confirmed: Boolean(route.confirmedBy),
+    },
+    code: 0,
+  };
+}
+
 // ----------------------------------------------------------------- parsing ---
+
+/**
+ * Every surface JSON in a bundle-imported pack, flattened into one type list.
+ *
+ * The shape is the one `loadCanonical` produces, so every query below works
+ * unchanged — a bundle pack is a different *layout*, not a different answer.
+ * Two fields ride along that the flat layout has no room for: `surface`, since
+ * a type's surface decides whether an author may call it at all, and
+ * `stability`, because "does it exist" and "is it something I should be calling
+ * yet" are the same question asked twice and an answer omitting the second
+ * reads as a green light.
+ */
+function loadBundleSurfaces(dir, only, versionLine) {
+  const available = fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".json") && f !== "excluded.json")
+    .map((f) => path.basename(f, ".json"))
+    .sort();
+
+  const chosen = only ? available.filter((s) => s === only) : available;
+  if (chosen.length === 0) {
+    process.stderr.write(
+      only
+        ? `[api-query] no surface "${only}" in the ${versionLine} pack. Available: ${available.join(", ") || "(none)"}\n`
+        : `[api-query] no surface JSON under ${path.relative(repoRoot, dir).split(path.sep).join("/")}\n`,
+    );
+    process.exit(1);
+  }
+
+  const types = [];
+  let verifiedAgainst = null;
+  for (const name of chosen) {
+    const doc = JSON.parse(fs.readFileSync(path.join(dir, `${name}.json`), "utf8"));
+    verifiedAgainst ??= doc.verifiedAgainst ?? doc.targetVersion ?? null;
+    for (const pkg of doc.packages ?? []) {
+      for (const type of pkg.types ?? []) {
+        const methods = [];
+        const constants = [];
+        for (const member of type.members ?? []) {
+          if (member.kind === "constant") {
+            constants.push(member.name);
+            continue;
+          }
+          const params = (member.params ?? []).map((p) => (p.name ? `${p.type} ${p.name}` : p.type));
+          const head =
+            member.kind === "constructor"
+              ? `new ${member.name}`
+              : `${member.typeParameters ? `${member.typeParameters} ` : ""}` +
+                `${member.returns ? `${member.returns} ` : ""}${member.name}`;
+          methods.push({
+            signature: `${head}(${params.join(", ")})`,
+            name: member.name,
+            returns: member.returns ?? null,
+            parameters: params,
+            origin: member.origin,
+            static: member.static,
+            stability: member.stability ?? null,
+          });
+        }
+        types.push({
+          name: type.name,
+          kind: type.kind,
+          package: pkg.name,
+          surface: name,
+          stability: type.stability ?? "stable",
+          methods,
+          constants,
+        });
+      }
+    }
+  }
+
+  return {
+    graphComposeLine: versionLine,
+    verifiedAgainst,
+    source: path.relative(repoRoot, dir).split(path.sep).join("/"),
+    surfaces: chosen,
+    typeCount: types.length,
+    methodCount: types.reduce((n, t) => n + t.methods.length, 0),
+    constantCount: types.reduce((n, t) => n + t.constants.length, 0),
+    types,
+  };
+}
+
 
 /**
  * The document is regular by construction — it is generated. Package headings,
@@ -307,10 +550,34 @@ function splitParameters(raw) {
 
 // --------------------------------------------------------------- answering ---
 
+/**
+ * The two fields a bundle pack has and a flat one does not, appended to an
+ * answer the caller has already shaped.
+ *
+ * It takes the shape rather than building one on purpose. The first version of
+ * this built the object itself, which quietly gave `--constant` a `name` beside
+ * its `type` — the same string twice — and gave `--package` back the package
+ * that was just asked for. Every query here answers a different question and
+ * names its fields for that question; only the appending is common.
+ *
+ * `stable` is left unsaid: it is the default, and an answer that says it on
+ * every line is noise. Both fields are omitted rather than nulled on a flat
+ * pack, so an old pack's answer is unchanged and nothing reading these has to
+ * learn a second shape.
+ */
+function withSurface(t, shaped) {
+  return {
+    ...shaped,
+    ...(t.surface ? { surface: t.surface } : {}),
+    ...(t.stability && t.stability !== "stable" ? { stability: t.stability } : {}),
+  };
+}
+
 function query(index, options) {
   const base = {
     graphComposeLine: index.graphComposeLine,
     verifiedAgainst: index.verifiedAgainst,
+    ...(index.surfaces ? { surfaces: index.surfaces } : {}),
     source: index.source,
   };
 
@@ -335,7 +602,7 @@ function query(index, options) {
       query: { exists: options.exists },
       found: Boolean(type) && (overloads.length > 0 || constant),
       // The negative answer is the useful one: it is what stops an invented call.
-      type: type ? { name: type.name, kind: type.kind, package: type.package } : null,
+      type: type ? withSurface(type, { name: type.name, kind: type.kind, package: type.package }) : null,
       overloads: overloads.map((m) => m.signature),
       isConstant: constant,
       note: type
@@ -347,14 +614,14 @@ function query(index, options) {
   if (options.constant) {
     const hits = index.types
       .filter((t) => t.constants.includes(options.constant))
-      .map((t) => ({ type: t.name, package: t.package, kind: t.kind }));
+      .map((t) => withSurface(t, { type: t.name, package: t.package, kind: t.kind }));
     return { ...base, query: { constant: options.constant }, found: hits.length > 0, declaredBy: hits };
   }
 
   if (options.package) {
     const hits = index.types
       .filter((t) => t.package === options.package)
-      .map((t) => ({ name: t.name, kind: t.kind, methods: t.methods.length }));
+      .map((t) => withSurface(t, { name: t.name, kind: t.kind, methods: t.methods.length }));
     return { ...base, query: { package: options.package }, found: hits.length > 0, types: hits };
   }
 
@@ -381,7 +648,7 @@ function query(index, options) {
       ...base,
       query: { type: options.type, method: options.method ?? undefined },
       found: methods.length > 0 || type.constants.length > 0,
-      type: { name: type.name, kind: type.kind, package: type.package },
+      type: withSurface(type, { name: type.name, kind: type.kind, package: type.package }),
       methods: methods.map((m) => m.signature),
       constants: type.constants,
     };
@@ -418,7 +685,9 @@ function query(index, options) {
     ...base,
     query: { search: options.search },
     found: types.length > 0 || methods.length > 0 || constants.length > 0,
-    types: types.map((t) => ({ name: t.name, kind: t.kind, package: t.package, methods: t.methods.length })).slice(0, 30),
+    types: types
+      .map((t) => withSurface(t, { name: t.name, kind: t.kind, package: t.package, methods: t.methods.length }))
+      .slice(0, 30),
     methods: methods.slice(0, 40),
     constants: constants.slice(0, 40),
     total: { types: types.length, methods: methods.length, constants: constants.length },
