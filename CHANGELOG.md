@@ -5,7 +5,7 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
-## v0.21.1 — in progress
+## v0.21.1 — 2026-08-31
 
 **Why update.** Three holes a run on a fast model fell through, found by
 replaying a `create-template` run on Gemini 3.7 Flash that produced four
@@ -18,7 +18,35 @@ compiled before its sources no longer runs. Two of this repository's own tests
 were red for days because of one, and every guard in the tree was busy asking
 whether the build existed.
 
+**Update if you generate templates against GraphCompose 2.2.** The allow-list
+in this kit described 2.2.1 while 2.2.2 was published, so five types and
+thirty-five members existed in the library and not in the pack — and the pack
+is a closed set, which means the flow would have told you they did not exist.
+Nothing here noticed, because a pack goes stale when GraphCompose publishes,
+which is not an event in this repository. It notices now.
+
 ### Added
+
+- **A pack that falls behind says so** (`check-pack-freshness.mjs`). It reads
+  the newest pack's `verifiedAgainst` and compares it with Maven Central,
+  failing with the one command that fixes it. It runs in CI on push *and*
+  weekly on a schedule, because the event that makes a pack stale — a
+  GraphCompose release — produces no push here, and a check that only runs on
+  push would have watched this one go by. Only the newest line is checked;
+  older packs describe frozen releases, and re-checking them would turn every
+  historical pack into a permanent failure. A network failure reports and
+  exits 0 rather than crying stale: a check that fires when it is wrong is one
+  people stop reading before the day it is right.
+- **A release's knowledge bundle can be installed as a pack**
+  (`import-bundle.mjs`). From GraphCompose 2.3 this replaces regenerating
+  here, and the difference is not convenience: a bundle is what GraphCompose's
+  own CI gated against the commit it describes, and it carries routing and
+  claims this repository cannot produce. The archive's checksum is verified
+  *before* anything is unpacked, then the per-file digests inside it — a pack
+  is the closed set an agent authors against, and installing one whose bytes
+  were never checked would rest every downstream "that does not exist" on an
+  unverified download. `imported-from.json` records the bundle, its digest and
+  the source commit, so a stale pack can be traced instead of guessed at.
 
 - **The images are named where the judgement happens.** `pass` prints a `look`
   line with the absolute paths of the scaled reference and the render — worst
@@ -44,6 +72,21 @@ whether the build existed.
   sync by hand for four revisions, spending half its editing on a file no build
   opened — and by revision-002 they had already drifted apart.
 ### Fixed
+
+- **The 2.2 pack describes 2.2.2.** It had sat at 2.2.1 with nothing to notice,
+  and the gap was not a version stamp: regenerating moved it from 363 types and
+  2812 methods to **368 and 2848**. The missing members were the whole
+  layout-diagnostic snapshot API — `LayoutDiagnosticSnapshot`,
+  `LayoutSnapshotOptions`, `LayoutTextLineSnapshot`, `LayoutTypographySnapshot`
+  — plus `FontLibrary.resolveFamily`. A stale allow-list is worse than an
+  absent one: absent, an agent knows it does not know; stale, it is
+  confidently wrong, and the confidence is ours.
+- **The vendored `api-index.py` is gone.** It was copied from the GraphCompose
+  repo, where it has since been retired for reading Java *source*: it cannot
+  see what Lombok generates, and it attributes nested members to the wrong
+  receiver — `GraphCompose` came out with 25 methods of which 7 are real, the
+  other 18 belonging to a nested builder that got no entry at all. The live
+  2.2 pack still pointed readers at it, and named the wrong tag while doing so.
 
 - **A stale build is refused, not run.** `revision-manager` and `visual-diff`
   ship as TypeScript and run from a gitignored `dist/`. Every guard in the tree

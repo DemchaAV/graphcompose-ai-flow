@@ -106,13 +106,16 @@ guess, and NOT grep an unverified copy of the GraphCompose source. Two
 references are authoritative, in this order:
 
 1. **The allow-list — [`00-api-surface.md`](00-api-surface.md) in this
-   pack.** It is the COMPLETE, source-generated list of every public
-   authoring method and constant for the resolved target version
-   (generated from the `v1.9.0` tag by
-   [`tools/api-surface/api-index.py`](../../../tools/api-surface/api-index.py)).
-   It is a CLOSED SET: **if a method, overload, or enum constant is not
-   listed there, it does not exist for this version — do not invent
-   one.** Before writing a call, grep the builder you are about to use
+   pack.** It lists the public authoring methods and constants for the
+   resolved target version, generated from the `v1.9.0` tag. It is a
+   CLOSED SET: **if a method, overload, or enum constant is not listed
+   there, it does not exist for this version — do not invent one.**
+
+   ⚠️ This pack was produced by a *source* parser that has since been
+   retired, so it cannot see members Lombok generates and it attributes
+   a nested type's members to the enclosing type. Treat an absence here
+   as a reason to check the 1.9.0 Javadoc, not as proof. Packs from 2.2
+   on are read from the compiled class files and have neither problem. Before writing a call, grep the builder you are about to use
    (`TableBuilder`, `ParagraphBuilder`, `LayerStackBuilder`, …) in
    `00-api-surface.md` and confirm the exact signature is present.
 2. **The hosted Javadoc**, for the prose, parameter names, and
