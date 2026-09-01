@@ -1,5 +1,29 @@
 # Create, phase 3 — author the template
 
+## First, check that what you are about to read is finished
+
+```bash
+node scripts/check-analysis.mjs --project <id> --for authoring
+```
+
+**Exit 1 means do not start.** Re-run whatever it names; do not work
+around it and do not begin the Java while it is red.
+
+This barrier exists because phase 2 no longer runs in a line. Asset
+resolution starts the moment the request validates and runs beside the
+architecture plan, and the plan usually finishes first — so "the plan is
+written" no longer means "everything authoring reads is ready". Starting
+here on a manifest still being written gives a template that references
+assets which are not there yet, and the failure arrives later as a
+missing icon rather than as a race.
+
+It checks three things phase 2's own barrier does not: the plan
+validates, the manifest validates, and every icon token and font role
+the request asked for has a record in the manifest. That last one is the
+disagreement no schema can see — both files can be perfectly shaped and
+still leave a token unresolved, and the template then has nothing to
+read for it.
+
 Write the template from the plan, following
 [the authoring rules](authoring-rules.md) throughout: derived geometry,
 named anchors, layout on the node that owns it, content in
