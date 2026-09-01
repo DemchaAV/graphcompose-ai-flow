@@ -17,9 +17,16 @@
  * A stale allow-list is worse than an absent one. Absent, an agent knows it does
  * not know. Stale, it is confidently wrong, and the confidence comes from us.
  *
- * Only the **newest** pack line is checked. Older lines are frozen on purpose —
- * they describe releases that are themselves frozen, and re-checking them would
- * turn every historical pack into a permanent failure.
+ * Only the **newest** pack is checked. Older lines are frozen on purpose — they
+ * describe releases that are themselves frozen, and re-checking them would turn
+ * every historical pack into a permanent failure.
+ *
+ * What it is checked *against* is every published release, not just its own
+ * line. Comparing only within the line is how GraphCompose 2.3.0 shipped and
+ * this gate went on reporting the 2.2 pack "current": the one event worth
+ * catching, a release nothing here has a pack for, was the one it could not
+ * see. The two are reported apart — a newer patch means repair this pack, a
+ * newer line means there is no pack yet — because the remedy differs.
  */
 
 import fs from "node:fs";
@@ -27,6 +34,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { noAllowListHint, packLayout, packVerifiedAgainst } from "../../scripts/lib/pack-surface.mjs";
+import { compareVersions, releaseFreshness } from "../../scripts/lib/release-freshness.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, "..", "..");
@@ -46,23 +54,13 @@ if (argv.some((a) => a === "--help" || a === "-h")) {
 if (argv.some((a) => a !== "--offline")) process.exit(2);
 const offline = argv.includes("--offline");
 
-const compare = (a, b) => {
-  const pa = a.split(".").map(Number);
-  const pb = b.split(".").map(Number);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) {
-    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
-    if (d) return d;
-  }
-  return 0;
-};
-
 // --- the newest pack ---------------------------------------------------------
 
 const lines = fs
   .readdirSync(PACKS, { withFileTypes: true })
   .filter((e) => e.isDirectory() && e.name.startsWith("graphcompose-"))
   .map((e) => e.name.slice("graphcompose-".length))
-  .sort(compare);
+  .sort(compareVersions);
 
 const newest = lines[lines.length - 1];
 const newestDir = path.join(PACKS, `graphcompose-${newest}`);
@@ -93,7 +91,7 @@ if (offline) {
   process.exit(0);
 }
 
-// --- the newest release in that line ----------------------------------------
+// --- against what has been published ----------------------------------------
 
 /**
  * Everything past the network call ends by *returning* a code, never by calling
@@ -121,33 +119,50 @@ async function main() {
     return 0;
   }
 
-  const published = [...metadata.matchAll(/<version>([^<]+)<\/version>/g)]
-    .map((m) => m[1])
-    .filter((v) => !v.includes("-") && v.startsWith(`${newest}.`))
-    .sort(compare);
+  const { status, latestInLine, latestPublished } = releaseFreshness({
+    line: newest,
+    verifiedAgainst,
+    published: [...metadata.matchAll(/<version>([^<]+)<\/version>/g)].map((m) => m[1]),
+  });
 
-  const latest = published[published.length - 1];
-  if (!latest) {
+  if (status === "unreleased-line") {
     process.stdout.write(
       `[pack-freshness] no published ${newest}.x release yet; pack describes ${verifiedAgainst}\n`,
     );
     return 0;
   }
 
-  if (compare(verifiedAgainst, latest) >= 0) {
+  if (status === "current") {
     process.stdout.write(
-      `[pack-freshness] graphcompose-${newest} is current (${verifiedAgainst}, latest ${latest})\n`,
+      `[pack-freshness] graphcompose-${newest} is current (${verifiedAgainst}, latest ${latestPublished})\n`,
     );
     return 0;
   }
 
+  if (status === "behind-in-line") {
+    process.stderr.write(
+      `[pack-freshness] graphcompose-${newest} describes ${verifiedAgainst}, but ${latestInLine} is published.\n\n` +
+        "  The allow-list is a closed set: anything added in the newer release reads\n" +
+        "  to an agent as API that does not exist, and it will refuse to call it.\n\n" +
+        `    node tools/api-surface/extract-api.mjs --version ${latestInLine}\n\n` +
+        "  From GraphCompose 2.3 on, prefer importing the release's knowledge bundle:\n" +
+        `    node tools/api-surface/import-bundle.mjs --from graph-compose-knowledge-${latestInLine}.zip\n`,
+    );
+    return 1;
+  }
+
+  // A whole new line. The pack is not wrong — graphcompose-<newest> describes
+  // its own line correctly — so the fix is a pack that does not exist yet, not
+  // a repair to one that does. This is the case the gate used to miss entirely:
+  // filtering the published list to the newest pack's line meant a new minor
+  // was invisible, and the gate reported "current" while the harness had no
+  // pack for the release that had actually shipped.
   process.stderr.write(
-    `[pack-freshness] graphcompose-${newest} describes ${verifiedAgainst}, but ${latest} is published.\n\n` +
-      "  The allow-list is a closed set: anything added in the newer release reads\n" +
-      "  to an agent as API that does not exist, and it will refuse to call it.\n\n" +
-      `    node tools/api-surface/extract-api.mjs --version ${latest}\n\n` +
-      "  From GraphCompose 2.3 on, prefer importing the release's knowledge bundle:\n" +
-      `    node tools/api-surface/import-bundle.mjs --from graph-compose-knowledge-${latest}.zip\n`,
+    `[pack-freshness] GraphCompose ${latestPublished} is published and no pack describes it.\n` +
+      `  graphcompose-${newest} is current for its own line (${verifiedAgainst}), which is why\n` +
+      "  nothing here is stale — and why nothing here can answer for the new one.\n\n" +
+      "  Import the release's knowledge bundle; it creates the pack:\n" +
+      `    node tools/api-surface/import-bundle.mjs --from graph-compose-knowledge-${latestPublished}.zip\n`,
   );
   return 1;
 }
