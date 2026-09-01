@@ -15,20 +15,20 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import Ajv2020 from 'ajv/dist/2020.js';
-import addFormats from 'ajv-formats';
+
+import { validatorFor } from '../../tools/schema-validate/src/index.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 const SCHEMAS_DIR = path.join(ROOT, 'schemas');
 
-// strictRequired is relaxed because revision.schema.json uses
-// if/then `required` arrays that do not duplicate the property
-// definitions from the root `properties` map. Other strict checks
-// (strictTypes, strictTuples, strictNumbers, unevaluatedProperties)
-// stay on — strictRequired is the only one this hurts.
-const ajv = new Ajv2020({ allErrors: true, strict: true, strictRequired: false });
-addFormats.default(ajv);
+// Compiled by tools/schema-validate, which is also what the runtime barriers
+// use. This file used to configure its own Ajv, and so did every other caller —
+// four configurations of the same validator, free to drift. Two of them already
+// had: the sweep ran `strict: true` while two tests under scripts/test/ ran
+// `strict: false`, so a schema could pass its own test and fail the gate that
+// consumes it. The options, and the reason strictRequired is off, now live in
+// that module.
 
 const SCHEMA_BINDINGS = [
   {
@@ -112,11 +112,8 @@ const SKIP_DIRS = new Set([
   'docs/private',
 ]);
 
-async function loadSchema(schemaFile) {
-  const p = path.join(SCHEMAS_DIR, schemaFile);
-  const raw = await fs.readFile(p, 'utf8');
-  const schema = JSON.parse(raw);
-  return ajv.compile(schema);
+function loadSchema(schemaFile) {
+  return validatorFor(path.join(SCHEMAS_DIR, schemaFile));
 }
 
 async function walk(dir, hits) {
@@ -167,7 +164,7 @@ function targetsFromArgv(argv) {
 async function main() {
   const validators = new Map();
   for (const binding of SCHEMA_BINDINGS) {
-    validators.set(binding.schemaFile, await loadSchema(binding.schemaFile));
+    validators.set(binding.schemaFile, loadSchema(binding.schemaFile));
   }
 
   const targets = targetsFromArgv(process.argv.slice(2));
@@ -185,17 +182,16 @@ async function main() {
       violations.push({ file: rel, schema: binding.schemaFile, message: `JSON parse error: ${err.message}` });
       continue;
     }
-    const validator = validators.get(binding.schemaFile);
-    const ok = validator(data);
+    const result = validators.get(binding.schemaFile)(data);
     const tally = stats.get(binding.schemaFile) || { ok: 0, fail: 0 };
-    if (ok) {
+    if (result.valid) {
       tally.ok += 1;
     } else {
       tally.fail += 1;
       violations.push({
         file: rel,
         schema: binding.schemaFile,
-        message: '\n' + formatErrors(validator.errors),
+        message: '\n' + formatErrors(result.detail),
       });
     }
     stats.set(binding.schemaFile, tally);

@@ -55,6 +55,10 @@ export const RUNTIME = [
   { from: "examples/invoice-reference/revisions/revision-001/user-request.md" },
   { from: "examples/invoice-reference/render-runner", skip: ["target"] },
   { from: "tools/asset-resolver", skip: ["node_modules"] },
+  // The validator the runtime barriers use. Shipped rather than left in
+  // .github, which no install carries: a barrier that cannot validate holds
+  // every artifact, which is how the analysis gate refused healthy runs.
+  { from: "tools/schema-validate", skip: ["node_modules"] },
   // The TypeScript CLIs ship as their build output plus the manifests needed to
   // install runtime dependencies; their source and dev toolchain stay behind.
   { from: "tools/revision-manager/bin" },
@@ -70,7 +74,7 @@ export const RUNTIME = [
 ];
 
 /** Packages whose runtime dependencies are installed inside the copy. */
-export const NPM_PACKAGES = ["tools/revision-manager", "tools/visual-diff"];
+export const NPM_PACKAGES = ["tools/revision-manager", "tools/visual-diff", "tools/schema-validate"];
 
 /** Built outputs the source tree must already have. */
 export const REQUIRED_BUILDS = [

@@ -80,7 +80,18 @@ const STEPS = [
     cmd: process.execPath,
     args: ["../../scripts/run-tests.mjs", "test"],
     cwd: ".github/scripts",
-    requires: ".github/scripts/node_modules",
+    // Ajv lives in tools/schema-validate now, not here — these tests compile
+    // through it, and `.github/scripts` has no dependencies of its own left.
+    requires: "tools/schema-validate/node_modules",
+  },
+  {
+    name: "schema-validate",
+    kind: "fast",
+    why: "the validator options every other gate and barrier now inherits",
+    cmd: "npm",
+    args: ["test"],
+    cwd: "tools/schema-validate",
+    requires: "tools/schema-validate/node_modules",
   },
   {
     name: "revision-manager",

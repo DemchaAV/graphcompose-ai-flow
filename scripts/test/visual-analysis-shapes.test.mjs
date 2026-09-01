@@ -35,16 +35,20 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+
+import { ready, schemaValidator } from "../lib/schema-validator.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-function validator() {
-  const require = createRequire(import.meta.url);
-  const Ajv = require(path.join(repoRoot, ".github", "scripts", "node_modules", "ajv", "dist", "2020.js")).default;
-  const schema = JSON.parse(fs.readFileSync(path.join(repoRoot, "schemas", "visual-analysis.schema.json"), "utf8"));
-  return new Ajv({ strict: false, allErrors: true }).compile(schema);
+// Through the shipped validator, on the same Ajv and the same options the
+// barrier runs with. The first version compiled its own out of
+// `.github/scripts/node_modules`, so this file could go green over a schema the
+// barrier would have refused — and went red wherever that directory was, as it
+// normally is, empty.
+async function validator() {
+  assert.ok(await ready(), "tools/schema-validate is not installed; run `npm run setup`");
+  return schemaValidator(path.join(repoRoot, "schemas", "visual-analysis.schema.json"));
 }
 
 /** The smallest analysis the schema accepts, so a case can vary one field. */
@@ -67,53 +71,55 @@ const BASE = {
 
 const withRegion = (extra) => ({ ...BASE, regions: [{ ...BASE.regions[0], ...extra }] });
 
-test("a prose field takes one sentence, several, or an explicit none", () => {
-  const validate = validator();
+test("a prose field takes one sentence, several, or an explicit none", async () => {
+  const validate = await validator();
   for (const [label, value] of [
     ["one sentence", "The painted ground for every sidebar group."],
     ["several", ["The painted ground.", "Full-bleed on three edges."]],
     ["explicitly none", null],
   ]) {
-    assert.ok(validate(withRegion({ contains: value })), `contains as ${label}: ${JSON.stringify(validate.errors)}`);
-    assert.ok(validate(withRegion({ notes: value })), `notes as ${label}: ${JSON.stringify(validate.errors)}`);
+    const contains = validate(withRegion({ contains: value }));
+    assert.ok(contains.valid, `contains as ${label}: ${contains.errors}`);
+    const notes = validate(withRegion({ notes: value }));
+    assert.ok(notes.valid, `notes as ${label}: ${notes.errors}`);
   }
 });
 
-test("margins and colour usage are prose too, in both shapes", () => {
-  const validate = validator();
+test("margins and colour usage are prose too, in both shapes", async () => {
+  const validate = await validator();
 
-  const asString = { ...BASE, page: { ...BASE.page, margins: "~7% of page width on both sides." } };
-  assert.ok(validate(asString), JSON.stringify(validate.errors));
+  const asString = validate({ ...BASE, page: { ...BASE.page, margins: "~7% of page width on both sides." } });
+  assert.ok(asString.valid, asString.errors);
 
-  const asList = { ...BASE, page: { ...BASE.page, margins: ["~7% left and right.", "Zero at the foot."] } };
-  assert.ok(validate(asList), JSON.stringify(validate.errors));
+  const asList = validate({ ...BASE, page: { ...BASE.page, margins: ["~7% left and right.", "Zero at the foot."] } });
+  assert.ok(asList.valid, asList.errors);
 
-  const colors = { ...BASE, colors: [{ role: "accent", value: "#C0703A", usedIn: "rules, dots and dates" }] };
-  assert.ok(validate(colors), JSON.stringify(validate.errors));
+  const colors = validate({ ...BASE, colors: [{ role: "accent", value: "#C0703A", usedIn: "rules, dots and dates" }] });
+  assert.ok(colors.valid, colors.errors);
 });
 
-test("layoutProportions describes the document it has, not the one a CV has", () => {
+test("layoutProportions describes the document it has, not the one a CV has", async () => {
   // A rota divides by grid, content width and row height. A closed list of the
   // ways a CV divides made those an error, which is a schema deciding what
   // kinds of document may be analysed.
-  const validate = validator();
-  const rota = { ...BASE, layoutProportions: { grid: "7 columns", contentWidth: 0.86, rowHeight: 0.043 } };
+  const validate = await validator();
+  const rota = validate({ ...BASE, layoutProportions: { grid: "7 columns", contentWidth: 0.86, rowHeight: 0.043 } });
 
-  assert.ok(validate(rota), JSON.stringify(validate.errors));
+  assert.ok(rota.valid, rota.errors);
 });
 
-test("an anchor with no element is still refused, because nothing can read it", () => {
+test("an anchor with no element is still refused, because nothing can read it", async () => {
   // The line held on purpose. Everything above is a choice about how to write
   // the same fact down; this is the fact missing.
-  const validate = validator();
-  const anchorless = {
+  const validate = await validator();
+  const anchorless = validate({
     ...BASE,
     anchors: [{ relationship: "The week title is flush with the table's right edge." }],
-  };
+  });
 
-  assert.ok(!validate(anchorless), "an anchor naming no element was accepted");
+  assert.ok(!anchorless.valid, "an anchor naming no element was accepted");
   assert.match(
-    validate.errors.map((e) => e.params.missingProperty ?? "").join(" "),
+    anchorless.errors,
     /element/,
     "the refusal does not say which half of the anchor is missing",
   );

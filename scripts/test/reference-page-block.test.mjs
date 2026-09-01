@@ -34,6 +34,8 @@ import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
+import { ready, schemaValidator } from "../lib/schema-validator.mjs";
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CLI = path.join(repoRoot, "scripts", "reference.mjs");
 const { PNG } = createRequire(path.join(repoRoot, "tools", "visual-diff", "package.json"))("pngjs");
@@ -128,24 +130,23 @@ function analyze(root) {
 }
 
 /** The schema's own `page` subschema, so this cannot drift from the consumer. */
-function pageValidator() {
-  const require = createRequire(import.meta.url);
-  const Ajv = require(path.join(repoRoot, ".github", "scripts", "node_modules", "ajv", "dist", "2020.js")).default;
-  const schema = JSON.parse(fs.readFileSync(path.join(repoRoot, "schemas", "visual-analysis.schema.json"), "utf8"));
-  return new Ajv({ strict: false, allErrors: true }).compile({ ...schema.properties.page, $schema: undefined });
+async function pageValidator() {
+  // Through the shipped validator, which is the one the barrier uses. Reaching
+  // into `.github/scripts/node_modules` — as this did — tested an Ajv no
+  // installation has, and passed only where somebody had run `npm ci` there.
+  assert.ok(await ready(), "tools/schema-validate is not installed; run `npm run setup`");
+  return schemaValidator(path.join(repoRoot, "schemas", "visual-analysis.schema.json"), "page");
 }
 
-test("the emitted page block validates against the schema that consumes it", () => {
+test("the emitted page block validates against the schema that consumes it", async () => {
   const { status, payload, out } = analyze(workspace("valid"));
 
   assert.equal(status, 0, out);
   assert.ok(payload.pageBlock, "analyze emitted no page block");
 
-  const validate = pageValidator();
-  assert.ok(
-    validate(payload.pageBlock),
-    `the block analyze offers does not satisfy the schema: ${JSON.stringify(validate.errors)}`,
-  );
+  const validate = await pageValidator();
+  const result = validate(payload.pageBlock);
+  assert.ok(result.valid, `the block analyze offers does not satisfy the schema: ${result.errors}`);
 });
 
 test("every field comes from what import-reference already decided", () => {
@@ -204,7 +205,7 @@ const CONFIRMED_GEOMETRY = {
   },
 };
 
-test("a size a person confirmed carries the sentence the schema asks for", () => {
+test("a size a person confirmed carries the sentence the schema asks for", async () => {
   // The schema requires sizeDecision exactly when sizeSource is user-confirmed,
   // and the first version of this block omitted it — invalid in the one case a
   // subagent has least to go on, which is how a helper meant to remove
@@ -215,11 +216,9 @@ test("a size a person confirmed carries the sentence the schema asks for", () =>
   assert.equal(payload.pageBlock.sizeSource, "user-confirmed-standard");
   assert.match(payload.pageBlock.sizeDecision, /Answered: LETTER/);
 
-  const validate = pageValidator();
-  assert.ok(
-    validate(payload.pageBlock),
-    `a confirmed size produced an invalid block: ${JSON.stringify(validate.errors)}`,
-  );
+  const validate = await pageValidator();
+  const result = validate(payload.pageBlock);
+  assert.ok(result.valid, `a confirmed size produced an invalid block: ${result.errors}`);
 });
 
 test("a measured size carries no decision sentence, because nobody was asked", () => {

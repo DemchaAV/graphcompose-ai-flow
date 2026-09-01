@@ -131,7 +131,7 @@ if (checkOnly) process.exit(0);
 
 // --- 2. Node tools: install + build where needed ---------------------------
 head('Node tools (install + build where needed)');
-const nodeTools = ['revision-manager', 'visual-diff', 'asset-resolver', 'skill-validation-cache'];
+const nodeTools = ['revision-manager', 'visual-diff', 'asset-resolver', 'skill-validation-cache', 'schema-validate'];
 try {
   for (const t of nodeTools) {
     const dir = join(repoRoot, 'tools', t);

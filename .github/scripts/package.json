@@ -1,16 +1,12 @@
 {
   "name": "@graphcompose-ai-flow/ci-scripts",
   "version": "0.1.0",
-  "description": "Repository-contract and JSON Schema validation scripts wired to ci.yml. Not published.",
+  "description": "Repository-contract and JSON Schema validation scripts wired to ci.yml. The validator itself is tools/schema-validate, which the runtime uses too; nothing here resolves Ajv. Not published.",
   "private": true,
   "type": "module",
   "scripts": {
     "validate-schemas": "node validate-schemas.mjs",
     "test": "node ../../scripts/run-tests.mjs test"
-  },
-  "dependencies": {
-    "ajv": "^8.17.1",
-    "ajv-formats": "^3.0.1"
   },
   "engines": {
     "node": ">=20"

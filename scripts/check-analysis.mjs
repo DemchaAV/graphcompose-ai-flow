@@ -45,10 +45,10 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { createRequire } from "node:module";
 
 import { installRoot, requireProjectDir, resolveWorkspace } from "./lib/workspace.mjs";
 import { findDataFile } from "./lib/data-spec.mjs";
+import { ready, schemaValidator } from "./lib/schema-validator.mjs";
 
 const repoRoot = installRoot();
 
@@ -96,6 +96,8 @@ try {
 
 const readJson = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
 
+await ready();
+
 const project = readJson(path.join(projectDir, "template-project.json"));
 const revisionId = args.revision ?? project.currentDraftRevisionId;
 if (!revisionId) {
@@ -108,26 +110,6 @@ if (!fs.existsSync(revisionDir)) {
   process.exit(2);
 }
 
-/**
- * Ajv, from the schema-validation tooling, or null.
- *
- * Absent is reported rather than swallowed. A validator that silently degrades
- * to "the file is there" would answer this command's one question wrongly, in
- * the direction that lets a later stage proceed — which is the failure the
- * whole check exists to prevent.
- */
-function loadAjv() {
-  try {
-    const require = createRequire(import.meta.url);
-    const Ajv = require(path.join(repoRoot, ".github", "scripts", "node_modules", "ajv", "dist", "2020.js")).default;
-    return new Ajv({ strict: false, allErrors: true });
-  } catch {
-    return null;
-  }
-}
-
-const ajv = loadAjv();
-
 function bySchema(file, schemaName) {
   if (!fs.existsSync(file)) return { ok: false, detail: "not written yet" };
   let doc;
@@ -137,17 +119,18 @@ function bySchema(file, schemaName) {
     return { ok: false, detail: `not valid JSON — ${err.message}` };
   }
   const schemaFile = path.join(repoRoot, "schemas", schemaName);
-  if (!ajv || !fs.existsSync(schemaFile)) {
-    return {
-      ok: false,
-      detail: ajv
-        ? `no schema at schemas/${schemaName}`
-        : "the schema validator is not installed — run npm ci in .github/scripts",
-    };
+  if (!fs.existsSync(schemaFile)) return { ok: false, detail: `no schema at schemas/${schemaName}` };
+
+  const validate = schemaValidator(schemaFile);
+  if (!validate) {
+    // Reported, never swallowed. A validator that degraded to "the file is
+    // there" would answer this command's one question wrongly, in the direction
+    // that lets a later stage proceed.
+    return { ok: false, detail: "the schema validator is not built — run npm run setup" };
   }
-  const validate = ajv.compile(readJson(schemaFile));
-  if (validate(doc)) return { ok: true, detail: "validates" };
-  return { ok: false, detail: `fails ${schemaName}: ${ajv.errorsText(validate.errors).slice(0, 200)}` };
+  const result = validate(doc);
+  if (result.valid) return { ok: true, detail: "validates" };
+  return { ok: false, detail: `fails ${schemaName}: ${result.errors.slice(0, 200)}` };
 }
 
 function dataArtifact() {
@@ -168,7 +151,7 @@ function dataArtifact() {
 }
 
 /**
- * Every icon the request asked for is in the manifest.
+ * Everything the request asked for is in the manifest.
  *
  * The one thing schema validation cannot see. Both files can be perfectly
  * shaped and still disagree: a token the resolver could not find is simply
@@ -176,7 +159,7 @@ function dataArtifact() {
  * and the icon is missing from a render nobody flagged. Checked by token,
  * because that is the name the template uses.
  */
-function requestedIconsResolved() {
+function requestedAssetsResolved() {
   const requestFile = path.join(revisionDir, "asset-request.json");
   const manifestFile = path.join(revisionDir, "assets-manifest.json");
   if (!fs.existsSync(requestFile) || !fs.existsSync(manifestFile)) return null;
@@ -188,16 +171,27 @@ function requestedIconsResolved() {
   } catch {
     return null; // the schema checks already report an unreadable file
   }
-  const asked = (request.icons ?? []).map((i) => i.token).filter(Boolean);
-  const got = new Set(Object.keys(manifest.icons ?? {}));
-  const unresolved = asked.filter((token) => !got.has(token));
+  // Icons by token, fonts by role — the two keys the manifest is written under
+  // and the template reads back. A font role that never resolved fails exactly
+  // as an icon token does: no record to read, and the text set in a fallback
+  // face nobody flagged.
+  const missing = [];
+  for (const [kind, asked, got] of [
+    ["icon", (request.icons ?? []).map((i) => i.token), new Set(Object.keys(manifest.icons ?? {}))],
+    ["font", (request.fonts ?? []).map((f) => f.role), new Set(Object.keys(manifest.fonts ?? {}))],
+  ]) {
+    for (const name of asked.filter(Boolean)) {
+      if (!got.has(name)) missing.push(`${kind} ${name}`);
+    }
+  }
+  const total = (request.icons ?? []).length + (request.fonts ?? []).length;
   return {
-    name: "requested icons resolved",
-    ok: unresolved.length === 0,
+    name: "requested assets resolved",
+    ok: missing.length === 0,
     detail:
-      unresolved.length === 0
-        ? `${asked.length} of ${asked.length} token(s)`
-        : `${unresolved.length} token(s) the resolver did not return: ${unresolved.join(", ")}`,
+      missing.length === 0
+        ? `${total} of ${total} icon token(s) and font role(s)`
+        : `${missing.length} the resolver did not return: ${missing.join(", ")}`,
   };
 }
 
@@ -215,7 +209,7 @@ if (args.for === "authoring") {
     { name: "architecture-plan.json", ...bySchema(path.join(revisionDir, "architecture-plan.json"), "architecture-plan.schema.json") },
     { name: "assets-manifest.json", ...bySchema(path.join(revisionDir, "assets-manifest.json"), "assets-manifest.schema.json") },
   );
-  const resolved = requestedIconsResolved();
+  const resolved = requestedAssetsResolved();
   if (resolved) artifacts.push(resolved);
 }
 

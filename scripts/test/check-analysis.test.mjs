@@ -382,12 +382,28 @@ const ICON = {
   "droppedSvgContent": null
 };
 
-const manifestFor = (tokens) => ({
+const FONT = {
+  role: "body",
+  family: "Helvetica",
+  fontName: "HELVETICA",
+  weights: [400],
+  source: "standard14",
+  status: "ok",
+  registration: "default-fonts",
+};
+
+/**
+ * A manifest carrying the icon tokens and the font roles named. Both halves,
+ * because both are what the template reads: the request asks for a body face by
+ * role and the Java refers to that role, so a manifest that resolved every icon
+ * and no font is as unreadable as one missing an icon.
+ */
+const manifestFor = (tokens, roles = ["body"]) => ({
   schemaVersion: "1.0.0",
   generatedAt: "2026-09-01T00:00:00.000Z",
   revisionDir: ".",
   icons: Object.fromEntries(tokens.map((t) => [t, { ...ICON, name: t, file: `assets/icons/${t}.svg` }])),
-  fonts: {},
+  fonts: Object.fromEntries(roles.map((r) => [r, { ...FONT, role: r }])),
 });
 const REQUEST_WITH = (tokens) => ({
   icons: tokens.map((t) => ({ token: t, query: t, pointSize: 9 })),
@@ -455,13 +471,37 @@ test("an icon the resolver never returned is caught, though both files validate"
   const { status, parsed } = checkFor(root, "authoring");
 
   assert.equal(status, 1);
-  const check = named(parsed, "requested icons resolved");
+  const check = named(parsed, "requested assets resolved");
   assert.equal(check.ok, false);
   assert.match(check.detail, /website/);
   assert.ok(
-    parsed.artifacts.every((a) => a.name === "requested icons resolved" || a.ok),
+    parsed.artifacts.every((a) => a.name === "requested assets resolved" || a.ok),
     "the schemas were happy, which is exactly why this check exists",
   );
+});
+
+test("a font role the resolver never returned is caught too", () => {
+  // The same disagreement on the other half. The first version of this check
+  // read icons only, so a request naming a display face the resolver could not
+  // supply passed the barrier — and the Java then asked the manifest for a role
+  // it does not have. Fonts are the half a CV notices first.
+  const { root } = workspace("font-dropped", {
+    request: {
+      icons: [{ token: "phone", query: "phone", pointSize: 9 }],
+      fonts: [
+        { role: "body", family: "Helvetica", source: "standard14" },
+        { role: "display", family: "Barlow Condensed", source: "graphcompose-bundled" },
+      ],
+    },
+    plan: PLAN,
+    manifest: manifestFor(["phone"], ["body"]),
+  });
+  const { status, parsed } = checkFor(root, "authoring");
+
+  assert.equal(status, 1);
+  const check = named(parsed, "requested assets resolved");
+  assert.equal(check.ok, false);
+  assert.match(check.detail, /display/);
 });
 
 test("--for takes only the two barriers that exist", () => {
