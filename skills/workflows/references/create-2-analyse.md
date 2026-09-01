@@ -100,6 +100,17 @@ compares the two rather than trusting either alone.
 Describe the page in **ratios and dependencies, not pixels** — with one
 exception: the `page` block carries the measurement from phase 1.
 
+- **The `page` block is copied, not derived.** `reference.mjs analyze`
+  returns it ready under `pageBlock` — format, orientation, `referencePx`,
+  `aspect`, `sizePt`, `sizeSource`, `pageCount` — assembled from what
+  `import-reference` already measured and recorded. Paste it and add only
+  `margins` and `background`, which are yours to describe. Do not retype
+  the numbers from `page`: that block reports width/height, the schema
+  wants height/width, and thirteen of nineteen recorded runs wrote a
+  `page` that failed its schema, most often with the measurements sitting
+  as prose inside `format`. A `pageBlock` of `null` means
+  `import-reference` recorded no geometry — say so in `unclearParts`
+  rather than inventing one.
 - **Every region has a stable kebab-case id and `bounds: {x, y, w, h}` as
   page fractions.** Every later artifact addresses regions by id; the
   bounds are what make a region croppable and measurable. A region without

@@ -72,7 +72,9 @@ const COMMANDS = new Set(["analyze", "measure", "rules", "bands", "colors", "com
 function usage(code = 0) {
   process.stdout.write(
     "usage: node scripts/reference.mjs <measure|rules|bands|colors|compare> --project <id> [options]\n\n" +
-      "  measure                    page size, aspect, and the margins the ink implies\n" +
+      "  analyze                    everything a first pass asks, including the page block\n" +
+      "                             visual-analysis.json needs, ready to copy\n" +
+  "  measure                    page size, aspect, and the margins the ink implies\n" +
       "  rules                      horizontal and vertical rules, and the bands too thick to be rules\n" +
       "  bands                      ink runs down each window, with their horizontal extents\n" +
       "  colors                     dominant colours by coverage\n" +
@@ -171,6 +173,52 @@ const reference = read(referencePath);
 const bandOptions = { gap: args.gap, minInk: args.minInk };
 let result;
 
+/**
+ * `visual-analysis.json`'s `page` block, ready to copy.
+ *
+ * Every field it requires was already decided by `import-reference` and written
+ * to `template-project.json` as `referenceGeometry`: the pixel size it
+ * measured, the aspect, which standard page it matched, that page in points,
+ * and whether the match was measured or confirmed by a person. The geometry
+ * subagent was being asked to re-derive all of it by hand — rename four fields,
+ * invert the aspect, and produce two more from nothing.
+ *
+ * It did not go well. Across nineteen recorded runs, thirteen wrote a `page`
+ * block that failed the schema, and the commonest failure was the information
+ * being present as prose inside `format` — "US Letter (reference raster is
+ * 1103x1426, aspect 0.773)" — rather than in the fields that carry it. Nothing
+ * checked, so it went unnoticed for a month.
+ *
+ * So the transcription step is removed rather than explained better. Nothing
+ * here is a judgement: if a field is not in `referenceGeometry`, it is not
+ * invented, and the block comes back null for a project that has not imported
+ * a reference yet.
+ *
+ * @param {string} projectId
+ * @returns {object|null}
+ */
+function pageBlockFor(projectId) {
+  try {
+    const meta = JSON.parse(
+      fs.readFileSync(path.join(workspaceProjectDir(workspace, projectId), "template-project.json"), "utf8"),
+    );
+    const g = meta.referenceGeometry;
+    if (!g?.pageSize || !g.pages?.length) return null;
+    const first = g.pages[0];
+    return {
+      format: g.pageSize.format,
+      orientation: g.pageSize.orientation,
+      referencePx: { width: first.widthPx, height: first.heightPx },
+      aspect: g.aspect,
+      sizePt: { width: g.pageSize.widthPt, height: g.pageSize.heightPt },
+      sizeSource: g.pageSize.source,
+      pageCount: g.pages.length,
+    };
+  } catch {
+    return null;
+  }
+}
+
 if (args.command === "analyze") {
   // Everything a first pass asks about a reference, in one call.
   //
@@ -192,6 +240,7 @@ if (args.command === "analyze") {
     project: args.project,
     units: "reference pixels, except rules.at which is a page fraction",
     page: pageMetrics(reference),
+    pageBlock: pageBlockFor(args.project),
     palette: samplePalette(reference),
     rules,
     columns: columns.map((column) => ({
