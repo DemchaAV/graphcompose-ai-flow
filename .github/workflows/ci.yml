@@ -32,6 +32,10 @@ jobs:
         with:
           node-version: '20'
       - run: node tools/api-surface/check-pack-freshness.mjs
+      # The other half of trusting a pack: freshness says it is not behind the
+      # library, consistency says its routes, claims and surfaces agree with
+      # each other. A tree with no bundle pack passes both.
+      - run: node scripts/check-bundle-consistency.mjs
 
   revision-manager:
     name: revision-manager (Node 20)

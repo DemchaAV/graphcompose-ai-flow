@@ -38,6 +38,16 @@ const STEPS = [
     args: [".github/scripts/repository-contract.mjs"],
   },
   {
+    // Cheap, and it answers a question nothing else asks: the bundle ships
+    // three files that reference each other, and a route naming a constraint
+    // no claim asserts is advice wearing the clothes of a verified fact.
+    name: "bundle consistency",
+    kind: "fast",
+    why: "the imported bundle's routes, claims and surfaces agree",
+    cmd: process.execPath,
+    args: ["scripts/check-bundle-consistency.mjs"],
+  },
+  {
     name: "knowledge drift",
     kind: "fast",
     why: "no live skill teaches a construction the pinned pack has replaced",
