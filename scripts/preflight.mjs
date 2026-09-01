@@ -235,7 +235,7 @@ const report = {
   knowledge: describeKnowledge(version.line, workspace),
   tools,
   capabilities,
-  nextCommands: nextCommands(project, routing, tools),
+  nextCommands: nextCommands(project, routing, tools, capabilities),
 };
 
 if (args.text) {
@@ -1014,6 +1014,13 @@ function describeCapabilities(versionInfo, toolsInfo) {
           `the newer skills name files this tree does not have` +
           (missing.length > 0 ? `: ${missing.join(", ")}` : "")
         : null,
+    // Where the matching tools already are. The installed pack carries a whole
+    // runtime, `scripts/` included (adapters/lib/runtime.mjs decides what an
+    // install consists of), so a skew is not a thing to fix — it is a thing to
+    // point at. Reporting only the two version numbers made a run spend model
+    // turns comparing execution roots and skill files to work out something
+    // this function already knew.
+    matchingRuntime: parity === "tools-behind" ? matchingRuntimeFor(newestPack) : null,
     diagnostics,
     checks,
     missing,
@@ -1056,6 +1063,31 @@ function describeSnapshotSupport(versionInfo, toolsInfo) {
 }
 
 /** Cache directory names are versions. Sorted oldest to newest; unreadable is empty. */
+/**
+ * The installed tree whose version matches the skills, when it can run.
+ *
+ * "Can run" is checked rather than assumed: a cache directory exists from the
+ * moment an install starts, and pointing a run at a half-copied tree would
+ * trade one confusing failure for a worse one. `preflight.mjs` is the file the
+ * caller would invoke first, so its presence is the test.
+ *
+ * @param {string|null} version
+ * @returns {{version: string, root: string, command: string}|null}
+ */
+function matchingRuntimeFor(version) {
+  if (!version) return null;
+  const root = path.join(PLUGIN_CACHE, version);
+  if (!fs.existsSync(path.join(root, "scripts", "preflight.mjs"))) return null;
+  return {
+    version,
+    root,
+    // The whole point: one line to copy, not a diagnosis. --project-dir is
+    // carried through because a run that has to re-derive it has not been
+    // helped much.
+    command: `node ${path.join(root, "scripts", "preflight.mjs")} --project-dir ${args.projectDir}`,
+  };
+}
+
 function listInstalledPacks() {
   try {
     return fs
@@ -1107,7 +1139,7 @@ function onPath(command, probeArgs) {
 
 // ----------------------------------------------------------------- next up ---
 
-function nextCommands(projectInfo, routing, tools) {
+function nextCommands(projectInfo, routing, tools, capabilities) {
   const commands = [];
 
   // Before anything else. A fresh install carries no `dist/` and no jar, so the
@@ -1119,6 +1151,19 @@ function nextCommands(projectInfo, routing, tools) {
   // Only when building them here did not, or could not, happen. A tree that was
   // just built reports nothing; one where the build failed says so, because
   // being told to run a command that has already failed is worse than silence.
+  // Before everything, including setup: building tools in the wrong tree is
+  // work thrown away. A skew is not a repair — the matching runtime is already
+  // on disk, and the only useful next action is to run from it.
+  if (capabilities?.matchingRuntime) {
+    commands.push({
+      why:
+        `the installed skills are ${capabilities.matchingRuntime.version} and these tools are ` +
+        `${capabilities.treeVersion}; the matching tools are already installed, so run from there ` +
+        "rather than reconciling two trees",
+      run: capabilities.matchingRuntime.command,
+    });
+  }
+
   if (tools?.needsSetup) {
     // One `tsc` when that is the whole story, `setup` otherwise. Recommending
     // the toolchain reinstall for a CLI that only needs recompiling is advice
