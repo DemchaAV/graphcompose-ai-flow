@@ -1084,7 +1084,10 @@ function matchingRuntimeFor(version) {
     // The whole point: one line to copy, not a diagnosis. --project-dir is
     // carried through because a run that has to re-derive it has not been
     // helped much.
-    command: `node ${path.join(root, "scripts", "preflight.mjs")} --project-dir ${args.projectDir}`,
+    // Quoted: Windows paths carry spaces as a matter of course, and an
+    // unquoted command is one a reader has to repair before running — which
+    // is the work this field exists to remove.
+    command: `node "${path.join(root, "scripts", "preflight.mjs")}" --project-dir "${args.projectDir}"`,
   };
 }
 
