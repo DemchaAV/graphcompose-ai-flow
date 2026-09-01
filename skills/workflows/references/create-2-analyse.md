@@ -71,6 +71,30 @@ An artifact that fails validation is re-run, not patched around, and no
 later stage starts until all three pass. The render loop that follows is
 serial by nature; do not parallelise it.
 
+### Resolve the assets as soon as the request is valid
+
+```bash
+node tools/asset-resolver/src/cli.mjs --revision <revision-dir>
+```
+
+Start it the moment `asset-request.json` validates — it reads that file
+and nothing else, so it feeds neither the geometry nor the plan and has
+no reason to wait for them. It runs beside the architecture plan below.
+
+This used to happen during authoring, and it cost more than it looks.
+Across nineteen recorded runs the manifest landed a median **26 minutes**
+after the request that produced it was already valid, and the first
+render followed the manifest within the same minute in **every one of
+them** — the manifest was the binding constraint on time-to-first-render,
+and most of its wait was not work.
+
+Treat `assets-manifest.json` as the source of truth for what was actually
+fetched — the format (`svg` or `png`) included; the template branches on
+it rather than assuming an extension (see [authoring
+rules](authoring-rules.md#asset-flow)). A token the resolver could not
+return is absent from the manifest, which is why the authoring barrier
+compares the two rather than trusting either alone.
+
 ## `visual-analysis.json` ([schema](../../../schemas/visual-analysis.schema.json))
 
 Describe the page in **ratios and dependencies, not pixels** — with one
@@ -174,13 +198,6 @@ constants here and record them under `baseConstants` with their
 derivation, so a later revision changes one number instead of fifteen.
 Every primitive must exist in the pinned pack's allow-list — `node
 scripts/api-query.mjs --exists <Type>.<method>`.
-
-## Assets
-
-Write `asset-request.json`, run the resolver, and treat
-`assets-manifest.json` as the source of truth for what was fetched — the
-format (`svg` or `png`) included; the template branches on it rather than
-assuming an extension (see [authoring rules](authoring-rules.md#asset-flow)).
 
 ## Reading copies
 

@@ -74,7 +74,10 @@ const REQUEST = { icons: [], fonts: [{ role: "body", family: "Helvetica", source
 const DATA = { name: "A Person", title: "Engineer" };
 
 /** A workspace with one project and one revision, filled to order. */
-function workspace(label, { geometry = GEOMETRY, data = DATA, request = REQUEST } = {}) {
+function workspace(
+  label,
+  { geometry = GEOMETRY, data = DATA, request = REQUEST, plan = null, manifest = null } = {},
+) {
   const host = tempDir(label);
   const root = path.join(host, "graphcompose-flow");
   const project = path.join(root, "projects", "demo");
@@ -107,6 +110,8 @@ function workspace(label, { geometry = GEOMETRY, data = DATA, request = REQUEST 
   if (geometry !== null) writeJson(path.join(revision, "visual-analysis.json"), geometry);
   if (data !== null) writeJson(path.join(revision, "cv-data.json"), data);
   if (request !== null) writeJson(path.join(revision, "asset-request.json"), request);
+  if (plan !== null) writeJson(path.join(revision, "architecture-plan.json"), plan);
+  if (manifest !== null) writeJson(path.join(revision, "assets-manifest.json"), manifest);
   return { root, revision };
 }
 
@@ -189,5 +194,284 @@ test("the text report names what to re-run rather than what to work around", () 
 
   assert.equal(run.status, 1);
   assert.match(run.stdout, /WAIT\s+cv-data\.json/);
-  assert.match(run.stdout, /re-run what failed rather than planning around it/);
+  assert.match(run.stdout, /re-run what failed rather than working around it/);
+});
+
+// -------------------------------------------------------- authoring barrier ---
+
+/**
+ * A plan and a manifest that validate. Both are lifted from a real revision
+ * rather than invented: hand-written fixtures failed their own schemas twice
+ * here, on required fields — `pickedBy`, `templateSurface` — that only a real
+ * artifact carries.
+ */
+const PLAN = {
+  "schemaVersion": 1,
+  "targetGraphComposeVersion": "2.2.1",
+  "templateSurface": {
+    "lane": "V2 layered",
+    "documentKind": "cv",
+    "upstreamCheatsheet": "skills/versions/graphcompose-2.2/guides/09-recipe-cv-and-cover-letter.md"
+  },
+  "componentMapping": [
+    {
+      "region": "page-background",
+      "renderMethod": "renderPageChrome",
+      "primitives": [
+        "DocumentSession.pageBackgrounds",
+        "PageBackgroundFill.leftColumn",
+        "PageBackgroundFill.rightColumn"
+      ],
+      "notes": "Both columns reach all four paper edges on every page, which is the page-background contract and not a container fill. A fillColor on the sidebar section would stop where its content stops and leave the charcoal short of the bottom edge — the exact failure backgrounds-and-panels.md opens with."
+    }
+  ],
+  "baseConstants": [
+    {
+      "name": "PAGE_WIDTH",
+      "value": 595.276,
+      "derivation": "DocumentPageSize.A4.width(). Every horizontal dimension below is a fraction of this."
+    },
+    {
+      "name": "SIDEBAR_WEIGHT",
+      "value": 0.3197,
+      "derivation": "Measured 337px of 1054. The main column is 1 - SIDEBAR_WEIGHT, and the page-background columns take the same two numbers, so the fill and the content column cannot drift apart."
+    },
+    {
+      "name": "SIDEBAR_PAD",
+      "value": 17.0,
+      "derivation": "0.0285 x PAGE_WIDTH (30px of 1054). Applied left and right; the sidebar's content width is SIDEBAR_WEIGHT x PAGE_WIDTH - 2 x SIDEBAR_PAD."
+    },
+    {
+      "name": "MAIN_PAD_LEFT",
+      "value": 23.7,
+      "derivation": "0.0398 x PAGE_WIDTH (42px), the gap between the sidebar edge and the main column's text."
+    },
+    {
+      "name": "MAIN_PAD_RIGHT",
+      "value": 28.8,
+      "derivation": "0.0484 x PAGE_WIDTH (51px), fixed by where the EXPERIENCE hairline stops."
+    },
+    {
+      "name": "MAIN_CONTENT_WIDTH",
+      "value": "(1 - SIDEBAR_WEIGHT) * PAGE_WIDTH - MAIN_PAD_LEFT - MAIN_PAD_RIGHT",
+      "derivation": "352.5pt. The masthead rule, the credential column weights and the timeline's date/rail/content split are all fractions of this rather than separate measurements."
+    },
+    {
+      "name": "TIMELINE_DATE_WEIGHT",
+      "value": 0.194,
+      "derivation": "Date column as a fraction of MAIN_CONTENT_WIDTH; the marker column is MARKER_DIAMETER wide and the content takes the rest."
+    },
+    {
+      "name": "CREDENTIAL_LEFT_WEIGHT",
+      "value": 0.402,
+      "derivation": "Certifications column, measured 251px of the 624px main content. The gutter is 0.124 and achievements 0.474; the three sum to 1 by construction."
+    },
+    {
+      "name": "BODY_SIZE",
+      "value": 10.5,
+      "derivation": "Everything typographic is a multiple: surname 4.3x, given name 3.5x, section heading 0.85x, meta 0.8x."
+    },
+    {
+      "name": "MARKER_DIAMETER",
+      "value": 6.2,
+      "derivation": "Independent. Measured 11px; the marker is a fixed mark, not a scaled one."
+    },
+    {
+      "name": "RATING_DOT_DIAMETER",
+      "value": 4.5,
+      "derivation": "Independent. Measured 8px, at a 8.2pt pitch across five dots."
+    },
+    {
+      "name": "CONTACT_ICON_SIZE",
+      "value": 9.0,
+      "derivation": "Independent, and read from assets-manifest.json's pointSize rather than written in Java, so the flow decides icon size."
+    }
+  ],
+  "themeTokens": [
+    {
+      "token": "SIDEBAR",
+      "value": "#272D32",
+      "role": "sidebar-background"
+    },
+    {
+      "token": "PAPER",
+      "value": "#FEFEFE",
+      "role": "page-background"
+    },
+    {
+      "token": "ACCENT",
+      "value": "#BA9458",
+      "role": "accent"
+    },
+    {
+      "token": "INK",
+      "value": "#272D32",
+      "role": "body-text"
+    },
+    {
+      "token": "SIDEBAR_INK",
+      "value": "#FBFBFB",
+      "role": "sidebar-text"
+    },
+    {
+      "token": "RULE",
+      "value": "#DADADB",
+      "role": "rule"
+    },
+    {
+      "token": "SIDEBAR_RULE",
+      "value": "#3D4345",
+      "role": "sidebar-rule"
+    },
+    {
+      "token": "RATING_EMPTY",
+      "value": "#777A7D",
+      "role": "rating-empty"
+    },
+    {
+      "token": "BODY_FONT",
+      "value": "FontName.LATO",
+      "role": "body"
+    }
+  ],
+  "dataModel": {
+    "specClass": "com.demcha.examples.cv.CharcoalGoldCvSpec",
+    "providerClass": "com.demcha.examples.cv.CharcoalGoldCvSpecProvider#create()",
+    "dataFile": "cv-data.json"
+  },
+  "pagination": {
+    "pageModel": "uniform",
+    "keepRules": [
+      {
+        "region": "experience",
+        "rule": "keepTogether",
+        "why": "An entry is a date, a marker and its achievement list on one rail. Split across a page the marker keeps its date and loses its bullets, and the rail restarts at the top of the next page under no marker at all. The block is curated to one page, so this rule never fires on the sample — which is exactly why it has to be declared rather than discovered."
+      },
+      {
+        "region": "certifications",
+        "rule": "keepTogether",
+        "why": "A credential is four lines and an icon; there is no reading of it that survives being cut in half, and the paired achievements column would then sit alongside a fragment."
+      },
+      {
+        "region": "achievements",
+        "rule": "keepTogether",
+        "why": "Same as certifications, and the two columns must break together or not at all."
+      },
+      {
+        "region": "technical-tools",
+        "rule": "keepWithNext",
+        "why": "The heading and its one line of tools are a two-line block; orphaning the heading at the foot of a page would leave a labelled nothing."
+      }
+    ],
+    "notes": "The reference is one page and the content is curated to fit it, so there are no explicit breaks and no per-page margin rules. The keep rules above are the answer to what happens when someone edits this template for a candidate with more to say — the sample render never exercises them, which is why they are decided here instead of after the first overflow."
+  }
+};
+
+const ICON = {
+  "iconSet": "mdi:phone-outline",
+  "prefix": "mdi",
+  "name": "phone-outline",
+  "file": "assets/icons/phone.svg",
+  "format": "svg",
+  "fallbackReason": null,
+  "size": null,
+  "pointSize": 9,
+  "color": "#BA9458",
+  "pickedBy": "explicit",
+  "visualHint": null,
+  "droppedSvgContent": null
+};
+
+const manifestFor = (tokens) => ({
+  schemaVersion: "1.0.0",
+  generatedAt: "2026-09-01T00:00:00.000Z",
+  revisionDir: ".",
+  icons: Object.fromEntries(tokens.map((t) => [t, { ...ICON, name: t, file: `assets/icons/${t}.svg` }])),
+  fonts: {},
+});
+const REQUEST_WITH = (tokens) => ({
+  icons: tokens.map((t) => ({ token: t, query: t, pointSize: 9 })),
+  fonts: [{ role: "body", family: "Helvetica", source: "standard14" }],
+});
+
+function checkFor(root, barrier) {
+  const run = spawnSync(
+    process.execPath,
+    [CLI, "--project", "demo", "--root", root, "--for", barrier, "--json"],
+    { encoding: "utf8" },
+  );
+  let parsed = null;
+  try {
+    parsed = JSON.parse(run.stdout);
+  } catch {
+    /* an error path */
+  }
+  return { status: run.status, parsed, out: `${run.stdout ?? ""}${run.stderr ?? ""}` };
+}
+
+test("the plan barrier does not wait for the manifest", () => {
+  // The whole point of moving resolution earlier: it reads only the request, so
+  // the plan must not be blocked on it. Across nineteen recorded runs the
+  // manifest landed a median 26 minutes after its own input was already valid.
+  const { root } = workspace("plan-no-manifest", { plan: null, manifest: null });
+  const { status, parsed } = checkFor(root, "plan");
+
+  assert.equal(status, 0, "the architecture plan was made to wait for asset resolution");
+  assert.equal(parsed.barrier, "plan");
+  assert.ok(!parsed.artifacts.some((a) => a.name === "assets-manifest.json"));
+});
+
+test("the authoring barrier waits for the plan and the manifest", () => {
+  const { root } = workspace("authoring-complete", {
+    request: REQUEST_WITH(["phone", "email"]),
+    plan: PLAN,
+    manifest: manifestFor(["phone", "email"]),
+  });
+  const { status, parsed, out } = checkFor(root, "authoring");
+
+  assert.equal(status, 0, out);
+  assert.equal(parsed.barrier, "authoring");
+  assert.ok(parsed.artifacts.some((a) => a.name === "architecture-plan.json" && a.ok));
+  assert.ok(parsed.artifacts.some((a) => a.name === "assets-manifest.json" && a.ok));
+});
+
+test("authoring is held when the manifest has not been written", () => {
+  const { root } = workspace("authoring-no-manifest", { plan: PLAN, manifest: null });
+  const { status, parsed } = checkFor(root, "authoring");
+
+  assert.equal(status, 1);
+  assert.equal(named(parsed, "assets-manifest.json").detail, "not written yet");
+});
+
+test("an icon the resolver never returned is caught, though both files validate", () => {
+  // The disagreement no schema can see. Request and manifest are each perfectly
+  // shaped; the template simply has no record to read for `website`, and the
+  // icon goes missing from a render nobody flagged.
+  const { root } = workspace("token-dropped", {
+    request: REQUEST_WITH(["phone", "email", "website"]),
+    plan: PLAN,
+    manifest: manifestFor(["phone", "email"]),
+  });
+  const { status, parsed } = checkFor(root, "authoring");
+
+  assert.equal(status, 1);
+  const check = named(parsed, "requested icons resolved");
+  assert.equal(check.ok, false);
+  assert.match(check.detail, /website/);
+  assert.ok(
+    parsed.artifacts.every((a) => a.name === "requested icons resolved" || a.ok),
+    "the schemas were happy, which is exactly why this check exists",
+  );
+});
+
+test("--for takes only the two barriers that exist", () => {
+  const { root } = workspace("bad-barrier");
+  const run = spawnSync(
+    process.execPath,
+    [CLI, "--project", "demo", "--root", root, "--for", "render"],
+    { encoding: "utf8" },
+  );
+
+  assert.equal(run.status, 2);
+  assert.match(run.stderr, /--for takes plan or authoring/);
 });

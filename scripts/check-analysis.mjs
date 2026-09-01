@@ -21,11 +21,26 @@
  * against their schemas, the data file against parsing and its own spec. An
  * artifact that fails is re-run, not patched around.
  *
- * This is deliberately not a render gate and not a review gate. It answers one
- * question — may the architecture plan start — and it answers it about the
- * three files the plan reads.
+ * ## Two barriers, because two things wait
  *
- * Exit: 0 all three are complete · 1 at least one is not · 2 usage.
+ * `--for plan` (the default) is the three discovery artifacts: may the
+ * architecture plan start.
+ *
+ * `--for authoring` adds what authoring itself reads — the plan, and the assets
+ * manifest — plus the one disagreement no schema can see: an icon the request
+ * asked for and the manifest does not carry. Both files can be perfectly shaped
+ * and still leave a token unresolved, and the template then has no record to
+ * read for it, so the icon is missing from a render nobody flagged.
+ *
+ * The manifest belongs to the second barrier and not the first on purpose.
+ * Asset resolution reads only `asset-request.json`; it feeds neither the plan
+ * nor the geometry, so it runs beside them. Requiring it one barrier earlier
+ * would serialise the very thing that measured 26 minutes of the median
+ * time-to-first-render.
+ *
+ * This is deliberately not a render gate and not a review gate.
+ *
+ * Exit: 0 the barrier is clear · 1 something it needs is not · 2 usage.
  */
 
 import fs from "node:fs";
@@ -42,14 +57,15 @@ function usage(code = 0) {
     "usage: node scripts/check-analysis.mjs --project <id> [--revision <id>] [--json]\n\n" +
       "  --project <id>     the project\n" +
       "  --revision <id>    the revision (default: the project's current draft)\n" +
+      "  --for plan|authoring  which barrier to check (default: plan)\n" +
       "  --root <workspace> workspace override\n" +
       "  --json             machine-readable\n\n" +
-      "exit: 0 discovery is complete | 1 an artifact is missing or invalid | 2 usage\n",
+      "exit: 0 the barrier is clear | 1 an artifact is missing or invalid | 2 usage\n",
   );
   process.exit(code);
 }
 
-const args = { project: null, revision: null, root: null, json: false };
+const args = { project: null, revision: null, root: null, json: false, for: "plan" };
 for (let i = 2; i < process.argv.length; i += 1) {
   const a = process.argv[i];
   if (a === "--help" || a === "-h") usage(0);
@@ -57,12 +73,17 @@ for (let i = 2; i < process.argv.length; i += 1) {
   else if (a === "--project" || a === "-p") args.project = process.argv[++i];
   else if (a === "--revision" || a === "-r") args.revision = process.argv[++i];
   else if (a === "--root") args.root = process.argv[++i];
+  else if (a === "--for") args.for = process.argv[++i];
   else {
     process.stderr.write(`[analysis] unknown argument: ${a}\n`);
     usage(2);
   }
 }
 if (!args.project) usage(2);
+if (args.for !== "plan" && args.for !== "authoring") {
+  process.stderr.write(`[analysis] --for takes plan or authoring, not "${args.for}"\n`);
+  usage(2);
+}
 
 const workspace = resolveWorkspace({ explicitRoot: args.root ?? null });
 let projectDir;
@@ -146,24 +167,72 @@ function dataArtifact() {
   return { name: path.basename(file), ok: true, detail: `${keys.length} top-level field(s)` };
 }
 
+/**
+ * Every icon the request asked for is in the manifest.
+ *
+ * The one thing schema validation cannot see. Both files can be perfectly
+ * shaped and still disagree: a token the resolver could not find is simply
+ * absent from the manifest, the template then has no record to read for it,
+ * and the icon is missing from a render nobody flagged. Checked by token,
+ * because that is the name the template uses.
+ */
+function requestedIconsResolved() {
+  const requestFile = path.join(revisionDir, "asset-request.json");
+  const manifestFile = path.join(revisionDir, "assets-manifest.json");
+  if (!fs.existsSync(requestFile) || !fs.existsSync(manifestFile)) return null;
+  let request;
+  let manifest;
+  try {
+    request = readJson(requestFile);
+    manifest = readJson(manifestFile);
+  } catch {
+    return null; // the schema checks already report an unreadable file
+  }
+  const asked = (request.icons ?? []).map((i) => i.token).filter(Boolean);
+  const got = new Set(Object.keys(manifest.icons ?? {}));
+  const unresolved = asked.filter((token) => !got.has(token));
+  return {
+    name: "requested icons resolved",
+    ok: unresolved.length === 0,
+    detail:
+      unresolved.length === 0
+        ? `${asked.length} of ${asked.length} token(s)`
+        : `${unresolved.length} token(s) the resolver did not return: ${unresolved.join(", ")}`,
+  };
+}
+
 const artifacts = [
   { name: "visual-analysis.json", ...bySchema(path.join(revisionDir, "visual-analysis.json"), "visual-analysis.schema.json") },
   dataArtifact(),
   { name: "asset-request.json", ...bySchema(path.join(revisionDir, "asset-request.json"), "asset-request.schema.json") },
 ];
 
+// The authoring barrier is the plan barrier plus what authoring itself reads.
+// Asset resolution runs concurrently with the plan — it feeds neither — so the
+// manifest is required here and deliberately not one line earlier.
+if (args.for === "authoring") {
+  artifacts.push(
+    { name: "architecture-plan.json", ...bySchema(path.join(revisionDir, "architecture-plan.json"), "architecture-plan.schema.json") },
+    { name: "assets-manifest.json", ...bySchema(path.join(revisionDir, "assets-manifest.json"), "assets-manifest.schema.json") },
+  );
+  const resolved = requestedIconsResolved();
+  if (resolved) artifacts.push(resolved);
+}
+
 const complete = artifacts.every((a) => a.ok);
-const result = { project: args.project, revision: revisionId, complete, artifacts };
+const result = { project: args.project, revision: revisionId, barrier: args.for, complete, artifacts };
 
 if (args.json) {
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 } else {
-  const lines = [`analysis  ${args.project} / ${revisionId}`];
-  for (const a of artifacts) lines.push(`  ${a.ok ? "ok  " : "WAIT"}  ${a.name.padEnd(24)} ${a.detail}`);
+  const lines = [`analysis  ${args.project} / ${revisionId}  (barrier: ${args.for})`];
+  for (const a of artifacts) lines.push(`  ${a.ok ? "ok  " : "WAIT"}  ${a.name.padEnd(30)} ${a.detail}`);
   lines.push(
     complete
-      ? "\n  discovery is complete — the architecture plan may start"
-      : "\n  discovery is not complete; re-run what failed rather than planning around it",
+      ? args.for === "authoring"
+        ? "\n  everything authoring reads is complete — the template may be written"
+        : "\n  discovery is complete — the architecture plan may start"
+      : "\n  not clear; re-run what failed rather than working around it",
   );
   process.stdout.write(`${lines.join("\n")}\n`);
 }
