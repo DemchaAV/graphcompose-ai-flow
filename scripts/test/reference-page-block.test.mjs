@@ -185,3 +185,46 @@ test("a project with no recorded geometry gets null, not an invented block", () 
   assert.equal(payload.pageBlock, null);
   assert.ok(payload.page, "the raw measurement is still reported");
 });
+
+/** What the record looks like after a person answered the page-size question. */
+const CONFIRMED_GEOMETRY = {
+  ...A4_GEOMETRY,
+  aspect: 1.125,
+  pages: [{ page: 1, file: "reference/reference.png", widthPx: 800, heightPx: 900, aspect: 1.125 }],
+  verdict: "ask",
+  pageSize: {
+    source: "user-confirmed-standard",
+    format: "LETTER",
+    orientation: "portrait",
+    widthPt: 612,
+    heightPt: 792,
+    deviationPercent: 13.07,
+    decision: "Asked: LETTER or the measured 612x688.5? Answered: LETTER, the shot is cropped.",
+    decidedAt: "2026-09-01T00:00:00.000Z",
+  },
+};
+
+test("a size a person confirmed carries the sentence the schema asks for", () => {
+  // The schema requires sizeDecision exactly when sizeSource is user-confirmed,
+  // and the first version of this block omitted it — invalid in the one case a
+  // subagent has least to go on, which is how a helper meant to remove
+  // guesswork would have reintroduced it. page-size.mjs --decision is where the
+  // sentence was captured; it is carried, not re-asked.
+  const { payload } = analyze(workspace("confirmed", { geometry: CONFIRMED_GEOMETRY }));
+
+  assert.equal(payload.pageBlock.sizeSource, "user-confirmed-standard");
+  assert.match(payload.pageBlock.sizeDecision, /Answered: LETTER/);
+
+  const validate = pageValidator();
+  assert.ok(
+    validate(payload.pageBlock),
+    `a confirmed size produced an invalid block: ${JSON.stringify(validate.errors)}`,
+  );
+});
+
+test("a measured size carries no decision sentence, because nobody was asked", () => {
+  const { payload } = analyze(workspace("measured-no-decision"));
+
+  assert.equal(payload.pageBlock.sizeSource, "measured-standard");
+  assert.equal(payload.pageBlock.sizeDecision, undefined, "a sentence was invented for a question never asked");
+});

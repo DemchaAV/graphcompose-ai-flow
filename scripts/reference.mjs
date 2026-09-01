@@ -212,6 +212,12 @@ function pageBlockFor(projectId) {
       aspect: g.aspect,
       sizePt: { width: g.pageSize.widthPt, height: g.pageSize.heightPt },
       sizeSource: g.pageSize.source,
+      // Conditionally required: the schema demands it whenever the size was
+      // confirmed by a person rather than measured, and `page-size.mjs --decision`
+      // is where that sentence was captured. Omitting it made the block invalid
+      // in exactly the case a subagent has least to go on — which is how a
+      // helper meant to remove guesswork would have reintroduced it.
+      ...(g.pageSize.decision ? { sizeDecision: g.pageSize.decision } : {}),
       pageCount: g.pages.length,
     };
   } catch {
