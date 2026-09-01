@@ -50,7 +50,10 @@
             "type": "string",
             "description": "Fill colour, as the document uses it."
           },
-          "visual": { "type": "string" },
+          "visual": {
+            "type": "boolean",
+            "description": "Whether the resolver should pick by look rather than by name — it reads this as a flag (`useVisual && iconRequest.visual`). Declared as a string in the first version of this schema, which would have refused the resolver's own documented request shape the moment anyone wrote one."
+          },
           "visualHint": {
             "type": "string",
             "description": "What the icon looks like in the reference, for a human reading the request back."
