@@ -315,10 +315,15 @@ integration, no MCP server, no standalone runtime.
   hand-finishing. That is the model behind the host, not the harness:
   the skills and tools are identical on all three. Usable; not where to
   start.
-- The GraphCompose **2.2 pack** ships with five fixtures rendering
-  identically to their baselines; the conceptual skills stay
-  `needs-validation` on coverage — five fixtures are a subset of what
-  fourteen skills describe.
+- The pinned line is **GraphCompose 2.3**, and its pack is a knowledge
+  pack: API surfaces, routing and claims imported from the release
+  bundle, and no prose. How-to comes from the 2.2 pack, which `preflight`
+  names explicitly — the 2.3 allow-list still decides what exists.
+- The **2.2 pack** ships with five fixtures rendering identically to
+  their baselines; its conceptual skills stay `needs-validation` on
+  coverage — five fixtures are a subset of what fourteen skills
+  describe. Those fixtures pin `2.2.0`, so skill validation runs a line
+  behind the pack.
 - The pixel figure never reaches zero against a rasterised reference and
   never will; the perceptual figure beside it is provisional until it has
   been measured against a person's judgement. Both are quoted, neither is

@@ -1,15 +1,16 @@
 # Architecture
 
-This page describes the **target architecture** of GraphCompose AI
-Flow: an installable harness for coding agents rather than a workflow
-kit a human has to read and an agent has to interpret by hand.
+This page describes the architecture of GraphCompose AI Flow: an
+installable harness for coding agents rather than a workflow kit a
+human has to read and an agent has to interpret by hand.
 
-> **Status: migration in progress.** Most of what follows is a
-> contract being built, not a description of what ships today. The
-> current, honest state is
-> [implementation-status.md](implementation-status.md); the migration
-> phases are tracked in [roadmap.md](roadmap.md) § Harness migration.
-> Sections below marked *(planned)* do not exist yet.
+It describes what ships. The migration that produced this shape
+completed before v0.21.0, and the banner that used to stand here —
+warning that most of the page was a contract being built — outlived it
+by several releases while marking nothing. What is deliberately absent
+is listed under [Deliberately out of scope](#deliberately-out-of-scope);
+what is shipped but incomplete is in
+[limitations.md](limitations.md).
 
 ## The core principle
 
@@ -115,18 +116,31 @@ tools they call. They live in
 
 GraphCompose API knowledge stays separate from workflow, in the
 versioned skill packs under [`skills/versions/`](../skills/), and is
-loaded selectively. Each pack carries a `00-loading-map.md` answering
-one question — given this task, which files do I open? — organised by
-what the reference actually contains rather than by document kind, so
-`tables.md` loads because there is a table, not because invoices
-usually have one. A pack holds sixteen files; a typical task needs four
-to six, and the omissions are the point: every file loaded "to be safe"
-is context the iteration loop cannot spend on the mismatch it is about
-to fix. The `topics` array in `skills/skill-manifest.json` is the
-machine-readable half, and a contract test fails the build when a pack
-skill is unreachable from the map.
-The split holds because the two change on different clocks: workflow
-with this project, the API with the library.
+loaded selectively. The split holds because the two change on different
+clocks: workflow with this project, the API with the library.
+
+A pack carries what its line could produce, and that differs by line.
+
+- **A knowledge pack** is imported from a GraphCompose release bundle
+  (`tools/api-surface/import-bundle.mjs`) and holds `api/` split per
+  surface, `routing/`, `claims/` and its provenance. It ships no prose —
+  2.3 has none, where 2.2 has 29 pages — because a bundle carries what
+  GraphCompose can verify from its own build, and prose is not that.
+  `preflight` reports such a pack as `knowledgeOnly` and names the
+  nearest *older* line's pages as how-to, never a newer line's.
+- **A prose pack** carries `00-loading-map.md` and the topic files it
+  indexes, answering one question — given this task, which files do I
+  open? — organised by what the reference actually contains rather than
+  by document kind, so `tables.md` loads because there is a table, not
+  because invoices usually have one. A typical task needs four to six of
+  the sixteen, and the omissions are the point: every file loaded "to be
+  safe" is context the iteration loop cannot spend on the mismatch it is
+  about to fix. The `topics` array in `skills/skill-manifest.json` is the
+  machine-readable half, and a contract test fails the build when a pack
+  skill is unreachable from the map.
+
+Whichever layout a pack is in, its allow-list is the authority for the
+line it describes. Borrowed prose is guidance and never overrides it.
 
 The mapping from stages to skills is deliberately not one-to-one. A
 stage such as `visualAnalyzer` belongs to more than one workflow, and
@@ -327,7 +341,7 @@ that happens to exist — authoring against a different line's allow-list
 produces calls that do not compile, so an honest gap beats a
 confident wrong answer.
 
-## Target repository shape
+## Repository shape
 
 ```text
 graphcompose-ai-flow/
@@ -356,10 +370,15 @@ graphcompose-ai-flow/
 ├── tools/                     revision-manager, preview-renderer,
 │                              visual-diff, asset-resolver
 ├── scripts/                   render, verify, publish
+├── observations/              engine behaviours a probe has verified, per line
+├── hooks/                     the PreToolUse guard on the four shell shortcuts
 ├── docs/
 ├── examples/
 └── templates/
 ```
+
+The load-bearing directories, not every one: `assets/`, `site/`,
+`tests/` and `validation/` exist and carry no architectural weight.
 
 The workflow, skills, schemas and tools are shared. The adapters are
 thin: packaging differences between hosts must never fork the workflow.

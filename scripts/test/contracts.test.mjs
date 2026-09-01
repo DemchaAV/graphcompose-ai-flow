@@ -150,6 +150,55 @@ test("no live document still claims the old agent-chain figures", () => {
   }
 });
 
+test("no live document presents a superseded pack as the pinned line", () => {
+  // The same failure as the agent-chain counts above, one layer down. When 2.3
+  // was imported, five live documents went on calling 2.2 the current line —
+  // README, overview, roadmap, limitations and architecture — and each was
+  // written when it was true. A reader following any of them authors against
+  // an allow-list the project no longer pins.
+  //
+  // Historical statements are fine and necessary: a phase table recording
+  // "GraphCompose 2.2 skill pack — done" is a record, and the fixtures really
+  // do pin 2.2.0. What is refused is the present tense — a superseded line
+  // named as what the project *is* on.
+  const packs = fs
+    .readdirSync(path.join(repoRoot, "skills", "versions"), { withFileTypes: true })
+    .filter((e) => e.isDirectory() && /^graphcompose-\d+\.\d+$/.test(e.name))
+    .map((e) => e.name.replace("graphcompose-", ""));
+  const newest = packs.sort((a, b) => {
+    const [am, an] = a.split(".").map(Number);
+    const [bm, bn] = b.split(".").map(Number);
+    return am - bm || an - bn;
+  })[packs.length - 1];
+  // Checked structurally, not by reading tense. The first version of this
+  // matched phrases like "the 2.2 pack ships…" and immediately failed on a
+  // correct sentence — "how-to comes from the 2.2 pack, which preflight names
+  // explicitly" — because a superseded line is legitimately named as the prose
+  // fallback. A gate that cannot tell the role of a mention would make every
+  // future writer fight it.
+  //
+  // What is unambiguous: a document that discusses GraphCompose lines at all
+  // and never mentions the newest one is describing a project that has moved.
+  // That is exactly what happened — five documents discussed 2.2 and not one
+  // of them said 2.3.
+  const live = [
+    "README.md",
+    "docs/overview.md",
+    "docs/roadmap.md",
+    "docs/limitations.md",
+    "docs/architecture.md",
+  ];
+  for (const file of live) {
+    const source = read(file);
+    const mentions = [...source.matchAll(/GraphCompose[\s-]+(\d+\.\d+)/gi)].map((m) => m[1]);
+    if (mentions.length === 0) continue; // says nothing about lines; nothing to be stale about
+    assert.ok(
+      mentions.includes(newest),
+      `${file} discusses GraphCompose ${[...new Set(mentions)].sort().join(", ")} and never the newest pack (${newest})`,
+    );
+  }
+});
+
 test("the eleven-prompt chain is gone, and nothing live still sends a reader to it", () => {
   assert.ok(!fs.existsSync(path.join(repoRoot, "prompts")), "prompts/ is back");
 

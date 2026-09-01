@@ -1,16 +1,21 @@
 # Implementation Status
 
-> **Historical. Do not read this for the current state.** The matrix
-> below describes the original seven phases and was last checked before
-> the workflow kit became an installable harness. It is kept as the
-> record of what was claimed and when.
+> **A frozen record, not the current state.** Everything below — every
+> version number, count and verdict — is as it stood on **2026-05-18**,
+> before the workflow kit became an installable harness. It is kept as
+> the record of what was claimed and when, and it is not maintained.
 >
-> The current state is in [`docs/roadmap.md`](roadmap.md) and the "What
-> is honest about the current state" section of the
-> [README](../README.md) — and only there. This banner used to name "the
-> two gaps that matter today"; one of them (fixtures pinned to 1.9.0) had
-> since been closed, which is exactly the failure a staleness warning
-> creates when it goes stale itself: it tells the reader what to trust.
+> Read it that way and the numbers are informative. Read it as a
+> description of today and every one is wrong: the pack it calls *the*
+> versioned pack is one of five, the pin it names is three minor lines
+> back, and the suite it counts has grown by an order of magnitude.
+>
+> The current state is in [`docs/roadmap.md`](roadmap.md), the "What is
+> honest about the current state" section of the [README](../README.md),
+> and [`limitations.md`](limitations.md) — and only there. This banner
+> once named "the two gaps that matter today" and one of them had since
+> closed, which is exactly the failure a staleness warning creates when
+> it goes stale itself: it tells the reader what to trust.
 
 Current claim/reality matrix for the Phase 1-7 deliverables and CI.
 This file supersedes the historical audit notes in `history/AUDIT-2026-05.md` when

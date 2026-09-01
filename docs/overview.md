@@ -112,12 +112,12 @@ and a `render` path for compiled GraphCompose templates), and a Node
 visual-diff CLI. All three have passing test suites and are wired to
 GitHub Actions CI.
 
-GraphCompose 2.2.0 is reachable through Maven Central as
-`io.github.demchaav:graph-compose:2.2.0` (JitPack
-`com.github.DemchaAV:GraphCompose:vX.Y.Z` still resolves for
-pre-1.6.7 pins), and the five fixture projects under
-[`examples/skill-fixtures/`](../examples/skill-fixtures/) compile
-and run against that artifact. `preview-renderer render` now
+GraphCompose is reachable through Maven Central as
+`io.github.demchaav:graph-compose:<version>`; the newest pack describes
+**2.3.0** (JitPack `com.github.DemchaAV:GraphCompose:vX.Y.Z` still
+resolves for pre-1.6.7 pins). The five fixture projects under
+[`examples/skill-fixtures/`](../examples/skill-fixtures/) compile and
+run against `2.2.0`, which they pin explicitly — a line behind the pack. `preview-renderer render` now
 executes compiled template classes and produces PDF/PNG artifacts
 when the runtime is on the classpath. The invoice reference example
 uses that path through its render-runner and now has committed
