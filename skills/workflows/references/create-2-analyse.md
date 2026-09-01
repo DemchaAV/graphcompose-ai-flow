@@ -29,24 +29,47 @@ call. (One reference-analysis stage measured 61 calls, most a single
 measurement each; one run spent 35% of its wall clock composing 76 one-off
 measurement scripts for under five minutes of computation.)
 
-## Fan the analysis out where the host can
+## Fan the analysis out
 
 The three artifacts describe the same reference and do not read each
-other, so three parallel subagents can produce them (Claude Code: the
-Agent tool; a host without subagents does the same three in this order):
+other. **On a host with subagents, produce them concurrently** — this is
+the instruction, not a suggestion. Claude Code: one message carrying
+three `Agent` calls. A host without subagents does the same three in the
+order below, and nothing else changes.
 
-| Subagent | Owns, exclusively | Reads |
-|---|---|---|
-| geometry | `visual-analysis.json` | the reference + its schema |
-| content | `<doc-kind>-data.json` (+ `data-schema.md`) | the reference only |
-| assets | `asset-request.json` | the reference + the request format |
+The earlier wording said three subagents *can* produce them, and a real
+0.22.0 run read that as permission and went serial. Permission is not an
+instruction, and the serial reading is the expensive one: these three are
+the whole of discovery, and everything after them waits.
+
+| Subagent | Owns, exclusively | Reads | Done when |
+|---|---|---|---|
+| geometry | `visual-analysis.json` | the reference + its schema | validates against [`visual-analysis.schema.json`](../../../schemas/visual-analysis.schema.json) |
+| content | `<doc-kind>-data.json` (+ `data-schema.md`) | the reference only | parses, and every field the spec requires is present |
+| assets | `asset-request.json` | the reference + the request format | validates against [`asset-request.schema.json`](../../../schemas/asset-request.schema.json) |
 
 Each writes only its own files — two writers on one file is a merge
 conflict with no merger. Each gets the reference and its task, **not**
 this conversation. Its reply is one line ("wrote visual-analysis.json, 9
-regions"); the parent reads results from disk. Rejoin when all three
-exist. The render loop that follows is serial by nature; do not
-parallelise it.
+regions"); the parent reads results from disk.
+
+### The join is on validated artifacts, not on files existing
+
+```bash
+node scripts/check-analysis.mjs --project <id> [--revision <id>]
+```
+
+Exit 0 means all three are complete and the architecture plan may start;
+exit 1 names which one is not and why.
+
+A file exists the moment a subagent starts writing it, and a truncated
+or half-shaped artifact is worse than a missing one: the next stage
+reads it, believes it, and plans around a document it has only half
+seen. So the barrier is *validates*, not *is there*.
+
+An artifact that fails validation is re-run, not patched around, and no
+later stage starts until all three pass. The render loop that follows is
+serial by nature; do not parallelise it.
 
 ## `visual-analysis.json` ([schema](../../../schemas/visual-analysis.schema.json))
 

@@ -32,6 +32,14 @@ addFormats.default(ajv);
 
 const SCHEMA_BINDINGS = [
   {
+    // The two halves of asset resolution. The request is what the analysis
+    // decided the document needs; the manifest is what was actually fetched.
+    // Binding both means a request that could never resolve is caught where it
+    // is written rather than by the resolver twenty minutes later.
+    filename: 'asset-request.json',
+    schemaFile: 'asset-request.schema.json',
+  },
+  {
     filename: 'assets-manifest.json',
     schemaFile: 'assets-manifest.schema.json',
   },

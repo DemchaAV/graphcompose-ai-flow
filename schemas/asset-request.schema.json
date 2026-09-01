@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DemchaAV/graphcompose-ai-flow/schemas/asset-request.schema.json",
+  "title": "Asset Request",
+  "description": "Contract between the asset analysis in create phase 2 (writer) and tools/asset-resolver (reader). What the document needs, before anything has been fetched: icons by the token the template will use, fonts by the role they play, and images the reference contains. The resolver turns this into assets-manifest.json. Shaped from the nineteen requests in the real-run corpus, not from the subset the resolver README documents — a schema that rejects what the flow actually writes would be a gate nobody could pass.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["icons", "fonts"],
+  "properties": {
+    "schemaVersion": {
+      "anyOf": [{ "type": "integer" }, { "type": "string" }],
+      "description": "Present on some requests and absent on most; the corpus carries both 1 and \"1.0.0\". Accepted either way rather than normalised, because nothing reads it to make a decision and rejecting a request over its version stamp would fail the analysis for a field that changes nothing."
+    },
+    "icons": {
+      "type": "array",
+      "description": "Every icon the document draws. Empty is a legitimate answer and must be written rather than omitted, so that 'no icons' is distinguishable from 'the analysis has not run'.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["token"],
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The name the template refers to this icon by. It is the key the manifest is written back under, so it must be unique within the request and stable across revisions."
+          },
+          "query": {
+            "type": "string",
+            "description": "What to search Iconify for, when no exact set is named."
+          },
+          "iconSet": {
+            "type": "string",
+            "description": "An exact Iconify id such as 'mdi:check-circle-outline'. When present the resolver does not search."
+          },
+          "preferredSets": {
+            "type": "array",
+            "description": "Icon sets to prefer, in order, when searching by query.",
+            "items": { "type": "string" }
+          },
+          "size": {
+            "anyOf": [{ "type": "integer" }, { "type": "null" }],
+            "description": "Rasterised PNG height in pixels when the SVG fallback fires; null for an SVG."
+          },
+          "pointSize": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Height in PDF points. The template reads this from the manifest, so the flow — not the Java — decides how big an icon renders."
+          },
+          "color": {
+            "type": "string",
+            "description": "Fill colour, as the document uses it."
+          },
+          "visual": { "type": "string" },
+          "visualHint": {
+            "type": "string",
+            "description": "What the icon looks like in the reference, for a human reading the request back."
+          }
+        }
+      }
+    },
+    "fonts": {
+      "type": "array",
+      "description": "Every typeface the document sets text in, by the role it plays rather than by where it appears.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["role"],
+        "properties": {
+          "role": {
+            "type": "string",
+            "minLength": 1,
+            "description": "heading, body, signature — what this face is for. The manifest is keyed by it."
+          },
+          "family": { "type": "string" },
+          "fontName": {
+            "type": "string",
+            "description": "An exact face name where the family alone would not resolve it."
+          },
+          "weights": {
+            "type": "array",
+            "items": { "type": "integer" }
+          },
+          "source": {
+            "type": "string",
+            "description": "Where the face comes from: graphcompose-bundled, standard14, or a file dropped into the revision."
+          },
+          "why": { "type": "string" }
+        }
+      }
+    },
+    "images": {
+      "type": "array",
+      "description": "Raster or vector artwork the reference contains that is not an icon — a photograph, a logo, a signature scan.",
+      "items": { "type": "object", "additionalProperties": true }
+    },
+    "notes": {
+      "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }],
+      "description": "Anything the analysis wants the resolver or a later reader to know — one paragraph or a list of them; the corpus writes both. Never load-bearing: nothing reads it to make a decision."
+    }
+  }
+}
