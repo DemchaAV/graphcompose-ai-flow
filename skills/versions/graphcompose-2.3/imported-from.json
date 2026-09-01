@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "bundle": "graph-compose-knowledge-2.3.0.zip",
+  "sha256": "326128389f65e2843f914546e15091e4a9a80697f7cf49695e0b7c5cf17c9f0d",
+  "graphComposeVersion": "2.3.0",
+  "generator": "knowledge/tools/api-surface/extract-api.mjs",
+  "generatorVersion": "2.0.0",
+  "sourceCommit": "62afc0260cbc5929b596859bb6976f8e3843f154",
+  "sourceDirty": false,
+  "files": [
+    "manifest.json",
+    "provenance.json",
+    "api/authoring.json",
+    "api/authoring.md",
+    "api/backends.json",
+    "api/backends.md",
+    "api/excluded.json",
+    "api/extension-spi.json",
+    "api/extension-spi.md",
+    "api/templates.json",
+    "api/templates.md",
+    "api/testing.json",
+    "api/testing.md",
+    "routing/tasks.json",
+    "claims/index.json"
+  ]
+}

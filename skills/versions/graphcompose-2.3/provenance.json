@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "note": "Provenance for one extraction run. Never committed: a tracked file cannot hold the SHA of the commit it belongs to, and class digests are not reproducible across machines, so neither belongs in a gate.",
+  "version": "2.3.0",
+  "mode": "reactor",
+  "generator": "knowledge/tools/api-surface/extract-api.mjs",
+  "generatorVersion": "2.0.0",
+  "generatedAt": "2026-08-31T21:25:34.720Z",
+  "git": {
+    "commit": "62afc0260cbc5929b596859bb6976f8e3843f154",
+    "branch": "HEAD",
+    "dirty": false
+  },
+  "artifacts": [
+    {
+      "artifact": "graph-compose-core",
+      "source": "core/target/classes",
+      "sha256": "6ac9ebf8c4dcba37d368d32f66217dc4415ef8dad4268a068ecfcb6a619f58f4"
+    },
+    {
+      "artifact": "graph-compose-templates",
+      "source": "templates/target/classes",
+      "sha256": "4f138293e7b5dff3ad68caee9f1417e6a340f21c55fdad537fc3afc86f700f3e"
+    },
+    {
+      "artifact": "graph-compose-render-pdf",
+      "source": "render-pdf/target/classes",
+      "sha256": "b7326a6a7ab19404ad3f791d3d636bbf94a9c2debbc65c5d492348bd5c945e4f"
+    },
+    {
+      "artifact": "graph-compose-render-docx",
+      "source": "render-docx/target/classes",
+      "sha256": "298bb9a6b5ce59360d0b2a55b80877ab5026064ecd136b9953bb92c72bedfe59"
+    },
+    {
+      "artifact": "graph-compose-render-pptx",
+      "source": "render-pptx/target/classes",
+      "sha256": "8c71704272d90766d13fe4f373c998c9e9d94dfac1648376f315d93fcc1fd00c"
+    },
+    {
+      "artifact": "graph-compose-testing",
+      "source": "testing/target/classes",
+      "sha256": "af3cb5f9d2b408ab7a9d851368949681c21a04b77731b7ed4c174ca81e760842"
+    }
+  ]
+}
