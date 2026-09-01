@@ -55,6 +55,29 @@ with no flat equivalent at all — routing — had no command.
   `symbols` against this line, and treat `docs` as an anchor rather than a file
   you have — and falls through to `--search` when the line has no routing table.
 
+## v0.22.0 — in progress
+
+### Added
+
+- **A pack can carry knowledge without prose, and preflight says so.** The
+  GraphCompose 2.3 bundle brings `api/`, `routing/` and `claims/` and zero
+  pages, where the 2.2 pack has 29. Importing it made 2.3 a supported line —
+  correctly, its allow-list is the authority for 2.3 — and left the skills block
+  answering `loadingMap: null`, which reads as "nothing to load" rather than
+  "this pack does not carry that half". A run proceeded without guidance instead
+  of going to find it.
+
+  Preflight now reports `knowledgeOnly` and, under `guidance`, the nearest
+  **older** line that has prose: its loading map, its worked starting point for
+  the document kind, and a note saying the pinned line's allow-list still
+  decides what exists. Two things it will not do. It never points a line at
+  *newer* prose — borrowing downward risks a construction the pinned line has
+  replaced, which the drift gate polices, while borrowing upward names API the
+  line does not have at all. And it drops `00-api-surface.md` from the borrowed
+  starting point: a worked starting point opens with the allow-list, and that
+  one file crossing a line is an agent authoring against the wrong closed set
+  while believing it has the right one.
+
 ## v0.21.1 — 2026-08-31
 
 **Why update.** Three holes a run on a fast model fell through, found by

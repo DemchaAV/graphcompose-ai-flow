@@ -583,3 +583,50 @@ test("the build's own output never reaches stdout, because stdout is the report"
   // A Maven log in the middle of the JSON is a parse error, not a build log.
   assert.doesNotThrow(() => JSON.parse(result.stdout), "stdout stopped being parseable JSON");
 });
+
+test("a knowledge pack says it carries no prose, and where the how-to is", () => {
+  // The 2.3 pack arrives from a knowledge bundle: api/, routing/, claims/ and
+  // zero pages, where 2.2 has 29. Answering `loadingMap: null` and stopping
+  // reads as "nothing to load" rather than "this pack does not carry that
+  // half", and the difference decides whether a run goes looking or just
+  // proceeds without guidance.
+  const { host } = scenario({ version: "2.3.0", docKind: "cv" }, "knowledge-only");
+  const { parsed } = run(["--project-dir", host, "--project", "demo", "--no-setup"]);
+
+  assert.equal(parsed.graphCompose.status, "supported", "the pack exists, so the line is supported");
+  assert.equal(parsed.skills.loadingMap, null);
+  assert.equal(parsed.skills.knowledgeOnly, true);
+  assert.equal(parsed.skills.guidance.line, "2.2", "how-to was not pointed at the nearest older pack");
+  assert.ok(
+    parsed.skills.guidance.note.includes("allow-list stays the authority"),
+    "the note does not say which pack still decides what exists",
+  );
+  assert.ok(
+    parsed.skills.guidance.note.includes("api-query --version 2.3"),
+    "the note does not name the command that verifies against the pinned line",
+  );
+  const point = parsed.skills.guidance.startingPoint;
+  assert.ok(point?.files?.length > 0, `a cv has a worked starting point in 2.2; got ${JSON.stringify(point)}`);
+  // The one file that must not cross a line. A worked starting point opens with
+  // the allow-list, and 2.2's closed set does not describe 2.3 — an agent that
+  // opened it would be authoring against the wrong closed set while believing
+  // it had the right one. The prose beside it is what is being borrowed.
+  assert.ok(
+    !point.files.includes("00-api-surface.md"),
+    `the older line's allow-list was carried across: ${point.files.join(", ")}`,
+  );
+  assert.ok(point.files.includes("layout-primitives.md"), "the prose that was the point did not come with it");
+});
+
+test("guidance is offered downward only, never from a newer line", () => {
+  // 1.7 has prose, no loading map and no allow-list — not a knowledge pack,
+  // just unbuilt. Handing it 2.2's pages would teach API that line does not
+  // have, which is the failure the closed set exists to prevent. A bundle pack
+  // reading older prose is the opposite trade and a bounded one; this is not.
+  const { host } = scenario({ version: "1.7.0", docKind: "cv" }, "old-line");
+  const { parsed } = run(["--project-dir", host, "--project", "demo", "--no-setup"]);
+
+  assert.equal(parsed.skills.knowledgeOnly, false);
+  assert.equal(parsed.skills.guidance, null, "an older line was sent to a newer line's prose");
+  assert.ok(parsed.skills.note.includes("no allow-list in any layout"));
+});

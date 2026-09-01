@@ -37,6 +37,7 @@ import { homedir } from "node:os";
 import { spawnSync } from "node:child_process";
 
 import { isBuildStale } from "./lib/build-freshness.mjs";
+import { packLayout } from "./lib/pack-surface.mjs";
 import { installHint } from "./lib/install-hints.mjs";
 
 import {
@@ -442,14 +443,134 @@ function describeRouting(projectInfo) {
 // ------------------------------------------------------------------- skills ---
 
 /**
+ * A pack path, as this report names paths: relative to the install.
+ *
+ * A declaration rather than a `const` arrow: `describeSkills` is called from the
+ * top-level report two hundred lines above this, and a const would still be in
+ * its temporal dead zone by then.
+ */
+function packRelative(target) {
+  return path.relative(repoRoot, target).split(path.sep).join("/");
+}
+
+/**
+ * The newest line BELOW `line` whose pack carries a loading map.
+ *
+ * A knowledge bundle ships the API, routing and claims — what GraphCompose can
+ * verify from its own build. It does not ship prose, and prose is where "which
+ * four files does a CV need" lives. So a bundle pack has an allow-list and no
+ * guidance, and the nearest guidance is the last line that had any.
+ *
+ * Strictly below, never above. Prose from an older line may describe a
+ * construction the newer one has replaced — a bounded risk the drift gate is
+ * built for. Prose from a NEWER line names API the pinned one does not have,
+ * which is the failure the closed set exists to prevent, so it is not offered.
+ *
+ * @param {string} line  the line being reported on
+ * @returns {string|null}
+ */
+function olderPackWithGuidance(line) {
+  const versionsDir = path.join(repoRoot, "skills", "versions");
+  if (!fs.existsSync(versionsDir)) return null;
+  const lines = fs
+    .readdirSync(versionsDir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && /^graphcompose-\d+\.\d+$/.test(e.name))
+    .map((e) => e.name.replace("graphcompose-", ""))
+    .filter((l) => compareLines(l, line) < 0)
+    .filter((l) => fs.existsSync(path.join(versionsDir, `graphcompose-${l}`, "00-loading-map.md")))
+    .sort((a, b) => compareLines(b, a));
+  return lines[0] ?? null;
+}
+
+/**
+ * The older line's starting point, minus its allow-list.
+ *
+ * A worked starting point opens with `00-api-surface.md`, and that one file is
+ * the one thing that must NOT be carried across a line: it is the closed set,
+ * and 2.2's closed set does not describe 2.3. The rest of the list is prose —
+ * how a CV is laid out, where spacing rules live — and that is what is being
+ * borrowed. The pinned line's allow-list is asked through `api-query`, not
+ * opened, so nothing is lost by dropping it here.
+ *
+ * @param {{docKind: string, title: string, files: string[]}|null} point
+ */
+function withoutForeignAllowList(point) {
+  if (!point?.files) return point;
+  return { ...point, files: point.files.filter((f) => f !== "00-api-surface.md") };
+}
+
+/** Version lines as numbers, so 1.10 sorts after 1.9 rather than before it. */
+function compareLines(a, b) {
+  const [am, an] = a.split(".").map(Number);
+  const [bm, bn] = b.split(".").map(Number);
+  return am - bm || an - bn;
+}
+
+/**
  * The loading map as data. It is a set of tables, so the rows come out
  * exactly; which rows apply is still a judgement and is left as one.
+ *
+ * ## When the pack has no map
+ *
+ * A pack imported from a knowledge bundle has `api/`, `routing/` and `claims/`
+ * and no prose at all — 2.3 arrived with 0 pages where 2.2 has 29. This used to
+ * answer `loadingMap: null` and stop, which reads as "nothing to load" rather
+ * than "this pack does not carry that half", and the difference decides whether
+ * a run goes looking elsewhere or just proceeds without guidance.
+ *
+ * So it says which half is missing and where the other one is. The pinned line
+ * stays the API authority — it is the closed set the code must compile
+ * against — while the how-to comes from the newest line that has any, labelled,
+ * with the warning that goes with reading one line's prose while authoring
+ * another's. `check-knowledge-drift` polices exactly that overlap, and it now
+ * runs against the pinned line's symbols.
  */
 function describeSkills(line, docKind) {
   if (!line) return null;
   const packDir = path.join(repoRoot, "skills", "versions", `graphcompose-${line}`);
   const mapPath = path.join(packDir, "00-loading-map.md");
-  if (!fs.existsSync(mapPath)) return { pack: packDir, loadingMap: null };
+  if (!fs.existsSync(mapPath)) {
+    const layout = packLayout(packDir);
+    // Only a knowledge pack gets pointed elsewhere for how-to, and only at an
+    // OLDER line. A bundle pack has the newer API and is merely missing the
+    // prose, so reading the previous line's pages is a known, bounded risk —
+    // the drift gate polices exactly that overlap. Sending an unbuilt 1.7 to
+    // 2.2's prose would be the opposite trade and is simply wrong: it teaches
+    // API that line does not have, which is the failure the closed set exists
+    // to prevent.
+    const knowledgeOnly = layout === "bundle";
+    const fallback = knowledgeOnly ? olderPackWithGuidance(line) : null;
+    const fallbackMap = fallback
+      ? path.join(repoRoot, "skills", "versions", `graphcompose-${fallback}`, "00-loading-map.md")
+      : null;
+    return {
+      // Relative, like every other path in this report. It was absolute here
+      // and relative in the answer below, which made the two hard to compare.
+      pack: packRelative(packDir),
+      loadingMap: null,
+      // "Knowledge without guidance" is a state a bundle import produces on
+      // purpose; a pack with neither is simply not built.
+      knowledgeOnly: layout === "bundle",
+      guidance: fallback
+        ? {
+            line: fallback,
+            pack: packRelative(path.dirname(fallbackMap)),
+            loadingMap: packRelative(fallbackMap),
+            startingPoint: withoutForeignAllowList(
+              startingPointFor(fs.readFileSync(fallbackMap, "utf8"), docKind),
+            ),
+            note:
+              `graphcompose-${line} is a knowledge pack: API, routing and claims, no prose. ` +
+              `Its allow-list stays the authority — verify every call against it with ` +
+              `api-query --version ${line}. These pages are how-to from the older ${fallback} ` +
+              `and may describe a construction ${line} has replaced.`,
+          }
+        : null,
+      note: knowledgeOnly
+        ? `graphcompose-${line} carries an allow-list and no prose${fallback ? "" : ", and no older pack has any either"}.`
+        : `graphcompose-${line} has no loading map, and no allow-list in any layout.`,
+    };
+  }
 
   const text = fs.readFileSync(mapPath, "utf8");
   return {

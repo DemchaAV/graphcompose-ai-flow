@@ -18,6 +18,26 @@ about each builder you are about to call rather than reading or grepping
 it: `node scripts/api-query.mjs --search <topic>` answers the same
 question from the jar, in a few lines.
 
+### When the pinned line has no prose
+
+A pack imported from a GraphCompose knowledge bundle carries `api/`,
+`routing/` and `claims/` and no pages at all. Preflight says so —
+`skills.knowledgeOnly: true`, `loadingMap: null` — and names the nearest
+**older** line that has prose under `skills.guidance`. Read that, with
+two rules:
+
+1. **The pinned line's allow-list is still the authority.** Verify every
+   call with `api-query --version <pinned line>` before you write it. The
+   borrowed pages are how-to, never a statement of what exists — which is
+   why the allow-list is the one file `guidance.startingPoint` drops.
+2. **Older prose can teach a construction the pinned line has replaced.**
+   That is the bounded risk of borrowing downward, and `--task` is the
+   cheaper answer where a route exists: it is generated from the pinned
+   line, so it cannot describe a superseded path.
+
+Never read a *newer* line's prose for an older pinned line. Preflight will
+not offer it, and it would name API the pinned line does not have.
+
 ## Before you choose a primitive, ask for the route
 
 The surfaces say what exists. They cannot say which of three ways is the
