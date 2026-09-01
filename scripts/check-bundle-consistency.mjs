@@ -151,8 +151,17 @@ for (const route of routes) {
     }
   }
   for (const symbol of route.symbols ?? []) {
-    // A route may name `Type.member` or a bare member; both are indexed above.
-    if (symbols.size > 0 && !symbols.has(symbol) && !symbols.has(symbol.split(".").pop())) {
+    // Matched exactly, and the index carries both forms — `member` and
+    // `Type.member` — so a route that qualifies its symbol is checked against
+    // the type it named, and one that does not is checked against the bare
+    // name it did.
+    //
+    // The first version fell back from `Type.member` to the member alone, which
+    // let `TableBuilder.repeatHeader` pass on any type that happened to declare
+    // a `repeatHeader` — including when `TableBuilder` had been removed
+    // outright. A receiver disappearing is the commonest way a route outlives
+    // its API, and it is exactly what this check claims to catch.
+    if (symbols.size > 0 && !symbols.has(symbol)) {
       problems.push({
         kind: "symbol-absent",
         task: route.task,
