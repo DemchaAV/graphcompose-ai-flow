@@ -44,6 +44,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { noAllowListHint, packSymbols } from "./lib/pack-surface.mjs";
 import { installRoot } from "./lib/workspace.mjs";
 
 const repoRoot = installRoot();
@@ -144,22 +145,6 @@ function walk(dir, out) {
 }
 
 /**
- * Every public symbol the pinned pack declares, as bare names.
- *
- * Bare rather than type-qualified on purpose: `addTimeline` is declared on a
- * generic flow type, so `api-query --exists SectionBuilder.addTimeline` answers
- * "absent" while the method is callable on a section. A checker that took the
- * type-qualified answer would miss the exact claim it exists to catch.
- */
-function allowedSymbols(surfacePath) {
-  const source = fs.readFileSync(surfacePath, "utf8");
-  const symbols = new Set();
-  for (const [, name] of source.matchAll(/^- `[^`]*?\b(\w+)\s*\(/gm)) symbols.add(name);
-  for (const [, name] of source.matchAll(/^### (\w+)/gm)) symbols.add(name);
-  return symbols;
-}
-
-/**
  * How far after a manual construction the primitive still counts as named.
  *
  * A document that describes the hand-built form and then says "prefer
@@ -200,12 +185,14 @@ const packs = fs
   .sort((a, b) => Number(a.slice(13)) - Number(b.slice(13)));
 const activePack = args.version ? `graphcompose-${args.version}` : packs[packs.length - 1];
 
-const surfacePath = path.join(versionsDir, activePack, "00-api-surface.md");
-if (!fs.existsSync(surfacePath)) {
-  process.stderr.write(`[knowledge-drift] no allow-list for ${activePack}: ${surfacePath}\n`);
+// Whichever layout the pack is in. Reading only `00-api-surface.md` meant that
+// importing a knowledge bundle — which brings a larger allow-list, split per
+// surface — turned this check off with a message about a missing file.
+const symbols = packSymbols(path.join(versionsDir, activePack));
+if (!symbols) {
+  process.stderr.write(`[knowledge-drift] ${noAllowListHint(activePack)}`);
   process.exit(2);
 }
-const symbols = allowedSymbols(surfacePath);
 
 // A pair is inert until the pack actually has the primitive: before that, the
 // manual construction was the correct advice and flagging it would be wrong.

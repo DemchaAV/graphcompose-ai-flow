@@ -25,8 +25,23 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const CLI = path.join(repoRoot, "scripts", "api-query.mjs");
 const SURFACE = path.join(repoRoot, "skills", "versions", "graphcompose-2.2", "00-api-surface.md");
 
+/**
+ * Every case here is about the 2.2 pack — `SURFACE` above is its document, and
+ * the totals, symbols and signatures asserted below are its own. Letting the
+ * CLI pick "the newest pack on disk" made all of that hostage to an unrelated
+ * import: `import-bundle.mjs` installing GraphCompose 2.3 moved the default and
+ * turned this file red without a line of it changing.
+ *
+ * `maxBuffer` for the same reason one layer down. `--dump` was half a megabyte
+ * when this was written and is now approaching two; the default 1 MB truncated
+ * it mid-object, and a truncated dump fails as a JSON parse error that says
+ * nothing about buffers.
+ */
 function run(args) {
-  const result = spawnSync(process.execPath, [CLI, ...args], { encoding: "utf8" });
+  const result = spawnSync(process.execPath, [CLI, "--version", "2.2", ...args], {
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+  });
   let parsed = null;
   let parseError = null;
   try {

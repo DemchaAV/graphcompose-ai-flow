@@ -26,6 +26,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { noAllowListHint, packLayout, packVerifiedAgainst } from "../../scripts/lib/pack-surface.mjs";
+
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, "..", "..");
 const PACKS = path.join(REPO_ROOT, "skills", "versions");
@@ -63,18 +65,23 @@ const lines = fs
   .sort(compare);
 
 const newest = lines[lines.length - 1];
-const surface = path.join(PACKS, `graphcompose-${newest}`, "00-api-surface.md");
-if (!fs.existsSync(surface)) {
-  process.stderr.write(`[pack-freshness] no allow-list in the newest pack (graphcompose-${newest})\n`);
+const newestDir = path.join(PACKS, `graphcompose-${newest}`);
+
+// Whichever layout the newest pack is in. This read the Markdown front-matter
+// directly, and importing a knowledge bundle — which has no such file, the API
+// being split per surface — turned the freshness gate off with a message about
+// a missing allow-list. A gate that goes quiet when the thing it watches gets
+// newer is worse than no gate: nothing was stale, and nothing was checked.
+if (packLayout(newestDir) === "none") {
+  process.stderr.write(`[pack-freshness] ${noAllowListHint(`graphcompose-${newest}`)}`);
   process.exit(1);
 }
 
-const front = fs.readFileSync(surface, "utf8").slice(0, 2000);
-const verifiedAgainst = front.match(/^verifiedAgainst:\s*(\S+)\s*$/m)?.[1] ?? null;
+const verifiedAgainst = packVerifiedAgainst(newestDir);
 if (!verifiedAgainst) {
   process.stderr.write(
-    `[pack-freshness] graphcompose-${newest}/00-api-surface.md has no verifiedAgainst front-matter —\n` +
-      "  without it nothing can tell which release the pack describes.\n",
+    `[pack-freshness] graphcompose-${newest} does not say which release it describes —\n` +
+      "  no verifiedAgainst in its surfaces, and no imported-from.json from a bundle.\n",
   );
   process.exit(1);
 }
