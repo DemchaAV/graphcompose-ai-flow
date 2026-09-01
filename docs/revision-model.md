@@ -115,7 +115,7 @@ FAILED
 
 The orchestrator never overwrites the approved revision directly.
 Every change creates a new revision. This is the core rule of the
-Revision Manager Agent:
+`tools/revision-manager`:
 
 ```text
 Never overwrite the approved revision directly.

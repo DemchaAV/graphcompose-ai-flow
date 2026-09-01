@@ -1,6 +1,6 @@
 # skill-validation-cache
 
-Content-addressed cache for the Skill Validator Agent's verdict.
+Content-addressed cache for the verdict of `scripts/validate-skills.mjs`.
 The first time the validator runs against a given `(target version,
 covered skills, skill pack content)` triple, the result is stored;
 every subsequent revision that resolves the same triple gets the
@@ -82,7 +82,7 @@ Default cache directory:
 
 ## Skill Validator integration
 
-The recommended sequence inside the Skill Validator Agent run:
+The recommended sequence inside a `scripts/validate-skills.mjs` run:
 
 1. **Compute the key.** `skill-validation-cache key …` against the
    resolved coordinate + the covered skills list from the

@@ -1,7 +1,7 @@
 # Rollback
 
 Three rollback types are supported. All of them are implemented by
-the Revision Manager Agent and all of them create a new revision —
+the `tools/revision-manager` and all of them create a new revision —
 nothing is overwritten in place.
 
 ## Undo last change
@@ -88,7 +88,7 @@ If the code is not componentized — for example if the whole layout
 lives in a single `compose` method — then "restore the old header
 but keep the new table" cannot be performed mechanically. Therefore
 componentization is not just style. It is part of the rollback
-architecture, and the Template Coder Agent enforces it.
+architecture, and template authoring in create phase 3 enforces it.
 
 For the Revision Manager's responsibilities and core safety rule see
 `tools/revision-manager`,

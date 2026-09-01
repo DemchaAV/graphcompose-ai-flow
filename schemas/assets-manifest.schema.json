@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/DemchaAV/graphcompose-ai-flow/schemas/assets-manifest.schema.json",
   "title": "Assets Manifest",
-  "description": "Contract between tools/asset-resolver (writer) and the Template Coder Agent (reader). Pins the icon and font records the generated template must consume; the manifest is the single source of truth for asset references.",
+  "description": "Contract between tools/asset-resolver (writer) and template authoring (reader). Pins the icon and font records the generated template must consume; the manifest is the single source of truth for asset references.",
   "type": "object",
   "additionalProperties": false,
   "required": [

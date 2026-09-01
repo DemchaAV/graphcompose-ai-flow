@@ -91,7 +91,7 @@ The scope values and how the orchestrator picks between them are in
 
 ### 1. Detect Task Type
 
-Owner: Template Orchestrator Agent ([`skills/workflows/`](../skills/workflows/README.md)).
+Owner: the workflow skills ([`skills/workflows/`](../skills/workflows/README.md)).
 Input: user request, project metadata, current approved and draft
 revisions. Output: orchestration-decision.md and a routing choice
 between new generation, revision, approval, undo, revert to approved,
@@ -99,20 +99,20 @@ or selective rollback.
 
 ### 2. Resolve GraphCompose Version
 
-Owner: Version + Skill Resolver Agent ([`skills/workflows/`](../skills/workflows/README.md)).
+Owner: `scripts/preflight.mjs`, which resolves the version and the pack in one call.
 Input: pom.xml, build.gradle, project config, skill-manifest.json,
 user request. Output: version-resolution.md naming the target
 GraphCompose version and the selected skill pack path.
 
 ### 3. Load Matching Skill Pack
 
-Owner: Version + Skill Resolver Agent. The selected skill pack lives
+Owner: `scripts/preflight.mjs`. The selected skill pack lives
 under `skills/versions/graphcompose-<version>/`. Only skills marked as
 compatible with the resolved version are loaded.
 
 ### 4. Validate Skills
 
-Owner: Skill Validator Agent ([`skills/workflows/`](../skills/workflows/README.md)).
+Owner: `scripts/validate-skills.mjs`.
 Input: selected skill pack, GraphCompose version, verified examples,
 fixture projects, build output, render output. Output:
 skill-validation-report.md and, when drift is detected,
@@ -121,7 +121,7 @@ wins. See [skill-validation.md](skill-validation.md).
 
 ### 5. Analyze Reference
 
-Owner: Visual Analyzer Agent ([`skills/workflows/`](../skills/workflows/README.md)).
+Owner: the geometry analysis in create phase 2 ([`skills/workflows/`](../skills/workflows/README.md)).
 Input: reference.png, optional reference.pdf, optional user notes.
 Output: visual-analysis.md describing page format, regions, hierarchy,
 typography, icons, colors, spacing, and uncertain parts. Icon
@@ -131,7 +131,7 @@ never writes code.
 
 ### 6. Create Architecture Plan
 
-Owner: Architecture Mapper Agent ([`skills/workflows/`](../skills/workflows/README.md)).
+Owner: the architecture plan at the end of create phase 2 ([`skills/workflows/`](../skills/workflows/README.md)).
 Input: visual-analysis.md, selected skills, GraphCompose version,
 reference image. Output: architecture-plan.md mapping each visual
 region to GraphCompose DSL primitives, naming render methods, and
@@ -143,7 +143,7 @@ final Java.
 
 ### 7. Resolve Design Assets
 
-Owner: Asset Resolver Agent ([`skills/workflows/`](../skills/workflows/README.md)).
+Owner: `tools/asset-resolver`.
 Input: asset-request.json, architecture-plan.md, selected skill pack,
 revision folder. Output: assets-manifest.json plus binary assets under
 `<revision>/assets/icons/` and `<revision>/assets/fonts/`. Icons are
@@ -156,7 +156,7 @@ for the CLI surface and schemas.
 
 ### 8. Generate Template Code
 
-Owner: Template Coder Agent ([`skills/workflows/`](../skills/workflows/README.md)).
+Owner: template authoring in create phase 3 ([`skills/workflows/`](../skills/workflows/README.md)).
 Input: architecture-plan.md, assets-manifest.json, selected skill
 pack, GraphCompose version, base revision when applicable. Output:
 generated-template.java, generated-test.java, patch.diff,
@@ -200,14 +200,14 @@ recommendation. See [visual-review-loop.md](visual-review-loop.md).
 
 ### 14. Revise
 
-Owner: Template Orchestrator Agent, routing back through the chain.
+Owner: the workflow skills, routing back through the chain.
 A new revision is created from the current draft; impacted components
 are patched; render and review run again. Revising never overwrites
 prior revisions.
 
 ### 15. Approve / Reject / Rollback
 
-Owner: Revision Manager Agent ([`skills/workflows/`](../skills/workflows/README.md)).
+Owner: `tools/revision-manager` ([`skills/workflows/`](../skills/workflows/README.md)).
 Approval flips a DRAFT to APPROVED and records the new
 `currentApprovedRevisionId` in `template-project.json`. Rejection
 marks the draft REJECTED. Rollback is covered in detail in
@@ -246,7 +246,7 @@ folder.
 - `asset-request.json` — written by the Architecture Mapper alongside
   the plan; declares every icon token and font role the template needs.
 - `assets-manifest.json` plus `assets/icons/*.png` and
-  `assets/fonts/*.ttf` — written by the Asset Resolver Agent after
+  `assets/fonts/*.ttf` — written by the `tools/asset-resolver` after
   resolving the request against `api.iconify.design` and the bundled
   Google Fonts list.
 - `generated-template.java`, `generated-test.java`, `patch.diff`,

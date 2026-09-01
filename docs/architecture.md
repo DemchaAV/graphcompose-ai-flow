@@ -28,36 +28,37 @@ job.
 > The host agent thinks and edits code. GraphCompose AI Flow decides
 > **how** a GraphCompose task must be carried out.
 
+### The chain
+
+Six links. This is the canonical statement of the architecture; every
+other page in this repository refers to it rather than restating it,
+because two statements of a chain are two chances to describe different
+systems.
+
 ```text
-                    USER
-                      │
-                      ▼
-           Codex / Claude Code
-              host agent runtime
-                      │
-                      ▼
-          GraphCompose AI Flow
-            plugin / Agent Skills
-                      │
-          ┌───────────┼───────────┐
-          ▼           ▼           ▼
-       Skills      Workflow      Rules
-          │                       │
-          └───────────┬───────────┘
-                      ▼
-              deterministic tools
-                      │
-       ┌──────────────┼──────────────┐
-       ▼              ▼              ▼
-    renderer      visual-diff     assets
-       │              │              │
-       └──────────────┼──────────────┘
-                      ▼
-                    Maven
-                      │
-                      ▼
-                 GraphCompose
+  host agent                    Codex · Claude Code · Gemini CLI
+      │                         model, vision, filesystem, shell
+      ▼
+  GraphCompose AI Flow          four workflow skills, one per gesture
+      │                         scope routing, revision semantics, bounds
+      ▼
+  version-pinned knowledge      skills/versions/graphcompose-<line>/
+      │                         what exists · where it belongs · how stable
+      ▼
+  intent routing                routing/tasks.json — which construction,
+      │                         with alternatives, constraints, symbols
+      ▼
+  deterministic tools           render · diff · measure · gates
+      │                         nothing here is a judgement call
+      ▼
+  GraphCompose                  the library, at the pinned version
 ```
+
+Each link may only assume what the link above has already decided. The
+host does not choose GraphCompose primitives; the workflow does not
+invent API; routing does not overrule the pinned surface; a tool does not
+decide whether the result is good enough — it measures, and the loop
+reads the measurement.
 
 ## Division of responsibility
 
@@ -139,8 +140,37 @@ A pack carries what its line could produce, and that differs by line.
   machine-readable half, and a contract test fails the build when a pack
   skill is unreachable from the map.
 
+### What the knowledge layer answers
+
+Three questions, and they are genuinely different. A pack that answers
+only the first was the shape of this project until v0.22.0, and the
+missing two are where wrong-API choices actually came from.
+
+| | Question | Answered from | Failure when it is missing |
+|---|---|---|---|
+| **Availability** | Does this exist in the pinned version? | `api/*.json` — the closed set extracted from the release's own class files | An invented call. The agent writes a method the version does not have. |
+| **Surface & stability** | Where does it belong, and is it something to be calling yet? | the same surfaces: which surface a type sits in, and `[beta]` where the contract may still move | A call that compiles and is wrong to make — an engine internal used from a template, or a beta contract relied on as settled. |
+| **Routing** | Which construction does this intent want? | `routing/tasks.json` — the recommended path, the alternatives with what each costs, the named constraints, the symbols to verify | The commonest failure of all: every candidate exists, so availability says yes to each, and the agent picks the wrong one. A skills list in two columns is a row with weights; nothing in a signature says so. |
+
+Availability is necessary and not sufficient. A surface can only ever
+say *yes, that exists* — asked about three different ways to do one
+thing, it says yes three times.
+
+### The pin is the authority
+
 Whichever layout a pack is in, its allow-list is the authority for the
 line it describes. Borrowed prose is guidance and never overrides it.
+
+This holds in both directions and is enforced, not merely asked for.
+`preflight` offers a knowledge pack the how-to of the nearest **older**
+line and never a newer one — older prose may describe a construction the
+pinned line has replaced, which
+[`check-knowledge-drift`](../scripts/check-knowledge-drift.mjs) polices
+against the pinned line's symbols, while newer prose names API the line
+does not have at all. And the one file that never crosses a line is the
+allow-list itself: a borrowed starting point has it removed, because an
+agent reading another line's closed set is authoring against the wrong
+one while believing it has the right one.
 
 The mapping from stages to skills is deliberately not one-to-one. A
 stage such as `visualAnalyzer` belongs to more than one workflow, and

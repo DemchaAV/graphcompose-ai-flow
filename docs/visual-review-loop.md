@@ -113,7 +113,7 @@ recommendations:
 
 - `APPROVE` — no critical mismatches; no unaccepted major mismatches;
   minor mismatches and limitations are documented; all artifacts
-  exist. The Revision Manager Agent can flip the revision to
+  exist. The `tools/revision-manager` can flip the revision to
   `APPROVED` if the user agrees.
 - `REVISE` — at least one major mismatch remains and is not accepted,
   or minor mismatches are dense enough that another iteration is
@@ -123,7 +123,7 @@ recommendations:
   from the reference structure or core meaning. The draft is marked
   `REJECTED` and the user is asked how to proceed.
 
-The recommendation is advisory. Only the Revision Manager Agent, on
+The recommendation is advisory. Only the `tools/revision-manager`, on
 user instruction, changes a revision's status — see
 [`skills/workflows/`](../skills/workflows/README.md).
 
