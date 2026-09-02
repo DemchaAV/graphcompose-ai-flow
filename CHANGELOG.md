@@ -5,63 +5,101 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
-## v0.23.0 — in progress
+## v0.23.0 — 2026-09-02
 
-**Why update.** Create phase 2 now fans out — geometry, content and assets
-are written at once by subagents — and the joins are on *validated*
-artifacts, not on files existing: `check-analysis` says when the plan may
-start and when the template may be written, and `render-and-diff` runs the
-authoring barrier itself before a first render. Asset resolution starts the
-moment the request validates rather than during authoring, which was the
-median 26 minutes of a first render's wait. The page block the geometry
-subagent used to transcribe by hand — and got wrong in 13 of 19 runs — is
-now assembled by `reference.mjs analyze` from what `import-reference` had
-already measured.
+**Why update.** If you are on 0.22.0, this release changes when the create loop
+lets you move on. Phase 2 now fans out — geometry, content and assets are
+written at once — and each join is on *validated* artifacts rather than on
+files existing: `check-analysis` says when the architecture plan may start and
+when the template may be written, and `render-and-diff` runs the authoring
+barrier itself, so a first render on a half-written manifest is refused before
+it compiles instead of producing a document with an icon missing. Expect that
+refusal to be the visible change: it names the artifact and the command that
+answers, and a revision that has already rendered, or a project that never
+wrote the discovery artifacts, is not held to it. Asset resolution now starts
+the moment the request validates rather than during authoring, which was the
+median 26 minutes of the wait before a first render; and if a run of yours has
+been stuck because the resolver could not place a Google face, it will move —
+the manifest schema had refused the resolver's own record for that case, and
+re-running the resolver rewrote the same file.
+
+To get it: update the plugin. Nothing in your workspace needs migrating, and
+no artifact you already have is rewritten. One thing to check if you author
+`asset-request.json` by hand: `fonts[].source` is now the resolver's own closed
+set (`graphcompose-bundled`, `standard14`, `google-fonts`, or omitted), because
+any other value made the resolver exit without writing a manifest at all.
 
 ### Added
 
 - **`scripts/check-analysis.mjs`** — the join. `--for plan` (default) is the
   three discovery artifacts; `--for authoring` adds the plan, the manifest
-  and the one disagreement no schema can see; `--only <artifact>` asks about
-  one file, which is how the resolver starts the moment the request
-  validates. A font the resolver marked for a manual drop is reported, not
-  held on; inline data (`render.dataFileName: null`) is complete.
-- **`scripts/check-bundle-consistency.mjs`** — an imported knowledge bundle
-  is held to its own cross-references: a route naming a constraint no claim
+  and the one disagreement no schema can see — something the request asked for
+  that the manifest has no usable record of; `--only <artifact>` asks about one
+  file, which is how the resolver starts the moment the request validates.
+  Validated, never merely present: a file exists the moment its writer opens
+  it, and a plan built on a half-written analysis still renders — it renders
+  the wrong thing.
+- **`scripts/check-bundle-consistency.mjs`** — an imported knowledge bundle is
+  held to its own cross-references: a route naming a constraint no claim
   asserts, or a symbol the surfaces do not declare, fails; coverage gaps are
-  printed. Runs inside `npm run verify` and CI.
-- **`tools/schema-validate`** — one Ajv configuration, shipped with the
-  harness and installed by setup, used by the CI sweep, its tests and the
-  runtime barriers alike. `.github/scripts` no longer carries Ajv at all.
+  printed rather than failed, because this repository imports the bundle and
+  does not author it. Runs inside `npm run verify` and CI.
+- **`tools/schema-validate`** — one Ajv configuration, shipped with the harness
+  and installed by `npm run setup`, used by the CI sweep, its tests and the
+  runtime barriers alike. `.github/scripts` no longer carries Ajv at all, so
+  there is no longer a CI-only directory for a runtime check to reach into.
 - **`schemas/asset-request.schema.json`** — the request half of asset
-  resolution, shaped from the real-run corpus; `fonts[].source` is the
-  resolver's closed set.
+  resolution, shaped from the nineteen requests in the real-run corpus rather
+  than from the subset the resolver's README documents.
 - **`reference.mjs analyze`** emits `pageBlock`, ready to copy into
-  `visual-analysis.json`, and says so when the record it would come from is
-  unreadable or would fail the schema.
+  `visual-analysis.json`. Every field was already decided by `import-reference`;
+  the geometry subagent had been asked to re-derive all of it by hand, and
+  thirteen of nineteen recorded runs wrote a block that failed the schema.
 - **`config/pipeline.json`** declares the two barriers as stages of the `new`
-  scope, the plan and asset resolution as concurrent, and the render-time
-  enforcement under `barriers`; `run-pipeline` prints the concurrency.
-- Preflight answers a runtime skew with the one command to run from the
-  matching tree, counts `tools/schema-validate` as a readiness input, and
-  prints its next commands in `--text` as well as in JSON.
+  scope, the plan and asset resolution as `concurrent`, and the render-time
+  enforcement under `barriers` with its `enforcedBy`/`calledFrom`;
+  `run-pipeline` prints the concurrency, and a contract test fails the build if
+  a barrier's caller stops running it.
+- **Preflight** answers a runtime skew with the one command to run from the
+  matching tree — carrying `--project` and `--root`, and printed in `--text` as
+  well as in JSON — and counts `tools/schema-validate` as a readiness input.
 
 ### Fixed
 
+- `assets-manifest.schema.json` accepts the record the resolver writes for a
+  face it cannot place (`fontName: null`, `registration: null`,
+  `status: manual_drop_required`). It had refused it, so any run needing a
+  Google face was held with advice that re-ran the resolver and produced the
+  same manifest; five manifests in the real-run corpus were in that state.
+  A face marked for a manual drop is now reported and authoring proceeds; a
+  family the requested source does not carry still holds, with the resolver's
+  own note.
 - `visual-analysis.schema.json` pins facts, not the prose around them:
   `contains`, `notes`, `usedIn`, `page.margins` and the asset candidate lists
-  take a sentence, a list or null; an anchor still requires `element` and
-  `relatedTo`.
-- `assets-manifest.schema.json` accepts the record the resolver writes for a
-  face it cannot place (`fontName: null`, `status: manual_drop_required`).
-- One `compareLines` for every pack enumerator; three gates sorted `2.10`
-  below `2.9`.
+  take a sentence, a list or null, and `layoutProportions` describes the
+  document it has. An anchor still requires `element` and `relatedTo` — that is
+  the fact missing, not a looser way of writing it down.
+- An inline-data project (`render.dataFileName: null`) can clear the plan
+  barrier; it was read as "not written yet", which no file could satisfy.
+- The schema validator resolves through `pathToFileURL`, so an install path
+  containing `#` or `%`, or a UNC path, loads; and a validator that fails to
+  load says why instead of reporting "run npm run setup", which could not fix
+  a broken install or a syntax error.
+- `npm run verify` runs the on-disk schema sweep again: its gate required a
+  directory that no longer exists, and a missing requirement is a skip.
+- `reference.mjs analyze` reports an unreadable `template-project.json` instead
+  of returning the same empty answer that means "no reference imported yet".
+- One `compareLines` for every pack enumerator: three gates sorted `2.10` below
+  `2.9`, so the day a 2.10 pack is imported they would have checked different
+  packs and `npm run verify` would have been green over both.
 
 ### Documentation
 
-- `docs/architecture.md` states the six-link chain once and names real
-  owners; `docs/implementation-status.md` is frozen as history;
-  `docs/workflow.md` no longer credits retired agents with writing artifacts.
+- `docs/architecture.md` states the six-link chain once and names real owners;
+  `docs/implementation-status.md` is frozen as history; `docs/workflow.md` no
+  longer credits retired agents with writing artifacts, and the contract test
+  that catches those now also catches the claim without the word "Agent".
+- `AGENTS.md` lists the two new gates with their exit codes.
 
 ## v0.22.0 — 2026-09-01
 
