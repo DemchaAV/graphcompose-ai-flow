@@ -187,6 +187,33 @@ test("a project with no recorded geometry gets null, not an invented block", () 
   assert.ok(payload.page, "the raw measurement is still reported");
 });
 
+test("a corrupt project record is reported, not mistaken for an unimported one", () => {
+  // A bare catch mapped a trailing comma in a file import-reference wrote onto
+  // the same null as "nothing imported yet" — exit 0, no word — which is the
+  // answer that sends the geometry subagent to type the block by hand.
+  const root = workspace("corrupt");
+  const file = path.join(root, "projects", "demo", "template-project.json");
+  fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace(/\}\s*$/, ",}"), "utf8");
+  const { status, payload, out } = analyze(root);
+
+  assert.equal(status, 0, "the rest of analyze still answers");
+  assert.equal(payload.pageBlock, null);
+  assert.match(payload.pageBlockProblem, /not readable/);
+  assert.match(out, /\[reference\] page block/);
+});
+
+test("a record the schema would refuse is not offered as ready to copy", () => {
+  // Every current writer of referenceGeometry speaks the schema's vocabulary;
+  // a hand-edited record need not, and a block offered as ready that the
+  // barrier then refuses is worse than none.
+  const geometry = { ...A4_GEOMETRY, pageSize: { ...A4_GEOMETRY.pageSize, source: "user" } };
+  const { status, payload } = analyze(workspace("bad-source", { geometry }));
+
+  assert.equal(status, 0);
+  assert.equal(payload.pageBlock, null);
+  assert.match(payload.pageBlockProblem, /sizeSource/);
+});
+
 /** What the record looks like after a person answered the page-size question. */
 const CONFIRMED_GEOMETRY = {
   ...A4_GEOMETRY,

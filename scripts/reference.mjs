@@ -53,6 +53,7 @@ import {
   projectDir as workspaceProjectDir,
   resolveWorkspace,
 } from "./lib/workspace.mjs";
+import { ready, schemaValidator } from "./lib/schema-validator.mjs";
 import { extractRules } from "./lib/border-topology.mjs";
 import {
   comparableBands,
@@ -197,15 +198,23 @@ let result;
  * @param {string} projectId
  * @returns {object|null}
  */
-function pageBlockFor(projectId) {
+async function pageBlockFor() {
+  const file = path.join(projectDir, "template-project.json");
+  if (!fs.existsSync(file)) return { block: null, problem: null };
+  let meta;
   try {
-    const meta = JSON.parse(
-      fs.readFileSync(path.join(workspaceProjectDir(workspace, projectId), "template-project.json"), "utf8"),
-    );
-    const g = meta.referenceGeometry;
-    if (!g?.pageSize || !g.pages?.length) return null;
-    const first = g.pages[0];
-    return {
+    meta = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (err) {
+    // Not the same null as "nothing imported yet". A bare catch mapped a
+    // trailing comma in a file import-reference wrote onto the answer that
+    // tells the geometry subagent to type the block by hand — the failure this
+    // helper exists to end — with exit 0 and no word that anything was wrong.
+    return { block: null, problem: `template-project.json is not readable — ${err.message}` };
+  }
+  const g = meta.referenceGeometry;
+  if (!g?.pageSize || !g.pages?.length) return { block: null, problem: null };
+  const first = g.pages[0];
+  const block = {
       format: g.pageSize.format,
       orientation: g.pageSize.orientation,
       referencePx: { width: first.widthPx, height: first.heightPx },
@@ -220,10 +229,21 @@ function pageBlockFor(projectId) {
       ...(g.pageSize.decision ? { sizeDecision: g.pageSize.decision } : {}),
       pageCount: g.pages.length,
     };
-  } catch {
-    return null;
+  // Offered as ready to copy, so it is checked against the schema that will
+  // judge it before it is offered. Every current writer of referenceGeometry
+  // emits the schema's vocabulary; a hand-edited record need not.
+  const validate = (await ready())
+    ? schemaValidator(path.join(installRoot(), "schemas", "visual-analysis.schema.json"), "page")
+    : null;
+  const verdict = validate ? validate(block) : { valid: true };
+  if (!verdict.valid) {
+    return { block: null, problem: `the block assembled from referenceGeometry fails the schema's page block — ${verdict.errors}` };
   }
+  return { block, problem: null };
 }
+
+const PAGE_BLOCK = args.command === "analyze" ? await pageBlockFor() : { block: null, problem: null };
+if (PAGE_BLOCK.problem) process.stderr.write(`[reference] page block: ${PAGE_BLOCK.problem}\n`);
 
 if (args.command === "analyze") {
   // Everything a first pass asks about a reference, in one call.
@@ -246,7 +266,8 @@ if (args.command === "analyze") {
     project: args.project,
     units: "reference pixels, except rules.at which is a page fraction",
     page: pageMetrics(reference),
-    pageBlock: pageBlockFor(args.project),
+    pageBlock: PAGE_BLOCK.block,
+    ...(PAGE_BLOCK.problem ? { pageBlockProblem: PAGE_BLOCK.problem } : {}),
     palette: samplePalette(reference),
     rules,
     columns: columns.map((column) => ({
