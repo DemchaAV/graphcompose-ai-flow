@@ -26,6 +26,13 @@ import test from "node:test";
 import { validatorFor, validatorForProperty } from "../src/index.mjs";
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "schema-validate-"));
+process.on("exit", () => {
+  try {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  } catch {
+    /* best effort */
+  }
+});
 
 /** Write a schema to disk, because the exported API takes a path, not an object. */
 function schemaFile(name, schema) {
@@ -139,6 +146,29 @@ test("a subschema validates on its own, with the parent's dialect stripped", () 
 
   assert.equal(validate({ format: "A4" }).valid, true);
   assert.equal(validate({}).valid, false);
+});
+
+test("a subschema keeps the parent's $defs, so its $refs still resolve", () => {
+  // assets-manifest's `icons` and `fonts` are `$ref`s into the parent's $defs,
+  // and so are blocks of revision and layout-snapshot. Lifting the property out
+  // without them compiled to "can't resolve reference #/$defs/icon" — a helper
+  // whose docstring promised any top-level property, false for three schemas.
+  const file = schemaFile("with-defs", {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    $defs: { icon: { type: "object", required: ["file"], properties: { file: { type: "string" } } } },
+    properties: { icons: { type: "object", additionalProperties: { $ref: "#/$defs/icon" } } },
+  });
+  const validate = validatorForProperty(file, "icons");
+
+  assert.equal(validate({ phone: { file: "assets/icons/phone.svg" } }).valid, true);
+  assert.equal(validate({ phone: {} }).valid, false);
+});
+
+test("asking twice for one schema compiles it once", () => {
+  const file = schemaFile("memo", PERSON);
+  assert.equal(validatorFor(file), validatorFor(file), "the same path came back as two validators");
+  assert.equal(validatorForProperty(file, "page"), validatorForProperty(file, "page"));
 });
 
 test("asking for a property the schema does not have says so by name", () => {
