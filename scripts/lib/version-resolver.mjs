@@ -193,7 +193,20 @@ export function availableSkillPacks(install) {
     .sort((a, b) => compareLines(b.line, a.line));
 }
 
-function compareLines(a, b) {
+/**
+ * Order two major.minor lines numerically: 2.10 is newer than 2.9.
+ *
+ * Exported because it kept being rewritten. Nine copies existed at one point,
+ * and three of them sorted by `Number("2.10")` — which is 2.1 — so on the day a
+ * 2.10 pack was imported, bundle-consistency would have checked one pack and
+ * knowledge-drift another, and `npm run verify` would have been green over two
+ * different "newest" lines. One function, asked by every enumerator.
+ *
+ * @param {string} a  a line such as "2.3"
+ * @param {string} b
+ * @returns {number} negative when a is older, positive when newer, 0 when equal
+ */
+export function compareLines(a, b) {
   const [aMajor, aMinor] = a.split(".").map(Number);
   const [bMajor, bMinor] = b.split(".").map(Number);
   return aMajor === bMajor ? aMinor - bMinor : aMajor - bMajor;

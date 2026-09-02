@@ -46,6 +46,7 @@ import path from "node:path";
 
 import { noAllowListHint, packSymbols } from "./lib/pack-surface.mjs";
 import { installRoot } from "./lib/workspace.mjs";
+import { compareLines } from "./lib/version-resolver.mjs";
 
 const repoRoot = installRoot();
 
@@ -182,7 +183,7 @@ const packs = fs
   .readdirSync(versionsDir, { withFileTypes: true })
   .filter((e) => e.isDirectory() && e.name.startsWith("graphcompose-"))
   .map((e) => e.name)
-  .sort((a, b) => Number(a.slice(13)) - Number(b.slice(13)));
+  .sort((a, b) => compareLines(a.slice(13), b.slice(13)));
 const activePack = args.version ? `graphcompose-${args.version}` : packs[packs.length - 1];
 
 // Whichever layout the pack is in. Reading only `00-api-surface.md` meant that

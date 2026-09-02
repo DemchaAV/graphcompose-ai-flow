@@ -40,6 +40,7 @@ import path from "node:path";
 
 import { installRoot } from "./lib/workspace.mjs";
 import { packLayout } from "./lib/pack-surface.mjs";
+import { compareLines } from "./lib/version-resolver.mjs";
 
 const repoRoot = installRoot();
 const PACKS = path.join(repoRoot, "skills", "versions");
@@ -59,8 +60,17 @@ for (let i = 2; i < process.argv.length; i += 1) {
   const a = process.argv[i];
   if (a === "--help" || a === "-h") usage(0);
   else if (a === "--json") args.json = true;
-  else if (a === "--version" || a === "-v") args.version = process.argv[++i];
-  else {
+  else if (a === "--version" || a === "-v") {
+    // A trailing `--version` with no value fell through `??` to the newest pack
+    // and reported it green — the wrong pack, confidently. And `--version
+    // --json` swallowed the flag as the line.
+    const value = process.argv[i + 1];
+    if (value === undefined || value.startsWith("-")) {
+      process.stderr.write("[bundle-consistency] --version needs a line, such as 2.3\n");
+      usage(2);
+    }
+    args.version = process.argv[++i];
+  } else {
     process.stderr.write(`[bundle-consistency] unknown argument: ${a}\n`);
     usage(2);
   }
@@ -74,11 +84,7 @@ function bundlePacks() {
     .filter((e) => e.isDirectory() && /^graphcompose-\d+\.\d+$/.test(e.name))
     .map((e) => e.name.replace("graphcompose-", ""))
     .filter((line) => packLayout(path.join(PACKS, `graphcompose-${line}`)) === "bundle")
-    .sort((a, b) => {
-      const [am, an] = a.split(".").map(Number);
-      const [bm, bn] = b.split(".").map(Number);
-      return bm - am || bn - an;
-    });
+    .sort((a, b) => compareLines(b, a));
 }
 
 const packs = bundlePacks();
@@ -196,7 +202,6 @@ const result = {
 
 if (args.json) {
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-  process.exitCode = problems.length === 0 ? 0 : 1;
 } else {
   const out = [];
   if (problems.length === 0) {
@@ -221,5 +226,5 @@ if (args.json) {
     );
   }
   process.stdout.write(`${out.join("\n")}\n`);
-  process.exitCode = problems.length === 0 ? 0 : 1;
 }
+process.exitCode = result.ok ? 0 : 1;
