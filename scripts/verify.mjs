@@ -60,7 +60,11 @@ const STEPS = [
     why: "every on-disk artifact validates",
     cmd: process.execPath,
     args: [".github/scripts/validate-schemas.mjs"],
-    requires: ".github/scripts/node_modules",
+    // The sweep compiles through tools/schema-validate; `.github/scripts` has
+    // no dependencies and nothing installs there, so the old `requires` was a
+    // path no setup creates — and a missing `requires` is a skip, not a
+    // failure. The on-disk sweep therefore never ran locally after this moved.
+    requires: "tools/schema-validate/node_modules",
   },
   {
     // Static tier only: the build and render tiers need Maven and a resolved
