@@ -1,0 +1,26 @@
+{
+  "name": "@graphcompose-ai-flow/schema-validate",
+  "version": "0.1.0",
+  "description": "One JSON Schema validator, shared by the CI sweep and the runtime barriers, so an installed harness can check an artifact without the repository's dev tooling.",
+  "type": "module",
+  "private": true,
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1"
+  },
+  "scripts": {
+    "lint": "node --check src/index.mjs",
+    "test": "node ../../scripts/run-tests.mjs test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

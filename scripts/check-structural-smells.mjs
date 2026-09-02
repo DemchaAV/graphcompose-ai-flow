@@ -43,6 +43,7 @@ import {
   resolveWorkspace,
 } from "./lib/workspace.mjs";
 import { checkStructuralSmells } from "./lib/structural-smells.mjs";
+import { compareLines } from "./lib/version-resolver.mjs";
 
 const repoRoot = installRoot();
 
@@ -132,7 +133,7 @@ function newestPack() {
     .readdirSync(dir, { withFileTypes: true })
     .filter((e) => e.isDirectory() && e.name.startsWith("graphcompose-"))
     .map((e) => e.name)
-    .sort((a, b) => Number(a.slice(13)) - Number(b.slice(13)));
+    .sort((a, b) => compareLines(a.slice(13), b.slice(13)));
   return packs.length ? path.join(dir, packs[packs.length - 1]) : null;
 }
 

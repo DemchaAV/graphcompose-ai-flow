@@ -152,6 +152,67 @@ test("the preflight contract points at scripts that exist", () => {
   );
 });
 
+test("every barrier points at a script that exists and a caller that runs it", () => {
+  // A barrier declared here and enforced nowhere is a sentence. The first
+  // authoring barrier was exactly that: the skill said "exit 1 means do not
+  // start" and no script ever ran the check.
+  const barriers = Object.entries(config.barriers ?? {}).filter(([id]) => !id.startsWith("$"));
+  assert.ok(barriers.length > 0, "no barrier is declared, so the fan-out's join is enforced nowhere");
+  for (const [id, barrier] of barriers) {
+    for (const key of ["enforcedBy", "calledFrom"]) {
+      assert.ok(fs.existsSync(path.join(repoRoot, barrier[key])), `barriers.${id}.${key} does not exist: ${barrier[key]}`);
+    }
+    const caller = fs.readFileSync(path.join(repoRoot, barrier.calledFrom), "utf8");
+    assert.ok(
+      caller.includes(path.basename(barrier.enforcedBy)),
+      `${barrier.calledFrom} does not run ${barrier.enforcedBy}, so barriers.${id} is a claim`,
+    );
+    for (const scopeName of barrier.scopes) {
+      assert.ok(Object.hasOwn(config.scopes, scopeName), `barriers.${id} names unknown scope ${scopeName}`);
+    }
+  }
+});
+
+test("concurrent stages are stages of the same scope, and the chain prints them as such", () => {
+  for (const [scopeName, scope] of Object.entries(config.scopes)) {
+    for (const group of scope.concurrent ?? []) {
+      for (const stageId of group) {
+        assert.ok(scope.stages.includes(stageId), `scopes.${scopeName}.concurrent names ${stageId}, which the scope does not run`);
+      }
+    }
+  }
+  assert.ok(
+    config.scopes.new.concurrent?.some((g) => g.includes("architectureMapper") && g.includes("assetResolver")),
+    "the plan and asset resolution are no longer declared concurrent, and the skill still fans out",
+  );
+  const source = fs.readFileSync(path.join(repoRoot, "scripts/run-pipeline.mjs"), "utf8");
+  assert.match(source, /concurrentGroups/, "run-pipeline prints the chain as a line again");
+});
+
+test("the create pages run the barriers the config declares, in the order it declares them", () => {
+  const stages = config.scopes.new.stages;
+  const before = (a, b) => stages.indexOf(a) < stages.indexOf(b);
+  assert.ok(before("discoveryBarrier", "architectureMapper"), "the plan starts before discovery is joined");
+  assert.ok(before("authoringBarrier", "templateCoder"), "authoring starts before its inputs are joined");
+
+  const analyse = fs.readFileSync(path.join(repoRoot, "skills/workflows/references/create-2-analyse.md"), "utf8");
+  const author = fs.readFileSync(path.join(repoRoot, "skills/workflows/references/create-3-author.md"), "utf8");
+  assert.ok(analyse.includes(config.stages.discoveryBarrier.tool), "create-2-analyse.md does not run the discovery barrier");
+  assert.match(author, /check-analysis\.mjs --project <id> --for authoring/, "create-3-author.md does not run the authoring barrier");
+});
+
+test("a concurrent group naming a stage the scope does not run is rejected", () => {
+  const bad = validFixture();
+  bad.scopes.new.concurrent = [["architectureMapper", "nope"]];
+  assert.throws(() => validatePipelineConfig(bad), PipelineConfigError);
+});
+
+test("a barrier with no caller is rejected", () => {
+  const bad = validFixture();
+  bad.barriers = { analysis: { summary: "x", enforcedBy: "scripts/check-analysis.mjs", scopes: ["new"] } };
+  assert.throws(() => validatePipelineConfig(bad), PipelineConfigError);
+});
+
 test("limits and failure categories are present and sane", () => {
   for (const key of ["maxIterations", "maxConsecutiveBuildFailures", "maxSameMismatchAttempts"]) {
     assert.ok(Number.isInteger(config.limits[key]) && config.limits[key] > 0);

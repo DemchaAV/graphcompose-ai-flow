@@ -32,6 +32,10 @@ jobs:
         with:
           node-version: '20'
       - run: node tools/api-surface/check-pack-freshness.mjs
+      # The other half of trusting a pack: freshness says it is not behind the
+      # library, consistency says its routes, claims and surfaces agree with
+      # each other. A tree with no bundle pack passes both.
+      - run: node scripts/check-bundle-consistency.mjs
 
   revision-manager:
     name: revision-manager (Node 20)
@@ -171,6 +175,13 @@ jobs:
       - name: build the visual-diff CLI the loop-pass test drives
         working-directory: tools/visual-diff
         run: npm ci && npm run build
+      # The analysis barrier validates artifacts against their schemas, and its
+      # tests drive the real CLI. Without this the job went red on a missing
+      # validator while `JSON Schema validation` passed beside it, because that
+      # job installs its own.
+      - name: install the shared schema validator the analysis barrier uses
+        working-directory: tools/schema-validate
+        run: npm ci
       - name: contract, workspace, loop, plugin and adapter tests
         run: npm test
 
@@ -196,6 +207,25 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - run: npm test
+
+  schema-validate:
+    name: schema-validate (Node 20)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/schema-validate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tools/schema-validate/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      # The options are the contract — every other caller inherits them now
+      # instead of choosing, so this is where they are held to.
       - run: npm test
 
   asset-resolver-cache:
@@ -226,6 +256,12 @@ jobs:
           cache: 'npm'
           cache-dependency-path: .github/scripts/package-lock.json
       - run: npm ci
+      # The sweep and its tests compile through tools/schema-validate, which
+      # carries Ajv. One configuration, shared with the runtime barriers, rather
+      # than four copies of the same options free to drift apart.
+      - name: install the shared schema validator
+        working-directory: tools/schema-validate
+        run: npm ci
       - name: validate every on-disk artifact against schemas/
         working-directory: ${{ github.workspace }}
         run: node .github/scripts/validate-schemas.mjs

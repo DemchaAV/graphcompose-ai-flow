@@ -8,19 +8,22 @@ the harness migration — described below and in
 
 ## Current phase
 
-The harness migration (Phase 0 of the new arc) has started. The
-seven original phases are shipped. GraphCompose 2.2.0
-is reachable for fixture validation through Maven Central as
-`io.github.demchaav:graph-compose:2.2.0` (JitPack
+The seven original phases and the harness migration are both shipped;
+the migration merged before v0.21.0. Since v0.22.0 the pinned line is
+**GraphCompose 2.3**, whose pack is imported from the release knowledge
+bundle and answers routing as well as API questions.
+
+Fixture validation still runs against `io.github.demchaav:graph-compose:2.2.0`,
+which the five fixtures pin explicitly (JitPack
 `com.github.DemchaAV:GraphCompose:vX.Y.Z` remains the fallback for
-pre-1.6.7 pins), and the five skill fixtures compile and run against
-it. `preview-renderer render` can
-now execute compiled template classes, write `output.pdf`, generate
-`output.png`, and clear pending artifacts. The invoice reference
-example has a render-runner and committed binary outputs. The
-remaining gate before skills can be promoted out of
-`needs-validation` is visual validation orchestration: produce real
-layout snapshots and feed visual-diff against committed baselines.
+pre-1.6.7 pins) — a line behind the pack, and the next thing worth
+closing. `preview-renderer render` executes compiled template classes,
+writes `output.pdf`, generates `output.png` and clears pending
+artifacts. The invoice reference example has a render-runner and
+committed binary outputs. The remaining gate before skills can be
+promoted out of `needs-validation` is visual validation orchestration:
+produce real layout snapshots and feed visual-diff against committed
+baselines.
 
 | Phase | Status |
 |---|---|

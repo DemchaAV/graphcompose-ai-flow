@@ -94,6 +94,12 @@ for (let i = 0; i < process.argv.length - 2; i += 1) {
   }
 }
 
+// Absolute from here on. The report is read into a context window and acted on
+// later, from wherever the next command runs; a `--project-dir .` carried into
+// the commands it prints was correct only from the directory it was printed in.
+args.projectDir = path.resolve(args.projectDir);
+if (args.root) args.root = path.resolve(args.root);
+
 const workspace = resolveWorkspace({ explicitRoot: args.root ?? null, cwd: args.projectDir });
 const version = resolveVersionWithFallback({ projectDir: args.projectDir, install: repoRoot, workspace });
 
@@ -130,8 +136,15 @@ function resolveVersionWithFallback({ projectDir, install, workspace: ws }) {
   };
 }
 
-/** The three that ship as source and have to be built before anything runs. */
-const BUILT_TOOLS = Object.freeze(["revisionManager", "visualDiff", "previewRenderer"]);
+/**
+ * The four that ship as source and have to be built or installed before
+ * anything runs. schema-validate is installed rather than built — plain ESM
+ * plus its node_modules — and it was missing from this list, so a tree upgraded
+ * in place reported ready while the analysis barrier held every artifact with
+ * "the schema validator is not installed": the report that exists to diagnose
+ * setup had not looked.
+ */
+const BUILT_TOOLS = Object.freeze(["revisionManager", "visualDiff", "previewRenderer", "schemaValidate"]);
 
 /**
  * What rebuilds one Node CLI on its own, for a build that exists and is merely
@@ -235,7 +248,7 @@ const report = {
   knowledge: describeKnowledge(version.line, workspace),
   tools,
   capabilities,
-  nextCommands: nextCommands(project, routing, tools),
+  nextCommands: nextCommands(project, routing, tools, capabilities),
 };
 
 if (args.text) {
@@ -738,10 +751,19 @@ function describeTools() {
     verdicts[name] = "current";
     return true;
   };
+  // Installed, not built: presence of node_modules is the whole test, because
+  // staleness does not apply — editing the tool's src/ changes nothing a
+  // reinstall would refresh, and the mtime walk would have called it stale.
+  const installed = (name, relative) => {
+    const present = fs.existsSync(path.join(repoRoot, relative));
+    verdicts[name] = present ? "current" : "missing";
+    return present;
+  };
   const tools = {
     revisionManager: built("revisionManager", "tools/revision-manager/dist"),
     visualDiff: built("visualDiff", "tools/visual-diff/dist"),
     previewRenderer: built("previewRenderer", "tools/preview-renderer/target/preview-renderer.jar"),
+    schemaValidate: installed("schemaValidate", "tools/schema-validate/node_modules"),
     // The same resolution import-reference and typography use: an explicit
     // MAGICK_BINARY first, then the IM7 `magick`, then IM6's `convert`. Probing
     // only `magick` reported the tool absent inside this repository's own
@@ -1014,6 +1036,13 @@ function describeCapabilities(versionInfo, toolsInfo) {
           `the newer skills name files this tree does not have` +
           (missing.length > 0 ? `: ${missing.join(", ")}` : "")
         : null,
+    // Where the matching tools already are. The installed pack carries a whole
+    // runtime, `scripts/` included (adapters/lib/runtime.mjs decides what an
+    // install consists of), so a skew is not a thing to fix — it is a thing to
+    // point at. Reporting only the two version numbers made a run spend model
+    // turns comparing execution roots and skill files to work out something
+    // this function already knew.
+    matchingRuntime: parity === "tools-behind" ? matchingRuntimeFor(newestPack) : null,
     diagnostics,
     checks,
     missing,
@@ -1056,6 +1085,41 @@ function describeSnapshotSupport(versionInfo, toolsInfo) {
 }
 
 /** Cache directory names are versions. Sorted oldest to newest; unreadable is empty. */
+/**
+ * The installed tree whose version matches the skills, when it can run.
+ *
+ * "Can run" is checked rather than assumed: a cache directory exists from the
+ * moment an install starts, and pointing a run at a half-copied tree would
+ * trade one confusing failure for a worse one. `preflight.mjs` is the file the
+ * caller would invoke first, so its presence is the test.
+ *
+ * @param {string|null} version
+ * @returns {{version: string, root: string, command: string}|null}
+ */
+function matchingRuntimeFor(version) {
+  if (!version) return null;
+  const root = path.join(PLUGIN_CACHE, version);
+  if (!fs.existsSync(path.join(root, "scripts", "preflight.mjs"))) return null;
+  return {
+    version,
+    root,
+    // The whole point: one line to copy, not a diagnosis. --project-dir is
+    // carried through because a run that has to re-derive it has not been
+    // helped much.
+    // Quoted: Windows paths carry spaces as a matter of course, and an
+    // unquoted command is one a reader has to repair before running — which
+    // is the work this field exists to remove.
+    // Everything this run was given, not only the directory: a run in the
+    // matching tree without `--project` comes back with no project, no routing
+    // and none of the loop commands — the re-derivation the field exists to
+    // remove, performed anyway.
+    command:
+      `node "${path.join(root, "scripts", "preflight.mjs")}" --project-dir "${args.projectDir}"` +
+      (args.project ? ` --project "${args.project}"` : "") +
+      (args.root ? ` --root "${args.root}"` : ""),
+  };
+}
+
 function listInstalledPacks() {
   try {
     return fs
@@ -1107,7 +1171,7 @@ function onPath(command, probeArgs) {
 
 // ----------------------------------------------------------------- next up ---
 
-function nextCommands(projectInfo, routing, tools) {
+function nextCommands(projectInfo, routing, tools, capabilities) {
   const commands = [];
 
   // Before anything else. A fresh install carries no `dist/` and no jar, so the
@@ -1119,6 +1183,19 @@ function nextCommands(projectInfo, routing, tools) {
   // Only when building them here did not, or could not, happen. A tree that was
   // just built reports nothing; one where the build failed says so, because
   // being told to run a command that has already failed is worse than silence.
+  // Before everything, including setup: building tools in the wrong tree is
+  // work thrown away. A skew is not a repair — the matching runtime is already
+  // on disk, and the only useful next action is to run from it.
+  if (capabilities?.matchingRuntime) {
+    commands.push({
+      why:
+        `the installed skills are ${capabilities.matchingRuntime.version} and these tools are ` +
+        `${capabilities.treeVersion}; the matching tools are already installed, so run from there ` +
+        "rather than reconciling two trees",
+      run: capabilities.matchingRuntime.command,
+    });
+  }
+
   if (tools?.needsSetup) {
     // One `tsc` when that is the whole story, `setup` otherwise. Recommending
     // the toolchain reinstall for a CLI that only needs recompiling is advice
@@ -1149,12 +1226,12 @@ function nextCommands(projectInfo, routing, tools) {
   if (workspace.mode === "install") {
     commands.push({
       why: "no workspace here yet; without one the work lands in the harness install",
-      run: `node scripts/init-workspace.mjs --project-dir ${args.projectDir} --project <id>`,
+      run: `node scripts/init-workspace.mjs --project-dir "${args.projectDir}" --project <id>`,
     });
   } else if (!projectInfo?.exists) {
     commands.push({
       why: "create the project inside the workspace",
-      run: `node scripts/init-workspace.mjs --project-dir ${args.projectDir} --project <id>`,
+      run: `node scripts/init-workspace.mjs --project-dir "${args.projectDir}" --project <id>`,
     });
   }
   if (projectInfo?.exists) {
@@ -1231,5 +1308,15 @@ function printText(r) {
     lines.push(`Not in this tree: ${r.capabilities.missing.join(", ")}`);
   }
   lines.push(`Layout snapshot: ${r.capabilities.layoutSnapshot.state} — ${r.capabilities.layoutSnapshot.why}`);
+  // The commands, in text as well as in JSON. The skew answer — one line to
+  // copy, the whole point of computing it — reached nobody who asked for
+  // `--text`, because this printed the diagnosis and kept the remedy.
+  if (r.nextCommands?.length > 0) {
+    lines.push("Next:");
+    for (const command of r.nextCommands) {
+      lines.push(`  ${command.run}`);
+      lines.push(`      ${command.why}`);
+    }
+  }
   process.stdout.write(`${lines.join("\n")}\n`);
 }

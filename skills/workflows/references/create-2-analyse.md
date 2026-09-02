@@ -29,30 +29,97 @@ call. (One reference-analysis stage measured 61 calls, most a single
 measurement each; one run spent 35% of its wall clock composing 76 one-off
 measurement scripts for under five minutes of computation.)
 
-## Fan the analysis out where the host can
+## Fan the analysis out
 
 The three artifacts describe the same reference and do not read each
-other, so three parallel subagents can produce them (Claude Code: the
-Agent tool; a host without subagents does the same three in this order):
+other. **On a host with subagents, produce them concurrently** — this is
+the instruction, not a suggestion. Claude Code: one message carrying
+three `Agent` calls. A host without subagents does the same three in the
+order below, and nothing else changes.
 
-| Subagent | Owns, exclusively | Reads |
-|---|---|---|
-| geometry | `visual-analysis.json` | the reference + its schema |
-| content | `<doc-kind>-data.json` (+ `data-schema.md`) | the reference only |
-| assets | `asset-request.json` | the reference + the request format |
+The earlier wording said three subagents *can* produce them, and a real
+0.22.0 run read that as permission and went serial. Permission is not an
+instruction, and the serial reading is the expensive one: these three are
+the whole of discovery, and everything after them waits.
+
+| Subagent | Owns, exclusively | Reads | Done when |
+|---|---|---|---|
+| geometry | `visual-analysis.json` | the reference + its schema | validates against [`visual-analysis.schema.json`](../../../schemas/visual-analysis.schema.json) |
+| content | `<doc-kind>-data.json` (+ `data-schema.md`) | the reference only | parses, and every field the spec requires is present |
+| assets | `asset-request.json` | the reference + the request format | validates against [`asset-request.schema.json`](../../../schemas/asset-request.schema.json) |
 
 Each writes only its own files — two writers on one file is a merge
 conflict with no merger. Each gets the reference and its task, **not**
 this conversation. Its reply is one line ("wrote visual-analysis.json, 9
-regions"); the parent reads results from disk. Rejoin when all three
-exist. The render loop that follows is serial by nature; do not
-parallelise it.
+regions"); the parent reads results from disk.
+
+### The join is on validated artifacts, not on files existing
+
+```bash
+node scripts/check-analysis.mjs --project <id> [--revision <id>]
+```
+
+Exit 0 means all three are complete and the architecture plan may start;
+exit 1 names which one is not and why.
+
+A file exists the moment a subagent starts writing it, and a truncated
+or half-shaped artifact is worse than a missing one: the next stage
+reads it, believes it, and plans around a document it has only half
+seen. So the barrier is *validates*, not *is there*.
+
+An artifact that fails validation is re-run, not patched around, and no
+later stage starts until all three pass. The render loop that follows is
+serial by nature; do not parallelise it.
+
+### Resolve the assets as soon as the request is valid
+
+```bash
+node scripts/check-analysis.mjs --project <id> --only asset-request.json
+node tools/asset-resolver/src/cli.mjs --revision <revision-dir>
+```
+
+Start it the moment `asset-request.json` validates — the first command
+is exactly that question, about that one file, exit 0 — because the
+resolver reads the request and nothing else, so it feeds neither the
+geometry nor the plan and has no reason to wait for them. It runs beside
+the architecture plan below; `config/pipeline.json` declares the two as
+concurrent and `run-pipeline` prints them that way.
+
+This used to happen during authoring, and it cost more than it looks.
+Across nineteen recorded runs the manifest landed a median **26 minutes**
+after the request that produced it was already valid, and the first
+render followed the manifest within the same minute in **every one of
+them** — the manifest was the binding constraint on time-to-first-render,
+and most of its wait was not work.
+
+Treat `assets-manifest.json` as the source of truth for what was actually
+fetched — the format (`svg` or `png`) included; the template branches on
+it rather than assuming an extension (see [authoring
+rules](authoring-rules.md#asset-flow)). An icon the resolver could not
+find has no record in the manifest. A font it could not place *has*
+one, marked `manual_drop_required`: with `registration: "file-resource"`
+it is a Google face you drop as TTFs and register in Java, and the
+authoring barrier reports it and lets you proceed; with
+`registration: null` the request named a family its source does not
+carry, and the barrier holds until the request is fixed. That is why
+the barrier reads both files rather than trusting either alone.
 
 ## `visual-analysis.json` ([schema](../../../schemas/visual-analysis.schema.json))
 
 Describe the page in **ratios and dependencies, not pixels** — with one
 exception: the `page` block carries the measurement from phase 1.
 
+- **The `page` block is copied, not derived.** `reference.mjs analyze`
+  returns it ready under `pageBlock` — format, orientation, `referencePx`,
+  `aspect`, `sizePt`, `sizeSource`, `pageCount` — assembled from what
+  `import-reference` already measured and recorded. Paste it and add only
+  `margins` and `background`, which are yours to describe. Do not retype
+  the numbers from `page`: that block reports width/height, the schema
+  wants height/width, and thirteen of nineteen recorded runs wrote a
+  `page` that failed its schema, most often with the measurements sitting
+  as prose inside `format`. A `pageBlock` of `null` means
+  `import-reference` recorded no geometry — say so in `unclearParts`
+  rather than inventing one.
 - **Every region has a stable kebab-case id and `bounds: {x, y, w, h}` as
   page fractions.** Every later artifact addresses regions by id; the
   bounds are what make a region croppable and measurable. A region without
@@ -151,13 +218,6 @@ constants here and record them under `baseConstants` with their
 derivation, so a later revision changes one number instead of fifteen.
 Every primitive must exist in the pinned pack's allow-list — `node
 scripts/api-query.mjs --exists <Type>.<method>`.
-
-## Assets
-
-Write `asset-request.json`, run the resolver, and treat
-`assets-manifest.json` as the source of truth for what was fetched — the
-format (`svg` or `png`) included; the template branches on it rather than
-assuming an extension (see [authoring rules](authoring-rules.md#asset-flow)).
 
 ## Reading copies
 

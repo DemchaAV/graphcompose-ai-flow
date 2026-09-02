@@ -38,6 +38,16 @@ const STEPS = [
     args: [".github/scripts/repository-contract.mjs"],
   },
   {
+    // Cheap, and it answers a question nothing else asks: the bundle ships
+    // three files that reference each other, and a route naming a constraint
+    // no claim asserts is advice wearing the clothes of a verified fact.
+    name: "bundle consistency",
+    kind: "fast",
+    why: "the imported bundle's routes, claims and surfaces agree",
+    cmd: process.execPath,
+    args: ["scripts/check-bundle-consistency.mjs"],
+  },
+  {
     name: "knowledge drift",
     kind: "fast",
     why: "no live skill teaches a construction the pinned pack has replaced",
@@ -50,7 +60,11 @@ const STEPS = [
     why: "every on-disk artifact validates",
     cmd: process.execPath,
     args: [".github/scripts/validate-schemas.mjs"],
-    requires: ".github/scripts/node_modules",
+    // The sweep compiles through tools/schema-validate; `.github/scripts` has
+    // no dependencies and nothing installs there, so the old `requires` was a
+    // path no setup creates — and a missing `requires` is a skip, not a
+    // failure. The on-disk sweep therefore never ran locally after this moved.
+    requires: "tools/schema-validate/node_modules",
   },
   {
     // Static tier only: the build and render tiers need Maven and a resolved
@@ -70,7 +84,18 @@ const STEPS = [
     cmd: process.execPath,
     args: ["../../scripts/run-tests.mjs", "test"],
     cwd: ".github/scripts",
-    requires: ".github/scripts/node_modules",
+    // Ajv lives in tools/schema-validate now, not here — these tests compile
+    // through it, and `.github/scripts` has no dependencies of its own left.
+    requires: "tools/schema-validate/node_modules",
+  },
+  {
+    name: "schema-validate",
+    kind: "fast",
+    why: "the validator options every other gate and barrier now inherits",
+    cmd: "npm",
+    args: ["test"],
+    cwd: "tools/schema-validate",
+    requires: "tools/schema-validate/node_modules",
   },
   {
     name: "revision-manager",

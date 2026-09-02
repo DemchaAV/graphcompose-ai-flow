@@ -18,7 +18,7 @@ A skill is valid only if:
 - it has at least one verified fixture when possible
 - it documents known limitations
 
-The Skill Validator Agent owns this check. See
+`scripts/validate-skills.mjs` owns this check. See
 [../skills/workflows/README.md](../skills/workflows/README.md) for the agent's inputs,
 outputs, and the core rule that the library — not the skill — is
 the source of truth.
@@ -83,7 +83,7 @@ The skill must be updated.
 The agent must not silently work around incorrect skills.
 ```
 
-When drift is detected the Skill Validator Agent files a skill-fix
+When drift is detected `scripts/validate-skills.mjs` files a skill-fix
 report rather than patching the template to dodge the broken skill.
 See [skill-fix-template.md](skill-fix-template.md) for the template
 and the steps to file the report.

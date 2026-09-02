@@ -18,20 +18,30 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import Ajv2020 from 'ajv/dist/2020.js';
-import addFormats from 'ajv-formats';
+import { validatorFor } from '../../../tools/schema-validate/src/index.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..', '..');
 const SCHEMAS = path.join(ROOT, 'schemas');
 
-// Same options as validate-schemas.mjs, so a schema that compiles here cannot
-// fail in CI for a strict-mode reason the tests never saw.
-const ajv = new Ajv2020({ allErrors: true, strict: true, strictRequired: false });
-addFormats.default(ajv);
-
-const compile = (name) =>
-  ajv.compile(JSON.parse(fs.readFileSync(path.join(SCHEMAS, `${name}.schema.json`), 'utf8')));
+// The same Ajv validate-schemas.mjs runs, so a schema that compiles here cannot
+// fail in CI for a strict-mode reason the tests never saw. It used to be the
+// same *options*, written out again — which is a promise a comment makes and
+// nothing keeps.
+//
+// The shim is here because that module returns a result object and these tests
+// were written against Ajv's own boolean-plus-`errors` convention. Sharing the
+// configuration is the point; rewriting fifteen assertions to say the same
+// thing differently is not.
+const compile = (name) => {
+  const validate = validatorFor(path.join(SCHEMAS, `${name}.schema.json`));
+  const fn = (doc) => {
+    const result = validate(doc);
+    fn.errors = result.detail;
+    return result.valid;
+  };
+  return fn;
+};
 
 const validators = {
   orchestration: compile('orchestration'),

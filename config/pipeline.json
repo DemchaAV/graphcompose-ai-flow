@@ -34,6 +34,12 @@
       "description": "ratios, anchors, regions from the reference",
       "label": "visual-analysis"
     },
+    "discoveryBarrier": {
+      "kind": "gate",
+      "tool": "scripts/check-analysis.mjs",
+      "description": "the three discovery artifacts validate — may the plan start (exit 0 clear / 1 held)",
+      "label": "check-discovery"
+    },
     "architectureMapper": {
       "kind": "llm",
       "description": "map regions to primitives + theme tokens",
@@ -43,6 +49,12 @@
       "kind": "tool",
       "description": "resolve Iconify icons + Google Fonts",
       "label": "asset-resolve"
+    },
+    "authoringBarrier": {
+      "kind": "gate",
+      "tool": "scripts/check-analysis.mjs",
+      "description": "plan and manifest validate and every requested asset has a record — may the template be written (--for authoring; render-and-diff runs it before a first render)",
+      "label": "check-authoring"
     },
     "templateCoder": {
       "kind": "llm",
@@ -95,6 +107,23 @@
       "onHalt": "the render process exits with status 4 (the halt contract the skill validation gate enforces)"
     }
   },
+  "barriers": {
+    "$comment": [
+      "Barriers join a fan-out on validated artifacts, not on files existing. Declared here so",
+      "the chain, the skills and the docs agree where the joins are — and enforced by code, not",
+      "by a sentence: calledFrom runs enforcedBy and refuses to go on while it is red."
+    ],
+    "analysis": {
+      "summary": "The first render of a new-scope revision is refused until check-analysis --for authoring is clear.",
+      "enforcedBy": "scripts/check-analysis.mjs",
+      "calledFrom": "scripts/render-and-diff.mjs",
+      "scopes": [
+        "new"
+      ],
+      "appliesWhen": "a first render (no output.png yet) of a revision that carries visual-analysis.json — a project on the discovery artifacts. One without them (the examples that predate them) is not held to a barrier it never entered.",
+      "onHalt": "render-and-diff fails its discovery step and exits 1 before compiling, naming the artifact that is not done and the command that answers"
+    }
+  },
   "scopes": {
     "new": {
       "description": "First revision of a project (revision-001, or parentRevisionId null). Runs the full chain.",
@@ -105,12 +134,26 @@
         "versionSkill",
         "skillValidator",
         "visualAnalyzer",
+        "discoveryBarrier",
         "architectureMapper",
         "assetResolver",
+        "authoringBarrier",
         "templateCoder",
         "testRender",
         "visualReview",
         "iterate"
+      ],
+      "$comment": [
+        "concurrent: stages with no ordering between them. Asset resolution reads only",
+        "asset-request.json and feeds neither the geometry nor the plan, so it runs beside the",
+        "plan; serialising it behind the plan measured 26 minutes of the median time-to-first-render.",
+        "The join is the barrier stage that follows, on validated artifacts."
+      ],
+      "concurrent": [
+        [
+          "architectureMapper",
+          "assetResolver"
+        ]
       ]
     },
     "visual-change": {

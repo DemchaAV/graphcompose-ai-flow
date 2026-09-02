@@ -111,7 +111,7 @@ Example:
 }
 ```
 
-The Version + Skill Resolver Agent reads `skill-manifest.json` to
+`scripts/preflight.mjs` reads `skill-manifest.json` to
 pick the matching skill pack. See
 [`skills/workflows/`](../skills/workflows/README.md).
 
@@ -176,8 +176,8 @@ Good:
 // If exact visual behavior is uncertain, document it in visual-review.md.
 ```
 
-The rule is enforced both by the Template Coder Agent at code
-generation time and by the Skill Validator Agent when it checks the
+The rule is enforced both by the template authoring in create phase 3 at code
+generation time and by the `scripts/validate-skills.mjs` when it checks the
 skill pack itself.
 
 ## Further reading

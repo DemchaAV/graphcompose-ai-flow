@@ -198,7 +198,7 @@ test("tool readiness is reported now rather than at the first render", () => {
   const { host } = scenario({}, "tools");
   const { parsed } = run(["--project-dir", host, "--project", "demo"]);
 
-  for (const key of ["revisionManager", "visualDiff", "previewRenderer"]) {
+  for (const key of ["revisionManager", "visualDiff", "previewRenderer", "schemaValidate"]) {
     assert.equal(typeof parsed.tools[key], "boolean", `${key} was not checked`);
   }
   assert.equal(parsed.tools.setupCommand, "npm run setup");
@@ -239,8 +239,8 @@ test("an unbuilt install is told to build before it is told to do anything else"
   assert.equal(parsed.tools.ready, false);
   assert.deepEqual(
     parsed.tools.unbuilt.sort(),
-    ["previewRenderer", "revisionManager", "visualDiff"],
-    "the three that ship as source were not all named",
+    ["previewRenderer", "revisionManager", "schemaValidate", "visualDiff"],
+    "the four that ship as source were not all named",
   );
   assert.equal(
     parsed.nextCommands[0]?.run,
@@ -629,4 +629,105 @@ test("guidance is offered downward only, never from a newer line", () => {
   assert.equal(parsed.skills.knowledgeOnly, false);
   assert.equal(parsed.skills.guidance, null, "an older line was sent to a newer line's prose");
   assert.ok(parsed.skills.note.includes("no allow-list in any layout"));
+});
+
+/**
+ * A config dir holding one installed pack at `version`, optionally with a
+ * runnable `scripts/preflight.mjs` inside it.
+ */
+function installedPack(label, version, { runnable = true } = {}) {
+  const configDir = tempDir(label);
+  const root = path.join(configDir, "plugins", "cache", "graphcompose", "graphcompose-flow", version);
+  fs.mkdirSync(root, { recursive: true });
+  if (runnable) {
+    fs.mkdirSync(path.join(root, "scripts"), { recursive: true });
+    fs.writeFileSync(path.join(root, "scripts", "preflight.mjs"), "// a real install", "utf8");
+  }
+  return { ...ISOLATED_ENV, CLAUDE_CONFIG_DIR: configDir };
+}
+
+/** The version this checkout is, so a test can install one strictly newer. */
+function newerThanThisTree() {
+  const { version } = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"));
+  const [major, minor] = version.split(".").map(Number);
+  return `${major}.${minor + 1}.0`;
+}
+
+test("skew names the matching runtime instead of leaving it to be diagnosed", () => {
+  // A 0.22.0 installed skill against a 0.21.0 checkout cost a real run several
+  // turns comparing execution roots and skill files, then a hand-pinned
+  // environment variable. The install carrying those newer tools was on disk
+  // the whole time — preflight already knew where.
+  const { host } = scenario({}, "skew");
+  const newer = newerThanThisTree();
+  const skew = installedPack("skew-cache", newer);
+  const { status, parsed } = run(["--project-dir", host, "--project", "demo", "--no-setup"], skew);
+
+  assert.equal(status, 5, "a skew is still a stop, not a warning");
+  assert.equal(parsed.capabilities.parity, "tools-behind");
+  assert.equal(parsed.capabilities.matchingRuntime.version, newer);
+  assert.match(parsed.capabilities.matchingRuntime.command, /preflight\.mjs/);
+  assert.ok(
+    parsed.capabilities.matchingRuntime.command.includes(host),
+    "the command drops --project-dir, so the reader has to reconstruct it",
+  );
+  assert.equal(
+    parsed.nextCommands[0].run,
+    parsed.capabilities.matchingRuntime.command,
+    "running from the matching tree must be the first thing offered, before any build",
+  );
+  // The whole invocation, not only the directory: without --project the run in
+  // the matching tree comes back with no project and none of the loop lines.
+  assert.ok(
+    parsed.capabilities.matchingRuntime.command.includes('--project "demo"'),
+    "the command drops --project, so the matching tree re-derives it",
+  );
+  // And in --text, where the first version printed the diagnosis and kept
+  // the remedy in the JSON nobody asked for.
+  const text = run(["--project-dir", host, "--project", "demo", "--no-setup", "--text"], skew);
+  assert.match(text.output, /Next:/);
+  assert.ok(text.output.includes(parsed.capabilities.matchingRuntime.command), "--text never showed the one line to copy");
+});
+
+test("a relative --project-dir is printed absolute, so the commands survive a change of directory", () => {
+  // The report is read into a context window and acted on later, from
+  // wherever the next command runs. `--project-dir .` carried into the printed
+  // commands was correct only from the directory it was printed in.
+  const { host } = scenario({}, "relative");
+  const result = spawnSync(
+    process.execPath,
+    [CLI, "--project-dir", ".", "--project", "other", "--no-setup"],
+    { encoding: "utf8", env: ISOLATED_ENV, cwd: host },
+  );
+  const parsed = JSON.parse(result.stdout);
+  const create = parsed.nextCommands.find((c) => c.run.includes("init-workspace"));
+
+  assert.ok(create, "no create-the-project command was offered for a project that does not exist");
+  assert.ok(create.run.includes(`--project-dir "${host}"`), `the command carries a relative directory: ${create.run}`);
+});
+
+test("a half-copied install is not offered as a runtime", () => {
+  // A cache directory exists from the moment an install starts. Pointing a run
+  // at a tree with no scripts/ would trade one confusing failure for a worse
+  // one, so presence of the entry point is what counts.
+  const { host } = scenario({}, "skew-partial");
+  const { status, parsed } = run(
+    ["--project-dir", host, "--project", "demo", "--no-setup"],
+    installedPack("partial-cache", newerThanThisTree(), { runnable: false }),
+  );
+
+  assert.equal(status, 5, "the skew is still reported");
+  assert.equal(parsed.capabilities.matchingRuntime, null);
+  assert.match(parsed.capabilities.parityMessage, /skills install at/);
+});
+
+test("a matched pair offers no runtime switch at all", () => {
+  const { host } = scenario({}, "matched");
+  const { parsed } = run(["--project-dir", host, "--project", "demo", "--no-setup"]);
+
+  assert.equal(parsed.capabilities.matchingRuntime, null);
+  assert.ok(
+    !parsed.nextCommands.some((c) => c.run.includes("plugins")),
+    "a healthy tree was told to run from somewhere else",
+  );
 });

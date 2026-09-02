@@ -38,6 +38,7 @@ import { workspaceBaseline } from "./baseline.mjs";
 import { provider as claudeCode } from "./providers/claude-code.mjs";
 import { provider as gemini } from "./providers/gemini.mjs";
 import { describeWorkspaceLine, projectDir as workspaceProjectDir, resolveWorkspace } from "../lib/workspace.mjs";
+import { compareLines } from "../lib/version-resolver.mjs";
 
 function usage(code = 0) {
   process.stdout.write(
@@ -268,7 +269,7 @@ function runBaseline() {
       .readdirSync(path.join(repoRoot, "skills", "versions"), { withFileTypes: true })
       .filter((e) => e.isDirectory() && e.name.startsWith("graphcompose-"))
       .map((e) => e.name)
-      .sort((a, b) => Number(a.slice(13)) - Number(b.slice(13)));
+      .sort((a, b) => compareLines(a.slice(13), b.slice(13)));
     const surface = path.join(repoRoot, "skills", "versions", packs[packs.length - 1], "00-api-surface.md");
     const source = fs.readFileSync(surface, "utf8");
     primitives = new Set([...source.matchAll(/^- `[^`]*?\b(\w+)\s*\(/gm)].map((m) => m[1]));

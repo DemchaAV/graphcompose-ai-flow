@@ -90,6 +90,8 @@ PowerShell, cmd and bash.
 | What is there for a topic? | `node scripts/api-query.mjs --version 2.2 --query footer` |
 | Regenerate the allow-list from the pinned jar | `node tools/api-surface/extract-api.mjs --version <x.y.z>` (`--check` to compare) |
 | Does any skill still teach a superseded construction? | `node scripts/check-knowledge-drift.mjs` — exit 1 names the passage and the primitive that replaced it (also runs inside `npm run verify`) |
+| May the plan start? May the template be written? | `node scripts/check-analysis.mjs --project <id> [--for authoring] [--only <artifact>]` — exit 0 clear, 1 names the artifact that is not done (validated, not merely present). `--for authoring` adds the plan, the manifest and the request-vs-manifest cross-check; `--only asset-request.json` is how the resolver starts the moment the request validates. `render-and-diff` runs the authoring barrier itself before a first render |
+| Does the imported bundle agree with itself? | `node scripts/check-bundle-consistency.mjs [--version <line>]` — exit 1 names a route whose constraint no claim asserts or whose symbol the surfaces do not declare; coverage gaps are printed, never fatal (also runs inside `npm run verify` and CI) |
 | Resolve version and skill pack | `node scripts/resolve-version.mjs --project-dir <dir> --json` |
 | Create the workspace (first thing in a new project) | `node scripts/init-workspace.mjs --project-dir <dir> --project <id>` |
 | Print the chain for a project | `node scripts/run-pipeline.mjs <project-id>` |

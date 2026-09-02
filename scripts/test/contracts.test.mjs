@@ -17,6 +17,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { loadPipelineConfig } from "../lib/pipeline-config.mjs";
+import { compareLines } from "../lib/version-resolver.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -26,6 +27,26 @@ const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "target", "coverage",
 const config = loadPipelineConfig({ repoRoot });
 const read = (rel) => fs.readFileSync(path.join(repoRoot, rel), "utf8");
 const readJson = (rel) => JSON.parse(read(rel));
+
+/**
+ * Every tracked Markdown file, repository-relative and slash-separated.
+ *
+ * Walked rather than listed: the checks below ask "does any live document
+ * still say X", and a hand-kept list answers that only for the documents
+ * somebody remembered. `SKIP_DIRS` already excludes build output and the
+ * gitignored private plans.
+ */
+function markdownFiles(dir = repoRoot, out = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name.startsWith(".") || SKIP_DIRS.has(entry.name)) continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) markdownFiles(full, out);
+    else if (entry.name.endsWith(".md")) {
+      out.push(path.relative(repoRoot, full).split(path.sep).join("/"));
+    }
+  }
+  return out;
+}
 
 test("every routing fixture names a scope the config declares", () => {
   const fixtures = readJson("tests/routing-fixtures.json");
@@ -147,6 +168,115 @@ test("no live document still claims the old agent-chain figures", () => {
         `${file} still describes the old agent chain (${stale}) — it was replaced by four workflow skills`,
       );
     }
+  }
+});
+
+test("the architecture chain is stated in exactly one place", () => {
+  // Two statements of a chain are two chances to describe different systems,
+  // which is how docs/agents.md said nine agents while AGENTS.md said eleven.
+  // The chain now lives in architecture.md and everything else refers to it.
+  const LINKS = [
+    "host agent",
+    "GraphCompose AI Flow",
+    "version-pinned knowledge",
+    "intent routing",
+    "deterministic tools",
+    "GraphCompose",
+  ];
+  const canonical = "docs/architecture.md";
+  const source = read(canonical);
+  for (const link of LINKS) {
+    assert.ok(source.includes(link), `${canonical} no longer states the chain link "${link}"`);
+  }
+
+  const others = markdownFiles().filter((f) => f !== canonical && !f.startsWith("docs/history/"));
+  for (const file of others) {
+    const text = read(file);
+    const found = LINKS.filter((link) => text.includes(link));
+    assert.ok(
+      found.length < LINKS.length,
+      `${file} restates the whole architecture chain; it should link to ${canonical} instead`,
+    );
+  }
+});
+
+test("no live contract credits a retired agent with owning an artifact", () => {
+  // The eleven-agent chain is gone, but its vocabulary survived longest where
+  // it does the most damage: schemas/ and tools/ READMEs name the *writer* of
+  // a file, so "written by Architecture Mapper Agent" tells a reader to look
+  // for a component that does not exist. Recorded revisions under examples/
+  // are exempt — they are what an agent really wrote at the time.
+  //
+  // skills/versions/ is exempt on the same grounds check-knowledge-drift uses:
+  // a pack describes a released line and is a correct record of it. That rule
+  // is under strain now and the strain is worth naming rather than hiding —
+  // 2.2 is a record of 2.2 *and* the prose a 2.3 run is pointed at, so its 24
+  // files name retired owners to a reader following current guidance. The fix
+  // is not to rewrite a frozen pack; it is for 2.3 to stop borrowing, which is
+  // its own piece of work.
+  const retired = /\b(?:Template Orchestrator|Version Resolver|Skill Validator|Visual Analyzer|Architecture Mapper|Asset Resolver|Template Coder|Revision Manager)\s+Agent\b/;
+  // And without the suffix, where the sentence is an ownership claim: "written
+  // by the Architecture Mapper" tells a reader the same thing whether or not
+  // the word Agent follows, and the first version of this gate passed four
+  // such lines in docs/workflow.md. Only the four agents no live tool
+  // inherited — "written by the Revision Manager" is true of the tool.
+  const ownership = /\bwritten by (?:the )?(?:Template Orchestrator|Visual Analyzer|Architecture Mapper|Template Coder)\b/;
+  const live = markdownFiles().filter(
+    (f) =>
+      !f.startsWith("docs/history/") &&
+      !f.startsWith("examples/") &&
+      !f.startsWith("skills/versions/"),
+  );
+  for (const file of [...live, "schemas/assets-manifest.schema.json"]) {
+    assert.ok(
+      !retired.test(read(file)) && !ownership.test(read(file)),
+      `${file} names a retired agent as an owner; name the script, tool or phase that actually writes it`,
+    );
+  }
+});
+
+test("no live document presents a superseded pack as the pinned line", () => {
+  // The same failure as the agent-chain counts above, one layer down. When 2.3
+  // was imported, five live documents went on calling 2.2 the current line —
+  // README, overview, roadmap, limitations and architecture — and each was
+  // written when it was true. A reader following any of them authors against
+  // an allow-list the project no longer pins.
+  //
+  // Historical statements are fine and necessary: a phase table recording
+  // "GraphCompose 2.2 skill pack — done" is a record, and the fixtures really
+  // do pin 2.2.0. What is refused is the present tense — a superseded line
+  // named as what the project *is* on.
+  const packs = fs
+    .readdirSync(path.join(repoRoot, "skills", "versions"), { withFileTypes: true })
+    .filter((e) => e.isDirectory() && /^graphcompose-\d+\.\d+$/.test(e.name))
+    .map((e) => e.name.replace("graphcompose-", ""));
+  const newest = packs.sort(compareLines)[packs.length - 1];
+  // Checked structurally, not by reading tense. The first version of this
+  // matched phrases like "the 2.2 pack ships…" and immediately failed on a
+  // correct sentence — "how-to comes from the 2.2 pack, which preflight names
+  // explicitly" — because a superseded line is legitimately named as the prose
+  // fallback. A gate that cannot tell the role of a mention would make every
+  // future writer fight it.
+  //
+  // What is unambiguous: a document that discusses GraphCompose lines at all
+  // and never mentions the newest one is describing a project that has moved.
+  // That is exactly what happened — five documents discussed 2.2 and not one
+  // of them said 2.3.
+  const live = [
+    "README.md",
+    "docs/overview.md",
+    "docs/roadmap.md",
+    "docs/limitations.md",
+    "docs/architecture.md",
+  ];
+  for (const file of live) {
+    const source = read(file);
+    const mentions = [...source.matchAll(/GraphCompose[\s-]+(\d+\.\d+)/gi)].map((m) => m[1]);
+    if (mentions.length === 0) continue; // says nothing about lines; nothing to be stale about
+    assert.ok(
+      mentions.includes(newest),
+      `${file} discusses GraphCompose ${[...new Set(mentions)].sort().join(", ")} and never the newest pack (${newest})`,
+    );
   }
 });
 

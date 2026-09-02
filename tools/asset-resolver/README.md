@@ -40,7 +40,7 @@ independently; nothing here removes the dependency.
 ## Inputs and outputs
 
 ```text
-<revision>/asset-request.json     ← written by Architecture Mapper Agent
+<revision>/asset-request.json     ← written by the asset analysis in create phase 2
 <revision>/assets/icons/*.svg     ← written by asset-resolver (vector, the normal case)
 <revision>/assets/icons/*.png     ← only where GraphCompose cannot draw the SVG
 <revision>/assets/fonts/*.ttf     ← written by asset-resolver (when downloads land)

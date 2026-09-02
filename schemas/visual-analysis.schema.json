@@ -104,9 +104,23 @@
           "minimum": 1
         },
         "margins": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Margins expressed relationally where possible, e.g. \"~7% of page width\"."
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Margins expressed relationally where possible, e.g. \"~7% of page width\". Descriptive, not decided on. One sentence or several: the corpus writes both, and `render-artifact-md` renders a string and a list identically, so pinning one serialisation refused a run for a choice nothing downstream could tell apart."
         },
         "background": {
           "type": "string",
@@ -161,12 +175,23 @@
             "description": "Page the region appears on."
           },
           "contains": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1
-            },
-            "description": "Elements inside the region, named the way a reader would name them."
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Elements inside the region, named the way a reader would name them. Descriptive, not decided on. One sentence or several: the corpus writes both, and `render-artifact-md` renders a string and a list identically, so pinning one serialisation refused a run for a choice nothing downstream could tell apart."
           },
           "proportions": {
             "type": "string",
@@ -174,8 +199,23 @@
             "description": "The region's share of its parent, as a ratio or weight — never a pixel width. E.g. \"0.31 of the content row\"."
           },
           "notes": {
-            "type": "string",
-            "minLength": 1
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Descriptive, not decided on. One sentence or several: the corpus writes both, and `render-artifact-md` renders a string and a list identically, so pinning one serialisation refused a run for a choice nothing downstream could tell apart. Null is an explicit \"nothing to add\"."
           },
           "bounds": {
             "type": "object",
@@ -231,7 +271,7 @@
     },
     "layoutProportions": {
       "type": "object",
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "topLevelColumnsRows": {
           "type": "string",
@@ -365,11 +405,23 @@
             "description": "Observed colour, hex where readable."
           },
           "usedIn": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1
-            }
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Descriptive, not decided on. One sentence or several: the corpus writes both, and `render-artifact-md` renders a string and a list identically, so pinning one serialisation refused a run for a choice nothing downstream could tell apart."
           }
         }
       }
@@ -386,19 +438,42 @@
           }
         },
         "iconifyCandidates": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          },
-          "description": "Iconify set/name candidates, e.g. \"mdi:email-outline\"."
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Iconify set/name candidates, e.g. \"mdi:email-outline\". Descriptive, not decided on. One sentence or several: the corpus writes both, and `render-artifact-md` renders a string and a list identically, so pinning one serialisation refused a run for a choice nothing downstream could tell apart."
         },
         "imagesLogos": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          }
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Descriptive, not decided on. One sentence or several: the corpus writes both, and `render-artifact-md` renders a string and a list identically, so pinning one serialisation refused a run for a choice nothing downstream could tell apart."
         }
       },
       "description": "What the Asset Resolver will have to fetch. The authoritative request is asset-request.json."

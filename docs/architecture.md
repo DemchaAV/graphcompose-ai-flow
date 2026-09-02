@@ -1,15 +1,16 @@
 # Architecture
 
-This page describes the **target architecture** of GraphCompose AI
-Flow: an installable harness for coding agents rather than a workflow
-kit a human has to read and an agent has to interpret by hand.
+This page describes the architecture of GraphCompose AI Flow: an
+installable harness for coding agents rather than a workflow kit a
+human has to read and an agent has to interpret by hand.
 
-> **Status: migration in progress.** Most of what follows is a
-> contract being built, not a description of what ships today. The
-> current, honest state is
-> [implementation-status.md](implementation-status.md); the migration
-> phases are tracked in [roadmap.md](roadmap.md) § Harness migration.
-> Sections below marked *(planned)* do not exist yet.
+It describes what ships. The migration that produced this shape
+completed before v0.21.0, and the banner that used to stand here —
+warning that most of the page was a contract being built — outlived it
+by several releases while marking nothing. What is deliberately absent
+is listed under [Deliberately out of scope](#deliberately-out-of-scope);
+what is shipped but incomplete is in
+[limitations.md](limitations.md).
 
 ## The core principle
 
@@ -27,36 +28,37 @@ job.
 > The host agent thinks and edits code. GraphCompose AI Flow decides
 > **how** a GraphCompose task must be carried out.
 
+### The chain
+
+Six links. This is the canonical statement of the architecture; every
+other page in this repository refers to it rather than restating it,
+because two statements of a chain are two chances to describe different
+systems.
+
 ```text
-                    USER
-                      │
-                      ▼
-           Codex / Claude Code
-              host agent runtime
-                      │
-                      ▼
-          GraphCompose AI Flow
-            plugin / Agent Skills
-                      │
-          ┌───────────┼───────────┐
-          ▼           ▼           ▼
-       Skills      Workflow      Rules
-          │                       │
-          └───────────┬───────────┘
-                      ▼
-              deterministic tools
-                      │
-       ┌──────────────┼──────────────┐
-       ▼              ▼              ▼
-    renderer      visual-diff     assets
-       │              │              │
-       └──────────────┼──────────────┘
-                      ▼
-                    Maven
-                      │
-                      ▼
-                 GraphCompose
+  host agent                    Codex · Claude Code · Gemini CLI
+      │                         model, vision, filesystem, shell
+      ▼
+  GraphCompose AI Flow          four workflow skills, one per gesture
+      │                         scope routing, revision semantics, bounds
+      ▼
+  version-pinned knowledge      skills/versions/graphcompose-<line>/
+      │                         what exists · where it belongs · how stable
+      ▼
+  intent routing                routing/tasks.json — which construction,
+      │                         with alternatives, constraints, symbols
+      ▼
+  deterministic tools           render · diff · measure · gates
+      │                         nothing here is a judgement call
+      ▼
+  GraphCompose                  the library, at the pinned version
 ```
+
+Each link may only assume what the link above has already decided. The
+host does not choose GraphCompose primitives; the workflow does not
+invent API; routing does not overrule the pinned surface; a tool does not
+decide whether the result is good enough — it measures, and the loop
+reads the measurement.
 
 ## Division of responsibility
 
@@ -115,18 +117,60 @@ tools they call. They live in
 
 GraphCompose API knowledge stays separate from workflow, in the
 versioned skill packs under [`skills/versions/`](../skills/), and is
-loaded selectively. Each pack carries a `00-loading-map.md` answering
-one question — given this task, which files do I open? — organised by
-what the reference actually contains rather than by document kind, so
-`tables.md` loads because there is a table, not because invoices
-usually have one. A pack holds sixteen files; a typical task needs four
-to six, and the omissions are the point: every file loaded "to be safe"
-is context the iteration loop cannot spend on the mismatch it is about
-to fix. The `topics` array in `skills/skill-manifest.json` is the
-machine-readable half, and a contract test fails the build when a pack
-skill is unreachable from the map.
-The split holds because the two change on different clocks: workflow
-with this project, the API with the library.
+loaded selectively. The split holds because the two change on different
+clocks: workflow with this project, the API with the library.
+
+A pack carries what its line could produce, and that differs by line.
+
+- **A knowledge pack** is imported from a GraphCompose release bundle
+  (`tools/api-surface/import-bundle.mjs`) and holds `api/` split per
+  surface, `routing/`, `claims/` and its provenance. It ships no prose —
+  2.3 has none, where 2.2 has 29 pages — because a bundle carries what
+  GraphCompose can verify from its own build, and prose is not that.
+  `preflight` reports such a pack as `knowledgeOnly` and names the
+  nearest *older* line's pages as how-to, never a newer line's.
+- **A prose pack** carries `00-loading-map.md` and the topic files it
+  indexes, answering one question — given this task, which files do I
+  open? — organised by what the reference actually contains rather than
+  by document kind, so `tables.md` loads because there is a table, not
+  because invoices usually have one. A typical task needs four to six of
+  the sixteen, and the omissions are the point: every file loaded "to be
+  safe" is context the iteration loop cannot spend on the mismatch it is
+  about to fix. The `topics` array in `skills/skill-manifest.json` is the
+  machine-readable half, and a contract test fails the build when a pack
+  skill is unreachable from the map.
+
+### What the knowledge layer answers
+
+Three questions, and they are genuinely different. A pack that answers
+only the first was the shape of this project until v0.22.0, and the
+missing two are where wrong-API choices actually came from.
+
+| | Question | Answered from | Failure when it is missing |
+|---|---|---|---|
+| **Availability** | Does this exist in the pinned version? | `api/*.json` — the closed set extracted from the release's own class files | An invented call. The agent writes a method the version does not have. |
+| **Surface & stability** | Where does it belong, and is it something to be calling yet? | the same surfaces: which surface a type sits in, and `[beta]` where the contract may still move | A call that compiles and is wrong to make — an engine internal used from a template, or a beta contract relied on as settled. |
+| **Routing** | Which construction does this intent want? | `routing/tasks.json` — the recommended path, the alternatives with what each costs, the named constraints, the symbols to verify | The commonest failure of all: every candidate exists, so availability says yes to each, and the agent picks the wrong one. A skills list in two columns is a row with weights; nothing in a signature says so. |
+
+Availability is necessary and not sufficient. A surface can only ever
+say *yes, that exists* — asked about three different ways to do one
+thing, it says yes three times.
+
+### The pin is the authority
+
+Whichever layout a pack is in, its allow-list is the authority for the
+line it describes. Borrowed prose is guidance and never overrides it.
+
+This holds in both directions and is enforced, not merely asked for.
+`preflight` offers a knowledge pack the how-to of the nearest **older**
+line and never a newer one — older prose may describe a construction the
+pinned line has replaced, which
+[`check-knowledge-drift`](../scripts/check-knowledge-drift.mjs) polices
+against the pinned line's symbols, while newer prose names API the line
+does not have at all. And the one file that never crosses a line is the
+allow-list itself: a borrowed starting point has it removed, because an
+agent reading another line's closed set is authoring against the wrong
+one while believing it has the right one.
 
 The mapping from stages to skills is deliberately not one-to-one. A
 stage such as `visualAnalyzer` belongs to more than one workflow, and
@@ -327,7 +371,7 @@ that happens to exist — authoring against a different line's allow-list
 produces calls that do not compile, so an honest gap beats a
 confident wrong answer.
 
-## Target repository shape
+## Repository shape
 
 ```text
 graphcompose-ai-flow/
@@ -356,10 +400,15 @@ graphcompose-ai-flow/
 ├── tools/                     revision-manager, preview-renderer,
 │                              visual-diff, asset-resolver
 ├── scripts/                   render, verify, publish
+├── observations/              engine behaviours a probe has verified, per line
+├── hooks/                     the PreToolUse guard on the four shell shortcuts
 ├── docs/
 ├── examples/
 └── templates/
 ```
+
+The load-bearing directories, not every one: `assets/`, `site/`,
+`tests/` and `validation/` exist and carry no architectural weight.
 
 The workflow, skills, schemas and tools are shared. The adapters are
 thin: packaging differences between hosts must never fork the workflow.

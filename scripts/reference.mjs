@@ -53,6 +53,7 @@ import {
   projectDir as workspaceProjectDir,
   resolveWorkspace,
 } from "./lib/workspace.mjs";
+import { ready, schemaValidator } from "./lib/schema-validator.mjs";
 import { extractRules } from "./lib/border-topology.mjs";
 import {
   comparableBands,
@@ -72,7 +73,9 @@ const COMMANDS = new Set(["analyze", "measure", "rules", "bands", "colors", "com
 function usage(code = 0) {
   process.stdout.write(
     "usage: node scripts/reference.mjs <measure|rules|bands|colors|compare> --project <id> [options]\n\n" +
-      "  measure                    page size, aspect, and the margins the ink implies\n" +
+      "  analyze                    everything a first pass asks, including the page block\n" +
+      "                             visual-analysis.json needs, ready to copy\n" +
+  "  measure                    page size, aspect, and the margins the ink implies\n" +
       "  rules                      horizontal and vertical rules, and the bands too thick to be rules\n" +
       "  bands                      ink runs down each window, with their horizontal extents\n" +
       "  colors                     dominant colours by coverage\n" +
@@ -171,6 +174,77 @@ const reference = read(referencePath);
 const bandOptions = { gap: args.gap, minInk: args.minInk };
 let result;
 
+/**
+ * `visual-analysis.json`'s `page` block, ready to copy.
+ *
+ * Every field it requires was already decided by `import-reference` and written
+ * to `template-project.json` as `referenceGeometry`: the pixel size it
+ * measured, the aspect, which standard page it matched, that page in points,
+ * and whether the match was measured or confirmed by a person. The geometry
+ * subagent was being asked to re-derive all of it by hand — rename four fields,
+ * invert the aspect, and produce two more from nothing.
+ *
+ * It did not go well. Across nineteen recorded runs, thirteen wrote a `page`
+ * block that failed the schema, and the commonest failure was the information
+ * being present as prose inside `format` — "US Letter (reference raster is
+ * 1103x1426, aspect 0.773)" — rather than in the fields that carry it. Nothing
+ * checked, so it went unnoticed for a month.
+ *
+ * So the transcription step is removed rather than explained better. Nothing
+ * here is a judgement: if a field is not in `referenceGeometry`, it is not
+ * invented, and the block comes back null for a project that has not imported
+ * a reference yet.
+ *
+ * @param {string} projectId
+ * @returns {object|null}
+ */
+async function pageBlockFor() {
+  const file = path.join(projectDir, "template-project.json");
+  if (!fs.existsSync(file)) return { block: null, problem: null };
+  let meta;
+  try {
+    meta = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (err) {
+    // Not the same null as "nothing imported yet". A bare catch mapped a
+    // trailing comma in a file import-reference wrote onto the answer that
+    // tells the geometry subagent to type the block by hand — the failure this
+    // helper exists to end — with exit 0 and no word that anything was wrong.
+    return { block: null, problem: `template-project.json is not readable — ${err.message}` };
+  }
+  const g = meta.referenceGeometry;
+  if (!g?.pageSize || !g.pages?.length) return { block: null, problem: null };
+  const first = g.pages[0];
+  const block = {
+      format: g.pageSize.format,
+      orientation: g.pageSize.orientation,
+      referencePx: { width: first.widthPx, height: first.heightPx },
+      aspect: g.aspect,
+      sizePt: { width: g.pageSize.widthPt, height: g.pageSize.heightPt },
+      sizeSource: g.pageSize.source,
+      // Conditionally required: the schema demands it whenever the size was
+      // confirmed by a person rather than measured, and `page-size.mjs --decision`
+      // is where that sentence was captured. Omitting it made the block invalid
+      // in exactly the case a subagent has least to go on — which is how a
+      // helper meant to remove guesswork would have reintroduced it.
+      ...(g.pageSize.decision ? { sizeDecision: g.pageSize.decision } : {}),
+      pageCount: g.pages.length,
+    };
+  // Offered as ready to copy, so it is checked against the schema that will
+  // judge it before it is offered. Every current writer of referenceGeometry
+  // emits the schema's vocabulary; a hand-edited record need not.
+  const validate = (await ready())
+    ? schemaValidator(path.join(installRoot(), "schemas", "visual-analysis.schema.json"), "page")
+    : null;
+  const verdict = validate ? validate(block) : { valid: true };
+  if (!verdict.valid) {
+    return { block: null, problem: `the block assembled from referenceGeometry fails the schema's page block — ${verdict.errors}` };
+  }
+  return { block, problem: null };
+}
+
+const PAGE_BLOCK = args.command === "analyze" ? await pageBlockFor() : { block: null, problem: null };
+if (PAGE_BLOCK.problem) process.stderr.write(`[reference] page block: ${PAGE_BLOCK.problem}\n`);
+
 if (args.command === "analyze") {
   // Everything a first pass asks about a reference, in one call.
   //
@@ -192,6 +266,8 @@ if (args.command === "analyze") {
     project: args.project,
     units: "reference pixels, except rules.at which is a page fraction",
     page: pageMetrics(reference),
+    pageBlock: PAGE_BLOCK.block,
+    ...(PAGE_BLOCK.problem ? { pageBlockProblem: PAGE_BLOCK.problem } : {}),
     palette: samplePalette(reference),
     rules,
     columns: columns.map((column) => ({

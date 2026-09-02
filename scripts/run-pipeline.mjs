@@ -27,6 +27,7 @@ import { fileURLToPath } from "node:url";
 import {
   loadPipelineConfig,
   resolveScope,
+  concurrentGroups,
   scopeNames,
   stagesForScope,
 } from "./lib/pipeline-config.mjs";
@@ -143,12 +144,23 @@ console.log(`${bold("Scope")}:    ${scope}   ${dim(`project=${args.project} revi
 for (const [, workflow] of owningWorkflows) console.log(dim(`  follow: ${workflow.skill}`));
 console.log("");
 
+// A stage with no ordering against another is printed beside it, as the config
+// declares — the skill that fans out and this chain have to say the same thing,
+// and for one release they did not: the skill ran asset resolution beside the
+// plan while this printed the plan, then the resolver, then the template.
+const groups = concurrentGroups(config, scope);
+const beside = (stage) => {
+  const group = groups.find((g) => g.includes(stage.id));
+  if (!group) return "";
+  const others = group.filter((id) => id !== stage.id).map((id) => config.stages[id].label);
+  return `  ${dim(`|| beside ${others.join(", ")}`)}`;
+};
 const labelWidth = Math.max(...stages.map((stage) => stage.label.length));
 stages.forEach((stage, i) => {
   const n = String(i + 1).padStart(2, "0");
   console.log(
     `  ${n}  ${stage.label.padEnd(labelWidth)}  ${stage.kind.toUpperCase().padEnd(4)}` +
-      `  ${dim(stage.description)}`,
+      `  ${dim(stage.description)}${beside(stage)}`,
   );
 });
 

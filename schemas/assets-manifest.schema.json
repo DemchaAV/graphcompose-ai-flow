@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/DemchaAV/graphcompose-ai-flow/schemas/assets-manifest.schema.json",
   "title": "Assets Manifest",
-  "description": "Contract between tools/asset-resolver (writer) and the Template Coder Agent (reader). Pins the icon and font records the generated template must consume; the manifest is the single source of truth for asset references.",
+  "description": "Contract between tools/asset-resolver (writer) and template authoring (reader). Pins the icon and font records the generated template must consume; the manifest is the single source of truth for asset references.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -148,6 +148,26 @@
         "status",
         "registration"
       ],
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ok"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "fontName": {
+            "type": "string"
+          },
+          "registration": {
+            "type": "string"
+          }
+        }
+      },
       "properties": {
         "role": {
           "type": "string",
@@ -160,9 +180,16 @@
           "description": "Human-readable family name (Poppins, Helvetica, ...)."
         },
         "fontName": {
-          "type": "string",
-          "pattern": "^[A-Z][A-Z0-9_]*$",
-          "description": "GraphCompose FontName enum constant \u2014 uppercase identifier."
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]*$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "GraphCompose FontName enum constant \u2014 uppercase identifier. Null when the resolver could not place the face (status manual_drop_required): that is exactly what tools/asset-resolver writes, and a schema that refused its own documented output held every run needing a Google face, with advice that re-produced the same manifest."
         },
         "weights": {
           "type": "array",
@@ -195,13 +222,20 @@
           "description": "Resolution status. manual_drop_required means asset-resolver could not place the file; template-coder must surface it as a Known Limitation."
         },
         "registration": {
-          "type": "string",
-          "enum": [
-            "default-fonts",
-            "standard14",
-            "file-resource"
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "default-fonts",
+                "standard14",
+                "file-resource"
+              ]
+            },
+            {
+              "type": "null"
+            }
           ],
-          "description": "How the Template Coder registers the font in code."
+          "description": "How the font is registered in code. Null when the request named a family its source does not carry \u2014 the resolver's failure record \u2014 as distinct from file-resource, which is a face to drop in by hand and register via FontFamilyDefinition.files(...)."
         },
         "notes": {
           "type": [
