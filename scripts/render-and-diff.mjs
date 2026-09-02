@@ -48,6 +48,7 @@ import { pagePairs } from "./lib/page-pairs.mjs";
 import { describeAttempts, readAttempts, recordAttempt } from "./lib/attempts.mjs";
 import { compareEdgeBands } from "./lib/edge-bands.mjs";
 import { describeIgnoredCopies, resolveTemplateSource } from "./lib/template-source.mjs";
+import { INFERRED_NEW_SCOPE, resolveScope } from "./lib/pipeline-config.mjs";
 
 const repoRoot = installRoot();
 
@@ -321,6 +322,66 @@ function finish(code) {
 }
 
 // -------------------------------------------------------------------- steps ---
+
+// Before anything: the barrier authoring was told to run, run by the pass that
+// would otherwise compile past it. `create-3-author.md` says "exit 1 means do
+// not start", and a sentence enforces nothing — this is where the refusal has a
+// mechanism. config/pipeline.json declares it under `barriers.analysis`; the
+// conditions here are that declaration's `appliesWhen`.
+step("discovery", (entry) => {
+  let revision = null;
+  try {
+    revision = JSON.parse(fs.readFileSync(path.join(revisionDir, "revision.json"), "utf8"));
+  } catch {
+    /* no revision record: the render step reports that in its own words */
+  }
+  const scope = resolveScope({ revision, revisionId: args.revision });
+  if (scope !== INFERRED_NEW_SCOPE) {
+    entry.detail = `not a first revision (${scope}) — discovery was joined before its parent rendered`;
+    return;
+  }
+  // The first render only. Once one has succeeded the join was checked before
+  // it; re-rendering the same revision is not the moment discovery changes.
+  if (fs.existsSync(path.join(revisionDir, "output.png"))) {
+    entry.detail = "already rendered once — the join was checked before that render";
+    return;
+  }
+  // A project that never wrote the discovery artifacts — the examples that
+  // predate them — is not held to a barrier it did not enter. The moment
+  // visual-analysis.json exists the fan-out has begun, and the join applies.
+  if (!fs.existsSync(path.join(revisionDir, "visual-analysis.json"))) {
+    entry.detail = "no discovery artifacts in this revision — not held";
+    return;
+  }
+  const checked = run(path.join(repoRoot, "scripts", "check-analysis.mjs"), [
+    "--project",
+    args.project,
+    "--revision",
+    args.revision,
+    "--root",
+    workspace.root,
+    "--for",
+    "authoring",
+    "--json",
+  ]);
+  let analysis;
+  try {
+    analysis = JSON.parse(checked.stdout);
+  } catch {
+    // The barrier could not answer at all. Held, not waved through: a check
+    // that cannot run is not a check that passed.
+    throw new Error(`check-analysis did not answer:\n${excerptFailure(checked.output, 6)}`);
+  }
+  const held = analysis.artifacts.filter((a) => !a.ok).map((a) => `${a.name}: ${a.detail}`);
+  result.discovery = { complete: analysis.complete, held };
+  if (!analysis.complete) {
+    throw new Error(
+      `authoring started on unfinished discovery — ${held.join("; ")}\n` +
+        `run: node scripts/check-analysis.mjs --project ${args.project} --revision ${args.revision} --for authoring`,
+    );
+  }
+  entry.detail = `${analysis.artifacts.length} artifact(s) complete`;
+});
 
 // Before the compile, not after: a second copy of the template costs a pass its
 // editing budget, and the cheapest moment to say so is before the budget is

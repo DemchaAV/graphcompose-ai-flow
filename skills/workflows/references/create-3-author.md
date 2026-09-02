@@ -9,6 +9,12 @@ node scripts/check-analysis.mjs --project <id> --for authoring
 **Exit 1 means do not start.** Re-run whatever it names; do not work
 around it and do not begin the Java while it is red.
 
+It is not only a sentence. `render-and-diff` runs this same barrier
+before it compiles a first render and fails the pass while it is red
+(`config/pipeline.json`, `barriers.analysis`) — so skipping it here
+moves the same answer to after the Java is written, which is the
+expensive place to hear it.
+
 This barrier exists because phase 2 no longer runs in a line. Asset
 resolution starts the moment the request validates and runs beside the
 architecture plan, and the plan usually finishes first — so "the plan is

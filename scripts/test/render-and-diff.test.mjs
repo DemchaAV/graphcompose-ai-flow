@@ -535,6 +535,36 @@ test("the worst page is the one furthest from its reference, not the biggest one
 
 // ----------------------------------------------- what a failed render says ---
 
+test("a first render on unfinished discovery is refused before it compiles", () => {
+  // create-3-author.md says "exit 1 means do not start"; this is the mechanism
+  // behind the sentence. A revision on the discovery artifacts that has never
+  // rendered is held by the pass itself, before the compile, with the same
+  // answer check-analysis gives.
+  const { root, revision } = scenario({ label: "discovery" });
+  fs.rmSync(path.join(revision, "output.png"));
+  writeJson(path.join(revision, "visual-analysis.json"), { schemaVersion: 1 });
+  const spawned = spawnSync(
+    process.execPath,
+    [CLI, "--project", "demo", "--revision", "revision-002", "--root", root, "--json"],
+    { encoding: "utf8" },
+  );
+  const parsed = JSON.parse(spawned.stdout);
+
+  assert.equal(spawned.status, 1);
+  const step = parsed.steps.find((s) => s.name === "discovery");
+  assert.ok(step && !step.ok, "the discovery step did not refuse");
+  assert.match(step.error, /unfinished discovery/);
+  assert.match(step.error, /check-analysis\.mjs/);
+  assert.ok(!parsed.steps.some((s) => s.name === "render"), "the pass went on to render");
+});
+
+test("a revision that already rendered, or never entered discovery, is not held", () => {
+  const { parsed } = runCli(scenario({ label: "no-discovery" }).root, ["--json"]);
+  const step = parsed.steps.find((s) => s.name === "discovery");
+
+  assert.ok(step?.ok, "a --skip-render pass on an already-rendered revision was held");
+});
+
 /** Like runCli, but WITHOUT --skip-render, so the render step actually runs. */
 function runCliRendering(root, extra = []) {
   const spawned = spawnSync(

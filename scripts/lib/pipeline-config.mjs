@@ -89,6 +89,7 @@ export function validatePipelineConfig(config) {
   validateGates(config.gates);
   validateScopes(config.scopes, config.stages, config.gates);
   validateWorkflows(config.workflows, config.scopes);
+  validateBarriers(config.barriers, config.scopes);
   validateLimits(config.limits);
   validateFailureCategories(config.failureCategories);
   validateVocabulary(config.mismatchCauses, "mismatchCauses");
@@ -186,6 +187,52 @@ function validateScopes(scopes, stages, gates) {
         throw new PipelineConfigError(
           `${at}.stages references unknown stage ${JSON.stringify(stageId)}`,
         );
+      }
+    }
+    // Stages with no ordering between them, declared here so the chain that
+    // run-pipeline prints and the skill that fans out say the same thing. The
+    // first fan-out was described in prose only, with the config still serial.
+    if (scope.concurrent !== undefined) {
+      if (!Array.isArray(scope.concurrent)) {
+        throw new PipelineConfigError(`${at}.concurrent must be an array of stage-id groups`);
+      }
+      for (const group of scope.concurrent) {
+        if (!Array.isArray(group) || group.length < 2 || new Set(group).size !== group.length) {
+          throw new PipelineConfigError(`${at}.concurrent groups are two or more distinct stage ids, got ${JSON.stringify(group)}`);
+        }
+        for (const stageId of group) {
+          if (!scope.stages.includes(stageId)) {
+            throw new PipelineConfigError(
+              `${at}.concurrent names ${JSON.stringify(stageId)}, which ${at}.stages does not run`,
+            );
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * A barrier is a join enforced by code: `calledFrom` runs `enforcedBy` and
+ * refuses to continue while it is red. Optional, because a config written
+ * before the first barrier existed is still a valid config.
+ */
+function validateBarriers(barriers, scopes) {
+  if (barriers === undefined) return;
+  if (!isPlainObject(barriers)) throw new PipelineConfigError("barriers must be an object");
+  for (const [id, barrier] of Object.entries(barriers)) {
+    if (id.startsWith("$")) continue;
+    const at = `barriers.${id}`;
+    if (!isPlainObject(barrier)) throw new PipelineConfigError(`${at} must be an object`);
+    requireNonEmptyString(barrier.summary, `${at}.summary`);
+    requireNonEmptyString(barrier.enforcedBy, `${at}.enforcedBy`);
+    requireNonEmptyString(barrier.calledFrom, `${at}.calledFrom`);
+    if (!Array.isArray(barrier.scopes) || barrier.scopes.length === 0) {
+      throw new PipelineConfigError(`${at}.scopes must name the scopes it applies to`);
+    }
+    for (const scopeName of barrier.scopes) {
+      if (!Object.hasOwn(scopes, scopeName)) {
+        throw new PipelineConfigError(`${at}.scopes references unknown scope ${JSON.stringify(scopeName)}`);
       }
     }
   }
@@ -291,6 +338,17 @@ export function resolveScope({ explicitScope = null, revision = null, revisionId
  * @returns {Array<{ id: string, kind: string, prompt: string, tool?: string, description: string }>|null}
  *          null when the scope is unknown, so callers can print their own error
  */
+/**
+ * The groups of stages a scope runs with no ordering between them.
+ *
+ * @param {object} config
+ * @param {string} scopeName
+ * @returns {string[][]}
+ */
+export function concurrentGroups(config, scopeName) {
+  return config.scopes[scopeName]?.concurrent ?? [];
+}
+
 export function stagesForScope(config, scopeName) {
   const scope = config.scopes[scopeName];
   if (!scope) return null;
