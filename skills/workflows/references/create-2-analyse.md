@@ -74,12 +74,16 @@ serial by nature; do not parallelise it.
 ### Resolve the assets as soon as the request is valid
 
 ```bash
+node scripts/check-analysis.mjs --project <id> --only asset-request.json
 node tools/asset-resolver/src/cli.mjs --revision <revision-dir>
 ```
 
-Start it the moment `asset-request.json` validates — it reads that file
-and nothing else, so it feeds neither the geometry nor the plan and has
-no reason to wait for them. It runs beside the architecture plan below.
+Start it the moment `asset-request.json` validates — the first command
+is exactly that question, about that one file, exit 0 — because the
+resolver reads the request and nothing else, so it feeds neither the
+geometry nor the plan and has no reason to wait for them. It runs beside
+the architecture plan below; `config/pipeline.json` declares the two as
+concurrent and `run-pipeline` prints them that way.
 
 This used to happen during authoring, and it cost more than it looks.
 Across nineteen recorded runs the manifest landed a median **26 minutes**
@@ -91,9 +95,14 @@ and most of its wait was not work.
 Treat `assets-manifest.json` as the source of truth for what was actually
 fetched — the format (`svg` or `png`) included; the template branches on
 it rather than assuming an extension (see [authoring
-rules](authoring-rules.md#asset-flow)). A token the resolver could not
-return is absent from the manifest, which is why the authoring barrier
-compares the two rather than trusting either alone.
+rules](authoring-rules.md#asset-flow)). An icon the resolver could not
+find has no record in the manifest. A font it could not place *has*
+one, marked `manual_drop_required`: with `registration: "file-resource"`
+it is a Google face you drop as TTFs and register in Java, and the
+authoring barrier reports it and lets you proceed; with
+`registration: null` the request named a family its source does not
+carry, and the barrier holds until the request is fixed. That is why
+the barrier reads both files rather than trusting either alone.
 
 ## `visual-analysis.json` ([schema](../../../schemas/visual-analysis.schema.json))
 

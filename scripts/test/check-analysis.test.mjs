@@ -76,7 +76,7 @@ const DATA = { name: "A Person", title: "Engineer" };
 /** A workspace with one project and one revision, filled to order. */
 function workspace(
   label,
-  { geometry = GEOMETRY, data = DATA, request = REQUEST, plan = null, manifest = null } = {},
+  { geometry = GEOMETRY, data = DATA, request = REQUEST, plan = null, manifest = null, project: projectExtra = {} } = {},
 ) {
   const host = tempDir(label);
   const root = path.join(host, "graphcompose-flow");
@@ -95,6 +95,7 @@ function workspace(
     createdAt: "2026-09-01T00:00:00.000Z",
     updatedAt: "2026-09-01T00:00:00.000Z",
     schemaVersion: 1,
+    ...projectExtra,
   });
   writeJson(path.join(revision, "revision.json"), {
     id: "revision-001",
@@ -186,6 +187,69 @@ test("an artifact nobody has written yet says so plainly", () => {
 
   assert.equal(status, 1);
   assert.equal(named(parsed, "asset-request.json").detail, "not written yet");
+});
+
+test("inline data is complete, not 'not written yet'", () => {
+  // `render.dataFileName: null` is a defined state — the Java carries the data
+  // — and the barrier read it as a file nobody had written, so a project in
+  // that state could never clear it. One in the corpus is.
+  const { root } = workspace("inline", { data: null, project: { render: { dataFileName: null } } });
+  const { status, parsed, out } = check(root);
+
+  assert.equal(status, 0, out);
+  assert.match(named(parsed, "<doc-kind>-data.json").detail, /inline/);
+});
+
+test("a data file that is not a document does not clear the join", () => {
+  // `Object.keys` of a string is its indices, so a placeholder string reported
+  // "13 top-level field(s)" and cleared the gate.
+  const { root } = workspace("string-data", { data: "just a string" });
+  const { status, parsed } = check(root);
+
+  assert.equal(status, 1);
+  assert.match(named(parsed, "cv-data.json").detail, /not a document/);
+});
+
+test("--only answers for one artifact, so the resolver can start on a valid request", () => {
+  // The workflow's sentence — "start it the moment the request validates" —
+  // had no command behind it: the plan barrier answers for all three, so the
+  // resolver either waited for the geometry beside it or started unchecked.
+  const { root } = workspace("only", { geometry: { schemaVersion: 1 } });
+  const run = spawnSync(
+    process.execPath,
+    [CLI, "--project", "demo", "--root", root, "--only", "asset-request.json", "--json"],
+    { encoding: "utf8" },
+  );
+  const parsed = JSON.parse(run.stdout);
+
+  assert.equal(run.status, 0, "a broken geometry file held the request's own answer");
+  assert.equal(parsed.only, "asset-request.json");
+  assert.equal(parsed.artifacts.length, 1);
+});
+
+test("a corrupt project file is an environment error with a message, not a stack trace", () => {
+  const { root } = workspace("corrupt-project");
+  fs.writeFileSync(path.join(root, "projects", "demo", "template-project.json"), '{ "id": "demo",', "utf8");
+  const { status, out } = check(root);
+
+  assert.equal(status, 2);
+  assert.match(out, /template-project\.json is not readable/);
+  assert.doesNotMatch(out, /at readJson/);
+});
+
+test("a flag with no value is a usage error, not a silent default", () => {
+  const { root } = workspace("bare-flag");
+  const run = spawnSync(process.execPath, [CLI, "--project", "demo", "--root", root, "--for"], { encoding: "utf8" });
+
+  assert.equal(run.status, 2);
+  assert.match(run.stderr, /--for needs a value/);
+});
+
+test("--help names every way to ask", () => {
+  const run = spawnSync(process.execPath, [CLI, "--help"], { encoding: "utf8" });
+
+  assert.match(run.stdout, /--for plan\|authoring/);
+  assert.match(run.stdout, /--only <artifact>/);
 });
 
 test("the text report names what to re-run rather than what to work around", () => {
@@ -405,6 +469,27 @@ const manifestFor = (tokens, roles = ["body"]) => ({
   icons: Object.fromEntries(tokens.map((t) => [t, { ...ICON, name: t, file: `assets/icons/${t}.svg` }])),
   fonts: Object.fromEntries(roles.map((r) => [r, { ...FONT, role: r }])),
 });
+/** What tools/asset-resolver writes for a Google face: a record, never an absence. */
+const MANUAL_DROP = {
+  role: "display",
+  family: "Barlow Condensed",
+  fontName: null,
+  weights: [400, 700],
+  source: "google-fonts",
+  status: "manual_drop_required",
+  registration: "file-resource",
+  notes:
+    'download TTF for "Barlow Condensed" weights 400,700 and drop into assets/fonts/. Template must register via FontFamilyDefinition.files(...).',
+};
+/** And for a family the requested source does not carry: the same status, no registration. */
+const NOT_BUNDLED = {
+  ...MANUAL_DROP,
+  source: "graphcompose-bundled",
+  registration: null,
+  notes:
+    'family "Barlow Condensed" is not bundled in GraphCompose 1.6 DefaultFonts; pick a bundled family from DefaultFonts.googleFamilies() or set source="google-fonts" and drop TTF files in assets/fonts/',
+};
+const manifestWithFonts = (tokens, fonts) => ({ ...manifestFor(tokens, []), fonts });
 const REQUEST_WITH = (tokens) => ({
   icons: tokens.map((t) => ({ token: t, query: t, pointSize: 9 })),
   fonts: [{ role: "body", family: "Helvetica", source: "standard14" }],
@@ -480,11 +565,82 @@ test("an icon the resolver never returned is caught, though both files validate"
   );
 });
 
-test("a font role the resolver never returned is caught too", () => {
-  // The same disagreement on the other half. The first version of this check
-  // read icons only, so a request naming a display face the resolver could not
-  // supply passed the barrier — and the Java then asked the manifest for a role
-  // it does not have. Fonts are the half a CV notices first.
+test("a face that needs a manual drop is reported, and authoring proceeds", () => {
+  // What the resolver actually writes for a Google face: a record under the
+  // role with status manual_drop_required and fontName null — never an absent
+  // key. The first version of this check read key presence, so it could not
+  // fire; and the manifest schema refused fontName: null, so the run was held
+  // with advice ("re-run what failed") that re-produced the same manifest.
+  // Five manifests in the real-run corpus carry this record today.
+  const { root } = workspace("manual-drop", {
+    request: {
+      icons: [],
+      fonts: [
+        { role: "body", family: "Helvetica", source: "standard14" },
+        { role: "display", family: "Barlow Condensed", source: "google-fonts" },
+      ],
+    },
+    plan: PLAN,
+    manifest: manifestWithFonts([], { body: FONT, display: MANUAL_DROP }),
+  });
+  const { status, parsed, out } = checkFor(root, "authoring");
+
+  assert.equal(status, 0, out);
+  assert.equal(named(parsed, "assets-manifest.json").ok, true, "the resolver's own record failed the manifest schema");
+  const check = named(parsed, "requested assets resolved");
+  assert.equal(check.ok, true);
+  assert.match(check.detail, /manual drop/);
+  assert.match(check.detail, /display/);
+  assert.match(check.detail, /assets\/fonts/);
+});
+
+test("a family its source does not carry holds authoring with the resolver's note", () => {
+  // The other thing wearing the same status: registration null, because the
+  // request named a family graphcompose-bundled does not ship. Nothing to drop
+  // — the request is what needs fixing, and the note says how.
+  const { root } = workspace("not-bundled", {
+    request: {
+      icons: [],
+      fonts: [
+        { role: "body", family: "Helvetica", source: "standard14" },
+        { role: "display", family: "Barlow Condensed", source: "graphcompose-bundled" },
+      ],
+    },
+    plan: PLAN,
+    manifest: manifestWithFonts([], { body: FONT, display: NOT_BUNDLED }),
+  });
+  const { status, parsed } = checkFor(root, "authoring");
+
+  assert.equal(status, 1);
+  assert.equal(named(parsed, "assets-manifest.json").ok, true);
+  const check = named(parsed, "requested assets resolved");
+  assert.equal(check.ok, false);
+  assert.match(check.detail, /display/);
+  assert.match(check.detail, /not bundled/);
+});
+
+test("a mis-shaped request is reported, not thrown", () => {
+  // The cross-check used to run on anything that parsed, and a request whose
+  // `icons` was an object threw a bare TypeError — exit 1, empty stdout, and
+  // the "fails asset-request.schema.json" line that would have explained it
+  // never written.
+  const { root } = workspace("icons-object", {
+    request: { icons: {}, fonts: [] },
+    plan: PLAN,
+    manifest: manifestFor([]),
+  });
+  const { status, parsed, out } = checkFor(root, "authoring");
+
+  assert.equal(status, 1);
+  assert.ok(parsed, `no report came back:\n${out}`);
+  assert.match(named(parsed, "asset-request.json").detail, /fails asset-request\.schema\.json/);
+  assert.equal(named(parsed, "requested assets resolved"), undefined, "the cross-check ran on a request that did not validate");
+});
+
+test("a role the manifest has no record for at all is held", () => {
+  // The resolver never produces this — it writes a record under every role —
+  // but a hand-edited manifest can, and a role with no record is a role the
+  // Java cannot read.
   const { root } = workspace("font-dropped", {
     request: {
       icons: [{ token: "phone", query: "phone", pointSize: 9 }],

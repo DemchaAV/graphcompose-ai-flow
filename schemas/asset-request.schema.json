@@ -85,7 +85,8 @@
           },
           "source": {
             "type": "string",
-            "description": "Where the face comes from: graphcompose-bundled, standard14, or a file dropped into the revision."
+            "enum": ["graphcompose-bundled", "standard14", "google-fonts"],
+            "description": "Where the face comes from, in the resolver's own vocabulary: graphcompose-bundled (a family DefaultFonts ships), standard14 (a PDF base font), google-fonts (a face the author drops as TTFs and registers via FontFamilyDefinition.files — the resolver marks it manual_drop_required). Omit it to let the resolver pick the cheapest that fits. Anything else makes the resolver throw `unknown font source` and write no manifest at all, so the first version of this schema — a free string whose description suggested a value the resolver rejects — let a request through the plan barrier that then killed resolution outright."
           },
           "why": { "type": "string" }
         }
