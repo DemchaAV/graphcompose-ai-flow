@@ -135,16 +135,19 @@ Owner: the architecture plan at the end of create phase 2 ([`skills/workflows/`]
 Input: visual-analysis.md, selected skills, GraphCompose version,
 reference image. Output: architecture-plan.md mapping each visual
 region to GraphCompose DSL primitives, naming render methods, and
-listing visual risks. The Architecture Mapper also writes
-`asset-request.json` enumerating every icon token (with preferred
-Iconify sets) and font role (with Google Fonts family + weights or
-the standard 14 fallback). The Architecture Mapper does not write
-final Java.
+listing visual risks. `asset-request.json` is written beside the
+plan, not by it: the assets subagent of create phase 2 enumerates
+every icon token (with preferred Iconify sets) and font role (with
+Google Fonts family + weights or the standard 14 fallback), and the
+plan reads none of it. The plan starts once `check-analysis` says the
+three discovery artifacts validate; the architecture step does not
+write final Java.
 
 ### 7. Resolve Design Assets
 
 Owner: `tools/asset-resolver`.
-Input: asset-request.json, architecture-plan.md, selected skill pack,
+Runs beside step 6, not after it — the request is its only input.
+Input: asset-request.json, selected skill pack,
 revision folder. Output: assets-manifest.json plus binary assets under
 `<revision>/assets/icons/` and `<revision>/assets/fonts/`. Icons are
 downloaded as PNG from `api.iconify.design`; fonts are validated
@@ -233,24 +236,31 @@ This is the order in which artifacts appear in a typical revision
 folder.
 
 - `user-request.md` — captured when the orchestrator opens a revision.
-- `orchestration-decision.md` — written by the Template Orchestrator
+- `orchestration-decision.md` — written when a revision is opened,
   after task type detection.
-- `version-resolution.md` — written by the Version + Skill Resolver.
-- `skill-validation-report.md` — written by the Skill Validator. If
-  drift is detected, a `skill-fix-report.md` is also produced under
-  `validation/`.
-- `visual-analysis.md` — written by the Visual Analyzer from the
-  reference image.
-- `architecture-plan.md` — written by the Architecture Mapper from
-  the analysis.
-- `asset-request.json` — written by the Architecture Mapper alongside
-  the plan; declares every icon token and font role the template needs.
+- `version-resolution.md` — written by `scripts/resolve-version.mjs`.
+- `skill-validation-report.md` — written by the skill validation gate
+  (`scripts/lib/skill-validation-gate.mjs`). If drift is detected, a
+  `skill-fix-report.md` is also produced under `validation/`.
+- `visual-analysis.json` — written in create phase 2 by the geometry
+  subagent, from the reference image (older revisions carry
+  `visual-analysis.md`).
+- `<doc-kind>-data.json` — written in create phase 2 by the content
+  subagent, beside the analysis.
+- `asset-request.json` — written in create phase 2 by the assets
+  subagent, beside the plan and read by nothing but the resolver;
+  declares every icon token and font role the template needs.
+- `architecture-plan.json` — the plan at the end of create phase 2,
+  from the analysis, once `check-analysis` says the three above are
+  complete (older revisions carry `architecture-plan.md`).
 - `assets-manifest.json` plus `assets/icons/*.png` and
   `assets/fonts/*.ttf` — written by the `tools/asset-resolver` after
   resolving the request against `api.iconify.design` and the bundled
   Google Fonts list.
 - `generated-template.java`, `generated-test.java`, `patch.diff`,
-  `changed-components.md` — written by the Template Coder.
+  `changed-components.md` — written in create phase 3, once
+  `check-analysis --for authoring` says the plan and the manifest are
+  complete; `render-and-diff` checks the same thing before a first render.
 - `output.pdf`, `output.png`, `output-page-N.png` — clean render
   written by the Test + Render agent (customer-facing).
 - `output-debug.pdf`, `output-debug.png`, `output-debug-page-N.png` —

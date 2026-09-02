@@ -5,6 +5,64 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.23.0 — in progress
+
+**Why update.** Create phase 2 now fans out — geometry, content and assets
+are written at once by subagents — and the joins are on *validated*
+artifacts, not on files existing: `check-analysis` says when the plan may
+start and when the template may be written, and `render-and-diff` runs the
+authoring barrier itself before a first render. Asset resolution starts the
+moment the request validates rather than during authoring, which was the
+median 26 minutes of a first render's wait. The page block the geometry
+subagent used to transcribe by hand — and got wrong in 13 of 19 runs — is
+now assembled by `reference.mjs analyze` from what `import-reference` had
+already measured.
+
+### Added
+
+- **`scripts/check-analysis.mjs`** — the join. `--for plan` (default) is the
+  three discovery artifacts; `--for authoring` adds the plan, the manifest
+  and the one disagreement no schema can see; `--only <artifact>` asks about
+  one file, which is how the resolver starts the moment the request
+  validates. A font the resolver marked for a manual drop is reported, not
+  held on; inline data (`render.dataFileName: null`) is complete.
+- **`scripts/check-bundle-consistency.mjs`** — an imported knowledge bundle
+  is held to its own cross-references: a route naming a constraint no claim
+  asserts, or a symbol the surfaces do not declare, fails; coverage gaps are
+  printed. Runs inside `npm run verify` and CI.
+- **`tools/schema-validate`** — one Ajv configuration, shipped with the
+  harness and installed by setup, used by the CI sweep, its tests and the
+  runtime barriers alike. `.github/scripts` no longer carries Ajv at all.
+- **`schemas/asset-request.schema.json`** — the request half of asset
+  resolution, shaped from the real-run corpus; `fonts[].source` is the
+  resolver's closed set.
+- **`reference.mjs analyze`** emits `pageBlock`, ready to copy into
+  `visual-analysis.json`, and says so when the record it would come from is
+  unreadable or would fail the schema.
+- **`config/pipeline.json`** declares the two barriers as stages of the `new`
+  scope, the plan and asset resolution as concurrent, and the render-time
+  enforcement under `barriers`; `run-pipeline` prints the concurrency.
+- Preflight answers a runtime skew with the one command to run from the
+  matching tree, counts `tools/schema-validate` as a readiness input, and
+  prints its next commands in `--text` as well as in JSON.
+
+### Fixed
+
+- `visual-analysis.schema.json` pins facts, not the prose around them:
+  `contains`, `notes`, `usedIn`, `page.margins` and the asset candidate lists
+  take a sentence, a list or null; an anchor still requires `element` and
+  `relatedTo`.
+- `assets-manifest.schema.json` accepts the record the resolver writes for a
+  face it cannot place (`fontName: null`, `status: manual_drop_required`).
+- One `compareLines` for every pack enumerator; three gates sorted `2.10`
+  below `2.9`.
+
+### Documentation
+
+- `docs/architecture.md` states the six-link chain once and names real
+  owners; `docs/implementation-status.md` is frozen as history;
+  `docs/workflow.md` no longer credits retired agents with writing artifacts.
+
 ## v0.22.0 — 2026-09-01
 
 **Why update.** If you are on 0.21.1 and GraphCompose 2.3 is what you build

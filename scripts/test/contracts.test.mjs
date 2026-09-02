@@ -17,6 +17,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { loadPipelineConfig } from "../lib/pipeline-config.mjs";
+import { compareLines } from "../lib/version-resolver.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -214,6 +215,12 @@ test("no live contract credits a retired agent with owning an artifact", () => {
   // is not to rewrite a frozen pack; it is for 2.3 to stop borrowing, which is
   // its own piece of work.
   const retired = /\b(?:Template Orchestrator|Version Resolver|Skill Validator|Visual Analyzer|Architecture Mapper|Asset Resolver|Template Coder|Revision Manager)\s+Agent\b/;
+  // And without the suffix, where the sentence is an ownership claim: "written
+  // by the Architecture Mapper" tells a reader the same thing whether or not
+  // the word Agent follows, and the first version of this gate passed four
+  // such lines in docs/workflow.md. Only the four agents no live tool
+  // inherited — "written by the Revision Manager" is true of the tool.
+  const ownership = /\bwritten by (?:the )?(?:Template Orchestrator|Visual Analyzer|Architecture Mapper|Template Coder)\b/;
   const live = markdownFiles().filter(
     (f) =>
       !f.startsWith("docs/history/") &&
@@ -222,7 +229,7 @@ test("no live contract credits a retired agent with owning an artifact", () => {
   );
   for (const file of [...live, "schemas/assets-manifest.schema.json"]) {
     assert.ok(
-      !retired.test(read(file)),
+      !retired.test(read(file)) && !ownership.test(read(file)),
       `${file} names a retired agent as an owner; name the script, tool or phase that actually writes it`,
     );
   }
@@ -243,11 +250,7 @@ test("no live document presents a superseded pack as the pinned line", () => {
     .readdirSync(path.join(repoRoot, "skills", "versions"), { withFileTypes: true })
     .filter((e) => e.isDirectory() && /^graphcompose-\d+\.\d+$/.test(e.name))
     .map((e) => e.name.replace("graphcompose-", ""));
-  const newest = packs.sort((a, b) => {
-    const [am, an] = a.split(".").map(Number);
-    const [bm, bn] = b.split(".").map(Number);
-    return am - bm || an - bn;
-  })[packs.length - 1];
+  const newest = packs.sort(compareLines)[packs.length - 1];
   // Checked structurally, not by reading tense. The first version of this
   // matched phrases like "the 2.2 pack ships…" and immediately failed on a
   // correct sentence — "how-to comes from the 2.2 pack, which preflight names
