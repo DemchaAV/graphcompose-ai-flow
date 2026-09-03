@@ -367,3 +367,86 @@ test("an unknown session says so and exits 0, because telemetry never fails the 
   assert.equal(result.status, 0);
   assert.match(result.output, /no state for session/);
 });
+
+// ------------------------------------------------------------ per-phase report
+
+/**
+ * A session whose transcript carries real tool calls, so the phase segmentation
+ * has something to segment on.
+ */
+function phasedSession(label, requests) {
+  const home = tempDir(`phases-${label}`);
+  const lines = requests.map((r, i) => {
+    const line = assistant(`req-${label}-${i}`, r.at, { output: r.output ?? 100, cacheRead: r.cacheRead ?? 1000 });
+    if (r.command) {
+      line.message.content = [{ type: "tool_use", id: `t${i}`, name: "Bash", input: { command: r.command } }];
+    }
+    return line;
+  });
+  const file = transcript(lines, `phases-t-${label}`);
+  const stateDir = path.join(home, ".graphcompose-flow", "telemetry");
+  fs.mkdirSync(stateDir, { recursive: true });
+  const sessionId = `phases-${label}`;
+  fs.writeFileSync(
+    path.join(stateDir, `${sessionId}.json`),
+    JSON.stringify({ sessionId, transcriptPath: file, sessionStartedAt: requests[0]?.at ?? "2026-08-24T10:00:00Z", cycles: [] }),
+  );
+  return { sessionId, env: { ...process.env, USERPROFILE: home, HOME: home } };
+}
+
+test("phases splits one run into the parts that can be acted on", () => {
+  const s = phasedSession("split", [
+    { at: "2026-09-02T08:00:00Z", command: "node scripts/preflight.mjs --project-dir .", cacheRead: 1_000 },
+    { at: "2026-09-02T08:05:00Z", command: "node scripts/reference.mjs analyze --project demo", cacheRead: 2_000 },
+    { at: "2026-09-02T08:20:00Z", command: "node scripts/pass.mjs --project demo", cacheRead: 90_000 },
+    { at: "2026-09-02T08:30:00Z", cacheRead: 90_000 },
+  ]);
+  const result = cli(["phases", "--session", s.sessionId, "--json"], s.env);
+
+  assert.equal(result.status, 0, result.output);
+  const parsed = JSON.parse(result.output);
+  assert.deepEqual(parsed.phases.map((p) => p.phase), ["setup", "discovery", "loop"]);
+  const loop = parsed.phases.find((p) => p.phase === "loop");
+  assert.ok(loop.shareOfCacheRead > 0.9, `the loop was reported as ${loop.shareOfCacheRead} of cache-read`);
+  assert.match(parsed.markSource, /marker tools/, "the report does not say how it was segmented");
+});
+
+test("a transcript with no usage omits the phase table rather than zeroing it", () => {
+  // The rule providers/codex.mjs already follows: nulls, never zeros. A run
+  // that looks free invites exactly the wrong conclusion, and so does a phase
+  // breakdown invented from a transcript that carries none.
+  const home = tempDir("phases-nousage");
+  const file = transcript(
+    [{ type: "user", timestamp: "2026-09-02T08:00:00Z", message: { content: "hello" } }],
+    "phases-t-nousage",
+  );
+  const stateDir = path.join(home, ".graphcompose-flow", "telemetry");
+  fs.mkdirSync(stateDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(stateDir, "phases-nousage.json"),
+    JSON.stringify({ sessionId: "phases-nousage", transcriptPath: file, cycles: [] }),
+  );
+  const env = { ...process.env, USERPROFILE: home, HOME: home };
+
+  const json = cli(["phases", "--session", "phases-nousage", "--json"], env);
+  assert.equal(json.status, 0, json.output);
+  const parsed = JSON.parse(json.output);
+  assert.equal(parsed.phases, null, "a phase table was invented from a transcript with no usage");
+  assert.match(parsed.tokenTelemetry, /unavailable/);
+
+  const text = cli(["phases", "--session", "phases-nousage"], env);
+  assert.match(text.output, /unavailable/);
+  assert.ok(!/\b0\.0%/.test(text.output), `a zero share was printed:\n${text.output}`);
+});
+
+test("phases survives a session with no transcript at all", () => {
+  const home = tempDir("phases-notranscript");
+  const stateDir = path.join(home, ".graphcompose-flow", "telemetry");
+  fs.mkdirSync(stateDir, { recursive: true });
+  fs.writeFileSync(path.join(stateDir, "bare.json"), JSON.stringify({ sessionId: "bare", cycles: [] }));
+
+  const result = cli(["phases", "--session", "bare"], { ...process.env, USERPROFILE: home, HOME: home });
+  assert.equal(result.status, 0, result.output);
+  assert.ok(!result.output.includes("ReferenceError"), result.output);
+  assert.match(result.output, /unavailable/);
+});

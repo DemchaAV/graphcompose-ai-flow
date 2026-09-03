@@ -189,3 +189,99 @@ test("with a review in place, --skip-render re-measures and reports the loop's b
   assert.match(stdout, /loop\s+REVISE — focus "header-height" \(measured\) · iterations 1\/8 · same cause 1\/3/);
   assert.match(stdout, /next: fix "header-height"/);
 });
+
+// ------------------------------------------------- the budget is a hard limit
+
+/**
+ * Fill a project with `n` reviewed autonomous revisions, so iterate-status sees
+ * a real chain rather than a single draft.
+ */
+function withIterations(label, n) {
+  const s = scenario({ reviewed: true, label });
+  let parent = "revision-001";
+  for (let i = 2; i <= n; i += 1) {
+    const id = `revision-${String(i).padStart(3, "0")}`;
+    const dir = path.join(s.project, "revisions", id);
+    writeJson(path.join(dir, "revision.json"), {
+      id,
+      parentRevisionId: parent,
+      status: "DRAFT",
+      userRequest: "autonomous pass",
+      targetGraphComposeVersion: "2.2.0",
+      skillPack: "skills/versions/graphcompose-2.2",
+      createdAt: "2026-08-25T00:00:00.000Z",
+      artifacts: { userRequest: "user-request.md" },
+      schemaVersion: 1,
+    });
+    fs.writeFileSync(path.join(dir, "user-request.md"), "# User request\n\nautonomous pass\n");
+    fs.writeFileSync(path.join(dir, "GeneratedCvTemplate.java"), `class GeneratedCvTemplate { /* ${i} */ }\n`);
+    fs.writeFileSync(path.join(dir, "cv-data.json"), "{}\n");
+    writePng(path.join(dir, "output.png"), 124, 175, 200);
+    writePng(path.join(dir, "reference-scaled.png"), 124, 175, 200);
+    writeJson(path.join(dir, "visual-diff-stats.json"), {
+      mismatchPx: 1200,
+      percent: 5.5,
+      reference: path.join(dir, "reference-scaled.png"),
+    });
+    writeJson(path.join(dir, "visual-review.json"), {
+      schemaVersion: 1,
+      verdict: "REVISE",
+      largestMismatch: "header-height",
+      mismatches: [{ id: "header-height", severity: "MAJOR", reason: "r", action: "reduce the header padding" }],
+    });
+    parent = id;
+  }
+  const projectFile = path.join(s.project, "template-project.json");
+  const doc = JSON.parse(fs.readFileSync(projectFile, "utf8"));
+  doc.currentDraftRevisionId = parent;
+  writeJson(projectFile, doc);
+  return { ...s, latest: parent };
+}
+
+const countRevisions = (project) =>
+  fs.readdirSync(path.join(project, "revisions")).filter((n) => /^revision-\d+$/.test(n)).length;
+
+test("a pass inside the budget still opens", () => {
+  const s = withIterations("budget-ok", 3);
+  const before = countRevisions(s.project);
+  const { status, output } = runPass(s.root, ["--open", "another go"]);
+
+  assert.equal(status, 0, output);
+  assert.equal(countRevisions(s.project), before + 1);
+});
+
+test("an autonomous pass past the budget is refused, and creates nothing", () => {
+  // The defect this closes: a real run reached iteration 10 against a limit of
+  // 8 because the bound was only checked when the agent asked afterwards. Two
+  // full compile/render/diff passes were spent before anything said stop.
+  const s = withIterations("budget-spent", 12);
+  const before = countRevisions(s.project);
+  const { status, output } = runPass(s.root, ["--open", "one more"]);
+
+  assert.equal(status, 4, output);
+  assert.match(output, /CONVERGENCE_LIMIT_REACHED/);
+  assert.match(output, /No revision opened, nothing rendered/);
+  assert.equal(countRevisions(s.project), before, "a revision was created for a refused pass");
+});
+
+test("the refusal names the human-directed route rather than just saying no", () => {
+  const s = withIterations("budget-route", 12);
+  const { output } = runPass(s.root, ["--open", "one more"]);
+  assert.match(output, /--report/, "the refusal does not say how a user-asked change proceeds");
+  assert.match(output, /iterate-status/, "the refusal does not name what explains the budget");
+});
+
+test("a human-directed pass is not bound by the autonomous budget", () => {
+  // A person asking for a change is not the runaway this guards against.
+  const s = withIterations("budget-human", 12);
+  const before = countRevisions(s.project);
+  const { status, output } = runPass(s.root, [
+    "--open",
+    "fix the masthead",
+    "--report",
+    "the line under the name is too thick",
+  ]);
+
+  assert.equal(status, 0, output);
+  assert.equal(countRevisions(s.project), before + 1, "the human-directed exemption was lost");
+});

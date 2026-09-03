@@ -42,16 +42,44 @@ The earlier wording said three subagents *can* produce them, and a real
 instruction, and the serial reading is the expensive one: these three are
 the whole of discovery, and everything after them waits.
 
-| Subagent | Owns, exclusively | Reads | Done when |
-|---|---|---|---|
-| geometry | `visual-analysis.json` | the reference + its schema | validates against [`visual-analysis.schema.json`](../../../schemas/visual-analysis.schema.json) |
-| content | `<doc-kind>-data.json` (+ `data-schema.md`) | the reference only | parses, and every field the spec requires is present |
-| assets | `asset-request.json` | the reference + the request format | validates against [`asset-request.schema.json`](../../../schemas/asset-request.schema.json) |
+| Subagent | Owns, exclusively | Contract |
+|---|---|---|
+| geometry | `visual-analysis.json` | `node scripts/check-analysis.mjs --contract geometry` |
+| content | `<doc-kind>-data.json` (+ `data-schema.md`) | `node scripts/check-analysis.mjs --contract content` |
+| assets | `asset-request.json` | `node scripts/check-analysis.mjs --contract assets` |
 
-Each writes only its own files — two writers on one file is a merge
-conflict with no merger. Each gets the reference and its task, **not**
-this conversation. Its reply is one line ("wrote visual-analysis.json, 9
-regions"); the parent reads results from disk.
+**Run the contract command and paste what it prints.** It is a dozen
+lines — what the worker reads, what it may query, the artifact it owns,
+the command that says it is done — declared once in
+`config/pipeline.json` rather than written out three times here. Three
+prompts composed by hand from one page end up carrying each other's
+material: in a recorded run the content worker, whose whole job is
+pulling strings out of a picture, was handed `authoring-rules.md` — 4.7k
+tokens of guidance about writing Java — and then re-read it on every one
+of its own turns.
+
+Add the task and nothing else. Each worker gets the reference and its
+contract, **not** this conversation. Its reply is one line ("wrote
+visual-analysis.json, 9 regions"); the parent reads results from disk.
+
+### Workers commit their artifact, they do not write it
+
+```bash
+node scripts/write-artifact.mjs --project <id> --artifact <name> --from <draft>
+```
+
+A worker writes its draft to a scratch file and commits it with that. The
+tool stages beside the target, validates against the schema, and renames —
+so the canonical path holds either the previous complete artifact or the
+new one, and never half of either. Writing the canonical path directly
+leaves it truncated for as long as the write takes, and the other two
+workers and the barrier are reading that directory; the failure then
+arrives as "invalid JSON", which looks like a bad artifact rather than a
+race, and re-running the worker appears to fix it. The `Write` guard
+refuses the direct write for this reason.
+
+A rejected draft leaves the canonical file untouched and says which
+schema it failed, so a worker fixes its draft rather than its artifact.
 
 ### The join is on validated artifacts, not on files existing
 
@@ -218,6 +246,37 @@ constants here and record them under `baseConstants` with their
 derivation, so a later revision changes one number instead of fifteen.
 Every primitive must exist in the pinned pack's allow-list — `node
 scripts/api-query.mjs --exists <Type>.<method>`.
+
+## Close the phase: write the handoff
+
+```bash
+node scripts/handoff.mjs write --project <id>
+```
+
+The last thing phase 2 does. It runs the authoring barrier and, only if
+that is clear, records `handoff.json`: where each of the five artifacts
+is, what it hashed to, and that the barrier passed. A red barrier writes
+nothing and names what is not done — there is no handoff that says "not
+validated", because a next phase reading one would have to decide what to
+do about it, and that decision is the barrier's.
+
+**Why it is worth a file.** Everything phase 3 needs now exists on disk.
+The measurement, the crops, the reasoning and these pages do not — they
+are how the artifacts were produced, not what they say. Measured on two
+recorded create runs, the conversation at this point held 192–266k tokens,
+never came down, and was re-read by every one of the 218–382 requests that
+followed: 84% and 96% of each run's cache-read. The handoff is what lets
+phase 3 start from four files instead of inheriting all of that.
+
+Paths and hashes only — never contents. Copying an artifact in would put
+the same document in context twice and give the run a second thing that
+can disagree with the first. `node scripts/handoff.mjs verify --project
+<id>` re-hashes and says whether the state it names still holds.
+
+**Writing it is not crossing it.** Phase 3 opens by spawning one `Agent`
+to author from these five paths; `handoff.mjs status` reports `written`,
+`requested` and `TAKEN` as three different answers, because three real
+runs wrote a correct handoff and then authored in the coordinator anyway.
 
 ## Reading copies
 

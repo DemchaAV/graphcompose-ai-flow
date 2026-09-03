@@ -73,20 +73,42 @@ export function readEvents(transcriptPath) {
     }
 
     const usage = entry.message.usage;
+    const parsed = {
+      inputTokens: usage.input_tokens ?? 0,
+      outputTokens: usage.output_tokens ?? 0,
+      cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+      cacheWriteTokens: usage.cache_creation_input_tokens ?? 0,
+      requests: 1,
+    };
     events.push({
       at: entry.timestamp ?? null,
       atMs: entry.timestamp ? Date.parse(entry.timestamp) : null,
       isSidechain: Boolean(entry.isSidechain),
-      usage: {
-        inputTokens: usage.input_tokens ?? 0,
-        outputTokens: usage.output_tokens ?? 0,
-        cacheReadTokens: usage.cache_read_input_tokens ?? 0,
-        cacheWriteTokens: usage.cache_creation_input_tokens ?? 0,
-        requests: 1,
-      },
+      usage: parsed,
+      // How big the conversation was when this request was sent. Everything the
+      // model read is billed as one of the three, so their sum is the context
+      // size — which is what makes context *growth* measurable per phase, and
+      // growth is the figure a context boundary moves.
+      context: parsed.cacheReadTokens + parsed.cacheWriteTokens + parsed.inputTokens,
+      // Enough to segment by phase and to count calls; never the tool's
+      // arguments beyond the command line, which would put a Java file into a
+      // telemetry record.
+      tools: toolLines(entry.message.content),
     });
   }
   return events;
+}
+
+/** `["Bash: node scripts/pass.mjs …", "Read"]` for one assistant message. */
+function toolLines(content) {
+  if (!Array.isArray(content)) return [];
+  const lines = [];
+  for (const part of content) {
+    if (part?.type !== "tool_use") continue;
+    const command = part.input?.command ?? part.input?.file_path ?? null;
+    lines.push(command ? `${part.name}: ${String(command).replace(/\s+/g, " ").slice(0, 300)}` : String(part.name));
+  }
+  return lines;
 }
 
 /**

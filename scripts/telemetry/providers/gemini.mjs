@@ -83,6 +83,14 @@ export function readEvents(transcriptPath) {
         cacheWriteTokens: 0,
         requests: 1,
       },
+      // Gemini's `input` already includes the cached share, so it IS the
+      // context size — adding the parts back up here would double the cached
+      // portion, which is the same mistake the usage mapping above avoids.
+      context: input,
+      // Gemini's message shape does not carry the tool call in a form this
+      // reader can name, so phase segmentation on a Gemini transcript falls
+      // back to whatever marks the harness recorded. Empty, never invented.
+      tools: [],
     });
   }
   return events;

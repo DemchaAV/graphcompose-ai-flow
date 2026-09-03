@@ -77,6 +77,7 @@ import path from "node:path";
 
 import { installRoot, requireProjectDir, resolveWorkspace } from "./lib/workspace.mjs";
 import { findDataFile } from "./lib/data-spec.mjs";
+import { loadPipelineConfig } from "./lib/pipeline-config.mjs";
 import { loadFailure, ready, schemaValidator } from "./lib/schema-validator.mjs";
 
 const repoRoot = installRoot();
@@ -89,11 +90,14 @@ const AUTHORING_BARRIER = [...PLAN_BARRIER, "architecture-plan.json", "assets-ma
 function usage(code = 0) {
   process.stdout.write(
     "usage: node scripts/check-analysis.mjs --project <id> [--revision <id>] [--for plan|authoring]\n" +
-      "                                      [--only <artifact>] [--root <workspace>] [--json]\n\n" +
+      "                                      [--only <artifact>] [--root <workspace>] [--json]\n" +
+      "       node scripts/check-analysis.mjs --contract <worker> [--json]\n\n" +
       "  --project <id>        the project\n" +
       "  --revision <id>       the revision (default: the project's current draft)\n" +
       "  --for plan|authoring  which barrier to check (default: plan)\n" +
       `  --only <artifact>     one artifact on its own: ${ARTIFACTS.join(" | ")}\n` +
+      "  --contract <worker>   print a discovery worker's input contract (geometry | content | assets)\n" +
+      "                        — what it reads, what it may query, what it owns, when it is done\n" +
       "  --root <workspace>    workspace override\n" +
       "  --json                machine-readable\n\n" +
       "exit: 0 clear | 1 an artifact is missing or invalid | 2 usage\n",
@@ -102,7 +106,7 @@ function usage(code = 0) {
 }
 
 const argv = process.argv.slice(2);
-const args = { project: null, revision: null, root: null, json: false, for: "plan", only: null };
+const args = { project: null, revision: null, root: null, json: false, for: "plan", only: null, contract: null };
 /** The word after a flag, or a usage error when the flag was the last one. */
 function valueOf(flag, i) {
   const value = argv[i + 1];
@@ -121,11 +125,24 @@ for (let i = 0; i < argv.length; i += 1) {
   else if (a === "--root") args.root = valueOf(a, i++);
   else if (a === "--for") args.for = valueOf(a, i++);
   else if (a === "--only") args.only = valueOf(a, i++);
+  else if (a === "--contract") args.contract = valueOf(a, i++);
   else {
     process.stderr.write(`[analysis] unknown argument: ${a}\n`);
     usage(2);
   }
 }
+
+// --contract answers a question about the pipeline, not about a project, so it
+// runs before the workspace is resolved and needs no --project. It exists so the
+// three worker prompts quote one declaration instead of each carrying a page of
+// prose: a recorded run's content worker read 4.7k tokens of GraphCompose
+// authoring rules to pull strings out of a picture, because its prompt was
+// written by hand from the same paragraph the geometry worker's was.
+if (args.contract !== null) {
+  printWorkerContract(args.contract, args.json);
+  process.exit(0);
+}
+
 if (!args.project) usage(2);
 if (args.for !== "plan" && args.for !== "authoring") {
   process.stderr.write(`[analysis] --for takes plan or authoring, not "${args.for}"\n`);
@@ -269,6 +286,81 @@ function requestedAssetsResolved(request, manifest) {
         : `${asked} of ${asked} icon token(s) and font role(s)` +
           (manual.length > 0 ? ` — manual drop for ${manual.length}: ${manual.join("; ")}` : ""),
   };
+}
+
+/**
+ * One worker's input contract, printed from config/pipeline.json.
+ *
+ * Prose in a prompt is a copy; this is the declaration. The completion
+ * condition is a command rather than a sentence, so "done" is something the
+ * worker can run rather than something it judges.
+ */
+function printWorkerContract(name, asJson) {
+  let workers;
+  try {
+    workers = loadPipelineConfig({ repoRoot }).discovery?.workers ?? null;
+  } catch (err) {
+    process.stderr.write(`[analysis] ${err.message}\n`);
+    process.exit(2);
+  }
+  if (!workers) {
+    process.stderr.write("[analysis] config/pipeline.json declares no discovery.workers\n");
+    process.exit(2);
+  }
+  const worker = workers[name];
+  if (!worker) {
+    const known = Object.keys(workers).filter((k) => !k.startsWith("$"));
+    process.stderr.write(`[analysis] --contract takes one of ${known.join(", ")}, not "${name}"\n`);
+    process.exit(2);
+  }
+  if (asJson) {
+    process.stdout.write(`${JSON.stringify({ worker: name, ...worker }, null, 2)}\n`);
+    return;
+  }
+  const lines = [
+    `contract  ${name} — ${worker.summary}`,
+    "",
+    `  owns          ${worker.artifact}   (no other worker writes it)`,
+    `  reads         ${(worker.reads ?? []).join("\n                ")}`,
+  ];
+  if (worker.mayQuery?.length) lines.push(`  may query     ${worker.mayQuery.join("\n                ")}`);
+  // The negative half of the contract, and the one with a measurement behind
+  // it: the authoring context released 167.4k at the boundary and re-read most
+  // of it back as whole skill pages within its first ten calls.
+  if (worker.mustNotLoadByDefault?.length) {
+    lines.push(`  do NOT load   ${worker.mustNotLoadByDefault.join("\n                ")}`);
+    lines.push("                — not banned, but not by default: ask a narrow tool first");
+  }
+  // --project belongs right after the script, not appended at the end: a
+  // contract is pasted into a prompt and read as a command to run, and one that
+  // reads oddly gets retyped, which is how a copy starts.
+  // Some contracts already name --project in their completion command; adding
+  // a second one produces a line that reads like a typo and gets retyped.
+  const [doneScript, ...doneRest] = worker.doneWhen.split(/\s+/);
+  const doneFlags = doneRest.includes("--project") ? doneRest : ["--project <id>", ...doneRest];
+  lines.push(
+    worker.writesVia.startsWith("scripts/")
+      ? `  writes via    node ${worker.writesVia} --project <id> --artifact ${worker.artifact} --from <file>`
+      : `  writes        ${worker.artifact}  (${worker.writesVia})`,
+    `  done when     node ${[doneScript, ...doneFlags].join(" ")}  exits 0`,
+  );
+  if (worker.escalation) {
+    const [escScript, ...escFlags] = worker.escalation.split(/\s+/);
+    lines.push(
+      `  escalate      node ${[escScript, ...escFlags].join(" ")}`,
+      "                — when a narrow tool genuinely cannot answer. Deliberate and recorded,",
+      "                  which is the difference between a considered read and a habit.",
+    );
+  }
+  lines.push(
+    "",
+    worker.afterBoundary
+      ? "  You are on the far side of the context boundary. The handoff is your whole\n" +
+        "  input — there is no conversation behind you to consult, and nothing in the\n" +
+        "  discovery transcript that these five files do not already say."
+      : "  Read nothing else. Reply with one line; the parent reads the artifact from disk.",
+  );
+  process.stdout.write(`${lines.join("\n")}\n`);
 }
 
 const CHECKS = {

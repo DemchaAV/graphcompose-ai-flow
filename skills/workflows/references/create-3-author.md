@@ -1,13 +1,97 @@
 # Create, phase 3 — author the template
 
-## First, check that what you are about to read is finished
+## Start from the handoff, not from the conversation
+
+```bash
+node scripts/handoff.mjs show --project <id>      # the five inputs, by path
+node scripts/handoff.mjs verify --project <id>    # still what the barrier passed?
+```
+
+Phase 2 ended by recording `handoff.json`. It names the five files
+authoring reads and the hash each had when the barrier passed them. That
+is the whole input: **the discovery conversation is not one.** Everything
+in it that authoring needs is already in those files, and everything else
+— the measurements, the reference crops, the reasoning that produced the
+plan — is how they were made, not what they say.
+
+`verify` exits 1 when an artifact has changed or gone since the handoff
+was written. That is worth knowing before the Java, not after: a stale
+handoff still looks like durable state, and authoring against a plan
+someone has since edited fails later and somewhere else.
+
+## Cross the boundary: hand authoring to a fresh context
+
+**On a host with subagents this is the instruction, not a suggestion.**
+Claude Code: declare it, then spawn **exactly one** `Agent`, and do not
+write the template yourself.
+
+```bash
+node scripts/handoff.mjs request --project <id> --mechanism Agent
+```
+
+Then one `Agent` call whose entire prompt is the author's contract plus
+its task. Get the contract from the tool rather than retyping it:
+
+```bash
+node scripts/check-analysis.mjs --contract author
+```
+
+and hand the worker that, followed by:
+
+```text
+node scripts/handoff.mjs claim --project <id> --by <your agent name>
+
+Run that first: it prints the five artifact paths that are your only
+inputs, and it records that this context — not the coordinator — is
+doing the authoring.
+
+Then write generated-template.java and the spec provider, and report one
+line when it compiles.
+```
+
+Give it nothing else. **Not** the discovery conversation, not the worker
+transcripts, not a summary of the analysis — the five files say all of
+it, and anything you paste in is the cost this boundary exists to avoid.
+
+**The contract's negative half is the part with a measurement behind it.**
+The first fresh authoring context started at 43.8k and reached 333.7k in
+131 requests; its opening moves were `cat` of the whole
+`authoring-rules.md`, then whole pack pages, then a harness source file,
+then another project's revision. It released 167.4k at the boundary and
+read most of it back — the same carry cost, one phase later. So the
+contract names what not to load *by default*, and
+`handoff.mjs escalate --read <path> --because <what the narrow tool could
+not answer>` is how a genuinely needed page gets read and recorded. A
+considered read and a habit are indistinguishable in a transcript; only
+one of them is willing to say why.
+
+Three earlier versions of this page said authoring "may", then "must",
+run in a fresh context, and three real runs authored in the coordinator
+anyway: 3 subagents each time, context climbing 283k → 348k and 253k →
+299k straight through. Neither word was the problem. A page that names a
+*state* gives a host nothing to execute; the fan-out below works because
+it names the call. `handoff.mjs status` is what says whether this
+actually happened — `written` is not `taken`.
+
+**On a host without subagents**, carry on in this context. Concurrency is
+an optimization; correctness does not depend on it. Say so in the report
+rather than pretending the boundary was crossed.
+
+It is the *only* boundary in the create chain. The author/render/revise
+loop that follows keeps one context on purpose: each pass is a correction
+to the one before it, and restoring that from disk every time would cost
+more than carrying it.
+
+## Then check that what you are about to read is finished
 
 ```bash
 node scripts/check-analysis.mjs --project <id> --for authoring
 ```
 
 **Exit 1 means do not start.** Re-run whatever it names; do not work
-around it and do not begin the Java while it is red.
+around it and do not begin the Java while it is red. (A handoff exists
+only because this was clear when phase 2 ended; run it again when you are
+resuming, or when `verify` reported a change.)
 
 It is not only a sentence. `render-and-diff` runs this same barrier
 before it compiles a first render and fails the pass while it is red

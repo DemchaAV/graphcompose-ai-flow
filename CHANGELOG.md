@@ -5,6 +5,162 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.24.0-beta.1 — in progress
+
+**Why update.** Correctness and observability, not speed. **This release makes
+no claim to reduce tokens** — see the note at the end of this entry, which says
+plainly what four real runs did and did not establish.
+
+It starts with a measurement rather than an assumption. `run-metrics phases`
+splits a real run's transcript by phase, and on the recorded create runs the
+answer was not where anyone was looking: the three-agent discovery fan-out was
+**3.0% and 0.0%** of cache-read, while authoring-plus-loop was **84% and 96%**.
+The cause is context lifetime, not agent count — the coordinator's conversation
+reached 266k and 197k tokens by the discovery/authoring boundary, never came
+down, and was re-read by every one of the 218–382 requests that followed.
+
+So phase 2 now ends by writing `handoff.json`: the five artifact paths, their
+sha256s, and that the authoring barrier was clear; and phase 3 opens by spawning
+one `Agent` to author from those paths alone. `handoff.mjs status` reports
+`written`, `requested` and `TAKEN` as three separate answers, because a handoff
+existing has never been evidence that a fresh context was used.
+
+Nothing in your workspace needs migrating. Two things change in a run: a
+discovery worker commits its artifact through `write-artifact.mjs` instead of
+writing the canonical path (a `Write` guard refuses the direct write, the way
+the Bash guard already refuses reading a template through `cat`), and phase 2
+has one more command at the end of it.
+
+### Added
+
+- **`scripts/write-artifact.mjs`** — stage, validate, rename. A canonical
+  discovery artifact is written to a sibling temp file, checked against its
+  schema, and only then renamed into place, so the canonical path holds either
+  the previous complete artifact or the new one and never half of either. The
+  join stays semantic: `check-analysis` still catches the schema-valid artifact
+  that disagrees with another one, the required artifact nobody wrote, and the
+  requested icon the manifest has no record of — none of which file atomicity
+  can see, and none of which is delegated to a model.
+- **`scripts/handoff.mjs`** — `write` records the discovery/authoring boundary
+  once the authoring barrier is clear, `show` prints it, `verify` re-hashes and
+  exits 1 naming the artifact that has changed or gone. Paths and hashes only,
+  never contents: copying an artifact in would put the same document in context
+  twice and give the run a second thing that can disagree with the first. A red
+  barrier writes nothing — there is no handoff that says "not validated",
+  because a next phase reading one would have to decide what to do about it.
+- **`run-metrics phases`** — per-phase requests, input/output/cache-read/write,
+  tool calls, context growth and wall clock, with the discovery workers
+  attributed by name from the transcripts the host writes for them. It reports
+  how it segmented the run (a recorded handoff timestamp where there is one,
+  the marker tools `config/pipeline.json` declares otherwise), and where a host
+  reports no usage it omits the table rather than printing zeros.
+- **`check-analysis --contract geometry|content|assets`** — a discovery
+  worker's input contract, printed for pasting into its prompt: what it reads,
+  what it may query, the artifact it owns, the command that says it is done.
+  Declared once in `config/pipeline.json` instead of written out three times in
+  a skill page, which is how a recorded run's content worker — whose job is
+  pulling strings out of a picture — came to be handed 4.7k tokens of Java
+  authoring rules and re-read them on every one of its own turns.
+- **`scripts/hooks/guard-artifact-write.mjs`** — a `PreToolUse` guard on
+  `Write` that refuses replacing a canonical artifact in place and names
+  `write-artifact.mjs` instead. `Edit` is deliberately untouched: it is a
+  targeted change during the loop, where there is one writer and no concurrent
+  reader, and forcing it through a whole-file rewrite would cost more output
+  tokens than the race costs anything. `GRAPHCOMPOSE_GUARD=off` bypasses it.
+- **`replaceFileAtomic` / `stageAndCommit`** in `scripts/lib/atomic-write.mjs`,
+  beside the existing forgiving `writeFileAtomic`. The difference is what
+  happens when the rename cannot be made: a workspace record falls back to an
+  in-place write, and a canonical artifact must not — that fallback is the
+  truncation window the rename exists to close. Windows refuses `rename` over a
+  file another process has open (`EPERM`), so it is retried for about five
+  seconds and then reported, with the previous artifact intact.
+
+### Changed
+
+- **`config/pipeline.json`** declares `discovery.workers` (each worker's reads,
+  queryable tools, owned artifact and completion command) and
+  `discovery.boundary` (the context boundary, between `authoringBarrier` and
+  `templateCoder`, and the record that carries it). `pipeline-config.mjs`
+  validates both, and `pipeline-config.test.mjs` fails the build when two
+  workers claim one artifact, when a worker is handed a skill-pack page it does
+  not author with, or when the boundary's stages fall out of order in the chain.
+- **The create skill's phase 2 and 3 pages** say the contract is a command to
+  run rather than prose to copy, that workers commit through
+  `write-artifact.mjs`, and that phase 3 begins at the handoff. The phase table
+  in `create-template/SKILL.md` names the boundary and says plainly that phases
+  3 and 4 do *not* have one.
+- **The telemetry providers** now report each request's context size and its
+  tool calls, which is what makes per-phase attribution possible; Gemini's
+  `input` already includes its cached share, so it is used as-is rather than
+  re-summed.
+
+### The boundary, after four runs: MECHANISM PROVEN, BENEFIT UNPROVEN
+
+A fifth run crossed it. `create-3-author.md` now names the host action the way
+the fan-out page does — `handoff.mjs request --mechanism Agent`, then exactly
+one `Agent` whose prompt is the author's contract and the `claim` command — and
+the boundary fired: four agents, the coordinator did not author, and context
+dropped **211.2k -> 43.8k, 167.4k released**, claimed by `author` from the far
+side. The run converged to READY with no CRITICAL or MAJOR mismatch.
+
+Three defects that run exposed are fixed here:
+
+- **A crossing survived only until the next `write`.** The loop rewrote the
+  handoff mid-run, erased the boundary block, and `status` then reported
+  `TAKEN: NO` on a run where a second context demonstrably authored the
+  template — the exact confusion the state machine exists to prevent, arriving
+  from the other side. Crossings are now append-only (`boundary.crossings[]`,
+  keyed by a fingerprint of the artifact hashes), so a rewrite ends the current
+  generation without forgetting that a crossing happened.
+- **The fresh context did not stay fresh.** It opened at 43.8k and reached
+  333.7k in 131 requests, beginning with `cat` of the whole `authoring-rules.md`,
+  then whole pack pages, then a harness source file, then another project's
+  revision. `check-analysis --contract author` now states what it reads, which
+  narrow tools answer its questions, and what not to load by default — with
+  `handoff.mjs escalate --read <path> --because <why>` as a recorded way out,
+  because a rule with no escape hatch is a rule that gets ignored.
+- **The iteration bound was advisory.** A run reached 10 autonomous passes
+  against a limit of 8 and was told so afterwards, two full compile/render/diff
+  cycles later. `pass.mjs --open` now checks `remaining.iterations` before it
+  creates anything and exits 4 without opening a revision or rendering.
+  Human-directed passes (`--report`) and granted extensions are unaffected.
+
+### What four real runs established, and what they did not
+
+**Established.** The handoff is written correctly, verifies, and is sufficient:
+its five paths are everything authoring reads. Atomic commits held under real
+concurrency (three workers, zero direct writes to a canonical path, the `Write`
+guard firing once and redirecting). Worker contracts, the barrier, asset
+resolution and render/review ordering all behaved. Both completed runs converged
+to READY with no CRITICAL or MAJOR mismatch, and neither self-approved.
+
+**Not established: any token saving.** A replay predicted 31-38%. Three runs
+wrote a correct handoff and then authored in the coordinator anyway - the page
+said authoring "may", then "must", run in a fresh context, and neither word gave
+a host anything to execute. Measured cache-read per post-boundary request:
+472.3k (baseline), 461.5k, 368.0k - and the boundary fired in none of them, so
+none of those numbers is attributable to it.
+
+**And a limit on what one run could ever show.** Two runs of the *same* code
+path differed by 47% in total cache-read (139.3M vs 74.02M). Run-to-run variance
+exceeds the effect being chased, so the benefit needs several paired runs, not
+one A/B. That measurement has not been made, and nothing here should be read as
+having made it.
+
+### Measured, and deliberately not built
+
+- **A discovery-artifact cache.** Across the 20-project real-run corpus, no two
+  projects share a reference: every duplicate hash is a project's own
+  `reference.png` and `source.png`, which the importer copies. Discovery also
+  already runs once per project rather than once per revision — 146 of 147
+  revisions carry a `visual-analysis.json` carried forward by `pass --open`. A
+  cache keyed on the reference would have had a 0% hit rate on everything
+  recorded, so there is nothing here to cache yet.
+- **A cheaper model for the leaf workers.** They are 3.0% of a run's
+  cache-read, so the whole envelope is a rounding error against the loop, and
+  the geometry worker's output is what every later stage addresses regions by.
+  Worth revisiting only after the loop's own cost moves.
+
 ## v0.23.0 — 2026-09-02
 
 **Why update.** If you are on 0.22.0, this release changes when the create loop

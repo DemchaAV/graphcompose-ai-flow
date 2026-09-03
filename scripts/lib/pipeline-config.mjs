@@ -90,6 +90,7 @@ export function validatePipelineConfig(config) {
   validateScopes(config.scopes, config.stages, config.gates);
   validateWorkflows(config.workflows, config.scopes);
   validateBarriers(config.barriers, config.scopes);
+  validateDiscovery(config.discovery, config.stages);
   validateLimits(config.limits);
   validateFailureCategories(config.failureCategories);
   validateVocabulary(config.mismatchCauses, "mismatchCauses");
@@ -235,6 +236,70 @@ function validateBarriers(barriers, scopes) {
         throw new PipelineConfigError(`${at}.scopes references unknown scope ${JSON.stringify(scopeName)}`);
       }
     }
+  }
+}
+
+/**
+ * The fan-out's input contracts and the context boundary that follows them.
+ *
+ * Optional, because a config written before the contracts existed is still a
+ * valid config. Present, it is the one statement of what each discovery worker
+ * reads, queries, owns and is finished by — so the three prompts quote it
+ * instead of each carrying their own copy to drift from.
+ */
+function validateDiscovery(discovery, stages) {
+  if (discovery === undefined) return;
+  if (!isPlainObject(discovery)) throw new PipelineConfigError("discovery must be an object");
+
+  if (discovery.boundary !== undefined) {
+    const at = "discovery.boundary";
+    const boundary = discovery.boundary;
+    if (!isPlainObject(boundary)) throw new PipelineConfigError(`${at} must be an object`);
+    for (const key of ["after", "before"]) {
+      requireNonEmptyString(boundary[key], `${at}.${key}`);
+      if (!Object.hasOwn(stages, boundary[key])) {
+        throw new PipelineConfigError(`${at}.${key} names unknown stage ${JSON.stringify(boundary[key])}`);
+      }
+    }
+    requireNonEmptyString(boundary.checkpoint, `${at}.checkpoint`);
+    requireNonEmptyString(boundary.record, `${at}.record`);
+  }
+
+  if (discovery.workers === undefined) return;
+  if (!isPlainObject(discovery.workers) || Object.keys(discovery.workers).length === 0) {
+    throw new PipelineConfigError("discovery.workers must be a non-empty object");
+  }
+  const owned = new Map();
+  for (const [id, worker] of Object.entries(discovery.workers)) {
+    if (id.startsWith("$")) continue;
+    const at = `discovery.workers.${id}`;
+    if (!isPlainObject(worker)) throw new PipelineConfigError(`${at} must be an object`);
+    requireNonEmptyString(worker.artifact, `${at}.artifact`);
+    requireNonEmptyString(worker.summary, `${at}.summary`);
+    requireNonEmptyString(worker.writesVia, `${at}.writesVia`);
+    requireNonEmptyString(worker.doneWhen, `${at}.doneWhen`);
+    if (worker.stage !== undefined && !Object.hasOwn(stages, worker.stage)) {
+      throw new PipelineConfigError(`${at}.stage names unknown stage ${JSON.stringify(worker.stage)}`);
+    }
+    for (const key of ["reads", "mayQuery"]) {
+      const list = worker[key];
+      if (list === undefined) continue;
+      if (!Array.isArray(list) || list.length === 0) {
+        throw new PipelineConfigError(`${at}.${key} must be a non-empty array of paths`);
+      }
+      for (const entry of list) requireNonEmptyString(entry, `${at}.${key}[]`);
+    }
+    if (!Array.isArray(worker.reads) || worker.reads.length === 0) {
+      throw new PipelineConfigError(`${at}.reads must name at least the reference`);
+    }
+    // Two writers on one artifact is a merge conflict with no merger, and the
+    // fan-out's whole safety argument is that each worker owns one file.
+    if (owned.has(worker.artifact)) {
+      throw new PipelineConfigError(
+        `${at}.artifact ${JSON.stringify(worker.artifact)} is already owned by discovery.workers.${owned.get(worker.artifact)}`,
+      );
+    }
+    owned.set(worker.artifact, id);
   }
 }
 

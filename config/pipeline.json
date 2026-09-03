@@ -56,6 +56,12 @@
       "description": "plan and manifest validate and every requested asset has a record — may the template be written (--for authoring; render-and-diff runs it before a first render)",
       "label": "check-authoring"
     },
+    "handoff": {
+      "kind": "tool",
+      "tool": "scripts/handoff.mjs",
+      "description": "record the boundary: artifact paths + hashes, so authoring starts from disk rather than from the discovery conversation",
+      "label": "handoff"
+    },
     "templateCoder": {
       "kind": "llm",
       "description": "write generated-template.java + data spec",
@@ -122,6 +128,132 @@
       ],
       "appliesWhen": "a first render (no output.png yet) of a revision that carries visual-analysis.json — a project on the discovery artifacts. One without them (the examples that predate them) is not held to a barrier it never entered.",
       "onHalt": "render-and-diff fails its discovery step and exits 1 before compiling, naming the artifact that is not done and the command that answers"
+    },
+    "handoff": {
+      "summary": "The handoff is only written on a clear authoring barrier, so a next phase reading one knows the state it names was validated.",
+      "enforcedBy": "scripts/check-analysis.mjs",
+      "calledFrom": "scripts/handoff.mjs",
+      "scopes": [
+        "new"
+      ],
+      "appliesWhen": "the create chain reaches the discovery/authoring boundary. There is no such thing as a handoff that says \"not validated\": a next phase reading one would have to decide what to do about it, and that decision is the barrier's.",
+      "onHalt": "handoff write exits 1 naming the artifacts that are not done, and writes nothing — the previous handoff, if any, is untouched"
+    }
+  },
+  "discovery": {
+    "$comment": [
+      "The fan-out's input contracts, in one place, so the three prompts do not each restate",
+      "them and drift. `node scripts/check-analysis.mjs --contract <worker>` prints one; the",
+      "parent pastes that instead of composing a page of prose per worker.",
+      "",
+      "`reads` is the closed list a worker needs. It is short on purpose: in a recorded run the",
+      "content worker read authoring-rules.md — 4.7k tokens of GraphCompose authoring guidance —",
+      "to extract strings out of a picture. A worker that reads what it does not use pays for it",
+      "on every one of its own turns.",
+      "",
+      "`writesVia` is not advice. A worker that writes the canonical path directly leaves it",
+      "truncated for as long as the write takes, and a reader inside that window sees half a",
+      "document; scripts/write-artifact.mjs stages, validates and renames instead."
+    ],
+    "boundary": {
+      "$comment": [
+        "Discovery and authoring are separate context lifetimes. Everything authoring needs",
+        "exists as validated artifacts once the authoring barrier is clear, and the handoff",
+        "records where they are and what they hashed to — so a fresh authoring context reads",
+        "five files instead of inheriting a 192-266k-token discovery conversation it cannot use.",
+        "Measured on two recorded create runs: authoring+loop was 84% and 96% of cache-read,",
+        "the three discovery workers 3.0% and 0.0%.",
+        "",
+        "The boundary is here and nowhere else. The author/render/revise loop keeps one context",
+        "on purpose: its passes are corrections to the pass before, and restoring that from disk",
+        "each time would cost more than carrying it."
+      ],
+      "after": "authoringBarrier",
+      "before": "templateCoder",
+      "checkpoint": "scripts/handoff.mjs",
+      "record": "handoff.json"
+    },
+    "workers": {
+      "geometry": {
+        "artifact": "visual-analysis.json",
+        "stage": "visualAnalyzer",
+        "summary": "ratios, regions, roles, flow and pagination — the page as dependencies, not pixels",
+        "reads": [
+          "reference/reference.png",
+          "schemas/visual-analysis.schema.json"
+        ],
+        "mayQuery": [
+          "scripts/reference.mjs",
+          "scripts/page-size.mjs",
+          "scripts/typography.mjs"
+        ],
+        "writesVia": "scripts/write-artifact.mjs",
+        "doneWhen": "scripts/check-analysis.mjs --only visual-analysis.json"
+      },
+      "content": {
+        "artifact": "<doc-kind>-data.json",
+        "stage": "visualAnalyzer",
+        "summary": "every variable string the reference shows, with hrefs, behind a typed spec",
+        "reads": [
+          "reference/reference.png"
+        ],
+        "mayQuery": [
+          "scripts/reference.mjs"
+        ],
+        "writesVia": "scripts/write-artifact.mjs",
+        "doneWhen": "scripts/check-analysis.mjs --only <doc-kind>-data.json"
+      },
+      "assets": {
+        "artifact": "asset-request.json",
+        "stage": "visualAnalyzer",
+        "summary": "the icons and font families the reference names, as tokens and roles",
+        "reads": [
+          "reference/reference.png",
+          "schemas/asset-request.schema.json"
+        ],
+        "mayQuery": [
+          "tools/asset-resolver/src/cli.mjs"
+        ],
+        "writesVia": "scripts/write-artifact.mjs",
+        "doneWhen": "scripts/check-analysis.mjs --only asset-request.json"
+      },
+      "$authorComment": [
+        "The author is a discovery worker's opposite number: it runs AFTER the boundary,",
+        "in its own context, and it is the one the fan-out's discipline never covered.",
+        "A measured run proved why it needs one. The fresh context started at 43.8k and",
+        "grew to 333.7k over 131 requests; its first calls were `cat` of the whole",
+        "authoring-rules.md, then whole graphcompose-basics.md and layout pages, then a",
+        "harness source file, then another project's revision. It released 167.4k at the",
+        "boundary and re-accumulated most of it — the same carry cost, one phase later.",
+        "",
+        "`mustNotLoadByDefault` is the part with evidence behind it. It is not a ban:",
+        "`escalation` says how to read one deliberately when a narrow tool cannot answer."
+      ],
+      "author": {
+        "artifact": "generated-template.java",
+        "stage": "templateCoder",
+        "summary": "the template class and its spec provider, written from the handoff's five artifacts",
+        "afterBoundary": true,
+        "reads": [
+          "handoff.json"
+        ],
+        "mayQuery": [
+          "scripts/api-query.mjs",
+          "scripts/source.mjs",
+          "scripts/observations.mjs",
+          "scripts/probe.mjs",
+          "scripts/layout.mjs"
+        ],
+        "mustNotLoadByDefault": [
+          "skills/workflows/references/authoring-rules.md",
+          "skills/versions/*/**.md",
+          "scripts/lib/**",
+          "projects/*/revisions/**"
+        ],
+        "escalation": "scripts/handoff.mjs escalate --project <id> --read <path> --because <what the narrow tool could not answer>",
+        "writesVia": "the host's editor, in the revision directory",
+        "doneWhen": "scripts/pass.mjs --project <id>"
+      }
     }
   },
   "scopes": {
@@ -138,6 +270,7 @@
         "architectureMapper",
         "assetResolver",
         "authoringBarrier",
+        "handoff",
         "templateCoder",
         "testRender",
         "visualReview",
