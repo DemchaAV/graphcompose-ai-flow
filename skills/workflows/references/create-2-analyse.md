@@ -153,10 +153,31 @@ exception: the `page` block carries the measurement from phase 1.
   bounds are what make a region croppable and measurable. A region without
   bounds cannot be evidenced, and the tool refuses rather than guessing.
 - **Record relationships, not offsets** — "badge sits at the top-right of
-  the avatar". Shape ownership is mandatory for the five cases otherwise
-  drawn as free-floating text: initials or icons inside circles, text in
-  pills or badges, content in rounded cards, images clipped by shapes,
-  badges anchored on a shape boundary.
+  the avatar".
+- **Measure every container; do not name a style of it.** `shapeOwnership`
+  takes one entry per DISTINCT container that holds content — ten
+  competency boxes built alike are one entry with `repeats: 10`. Each
+  entry carries `shape`, `cornerRadiusRatio`, `sizing`, `fill.present` and
+  `stroke.present` because each of those has been got wrong by describing
+  it instead:
+
+  | Measure | Not | Because |
+  |---|---|---|
+  | `cornerRadiusRatio` = radius ÷ shorter side | "rounded", "capsule", "pill badge" | A run wrote "rounded capsule shape" for a box measuring **0.09**. The author read the word and implemented a capsule. `pill` means the radius really is half the height — nothing else. |
+  | `sizing: fill-parent \| hug-content` | leaving width to be inferred | Boxes sharing a left **and** right edge are `fill-parent`. Inferred, they shrink to their labels and every row ends somewhere different. |
+  | `fill.present` and `stroke.present`, separately | "white box with a border" | A container showing the ground through it is `fill.present: false`. That is not the same as a fill matching the background: one paints, one does not. |
+  | `padding` per side, `gap`, `contentAlign` | "some spacing" | Averaged padding puts content optically off-centre; `gap` is the rhythm between children, padding is the frame. |
+
+  Ratios, never pixels — radius and stroke against the container's shorter
+  side, padding and gap likewise — so the numbers survive any resolution.
+  Estimating by eye is expected; say in `notes` when an estimate is coarse.
+- **Record icons that are not text.** `icons` takes any icon whose size or
+  placement is independent of the text beside it: `sizeRelativeToText`
+  (1.0 is text-sized, 1.45 is half again), `verticalAlign`, `gapToText`,
+  and `inline` — true when it flows in the text run, false when it is its
+  own child. Without these an icon is emitted as an inline glyph at text
+  size, which is what happened to a sidebar whose icons were half again
+  the cap height.
 - **`role` is the contract for how a region may be built.** `page-header`
   / `page-footer` are chrome the engine repeats — they go through
   `DocumentSession.header` / `.footer`; drawn as body content they appear

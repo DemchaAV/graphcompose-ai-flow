@@ -364,14 +364,19 @@
     },
     "shapeOwnership": {
       "type": "array",
-      "description": "Mandatory for the five cases skills/workflows/create-template/SKILL.md names: initials or icons inside circles, text inside pills or badges, content inside rounded cards, images clipped by rounded or circular shapes, and badges anchored inside or on a shape boundary.",
+      "description": "Every container that owns content: initials or icons inside circles, labels inside bordered boxes, content inside cards, images clipped by shapes, badges anchored on a boundary. One entry per DISTINCT container — ten competency boxes built alike are one entry with repeats: 10, not ten entries. Each entry MEASURES the container rather than naming a style of it. This used to be three prose strings, and a run described a rounded rectangle of radius ~3px on a 32px box as a \"rounded capsule shape with subtle border\"; the mapper carried the word forward and the author implemented cornerRadius(15), a capsule. Nothing was lying: the schema had nowhere to put a radius, and the guidance offered the taxonomy \"circles / pills or badges / rounded cards\", which has no bucket for a rectangle with a small radius. Ratios throughout, never pixels, so the numbers survive any resolution.",
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "container",
           "ownedContent",
-          "relationship"
+          "relationship",
+          "shape",
+          "cornerRadiusRatio",
+          "sizing",
+          "fill",
+          "stroke"
         ],
         "properties": {
           "container": {
@@ -384,8 +389,138 @@
           },
           "relationship": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "What the ownership MEANS where geometry cannot say it — \"the ring is the marker itself, page fill inside, so the rail is hidden where it crosses\". Not the place for shape adjectives: those are measured below."
+          },
+          "region": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Region id this container sits in."
+          },
+          "repeats": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "How many identical instances of this container the reference shows. Repeated components are built once and driven by data; recording the count is what tells the author that."
+          },
+          "shape": {
+            "type": "string",
+            "enum": ["rectangle", "rounded-rectangle", "pill", "circle", "ellipse", "other"],
+            "description": "The outline. `pill` is reserved for a capsule whose radius really is half its height — it is NOT a synonym for \"quite rounded\". If the corners are rounded at all but not fully, this is `rounded-rectangle` and cornerRadiusRatio carries how much."
+          },
+          "cornerRadiusRatio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 0.5,
+            "description": "Corner radius divided by the SHORTER side of the container. 0 is a square corner, 0.5 is a capsule or a circle. This is the field that makes rectangle-versus-pill a measurement instead of a word: the box that was called a capsule measures 0.09. Estimate it by eye against the container's own height — a corner that turns over roughly a tenth of the short side is 0.1 — and say so in `notes` if the estimate is coarse. Required for every shape; use 0.5 for circle and ellipse."
+          },
+          "sizing": {
+            "type": "string",
+            "enum": ["hug-content", "fill-parent", "fixed-ratio"],
+            "description": "How WIDE the container is. `fill-parent` spans its parent's content width, so a stack of them share both edges; `hug-content` shrinks to what is inside, so each one differs. Ten boxes with a common left AND right edge are fill-parent — the give-away is that the short label and the long one end at the same place. Getting this wrong is not subtle and has no other field to live in."
+          },
+          "fill": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["present"],
+            "description": "The interior. A container that shows the page or panel behind it has fill.present = false — that is a different thing from a fill that happens to match the background, because the second one paints and the first one does not.",
+            "properties": {
+              "present": { "type": "boolean" },
+              "color": { "type": "string", "minLength": 1, "description": "Hex, when there is a fill." },
+              "opacity": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          },
+          "stroke": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["present"],
+            "description": "The border. A container defined ONLY by its border — no fill, the ground showing through — is common and was previously unrecordable; it is fill.present false with stroke.present true.",
+            "properties": {
+              "present": { "type": "boolean" },
+              "color": { "type": "string", "minLength": 1 },
+              "widthRatio": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Stroke width divided by the container's shorter side. A hairline on a 32px box is about 0.03."
+              }
+            }
+          },
+          "padding": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Space between the container's edge and its content, each side as a fraction of the container's SHORTER side. Asymmetry matters and averaging it away is how content ends up optically off-centre.",
+            "properties": {
+              "top": { "type": "number", "minimum": 0 },
+              "right": { "type": "number", "minimum": 0 },
+              "bottom": { "type": "number", "minimum": 0 },
+              "left": { "type": "number", "minimum": 0 }
+            }
+          },
+          "gap": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Space BETWEEN the container's children, as a fraction of the container's shorter side. Distinct from padding: one is the frame, the other is the rhythm inside it."
+          },
+          "contentAlign": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Where the content sits inside the container. Both axes, because a box whose text is vertically centred and one whose text sits on the baseline differ visibly and the difference has no other home.",
+            "properties": {
+              "horizontal": { "type": "string", "enum": ["left", "center", "right", "justify"] },
+              "vertical": { "type": "string", "enum": ["top", "center", "bottom", "baseline"] }
+            }
+          },
+          "spacingToNext": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Gap to the next instance of this container, as a fraction of the container's shorter side. Only meaningful when repeats > 1, and it is what makes a stack's rhythm reproducible."
+          },
+          "notes": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Anything the numbers above could not carry, including how coarse an estimate is."
           }
+        }
+      }
+    },
+    "icons": {
+      "type": "array",
+      "description": "Icons whose size or placement is independent of the text beside them. An icon reduced to an inline glyph at the text's own size is one of the reconstruction errors this exists to stop: the reference's icons were roughly half again the cap height and vertically centred, and nothing recorded that, so they were emitted as text-sized inline runs. Omit icons that genuinely are inline glyphs at text size — say so with inline: true rather than leaving them out, if in doubt.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "sizeRelativeToText", "verticalAlign", "inline"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "description": "What this icon is, matching the asset request's token where there is one." },
+          "region": { "type": "string", "minLength": 1 },
+          "sizeRelativeToText": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "The icon's drawn height divided by the height of the text it sits beside. 1.0 is text-sized; 1.45 is half again as tall. The single number that stops an icon becoming a glyph."
+          },
+          "boundsRatio": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "The icon's box as fractions of its region, when it is placed independently rather than in a text run.",
+            "properties": {
+              "w": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+              "h": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+            }
+          },
+          "verticalAlign": {
+            "type": "string",
+            "enum": ["top", "center", "baseline", "bottom"],
+            "description": "Against the text beside it. `baseline` and `center` differ by a visible amount at any icon larger than the text."
+          },
+          "gapToText": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Space between the icon and the text, as a fraction of the icon's height."
+          },
+          "inline": {
+            "type": "boolean",
+            "description": "true when the icon is part of the text run and flows with it; false when it is its own child, positioned independently. The two build differently and cannot be swapped."
+          },
+          "notes": { "type": "string", "minLength": 1 }
         }
       }
     },
