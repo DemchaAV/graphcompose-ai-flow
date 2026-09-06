@@ -5,6 +5,61 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.24.0-beta.2 — 2026-09-06
+
+**What this beta is.** `0.24.0-beta.1` plus one fix, cut so the change can be
+run on Antigravity before anyone decides whether it releases. Nothing else
+moved.
+
+**The loop can no longer approve a page it measured as wrong.**
+`iterate-status` started from the review's own verdict and asked only whether
+the review had been *done* — sealed, measured, present, its claims consistent
+with the stats file. Nothing asked what the comparator had *measured*. A run
+reached `READY_FOR_APPROVAL` after a single pass on a page 14.17% of whose
+pixels were wrong: the review quoted 308,095 mismatched pixels back correctly
+and labelled every difference MINOR, and since severity is the review's to
+assign, `review-claims` had nothing to catch. `visual-diff-stats.json` carried
+`classification: "CRITICAL"` the whole time, loaded into the chain and read by
+nothing.
+
+This was not one bad run. Swept across the 41-project corpus, **20 projects
+were sitting at `READY_FOR_APPROVAL` with a CRITICAL page**, from 7.9% of the
+pixels wrong up to 48.8%. Exactly one project in the corpus had a page the
+comparator called `IDENTICAL`.
+
+Underneath was a conflation of two questions, now separated and never folded
+together again:
+
+| Axis | Question | Values |
+|---|---|---|
+| **fidelity** | is the render close to the reference? | `PASS` · `NEEDS_WORK` · `CRITICAL` · `UNMEASURED` |
+| **movement** | have the passes stopped changing it? | `IMPROVING` · `STALLED` · `UNKNOWN` |
+
+A small delta between pass N and N+1 means the process stopped moving. It says
+nothing about whether it stopped on the right picture — and the run above was
+printing *"the last two moved under 0.25% — a sweep that has stopped buying
+anything"* while reporting itself ready.
+
+`CRITICAL` is never `READY_FOR_APPROVAL`, at any budget. `MAJOR` is refused
+too, and a stalled `MAJOR` is named a stall so a spent budget becomes
+`CONVERGENCE_LIMIT_REACHED` — a document exists and a person decides — rather
+than success.
+
+**No new threshold was invented.** `classification` was already the validated
+gate; `parityScore`, `percent` and `perceptual.ssim` are reported rather than
+obeyed, for the reasons now written down in
+[`docs/how-similarity-is-measured.md`](docs/how-similarity-is-measured.md). A
+stats file with no classification is `UNMEASURED`, never a pass.
+
+**The veto only ever refuses.** A page the comparator likes does not overrule a
+review that asked for another pass. And approval itself is untouched:
+`approve-template` never read this verdict, so you can still approve a page the
+loop declined to call ready.
+
+**What you will notice.** `iterate-status` prints two new lines, `fidelity` and
+`movement`, and exits `2` on projects where it used to exit `0`. Nothing in a
+workspace needs migrating, and no revision changes status.
+
 ## v0.24.0-beta.1 — 2026-09-06
 
 **What this beta is.** The tree at `20c2dba`, cut as a beta for hands-on
