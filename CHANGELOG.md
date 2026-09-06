@@ -5,7 +5,16 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
-## v0.24.0-beta.1 — in progress
+## v0.24.0-beta.1 — 2026-09-06
+
+**What this beta is.** The tree at `20c2dba`, cut as a beta for hands-on
+testing before deciding whether it releases. It carries none of the ten commits
+that followed it on `release-v0.23.0` (measurement retention, `edges` /
+`boundary`, the `colors` fix, the typography specimen fix, the convergence
+changes); those stay on that branch and are not part of this build. The
+six-run benchmark behind the choice makes no performance claim in either
+direction.
+
 
 **Why update.** Correctness and observability, not speed. **This release makes
 no claim to reduce tokens** — see the note at the end of this entry, which says
