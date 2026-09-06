@@ -74,12 +74,14 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 
 import { installRoot, requireProjectDir, resolveWorkspace } from "./lib/workspace.mjs";
 import { findDataFile } from "./lib/data-spec.mjs";
 import { loadPipelineConfig } from "./lib/pipeline-config.mjs";
 import { loadFailure, ready, schemaValidator } from "./lib/schema-validator.mjs";
 import { compareFingerprint, computeFingerprint } from "./lib/reference-fingerprint.mjs";
+import { describeColour, probeFill } from "./lib/fill-probe.mjs";
 
 const repoRoot = installRoot();
 
@@ -283,6 +285,90 @@ function dataArtifact() {
  * TypeError on a request whose `icons` was an object, before the line that
  * would have explained it was written.
  */
+/**
+ * A region the analysis itself calls a panel is described as a container.
+ *
+ * `role: panel` means the region IS a shape — it has a fill, usually a radius,
+ * and it sits behind other content. That is exactly what `shapeOwnership`
+ * records, and a run described three containers while leaving the one the
+ * reader complained about twice — the dark monogram block, `role: panel`, with
+ * a curved corner and the sidebar running underneath it — out of the list
+ * entirely. Nothing measured its radius, so a corner stuck out; nothing
+ * recorded that it lies OVER the sidebar, so the sidebar stopped where it
+ * began.
+ *
+ * `background` is exempt: it is the page's own ground, not a shape drawn on it.
+ */
+function panelsDescribed(analysis) {
+  const name = "panels described";
+  const panels = (analysis.regions ?? []).filter((r) => r?.role === "panel");
+  if (panels.length === 0) return { name, ok: true, detail: "no panel regions" };
+
+  const covered = new Set((analysis.shapeOwnership ?? []).map((s) => s?.region).filter(Boolean));
+  const held = panels.map((p) => p.id).filter((id) => !covered.has(id));
+
+  return held.length === 0
+    ? { name, ok: true, detail: `${panels.length} panel region(s) described as containers` }
+    : {
+        name,
+        ok: false,
+        detail:
+          `region(s) ${held.join(", ")} have role "panel" and no shapeOwnership entry. A panel IS a ` +
+          "shape — it has a fill, usually a corner radius, and content sits on it — so leaving it " +
+          "undescribed means nothing measures its radius or records what it lies over",
+      };
+}
+
+/**
+ * Fill claims agree with the reference's own pixels.
+ *
+ * The one field a run got wrong after getting shape, radius, sizing and repeats
+ * right — and it was the first thing a reader noticed. Nobody has to answer it
+ * from the image: sample inside the container and just outside it, and if the
+ * colour is the same there is no fill. See lib/fill-probe.mjs.
+ *
+ * Only the claim is checked, never invented: a container too small to sample,
+ * or a project with no reference, is reported as unmeasured rather than judged.
+ */
+function fillClaimsMeasured(analysis, referenceFile) {
+  const name = "fill claims measured";
+  const containers = (analysis.shapeOwnership ?? []).filter((s) => s?.bounds && s?.fill);
+  if (containers.length === 0) return { name, ok: true, detail: "no containers with bounds to check" };
+  if (!fs.existsSync(referenceFile)) return { name, ok: true, detail: "no reference on disk to sample" };
+
+  let raster;
+  try {
+    const require = createRequire(path.join(repoRoot, "tools", "visual-diff", "package.json"));
+    const { PNG } = require("pngjs");
+    raster = PNG.sync.read(fs.readFileSync(referenceFile));
+  } catch (err) {
+    // A probe that cannot run is not a probe that passed, but it is also not
+    // the analysis's fault — say which it is.
+    return { name, ok: true, detail: `reference not sampled — ${err.message}` };
+  }
+
+  const held = [];
+  let checked = 0;
+  for (const c of containers) {
+    const probe = probeFill(raster, c.bounds);
+    if (!probe.measurable) continue;
+    checked += 1;
+    if (probe.filled === c.fill.present) continue;
+    held.push(
+      c.fill.present
+        ? `"${c.container}" claims a fill, and the reference shows ${describeColour(probe.inside)} inside it ` +
+          `and ${describeColour(probe.outside)} beside it — the same ground, so it paints nothing`
+        : `"${c.container}" claims no fill, and the reference shows ${describeColour(probe.inside)} inside it ` +
+          `against ${describeColour(probe.outside)} beside it — it does paint`,
+    );
+  }
+
+  if (checked === 0) return { name, ok: true, detail: "containers too small to sample" };
+  return held.length === 0
+    ? { name, ok: true, detail: `${checked} container fill(s) agree with the reference` }
+    : { name, ok: false, detail: held.join("; ") };
+}
+
 /**
  * A document with icons has said something about their geometry.
  *
@@ -502,6 +588,15 @@ if (args.only) {
   // can — before the architecture plan is written around icons nobody measured.
   if (docs["visual-analysis.json"] && docs["asset-request.json"]) {
     artifacts.push(iconsDescribed(docs["visual-analysis.json"], docs["asset-request.json"]));
+  }
+  // Both read the analysis alone, so they fire at the plan barrier — before an
+  // architecture plan is built around a panel nobody measured or a fill the
+  // reference contradicts.
+  if (docs["visual-analysis.json"]) {
+    artifacts.push(panelsDescribed(docs["visual-analysis.json"]));
+    artifacts.push(
+      fillClaimsMeasured(docs["visual-analysis.json"], path.join(projectDir, "reference", "reference.png")),
+    );
   }
   // The authoring barrier is the plan barrier plus what authoring itself reads.
   // Asset resolution runs concurrently with the plan — it feeds neither — so the
