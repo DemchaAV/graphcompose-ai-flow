@@ -74,6 +74,35 @@ export function installRoot() {
 }
 
 /**
+ * Which harness is actually running, and from where.
+ *
+ * Read from the `package.json` beside this module rather than from any plugin
+ * manifest, because the manifest is not what executes. A host can hold several
+ * installs at once — one run had three, at `~/.gemini/config/plugins`,
+ * `~/.gemini/extensions` and `~/.gemini/antigravity-cli/plugins` — and the
+ * agent read the version from one and ran the scripts from another. It
+ * reported "0.24.0-beta.4" and executed 0.24.0-beta.2, and both halves of that
+ * were true. A whole test run was spent on a contract that was not installed.
+ *
+ * So this is deliberately derived from `import.meta.url`: it cannot name a tree
+ * other than the one whose code is speaking. Printed by preflight as the first
+ * line of every run, where a mismatch is visible before any work is done.
+ *
+ * @returns {{version: string|null, root: string}}
+ */
+export function harnessBuild() {
+  const root = DEFAULT_INSTALL_ROOT;
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    return { version: typeof pkg.version === "string" ? pkg.version : null, root };
+  } catch {
+    // A tree with no readable package.json still gets to say where it is; the
+    // path alone is usually enough to spot the wrong one.
+    return { version: null, root };
+  }
+}
+
+/**
  * Resolve the workspace.
  *
  * @param {{ explicitRoot?: string|null, env?: NodeJS.ProcessEnv, cwd?: string, install?: string }} [options]

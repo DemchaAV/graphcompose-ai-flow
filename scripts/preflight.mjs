@@ -42,6 +42,7 @@ import { installHint } from "./lib/install-hints.mjs";
 
 import {
   describeWorkspaceLine,
+  harnessBuild,
   installRoot,
   projectDir as workspaceProjectDir,
   resolveWorkspace,
@@ -214,6 +215,10 @@ const tools = runSetupIfNeeded(describeTools());
 const capabilities = describeCapabilities(version, tools);
 
 const report = {
+  // Which harness is speaking, from its own package.json. In the payload as
+  // well as the text so a JSON consumer cannot read a version from one install
+  // while a run executes another.
+  harness: harnessBuild(),
   workspace: {
     root: workspace.root,
     mode: workspace.mode,
@@ -1252,6 +1257,14 @@ function nextCommands(projectInfo, routing, tools, capabilities) {
 
 function printText(r) {
   const lines = [];
+  // First, before the workspace and before the pin. A host can hold several
+  // installs — one run had three — and an agent that reads a version from one
+  // manifest while executing another reports a build it is not running. This
+  // line comes from the package.json beside the code that prints it, so it
+  // cannot name a tree other than its own.
+  if (r.harness) {
+    lines.push(`harness ${r.harness.version ?? "unknown version"}  ${r.harness.root}`);
+  }
   if (r.workspace.banner) lines.push(r.workspace.banner);
   lines.push(`GraphCompose ${r.graphCompose.version ?? "?"} (${r.graphCompose.status}) -> ${r.graphCompose.skillPack ?? "no pack"}`);
   // Said second, before anything that would be measured against this build: a
