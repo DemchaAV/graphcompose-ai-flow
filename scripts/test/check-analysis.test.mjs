@@ -76,12 +76,27 @@ const DATA = { name: "A Person", title: "Engineer" };
 /** A workspace with one project and one revision, filled to order. */
 function workspace(
   label,
-  { geometry = GEOMETRY, data = DATA, request = REQUEST, plan = null, manifest = null, project: projectExtra = {} } = {},
+  {
+    geometry = GEOMETRY,
+    data = DATA,
+    request = REQUEST,
+    plan = null,
+    manifest = null,
+    project: projectExtra = {},
+    // Reference page bytes. Most cases leave this null: with no reference there
+    // is nothing to fingerprint, and the provenance check reports that rather
+    // than failing, so the older cases stay about what they were about.
+    reference = null,
+  } = {},
 ) {
   const host = tempDir(label);
   const root = path.join(host, "graphcompose-flow");
   const project = path.join(root, "projects", "demo");
   const revision = path.join(project, "revisions", "revision-001");
+  if (reference !== null) {
+    fs.mkdirSync(path.join(project, "reference"), { recursive: true });
+    fs.writeFileSync(path.join(project, "reference", "reference.png"), reference);
+  }
 
   writeJson(path.join(root, "flow.config.json"), { schemaVersion: 1 });
   writeJson(path.join(project, "template-project.json"), {
@@ -670,4 +685,87 @@ test("--for takes only the two barriers that exist", () => {
 
   assert.equal(run.status, 2);
   assert.match(run.stderr, /--for takes plan or authoring/);
+});
+
+// ---------------------------------------------------------------------------
+// Provenance: the analysis has to describe THIS project's reference.
+//
+// Validating only ever said the document was well-shaped. A run copied another
+// project's revision folder in, landed a byte-identical analysis, and passed
+// this barrier without discovery having executed.
+// ---------------------------------------------------------------------------
+
+import { computeFingerprint } from "../lib/reference-fingerprint.mjs";
+
+const REFERENCE_BYTES = "the reference image bytes";
+
+test("with a reference on disk, an analysis carrying no provenance holds the join", () => {
+  const { root } = workspace("no-provenance", { reference: REFERENCE_BYTES });
+  const { status, parsed } = check(root);
+
+  assert.equal(status, 1);
+  assert.equal(parsed.complete, false);
+  assert.equal(named(parsed, "visual-analysis.json").ok, false);
+  assert.match(named(parsed, "visual-analysis.json").detail, /carries no provenance/);
+});
+
+test("a correctly stamped analysis passes, and says so", () => {
+  const { root, revision } = workspace("stamped", { reference: REFERENCE_BYTES });
+  const projectDir = path.join(root, "projects", "demo");
+  const file = path.join(revision, "visual-analysis.json");
+  writeJson(file, {
+    ...JSON.parse(fs.readFileSync(file, "utf8")),
+    provenance: computeFingerprint({ projectDir, projectId: "demo" }),
+  });
+
+  const { status, parsed, out } = check(root);
+  assert.equal(status, 0, out);
+  assert.equal(named(parsed, "visual-analysis.json").ok, true);
+  assert.match(named(parsed, "visual-analysis.json").detail, /describes this project's reference/);
+});
+
+test("an analysis stamped in another workspace is refused — the incident", () => {
+  // Same project id, same reference bytes, different workspace: exactly the
+  // shape of the copy that got through.
+  const origin = workspace("incident-origin", { reference: REFERENCE_BYTES });
+  const here = workspace("incident-here", { reference: REFERENCE_BYTES });
+
+  const stolen = computeFingerprint({
+    projectDir: path.join(origin.root, "projects", "demo"),
+    projectId: "demo",
+  });
+  const file = path.join(here.revision, "visual-analysis.json");
+  writeJson(file, { ...JSON.parse(fs.readFileSync(file, "utf8")), provenance: stolen });
+
+  const { status, parsed } = check(here.root);
+  assert.equal(status, 1);
+  assert.equal(named(parsed, "visual-analysis.json").ok, false);
+  assert.match(named(parsed, "visual-analysis.json").detail, /DIFFERENT workspace/);
+});
+
+test("an analysis of a different image is refused", () => {
+  const { root, revision } = workspace("other-image", { reference: REFERENCE_BYTES });
+  const other = workspace("other-image-source", { reference: "a completely different picture" });
+  const stamp = computeFingerprint({
+    projectDir: path.join(other.root, "projects", "demo"),
+    projectId: "demo",
+  });
+  const mine = computeFingerprint({ projectDir: path.join(root, "projects", "demo"), projectId: "demo" });
+
+  const file = path.join(revision, "visual-analysis.json");
+  // Same project, same workspace — only the image the analysis describes differs.
+  writeJson(file, {
+    ...JSON.parse(fs.readFileSync(file, "utf8")),
+    provenance: { ...stamp, workspace: mine.workspace },
+  });
+
+  const { status, parsed } = check(root);
+  assert.equal(status, 1);
+  assert.match(named(parsed, "visual-analysis.json").detail, /different image/);
+});
+
+test("a project with no reference is not held to a fingerprint it cannot have", () => {
+  const { status, parsed, out } = check(workspace("no-reference").root);
+  assert.equal(status, 0, out);
+  assert.match(named(parsed, "visual-analysis.json").detail, /no reference on disk/);
 });

@@ -50,6 +50,26 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { installRoot, requireProjectDir, resolveWorkspace } from "./lib/workspace.mjs";
+import { computeFingerprint } from "./lib/reference-fingerprint.mjs";
+
+/**
+ * Return `content` with a freshly computed `provenance`, or null when there is
+ * nothing to stamp — the candidate is not JSON, or the project holds no
+ * reference to fingerprint. Never merges with what was there: the point is
+ * that the tool's answer wins over the author's.
+ */
+function stampProvenance(content, { projectDir, projectId }) {
+  let doc;
+  try {
+    doc = JSON.parse(content);
+  } catch {
+    return null;
+  }
+  if (typeof doc !== "object" || doc === null || Array.isArray(doc)) return null;
+  const fingerprint = computeFingerprint({ projectDir, projectId });
+  if (!fingerprint) return null;
+  return `${JSON.stringify({ ...doc, provenance: fingerprint }, null, 2)}\n`;
+}
 import { stageAndCommit } from "./lib/atomic-write.mjs";
 import { findDataFile } from "./lib/data-spec.mjs";
 import { loadFailure, ready, schemaValidator } from "./lib/schema-validator.mjs";
@@ -212,6 +232,21 @@ async function main() {
   } catch (err) {
     process.stderr.write(`[artifact] cannot read the candidate — ${err.message}\n`);
     process.exit(2);
+  }
+
+  // Which reference, in which project. Stamped here because this is the only
+  // sanctioned way the artifact becomes canonical, and computed from disk
+  // because a value the author writes is a value a copying agent copies —
+  // which is the case this catches. Whatever the candidate arrived with is
+  // replaced, so an imported analysis cannot carry its old provenance in.
+  // Candidates that are not valid JSON are left untouched: the staged
+  // validation below reports that properly, and re-serialising a broken
+  // document here would report it as a schema failure instead.
+  if (canonical === "visual-analysis.json") {
+    // The directory name, not `args.project`: that may be a path or an alias,
+    // and the fingerprint has to name one thing both writer and checker agree on.
+    const stamped = stampProvenance(content, { projectDir, projectId: path.basename(projectDir) });
+    if (stamped !== null) content = stamped;
   }
 
   const schemaName = ARTIFACTS[canonical].schema;

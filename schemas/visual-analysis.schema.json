@@ -16,6 +16,47 @@
       "const": 1,
       "description": "On-disk contract version for this artifact."
     },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project", "workspace", "reference"],
+      "description": "Which reference, in which project, in which workspace, this analysis was written for. STAMPED BY THE TOOL, never by the author: scripts/write-artifact.mjs computes it from disk when the artifact becomes canonical and replaces whatever the document arrived with, and scripts/check-analysis.mjs recomputes and compares. A value the author writes is a value a copying agent copies, and copying is exactly what this catches — a run once imported another project's revision folder wholesale, landing a byte-identical visual-analysis.json, and the barrier passed because validating says the document is well-shaped, not that anybody looked at this reference. All three parts are bound because in that incident the two projects shared an id AND the same reference bytes; only the workspace differed. Revision is deliberately absent: pass.mjs carries a parent's sources forward, which is the loop working.",
+      "properties": {
+        "project": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Project id the analysis was written for."
+        },
+        "workspace": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$",
+          "description": "Digest of the workspace root the project lives in. Hashed rather than stored because the absolute path is the user's directory layout and belongs in nobody's committed artifact."
+        },
+        "reference": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sha256", "pages"],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "description": "One digest over every reference page, each page's filename folded in with its bytes so that renaming or reordering pages is a different fingerprint."
+            },
+            "pages": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 },
+              "description": "The reference page files hashed, in page order. source.png is excluded — re-importing the same page from a different source file is not a different reference."
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Total size of the hashed pages, for a reader comparing two fingerprints by eye."
+            }
+          }
+        }
+      }
+    },
     "page": {
       "type": "object",
       "additionalProperties": false,

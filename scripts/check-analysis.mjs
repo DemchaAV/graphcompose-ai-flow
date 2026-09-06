@@ -79,6 +79,7 @@ import { installRoot, requireProjectDir, resolveWorkspace } from "./lib/workspac
 import { findDataFile } from "./lib/data-spec.mjs";
 import { loadPipelineConfig } from "./lib/pipeline-config.mjs";
 import { loadFailure, ready, schemaValidator } from "./lib/schema-validator.mjs";
+import { compareFingerprint, computeFingerprint } from "./lib/reference-fingerprint.mjs";
 
 const repoRoot = installRoot();
 
@@ -220,6 +221,34 @@ function bySchema(name, schemaName) {
   if (!result.valid) return { name, ok: false, detail: `fails ${schemaName}: ${result.errors.slice(0, 200)}` };
   docs[name] = read.doc;
   return { name, ok: true, detail: "validates" };
+}
+
+/**
+ * The analysis validates AND describes this project's reference.
+ *
+ * Validating was never enough on its own: it says the document is well-shaped,
+ * not that anybody looked at the image sitting in `reference/`. A run once
+ * copied another project's whole revision folder in, landing a byte-identical
+ * analysis, and this barrier passed it — discovery had not executed, and four
+ * revisions were then spent correcting a template built from it. The
+ * provenance block is stamped by write-artifact.mjs from disk and recomputed
+ * here, so an artifact that came from somewhere else no longer matches where
+ * it now sits. See lib/reference-fingerprint.mjs for why the project is bound
+ * as well as the image.
+ */
+function visualAnalysis() {
+  const checked = bySchema("visual-analysis.json", "visual-analysis.schema.json");
+  if (!checked.ok) return checked;
+
+  const actual = computeFingerprint({ projectDir, projectId: path.basename(projectDir) });
+  const verdict = compareFingerprint(docs["visual-analysis.json"]?.provenance, actual);
+  if (verdict.kind === "no-reference") {
+    return { ...checked, detail: "validates (no reference on disk to fingerprint)" };
+  }
+  if (!verdict.ok) {
+    return { name: "visual-analysis.json", ok: false, detail: verdict.reason };
+  }
+  return { ...checked, detail: "validates, and describes this project's reference" };
 }
 
 function dataArtifact() {
@@ -364,7 +393,7 @@ function printWorkerContract(name, asJson) {
 }
 
 const CHECKS = {
-  "visual-analysis.json": () => bySchema("visual-analysis.json", "visual-analysis.schema.json"),
+  "visual-analysis.json": () => visualAnalysis(),
   [DATA]: dataArtifact,
   "asset-request.json": () => bySchema("asset-request.json", "asset-request.schema.json"),
   "architecture-plan.json": () => bySchema("architecture-plan.json", "architecture-plan.schema.json"),
