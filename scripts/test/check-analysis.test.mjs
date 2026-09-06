@@ -68,6 +68,17 @@ const GEOMETRY = {
   regions: [
     { id: "page-background", label: "Page chrome", page: 1, role: "background", bounds: { x: 0, y: 0, w: 1, h: 1 } },
   ],
+  // Carried by the minimum because the plan barrier asks, once a reference is
+  // on disk, how each face was chosen. "Assumed, and here is why" is the honest
+  // answer for these fixtures: their reference is a handful of synthetic pixels
+  // with no text in it, so there is no crop to match a family against. Cases
+  // that are about typography strip this out rather than the other way round.
+  typography: {
+    roles: [
+      { role: "headings", fontName: "HELVETICA", source: "assumed", why: "the fixture reference carries no text" },
+      { role: "body", fontName: "HELVETICA", source: "assumed", why: "the fixture reference carries no text" },
+    ],
+  },
   flow: { kind: "fixed", overflowExpectation: "The page is the artifact." },
 };
 const REQUEST = { icons: [], fonts: [{ role: "body", family: "Helvetica", source: "standard14" }] };
@@ -984,4 +995,150 @@ test("with no reference on disk the fill claim is reported unmeasured, not judge
 
   assert.equal(status, 0, out);
   assert.match(named(parsed, "fill claims measured").detail, /no reference on disk/);
+});
+
+// ----------------------------------------------------- typography measured ---
+//
+// Three runs on one reference set their section headings in a serif against a
+// grotesque, and every region came back CRITICAL. The barrier could not have
+// caught any of them: the face lived in prose. These hold the two halves — the
+// roles have to exist once there is something to measure against, and a claim
+// to have measured has to be backed by a recording.
+
+/** Strip the honest roles the minimum carries, to get back the old world. */
+const NO_ROLES = (() => {
+  const { typography, ...rest } = GEOMETRY;
+  return rest;
+})();
+
+test("THE CASE: with a reference on disk, an analysis that names no face is held", () => {
+  const { root, revision } = workspace("type-no-roles", { geometry: NO_ROLES, reference: "placeholder" });
+  referenceFor(root, revision, { filled: false });
+  const { status, parsed } = check(root);
+
+  assert.equal(status, 1);
+  assert.equal(named(parsed, "typography measured").ok, false);
+  assert.match(named(parsed, "typography measured").detail, /typography\.roles is empty/);
+});
+
+test("prose about the type is not a face, and the barrier says which is missing", () => {
+  const { root, revision } = workspace("type-prose", {
+    geometry: {
+      ...NO_ROLES,
+      typography: { headings: "Dark teal serif headings", likelyFontFamily: "Poppins and a classic serif" },
+    },
+    reference: "placeholder",
+  });
+  referenceFor(root, revision, { filled: false });
+  const { parsed } = check(root);
+
+  assert.equal(named(parsed, "typography measured").ok, false);
+});
+
+test("a face claimed as measured with nothing recorded is held", () => {
+  const { root, revision } = workspace("type-unbacked", {
+    geometry: {
+      ...NO_ROLES,
+      typography: {
+        roles: [
+          { role: "headings", fontName: "LATO", source: "measured" },
+          { role: "body", fontName: "LATO", source: "measured" },
+        ],
+      },
+    },
+    reference: "placeholder",
+  });
+  referenceFor(root, revision, { filled: false });
+  const { parsed } = check(root);
+
+  assert.equal(named(parsed, "typography measured").ok, false);
+  assert.match(named(parsed, "typography measured").detail, /no match was recorded/);
+});
+
+test("a recorded match that backs the chosen face clears it", () => {
+  const { root, revision } = workspace("type-backed", {
+    geometry: {
+      ...NO_ROLES,
+      typography: {
+        roles: [
+          { role: "headings", fontName: "LATO", source: "measured" },
+          { role: "body", fontName: "BARLOW", source: "measured" },
+        ],
+      },
+    },
+    reference: "placeholder",
+  });
+  referenceFor(root, revision, { filled: false });
+  writeJson(path.join(revision, "typography-match.json"), {
+    schemaVersion: 1,
+    matches: [
+      { role: "headings", text: "SUMMARY", ranked: [{ rank: 1, family: "LATO" }, { rank: 2, family: "BARLOW" }] },
+      { role: "body", text: "body copy", ranked: [{ rank: 1, family: "BARLOW" }, { rank: 2, family: "LATO" }] },
+    ],
+  });
+  const { status, parsed, out } = check(root);
+
+  assert.equal(status, 0, out);
+  assert.equal(named(parsed, "typography measured").ok, true);
+  assert.match(named(parsed, "typography measured").detail, /2 measured/);
+});
+
+test("a recorded match that contradicts the chosen face is held, and names the winner", () => {
+  const { root, revision } = workspace("type-contradicted", {
+    geometry: {
+      ...NO_ROLES,
+      typography: {
+        roles: [
+          { role: "headings", fontName: "PT_SERIF", source: "measured" },
+          { role: "body", fontName: "LATO", source: "assumed", why: "one family down from the heading face" },
+        ],
+      },
+    },
+    reference: "placeholder",
+  });
+  referenceFor(root, revision, { filled: false });
+  writeJson(path.join(revision, "typography-match.json"), {
+    schemaVersion: 1,
+    matches: [
+      {
+        role: "headings",
+        text: "SUMMARY",
+        ranked: ["LATO", "BARLOW", "FIRA_SANS", "OPEN_SANS", "PT_SERIF"].map((family, i) => ({ rank: i + 1, family })),
+      },
+    ],
+  });
+  const { parsed } = check(root);
+
+  assert.equal(named(parsed, "typography measured").ok, false);
+  assert.match(named(parsed, "typography measured").detail, /ranked 5 of 5/);
+  assert.match(named(parsed, "typography measured").detail, /behind LATO/);
+});
+
+test("a recording that does not parse is refused rather than read as no recording", () => {
+  // It looks like evidence from the outside, which is the one way it could do
+  // more damage than an absent file.
+  const { root, revision } = workspace("type-corrupt", {
+    geometry: {
+      ...NO_ROLES,
+      typography: { roles: [{ role: "headings", fontName: "LATO", source: "measured" }, { role: "body", fontName: "LATO", source: "measured" }] },
+    },
+    reference: "placeholder",
+  });
+  referenceFor(root, revision, { filled: false });
+  fs.writeFileSync(path.join(revision, "typography-match.json"), "{ not json");
+  const { parsed } = check(root);
+
+  assert.equal(named(parsed, "typography measured").ok, false);
+  assert.match(named(parsed, "typography measured").detail, /does not parse/);
+});
+
+test("with no reference there is nothing to match a face against, and none is demanded", () => {
+  // The same gate `fillClaimsMeasured` uses, for the same reason: a face is
+  // matched against a crop, so with no reference this would be asking for a
+  // form rather than a fact.
+  const { root } = workspace("type-no-reference", { geometry: NO_ROLES });
+  const { status, parsed, out } = check(root);
+
+  assert.equal(status, 0, out);
+  assert.match(named(parsed, "typography measured").detail, /nothing to match a face against/);
 });

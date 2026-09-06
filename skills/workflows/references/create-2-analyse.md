@@ -240,6 +240,30 @@ exception: the `page` block carries the measurement from phase 1.
   reports a rule the plan decided and the template never built.
 - **Set `page.pageCount`** to what the reference-shaped data produces —
   the overflow fixture's count is not a property of the document.
+- **Measure the face; do not recognise it.** `typography.roles` commits
+  one `fontName` per role and says how it was chosen. `headings` and
+  `body` are required, because between them they set the whole page:
+
+  ```bash
+  node scripts/typography.mjs match --role headings \
+    --reference <crop.png> --text "<the exact string in that crop>" \
+    --project <id>
+  ```
+
+  It ranks every bundled family against the crop and records the ranking
+  in the revision. Then write `{"role": "headings", "fontName": "LATO",
+  "source": "measured"}` and the barrier checks the two agree.
+
+  A face with no bundled equivalent is a real answer: `"source":
+  "assumed"` with a `why` clears, and stays reviewable. What does not
+  clear is `"measured"` with nothing recorded.
+
+  The prose fields beside `roles` — `headings`, `likelyFontFamily`,
+  `scale` — still describe the type, and describing is not choosing.
+  Three runs on one reference wrote sentences like *"Poppins for body and
+  a classic serif such as Spectral"*, set the headings in a serif against
+  a grotesque, and put **all twelve regions at CRITICAL**. Every one of
+  them had this tool and none called it.
 - **Anything you cannot read confidently goes in `unclearParts`** with
   the assumption you are making. A recorded assumption is a question the
   user can answer later; a silent one is a bug with no author.

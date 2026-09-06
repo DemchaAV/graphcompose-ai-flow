@@ -82,6 +82,7 @@ import { loadPipelineConfig } from "./lib/pipeline-config.mjs";
 import { loadFailure, ready, schemaValidator } from "./lib/schema-validator.mjs";
 import { compareFingerprint, computeFingerprint } from "./lib/reference-fingerprint.mjs";
 import { describeColour, probeFill } from "./lib/fill-probe.mjs";
+import { auditTypography } from "./lib/typography-roles.mjs";
 
 const repoRoot = installRoot();
 
@@ -370,6 +371,64 @@ function fillClaimsMeasured(analysis, referenceFile) {
 }
 
 /**
+ * The face each type role uses is a measurement, or it says it is not.
+ *
+ * Three runs on one reference put every region at CRITICAL with a spread of
+ * 13–22%, and the largest single cause was the same in all three: the
+ * reference sets its section headings in a bold grotesque and all three set
+ * them in a serif. The schema could not have stopped any of them — `typography`
+ * was seven free strings with nothing required, and the field authoring reads,
+ * `likelyFontFamily`, held sentences like "Poppins for body and a classic
+ * serif such as Spectral or Tinos for display text".
+ *
+ * The measurement existed the whole time. `scripts/typography.mjs match` ranks
+ * families against a crop of the reference and none of the three runs called
+ * it, because the loop reference offers it and no barrier asks for it.
+ *
+ * So this asks. Not for a particular family — that is the reference's business
+ * — but for each role to say whether a recorded match backs it, and for an
+ * assumption to give a reason a reader can weigh later.
+ *
+ * A missing `typography-match.json` is not an error by itself: a page whose
+ * roles are all honestly marked `assumed` clears this. What it cannot do is
+ * claim `measured` with nothing recorded, which is the guess-dressed-as-a-fact
+ * the old schema made unavoidable.
+ *
+ * Gated on the reference the same way `fillClaimsMeasured` is, and for the same
+ * reason rather than for convenience: a face is matched against a crop of the
+ * reference, so with no reference on disk there is nothing to have measured and
+ * demanding the roles anyway would be asking for a form, not a fact.
+ */
+function typographyMeasured(analysis, revisionDir, referenceFile) {
+  const name = "typography measured";
+  if (!fs.existsSync(referenceFile)) {
+    return { name, ok: true, detail: "no reference on disk — nothing to match a face against" };
+  }
+  const file = path.join(revisionDir, "typography-match.json");
+
+  let matches = [];
+  if (fs.existsSync(file)) {
+    try {
+      const doc = JSON.parse(fs.readFileSync(file, "utf8"));
+      if (Array.isArray(doc?.matches)) matches = doc.matches;
+    } catch (err) {
+      // A recorded measurement that cannot be read is worse than none: it looks
+      // like evidence from the outside, so say plainly that it is not.
+      return { name, ok: false, detail: `typography-match.json does not parse — ${err.message}` };
+    }
+  }
+
+  const audit = auditTypography({ typography: analysis.typography, matches });
+  return audit.held.length === 0
+    ? {
+        name,
+        ok: true,
+        detail: `${audit.declared} role(s): ${audit.measured} measured, ${audit.assumed} assumed`,
+      }
+    : { name, ok: false, detail: audit.held.join("; ") };
+}
+
+/**
  * A document with icons has said something about their geometry.
  *
  * `icons` is optional at the root, and a terse model omits what is optional:
@@ -596,6 +655,16 @@ if (args.only) {
     artifacts.push(panelsDescribed(docs["visual-analysis.json"]));
     artifacts.push(
       fillClaimsMeasured(docs["visual-analysis.json"], path.join(projectDir, "reference", "reference.png")),
+    );
+    // Here and not at the authoring barrier: the face belongs in the asset
+    // request, which is written in this same phase, and a family chosen after
+    // the fonts are resolved is a family resolved twice.
+    artifacts.push(
+      typographyMeasured(
+        docs["visual-analysis.json"],
+        revisionDir,
+        path.join(projectDir, "reference", "reference.png"),
+      ),
     );
   }
   // The authoring barrier is the plan barrier plus what authoring itself reads.

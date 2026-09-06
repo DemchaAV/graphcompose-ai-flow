@@ -541,6 +541,48 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "roles": {
+          "type": "array",
+          "description": "Which face each type role uses, and whether that was measured or assumed. The prose fields below describe the type; this one commits to it.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["role", "fontName", "source"],
+            "properties": {
+              "role": {
+                "enum": ["title", "headings", "body", "meta", "table"]
+              },
+              "fontName": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The FontName constant the template will use, e.g. \"LATO\"."
+              },
+              "source": {
+                "enum": ["measured", "assumed"],
+                "description": "measured: a recorded `typography.mjs match` ranked this family near the top for this role. assumed: someone chose it and said why."
+              },
+              "sample": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The exact string the crop contains, so the match can be reproduced."
+              },
+              "crop": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The crop of the reference that was matched."
+              },
+              "why": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Required when source is \"assumed\": what makes this the right face when nothing measured it."
+              },
+              "notes": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
         "title": {
           "type": "string",
           "minLength": 1
