@@ -835,3 +835,153 @@ test("an icon id matching no requested token is caught", () => {
   assert.equal(named(parsed, "icons described").ok, false);
   assert.match(named(parsed, "icons described").detail, /emial/);
 });
+
+// ---------------------------------------------------------------------------
+// Panels, and fills the reference can settle.
+//
+// A run described three containers and left out the one a reader complained
+// about twice — the dark monogram block, role "panel" — so nothing measured its
+// corner. On another container it got shape, radius, sizing and repeats right
+// and `fill.present` wrong, and that field was the first thing anyone noticed.
+// ---------------------------------------------------------------------------
+
+import { createRequire } from "node:module";
+
+const PANEL_REGION = {
+  id: "sidebar-header",
+  label: "Monogram panel",
+  page: 1,
+  role: "panel",
+  bounds: { x: 0, y: 0, w: 0.28, h: 0.14 },
+};
+
+const CONTAINER = (extra = {}) => ({
+  container: "competency-card",
+  ownedContent: "icon and label",
+  relationship: "an icon and a label share one row",
+  region: "sidebar-competencies",
+  bounds: { x: 0.2, y: 0.2, w: 0.6, h: 0.2 },
+  shape: "rounded-rectangle",
+  cornerRadiusRatio: 0.09,
+  sizing: "fill-parent",
+  fill: { present: false },
+  stroke: { present: true },
+  ...extra,
+});
+
+test("a region the analysis calls a panel must be described as a container", () => {
+  const { root } = workspace("panel-undescribed", {
+    geometry: { ...GEOMETRY, regions: [...GEOMETRY.regions, PANEL_REGION] },
+  });
+  const { status, parsed } = check(root);
+
+  assert.equal(status, 1);
+  assert.equal(named(parsed, "panels described").ok, false);
+  assert.match(named(parsed, "panels described").detail, /sidebar-header/);
+  assert.match(named(parsed, "panels described").detail, /A panel IS a shape/);
+});
+
+test("a panel with an entry against it clears, and a document with no panels is not asked", () => {
+  const { root } = workspace("panel-described", {
+    geometry: {
+      ...GEOMETRY,
+      regions: [...GEOMETRY.regions, PANEL_REGION],
+      shapeOwnership: [CONTAINER({ container: "monogram-panel", region: "sidebar-header" })],
+    },
+  });
+  const { status, parsed, out } = check(root);
+  assert.equal(status, 0, out);
+  assert.match(named(parsed, "panels described").detail, /1 panel region\(s\)/);
+
+  const bare = check(workspace("panel-none").root);
+  assert.match(named(bare.parsed, "panels described").detail, /no panel regions/);
+});
+
+/** A page of `ground` with one bordered box, written as a real PNG. */
+function referencePng(file, { filled }) {
+  const require = createRequire(path.join(repoRoot, "tools", "visual-diff", "package.json"));
+  const { PNG } = require("pngjs");
+  const png = new PNG({ width: 200, height: 200 });
+  const put = (x, y, c) => {
+    const i = (200 * y + x) * 4;
+    [png.data[i], png.data[i + 1], png.data[i + 2], png.data[i + 3]] = [...c, 255];
+  };
+  for (let y = 0; y < 200; y += 1) for (let x = 0; x < 200; x += 1) put(x, y, [253, 241, 237]);
+  // The container at bounds {0.2, 0.2, 0.6, 0.2} => x 40..160, y 40..80.
+  for (let y = 40; y < 80; y += 1) {
+    for (let x = 40; x < 160; x += 1) {
+      const edge = x < 41 || x >= 159 || y < 41 || y >= 79;
+      if (edge) put(x, y, [243, 206, 197]);
+      else if (filled) put(x, y, [255, 255, 255]);
+    }
+  }
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, PNG.sync.write(png));
+}
+
+/**
+ * Write the reference, then stamp the analysis for it. Provenance is computed
+ * from the reference on disk, so a fixture that writes the image after the
+ * analysis has to re-stamp or it fails a different check than it is testing.
+ */
+function referenceFor(root, revision, options) {
+  const projectDir = path.join(root, "projects", "demo");
+  referencePng(path.join(projectDir, "reference", "reference.png"), options);
+  const file = path.join(revision, "visual-analysis.json");
+  writeJson(file, {
+    ...JSON.parse(fs.readFileSync(file, "utf8")),
+    provenance: computeFingerprint({ projectDir, projectId: "demo" }),
+  });
+}
+
+test("a fill the reference contradicts is refused, and the pixels are quoted", () => {
+  // The exact error: an unfilled container claimed as filled.
+  const { root, revision } = workspace("fill-wrong", {
+    geometry: { ...GEOMETRY, shapeOwnership: [CONTAINER({ fill: { present: true } })] },
+    reference: "placeholder",
+  });
+  referenceFor(root, revision, { filled: false });
+  const { status, parsed } = check(root);
+
+  assert.equal(status, 1);
+  assert.equal(named(parsed, "fill claims measured").ok, false);
+  assert.match(named(parsed, "fill claims measured").detail, /claims a fill/);
+  assert.match(named(parsed, "fill claims measured").detail, /the same ground, so it paints nothing/);
+  assert.match(named(parsed, "fill claims measured").detail, /rgb\(/, "the measurement, not just a verdict");
+});
+
+test("a fill claim the reference agrees with passes, either way round", () => {
+  for (const filled of [false, true]) {
+    const { root, revision } = workspace(`fill-ok-${filled}`, {
+      geometry: { ...GEOMETRY, shapeOwnership: [CONTAINER({ fill: { present: filled } })] },
+      reference: "placeholder",
+    });
+    referenceFor(root, revision, { filled });
+    const { status, parsed, out } = check(root);
+
+    assert.equal(status, 0, out);
+    assert.match(named(parsed, "fill claims measured").detail, /agree with the reference/);
+  }
+});
+
+test("a missing fill claim is refused as unfilled when the reference says it paints", () => {
+  const { root, revision } = workspace("fill-missing", {
+    geometry: { ...GEOMETRY, shapeOwnership: [CONTAINER({ fill: { present: false } })] },
+    reference: "placeholder",
+  });
+  referenceFor(root, revision, { filled: true });
+  const { parsed } = check(root);
+
+  assert.equal(named(parsed, "fill claims measured").ok, false);
+  assert.match(named(parsed, "fill claims measured").detail, /it does paint/);
+});
+
+test("with no reference on disk the fill claim is reported unmeasured, not judged", () => {
+  const { root } = workspace("fill-no-reference", {
+    geometry: { ...GEOMETRY, shapeOwnership: [CONTAINER({ fill: { present: true } })] },
+  });
+  const { status, parsed, out } = check(root);
+
+  assert.equal(status, 0, out);
+  assert.match(named(parsed, "fill claims measured").detail, /no reference on disk/);
+});

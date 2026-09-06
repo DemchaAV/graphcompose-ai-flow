@@ -50,6 +50,9 @@ const COMPETENCY_BOX = {
   ownedContent: "icon and label",
   relationship: "an icon and a label share one row inside the box",
   region: "sidebar",
+  // The first instance, as page fractions — what makes every claim below
+  // checkable against the reference's own pixels rather than merely stated.
+  bounds: { x: 0.039, y: 0.209, w: 0.221, h: 0.024 },
   repeats: 10,
   shape: "rounded-rectangle",
   cornerRadiusRatio: 0.09,

@@ -171,6 +171,21 @@ exception: the `page` block carries the measurement from phase 1.
   Ratios, never pixels — radius and stroke against the container's shorter
   side, padding and gap likewise — so the numbers survive any resolution.
   Estimating by eye is expected; say in `notes` when an estimate is coarse.
+
+  **Every container carries `bounds`**, as page fractions, the same frame
+  regions use — the first instance, when it repeats. That is what makes the
+  rest checkable rather than merely stated: `check-analysis` samples the
+  reference inside those bounds and just outside them, and **refuses a
+  `fill.present` the pixels contradict**. A run got shape, radius, sizing and
+  repeats right on one container and `fill.present` wrong, and that single
+  field was the first thing a reader noticed about the render. Do not reason
+  about the fill — look at whether the ground shows through.
+
+  **A region with `role: panel` needs its own entry.** A panel *is* a shape: it
+  has a fill, usually a radius, and other content sits on it. The same run left
+  its dark monogram block undescribed, so nothing measured the corner (one stuck
+  out) and nothing recorded that the sidebar runs underneath it (the sidebar
+  stopped where the block began).
 - **Record icons that are not text.** `icons` takes any icon whose size or
   placement is independent of the text beside it: `sizeRelativeToText`
   (1.0 is text-sized, 1.45 is half again), `verticalAlign`, `gapToText`,

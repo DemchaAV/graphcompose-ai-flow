@@ -376,7 +376,8 @@
           "cornerRadiusRatio",
           "sizing",
           "fill",
-          "stroke"
+          "stroke",
+          "bounds"
         ],
         "properties": {
           "container": {
@@ -396,6 +397,18 @@
             "type": "string",
             "minLength": 1,
             "description": "Region id this container sits in."
+          },
+          "bounds": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["x", "y", "w", "h"],
+            "description": "The container as FRACTIONS of the page, top-left origin — the same frame regions use. For a repeated container this is the FIRST instance. Required, because it is what turns every other field here from a claim into a checkable one: check-analysis samples the reference inside these bounds and just outside them, and refuses a fill.present that the pixels contradict. A run measured this container's shape, radius, sizing and repeat count correctly and got fill.present wrong, and the wrong answer was the defect a reader saw first.",
+            "properties": {
+              "x": { "type": "number", "minimum": 0, "maximum": 1 },
+              "y": { "type": "number", "minimum": 0, "maximum": 1 },
+              "w": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+              "h": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+            }
           },
           "repeats": {
             "type": "integer",
