@@ -510,6 +510,23 @@ const REQUEST_WITH = (tokens) => ({
   fonts: [{ role: "body", family: "Helvetica", source: "standard14" }],
 });
 
+/**
+ * The analysis that goes with a request naming icons. A request that names
+ * icons beside an analysis describing none is now its own failure — a run
+ * resolved 33 and wrote `icons: []` — so a fixture about something else has to
+ * be consistent on this point or it tests the contradiction instead.
+ */
+const GEOMETRY_WITH_ICONS = (tokens) => ({
+  ...GEOMETRY,
+  icons: tokens.map((t) => ({ id: t, sizeRelativeToText: 1.2, verticalAlign: "center", inline: true })),
+});
+
+/** And the plan that owns them, since a measured icon must be claimed by one method. */
+const PLAN_WITH_ICONS = (tokens) => ({
+  ...PLAN,
+  componentMapping: PLAN.componentMapping.map((m, i) => (i === 0 ? { ...m, icons: tokens } : m)),
+});
+
 function checkFor(root, barrier) {
   const run = spawnSync(
     process.execPath,
@@ -539,8 +556,9 @@ test("the plan barrier does not wait for the manifest", () => {
 
 test("the authoring barrier waits for the plan and the manifest", () => {
   const { root } = workspace("authoring-complete", {
+    geometry: GEOMETRY_WITH_ICONS(["phone", "email"]),
     request: REQUEST_WITH(["phone", "email"]),
-    plan: PLAN,
+    plan: PLAN_WITH_ICONS(["phone", "email"]),
     manifest: manifestFor(["phone", "email"]),
   });
   const { status, parsed, out } = checkFor(root, "authoring");
@@ -564,8 +582,9 @@ test("an icon the resolver never returned is caught, though both files validate"
   // shaped; the template simply has no record to read for `website`, and the
   // icon goes missing from a render nobody flagged.
   const { root } = workspace("token-dropped", {
+    geometry: GEOMETRY_WITH_ICONS(["phone", "email", "website"]),
     request: REQUEST_WITH(["phone", "email", "website"]),
-    plan: PLAN,
+    plan: PLAN_WITH_ICONS(["phone", "email", "website"]),
     manifest: manifestFor(["phone", "email"]),
   });
   const { status, parsed } = checkFor(root, "authoring");
@@ -768,4 +787,51 @@ test("a project with no reference is not held to a fingerprint it cannot have", 
   const { status, parsed, out } = check(workspace("no-reference").root);
   assert.equal(status, 0, out);
   assert.match(named(parsed, "visual-analysis.json").detail, /no reference on disk/);
+});
+
+// ---------------------------------------------------------------------------
+// Icons: a request that names them and an analysis that describes none cannot
+// both be right. A run resolved 33 icons and wrote `icons: []` — the same thing
+// `spacing` and `typography` did before, because what is optional gets omitted.
+// ---------------------------------------------------------------------------
+
+test("33 icons requested and none described holds the join", () => {
+  const { root } = workspace("icons-omitted", { request: REQUEST_WITH(["phone", "email", "website"]) });
+  const { status, parsed } = check(root);
+
+  assert.equal(status, 1);
+  assert.equal(named(parsed, "icons described").ok, false);
+  assert.match(named(parsed, "icons described").detail, /names 3 icon\(s\).*describes\s+none/s);
+  // The reason it matters, not just the count.
+  assert.match(named(parsed, "icons described").detail, /emitted as a glyph at text size/);
+});
+
+test("a request naming no icons is not asked to describe any", () => {
+  const { status, parsed, out } = check(workspace("icons-none").root);
+  assert.equal(status, 0, out);
+  assert.match(named(parsed, "icons described").detail, /no icons requested/);
+});
+
+test("described icons that match the request clear it", () => {
+  const { root } = workspace("icons-described", {
+    geometry: GEOMETRY_WITH_ICONS(["phone", "email"]),
+    request: REQUEST_WITH(["phone", "email"]),
+  });
+  const { status, parsed, out } = check(root);
+
+  assert.equal(status, 0, out);
+  assert.match(named(parsed, "icons described").detail, /2 of 2 requested icon\(s\) described/);
+});
+
+test("an icon id matching no requested token is caught", () => {
+  // A typo here points the plan's `icons` claim at nothing.
+  const { root } = workspace("icons-typo", {
+    geometry: GEOMETRY_WITH_ICONS(["phone", "emial"]),
+    request: REQUEST_WITH(["phone", "email"]),
+  });
+  const { status, parsed } = check(root);
+
+  assert.equal(status, 1);
+  assert.equal(named(parsed, "icons described").ok, false);
+  assert.match(named(parsed, "icons described").detail, /emial/);
 });

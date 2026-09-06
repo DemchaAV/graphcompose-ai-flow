@@ -284,6 +284,55 @@ function dataArtifact() {
  * would have explained it was written.
  */
 /**
+ * A document with icons has said something about their geometry.
+ *
+ * `icons` is optional at the root, and a terse model omits what is optional:
+ * one run resolved 33 icons through the asset request and wrote `icons: []`,
+ * exactly as an earlier one had omitted `spacing` and `typography` entirely.
+ * The result is icons emitted as inline glyphs at text size, because nothing
+ * recorded that they were half again the cap height and centred.
+ *
+ * The check is a contradiction between two artifacts, not a quota: a request
+ * that names icons and an analysis that describes none cannot both be right.
+ * How many entries is a judgement — an icon that really is an inline glyph at
+ * text size needs `inline: true` and nothing else — so this asks for one, and
+ * the contract asks for each one whose size or placement is independent.
+ *
+ * An id that matches no requested token is flagged too: it is either a typo,
+ * in which case the plan's `icons` claim will point at nothing, or an icon
+ * nobody resolved an asset for.
+ */
+function iconsDescribed(analysis, request) {
+  const name = "icons described";
+  const requested = (request.icons ?? []).map((i) => i?.token).filter(Boolean);
+  const described = analysis.icons ?? [];
+
+  if (requested.length === 0) {
+    return { name, ok: true, detail: "no icons requested" };
+  }
+  if (described.length === 0) {
+    return {
+      name,
+      ok: false,
+      detail:
+        `asset-request.json names ${requested.length} icon(s) and visual-analysis.json describes ` +
+        "none. An icon with no sizeRelativeToText, verticalAlign or inline is emitted as a glyph " +
+        "at text size — record the ones whose size or placement is independent of the text",
+    };
+  }
+  const unknown = described.map((i) => i?.id).filter((id) => id && !requested.includes(id));
+  return unknown.length === 0
+    ? { name, ok: true, detail: `${described.length} of ${requested.length} requested icon(s) described` }
+    : {
+        name,
+        ok: false,
+        detail:
+          `icon(s) ${unknown.join(", ")} are described but not in asset-request.json — an id that ` +
+          "matches no token is a typo or an icon nobody resolved an asset for",
+      };
+}
+
+/**
  * Every measured container and icon is built by exactly one render method.
  *
  * Measuring a container is half the job. The other half is that some method is
@@ -449,6 +498,11 @@ if (args.only) {
   artifacts = [CHECKS[args.only]()];
 } else {
   artifacts = (args.for === "authoring" ? AUTHORING_BARRIER : PLAN_BARRIER).map((name) => CHECKS[name]());
+  // Both halves are in the plan barrier, so this fires at the earliest point it
+  // can — before the architecture plan is written around icons nobody measured.
+  if (docs["visual-analysis.json"] && docs["asset-request.json"]) {
+    artifacts.push(iconsDescribed(docs["visual-analysis.json"], docs["asset-request.json"]));
+  }
   // The authoring barrier is the plan barrier plus what authoring itself reads.
   // Asset resolution runs concurrently with the plan — it feeds neither — so the
   // manifest is required here and deliberately not one line earlier.
