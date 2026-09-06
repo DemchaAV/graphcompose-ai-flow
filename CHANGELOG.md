@@ -5,6 +5,63 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.24.0-beta.3 — 2026-09-06
+
+**What this beta is.** `beta.2` plus the analysis contract, cut for a clean
+Antigravity run. Three changes, none of which touches the fidelity gate.
+
+**An analysis now has to describe the reference it sits beside.** A run asked
+to build from a new reference opened a fresh project and then copied
+`revisions/revision-001/*` and `render-runner/` from an older project of the
+same name. The analysis that landed was byte-identical, this barrier passed —
+validating says the document is well-shaped, not that anybody looked at the
+image — and four revisions were spent correcting a template built from it.
+`visual-analysis.json` carries a tool-stamped `provenance` binding the
+reference bytes, the project id **and** the workspace; in that incident the
+first two matched, so only the third would have caught it.
+
+**A container is measured, not described.** The reference's competency boxes
+are rounded rectangles of radius ~3px on a 32px box, no fill, a coral hairline,
+all ten spanning the sidebar's full width. The analysis called them *"10 white
+rounded pill badges"*, and the author faithfully wrote `cornerRadius(15)` on a
+33px box, each shrinking to its label. Nothing was lying: `shapeOwnership` was
+three prose strings with `additionalProperties: false`, so a radius had nowhere
+to go, and the guidance offered the taxonomy *circles / pills or badges /
+rounded cards* — which has no bucket for a rectangle with a small radius. Asked
+to classify, a model picks the nearest label on offer.
+
+Each entry now measures the thing:
+
+| Field | Instead of | |
+|---|---|---|
+| `cornerRadiusRatio` | "rounded", "capsule" | radius ÷ shorter side. The box called a capsule measures **0.09** |
+| `sizing` | inferring width | `fill-parent` vs `hug-content` — why ten boxes became ten widths |
+| `fill.present` / `stroke.present` | "white box with a border" | a container showing the ground through it is not a fill that matches it |
+| `padding` per side, `gap`, `contentAlign` | "some spacing" | the frame and the rhythm are different numbers |
+| `repeats` | ten entries | one entry, built once, driven by data |
+
+A new `icons` block carries `sizeRelativeToText`, `verticalAlign`, `gapToText`
+and `inline`, which is what turned icons half again the cap height into
+text-sized inline glyphs. Ratios throughout, never pixels.
+
+**And the measurement has to reach a render method.** `componentMapping`
+entries gain `containers` and `icons`, and `check-analysis --for authoring`
+holds unless every measured container and icon is claimed by exactly one
+method — otherwise the geometry arrives at the plan as prose in `notes` and
+stops there, which is what it did. `create-3-author.md` gains the table
+turning each measurement into what to write.
+
+**Migration.** Analyses written before provenance are held until re-stamped,
+with the command in the message; an analysis describing a container without
+geometry no longer validates. Both are deliberate — they are the states these
+changes exist to end. `schemaVersion` stays `1`: the new fields are required
+only within entries that exist, and legacy artifacts are already held.
+
+**Known and not fixed here.** `DocumentStroke.of(PAPER, 0.0)` is a white
+stroke, not an absent one, and paints a pale band around every box on a tinted
+panel. The author contract now says so; the renderer-side fix is its own
+commit.
+
 ## v0.24.0-beta.2 — 2026-09-06
 
 **What this beta is.** `0.24.0-beta.1` plus one fix, cut so the change can be
