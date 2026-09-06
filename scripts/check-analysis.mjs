@@ -283,6 +283,50 @@ function dataArtifact() {
  * TypeError on a request whose `icons` was an object, before the line that
  * would have explained it was written.
  */
+/**
+ * Every measured container and icon is built by exactly one render method.
+ *
+ * Measuring a container is half the job. The other half is that some method is
+ * on the hook for drawing it to those measurements, and until the plan says
+ * which, the analysis is a document nobody is obliged to read — which is what
+ * happened when the geometry reached the plan as prose in `notes` and the
+ * author invented a radius.
+ *
+ * Two failures, opposite fixes. Unclaimed means the plan forgot a container the
+ * reference has, and the plan is what needs another line. Claimed twice means
+ * two methods both think they draw it, and one of them will be overwritten by
+ * the other at a size nobody chose.
+ */
+function measuredGeometryMapped(analysis, plan) {
+  const name = "geometry -> render methods";
+  const mapping = Array.isArray(plan.componentMapping) ? plan.componentMapping : [];
+  const held = [];
+
+  for (const [kind, entries, field] of [
+    ["container", analysis.shapeOwnership ?? [], "containers"],
+    ["icon", analysis.icons ?? [], "icons"],
+  ]) {
+    for (const entry of entries) {
+      const id = kind === "container" ? entry?.container : entry?.id;
+      if (!id) continue;
+      const claimants = mapping
+        .filter((m) => (m?.[field] ?? []).includes(id))
+        .map((m) => m.renderMethod);
+      if (claimants.length === 0) {
+        held.push(`${kind} "${id}" is measured and no render method claims it (add it to a componentMapping entry's ${field})`);
+      } else if (claimants.length > 1) {
+        held.push(`${kind} "${id}" is claimed by ${claimants.join(" and ")} — exactly one method owns a container`);
+      }
+    }
+  }
+
+  const counted =
+    `${(analysis.shapeOwnership ?? []).length} container(s), ${(analysis.icons ?? []).length} icon(s)`;
+  return held.length === 0
+    ? { name, ok: true, detail: `${counted} each built by one render method` }
+    : { name, ok: false, detail: held.join("; ") };
+}
+
 function requestedAssetsResolved(request, manifest) {
   const held = [];
   const manual = [];
@@ -410,6 +454,13 @@ if (args.only) {
   // manifest is required here and deliberately not one line earlier.
   if (args.for === "authoring" && docs["asset-request.json"] && docs["assets-manifest.json"]) {
     artifacts.push(requestedAssetsResolved(docs["asset-request.json"], docs["assets-manifest.json"]));
+  }
+  // The second disagreement no schema can see: geometry that was measured and
+  // then routed nowhere. Both files validate — the analysis carries a radius, a
+  // fill and a width; the plan carries regions and methods — and nothing ties
+  // one to the other, so the numbers stop at the artifact that holds them.
+  if (args.for === "authoring" && docs["visual-analysis.json"] && docs["architecture-plan.json"]) {
+    artifacts.push(measuredGeometryMapped(docs["visual-analysis.json"], docs["architecture-plan.json"]));
   }
 }
 

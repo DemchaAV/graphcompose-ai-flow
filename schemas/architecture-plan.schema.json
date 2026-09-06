@@ -87,6 +87,16 @@
             },
             "description": "GraphCompose primitives the method reaches for, e.g. [\"RowBuilder.weights\", \"LayerStackBuilder.position\"]. Must appear in the pinned skill pack's allow-list."
           },
+          "containers": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "description": "Container ids from visual-analysis.json's shapeOwnership that this method builds. Every measured container must be claimed by exactly one render method; check-analysis --for authoring holds the barrier when one is unclaimed or claimed twice. An analysis that measured a radius, a fill and a width is worth nothing if the plan never routes it to the method that draws the box — before this existed the measurements reached the plan as a sentence in `notes` (\"10 white rounded pill badges\") and the numbers stopped there."
+          },
+          "icons": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "description": "Icon ids from visual-analysis.json's icons block that this method places. Same rule as containers: exactly one claimant, or the barrier holds."
+          },
           "notes": {
             "type": "string",
             "minLength": 1

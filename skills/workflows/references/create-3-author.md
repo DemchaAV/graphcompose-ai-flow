@@ -152,6 +152,35 @@ two rules:
 Never read a *newer* line's prose for an older pinned line. Preflight will
 not offer it, and it would name API the pinned line does not have.
 
+## Containers are already measured — build to the numbers
+
+`visual-analysis.json` carries `shapeOwnership` and `icons`, and the plan
+says which of your render methods owns each one. Those are measurements,
+not suggestions: do not re-decide a radius or a width by eye from the
+reference, and do not soften one because the render "looks about right".
+The barrier already refused a plan that left a measured container
+unclaimed, so every id you were given has your name against it.
+
+| The analysis says | You write | Getting it wrong looks like |
+|---|---|---|
+| `cornerRadiusRatio` | radius = ratio × the box's **shorter side**. 0.09 on a 32px box is ~3px | 0.09 built as a capsule — the error this contract exists to stop |
+| `shape: pill` | and only then radius = height ÷ 2 | every rounded box becoming a capsule |
+| `sizing: fill-parent` | a container that spans its parent's content width | ten boxes shrinking to ten different widths |
+| `sizing: hug-content` | a container that wraps its content | a short label stretched across the column |
+| `fill.present: false` | **no fill at all** — the ground shows through | a white box painted over a coloured panel |
+| `stroke.present: false` | no stroke — not a zero-width one, and not one in the background colour | a hairline nobody asked for (see the note below) |
+| `padding` per side | each side separately | content optically off-centre |
+| `gap` | between children; `padding` is the frame | one number doing both jobs badly |
+| `icons[].sizeRelativeToText` | icon height = ratio × the adjacent text height | 1.45 emitted as a text-sized inline glyph |
+| `icons[].inline: false` | its own child, positioned independently | an independent icon dropped into a text run |
+
+Ratios are against the container's shorter side; resolve them once into a
+named constant rather than sprinkling the arithmetic.
+
+**"No stroke" is not a stroke you cannot see.** A zero-width stroke, or one
+in the page colour, still paints — on a tinted panel it leaves a pale band
+around every box. If `stroke.present` is false, emit no stroke.
+
 ## Before you choose a primitive, ask for the route
 
 The surfaces say what exists. They cannot say which of three ways is the

@@ -179,3 +179,148 @@ test("the geometry blocks stay optional at the root, and empty is still honest",
   ok(base(), "no shapeOwnership at all");
   ok(base({ shapeOwnership: [], icons: [] }), "explicitly none");
 });
+
+// ---------------------------------------------------------------------------
+// The plan has to consume what the analysis measured.
+//
+// Measuring is half the job; the other half is that some render method is on
+// the hook for drawing it to those measurements. Both artifacts validated
+// independently while the geometry reached the plan as prose in `notes`, and
+// the numbers stopped there.
+// ---------------------------------------------------------------------------
+
+import fs from "node:fs";
+import os from "node:os";
+import { spawnSync } from "node:child_process";
+
+const CHECK = path.join(repoRoot, "scripts", "check-analysis.mjs");
+const gtemps = [];
+process.on("exit", () => {
+  for (const d of gtemps) {
+    try {
+      fs.rmSync(d, { recursive: true, force: true });
+    } catch {
+      /* best effort */
+    }
+  }
+});
+
+const writeJson = (file, value) => {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+};
+
+const ICON = {
+  id: "section-competencies",
+  sizeRelativeToText: 1.45,
+  verticalAlign: "center",
+  inline: false,
+};
+
+/** A workspace whose analysis measures one container and one icon. */
+function authoringWorkspace(label, componentMapping) {
+  const host = fs.mkdtempSync(path.join(os.tmpdir(), `gcgeom-${label}-`));
+  gtemps.push(host);
+  const root = path.join(host, "graphcompose-flow");
+  const project = path.join(root, "projects", "demo");
+  const revision = path.join(project, "revisions", "revision-001");
+
+  writeJson(path.join(root, "flow.config.json"), { schemaVersion: 1 });
+  writeJson(path.join(project, "template-project.json"), {
+    id: "demo", displayName: "demo", docKind: "cv",
+    targetGraphComposeVersion: "2.3.0", skillPack: "skills/versions/graphcompose-2.3",
+    currentDraftRevisionId: "revision-001", currentApprovedRevisionId: null,
+    createdAt: "2026-09-01T00:00:00.000Z", updatedAt: "2026-09-01T00:00:00.000Z", schemaVersion: 1,
+  });
+  writeJson(path.join(revision, "revision.json"), {
+    id: "revision-001", parentRevisionId: null, status: "DRAFT", userRequest: "make a cv",
+    targetGraphComposeVersion: "2.3.0", skillPack: "skills/versions/graphcompose-2.3",
+    createdAt: "2026-09-01T00:00:00.000Z", artifacts: { userRequest: "user-request.md" }, schemaVersion: 1,
+  });
+  writeJson(path.join(revision, "visual-analysis.json"), base({
+    shapeOwnership: [COMPETENCY_BOX],
+    icons: [ICON],
+  }));
+  writeJson(path.join(revision, "cv-data.json"), { name: "A Person" });
+  writeJson(path.join(revision, "asset-request.json"), {
+    icons: [], fonts: [],
+  });
+  writeJson(path.join(revision, "assets-manifest.json"), {
+    schemaVersion: "1.0.0",
+    generatedAt: "2026-09-01T00:00:00.000Z",
+    revisionDir: revision,
+    icons: {},
+    fonts: {},
+  });
+  writeJson(path.join(revision, "architecture-plan.json"), {
+    schemaVersion: 1,
+    targetGraphComposeVersion: "2.3.0",
+    templateSurface: { lane: "V2 layered", documentKind: "cv" },
+    dataModel: { specClass: "a.B", providerClass: "a.C#create()", dataFile: "cv-data.json" },
+    componentMapping,
+  });
+  return root;
+}
+
+function authoringBarrier(root) {
+  const run = spawnSync(process.execPath, [CHECK, "--project", "demo", "--root", root, "--for", "authoring", "--json"], {
+    encoding: "utf8",
+  });
+  let parsed = null;
+  try {
+    parsed = JSON.parse(run.stdout);
+  } catch {
+    /* an error path */
+  }
+  return { status: run.status, parsed, out: `${run.stdout ?? ""}${run.stderr ?? ""}` };
+}
+
+const geometryCheck = (parsed) => parsed.artifacts.find((a) => a.name === "geometry -> render methods");
+
+test("a measured container no method claims holds the authoring barrier", () => {
+  // The plan validates, the analysis validates, and the radius routes nowhere.
+  const root = authoringWorkspace("unclaimed", [
+    { region: "sidebar", renderMethod: "renderSidebar", notes: "10 white rounded pill badges" },
+  ]);
+  const { status, parsed } = authoringBarrier(root);
+
+  assert.equal(status, 1);
+  assert.equal(geometryCheck(parsed).ok, false);
+  assert.match(geometryCheck(parsed).detail, /competency-box.*no render method claims it/);
+});
+
+test("a measured icon no method places holds it too", () => {
+  const root = authoringWorkspace("unclaimed-icon", [
+    { region: "sidebar", renderMethod: "renderSidebar", containers: ["competency-box"] },
+  ]);
+  const { parsed } = authoringBarrier(root);
+  assert.equal(geometryCheck(parsed).ok, false);
+  assert.match(geometryCheck(parsed).detail, /section-competencies.*no render method claims it/);
+});
+
+test("two methods claiming one container is held, with both named", () => {
+  // One would overwrite the other at a size nobody chose.
+  const root = authoringWorkspace("double", [
+    { region: "sidebar", renderMethod: "renderSidebar", containers: ["competency-box"], icons: ["section-competencies"] },
+    { region: "sidebar", renderMethod: "renderCompetencies", containers: ["competency-box"] },
+  ]);
+  const { parsed } = authoringBarrier(root);
+  assert.equal(geometryCheck(parsed).ok, false);
+  assert.match(geometryCheck(parsed).detail, /claimed by renderSidebar and renderCompetencies/);
+});
+
+test("every measured container and icon claimed exactly once clears it", () => {
+  const root = authoringWorkspace("claimed", [
+    {
+      region: "sidebar",
+      renderMethod: "renderSidebarCompetencies",
+      containers: ["competency-box"],
+      icons: ["section-competencies"],
+    },
+  ]);
+  const { status, parsed, out } = authoringBarrier(root);
+
+  assert.equal(status, 0, out);
+  assert.equal(geometryCheck(parsed).ok, true);
+  assert.match(geometryCheck(parsed).detail, /1 container\(s\), 1 icon\(s\)/);
+});
