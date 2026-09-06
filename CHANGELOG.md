@@ -5,6 +5,46 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.24.0-beta.5 — 2026-09-06
+
+**What this beta is.** `beta.4` plus the two defects the first fully clean
+Antigravity run left on the page, and one thing it exposed about the harness
+itself.
+
+**What the run got right, first.** Writing everything from scratch on the
+measured contract, a weak model returned `shape: rounded-rectangle` (not the
+"capsule" of two releases ago), `cornerRadiusRatio: 0.12` against a true 0.09,
+`sizing: fill-parent`, `repeats: 10`, and correct `fill`/`stroke` on two of
+three containers. The fidelity gate refused its `READY_FOR_APPROVAL` again.
+Parity moved 14.597% → 14.343%, SSIM 0.363 → 0.413.
+
+**A fill is now measured, not asserted.** The one field it got wrong was
+`fill.present`, on a container that paints nothing — the sidebar shows straight
+through it, and only a hairline marks its edge. That field was the first thing
+a reader noticed. Nobody has to answer it from an image: sample inside the
+container and just outside, and if the colour is the same there is no fill. On
+the real reference the card reads `rgb(253,241,238)` inside against
+`rgb(253,241,237)` beside it, while the dark monogram panel reads `rgb(2,50,45)`
+against white — so the probe catches the error without inventing one.
+
+`bounds` is therefore now required on every container, as page fractions. It is
+what turns the other fields from claims into checkable ones.
+
+**A region called a panel has to be described as one.** `role: panel` means the
+region *is* a shape. The same run described three containers and left out the
+one a reader complained about twice — the dark monogram block. Nothing measured
+its corner, so a corner stuck out; nothing recorded that it lies *over* the
+sidebar, so the sidebar stopped where the block began instead of running behind
+it. Two visible defects from one omission.
+
+**Known, and not fixed here.** `api-query --exists` answers "is this in the
+surface dump", while a caller means "can I compile against this". The pack is
+built from `graph-compose-core` **and** `graph-compose-templates`, and tags each
+type with its artifact — but the scaffolded runner's pom pulls only the
+`graph-compose` aggregator, which carries core and render-pdf. So 161 types
+across 17 `templates.*` packages answer "exists" and will not compile. The data
+to fix it is already in the pack; surfacing it is the next commit, not this one.
+
 ## v0.24.0-beta.4 — 2026-09-06
 
 **What this beta is.** `beta.3` plus the two holes the first clean Antigravity
