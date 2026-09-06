@@ -48,6 +48,7 @@ import { pagePairs } from "./lib/page-pairs.mjs";
 import { describeAttempts, readAttempts, recordAttempt } from "./lib/attempts.mjs";
 import { compareEdgeBands } from "./lib/edge-bands.mjs";
 import { describeIgnoredCopies, resolveTemplateSource } from "./lib/template-source.mjs";
+import { describeForeignTwin, findForeignTwin } from "./lib/template-origin.mjs";
 import { INFERRED_NEW_SCOPE, resolveScope } from "./lib/pipeline-config.mjs";
 
 const repoRoot = installRoot();
@@ -398,6 +399,17 @@ step("template source", (entry) => {
     ignored: resolved.ignored.map((c) => ({ name: c.name, divergent: c.divergent })),
     divergent: resolved.divergent,
   };
+  // A template copied out of another project is not this project's template,
+  // however well the analysis beside it was measured. The run that prompted
+  // this wrote a genuine new analysis and then copied the Java, and the two
+  // projects' diffs matched to four decimal places.
+  const twin = findForeignTwin({
+    workspaceRoot: workspace.root,
+    projectId: args.project,
+    templateFile: resolved.file,
+  });
+  if (twin) throw new Error(describeForeignTwin(twin));
+
   const note = describeIgnoredCopies(resolved);
   entry.detail = note ? note : `${resolved.name} — one file, which is the build's`;
 });
