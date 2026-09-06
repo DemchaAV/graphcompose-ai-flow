@@ -33,6 +33,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { auditReviewClaims } from "./review-claims.mjs";
+import { CONVERGENCE, FIDELITY, convergenceOf, fidelityOf, reconcileVerdict } from "./fidelity.mjs";
 import { describeSeal, sealState } from "./revision-seal.mjs";
 import { describeAttempts, readAttempts } from "./attempts.mjs";
 import { coveringLimitation, readLimitations } from "./limitations.mjs";
@@ -609,6 +610,24 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     if (verdict === "READY_FOR_APPROVAL") verdict = "REVISE";
   }
 
+  // The checks above ask whether the review was done and whether it contradicts
+  // itself. None of them asks the comparator what it measured, so a review that
+  // quoted its own pixel count honestly and then called every mismatch MINOR
+  // ended the loop on a page 14.17% of which was wrong. Fidelity and
+  // convergence are separate questions and are answered separately; see
+  // lib/fidelity.mjs for which of the five recorded numbers is binding and why.
+  // Named `movement` here, not `convergence`: this file already has a
+  // `convergence()` answering a different question — whether the severity
+  // ledger shrank, which is what an extension is granted on. This axis is
+  // about pixels moving, and conflating the two names would hide that.
+  const fidelity = fidelityOf(latest.stats);
+  const movement = convergenceOf(stalling, renders.latest);
+  const reconciled = reconcileVerdict({ claimed: verdict, fidelity, convergence: movement });
+  if (reconciled.reason) {
+    reasons.push(`${latest.id}: ${reconciled.reason}`);
+    verdict = reconciled.verdict;
+  }
+
   if (truncatedAt) {
     reasons.push(
       `the chain stops at ${truncatedAt}, whose revision.json is missing or unreadable — ` +
@@ -774,6 +793,13 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     // Whether those passes are still buying anything. Evidence, never a
     // verdict: a threshold nobody measured should not be what ends a loop.
     diminishingReturns: stalling,
+    // The two axes, reported together and computed separately because they
+    // answer different questions and were previously conflated: `fidelity` is
+    // how close the render is to the reference, `movement` is whether the
+    // passes are still changing it. STALLED movement with anything but a PASS
+    // fidelity is a stall, not a finish. Distinct from `convergence` above,
+    // which is the severity ledger an extension is granted on.
+    parity: { fidelity, movement },
     // Renders inside the revisions, from attempts.json: the measurements the
     // folder count hides. `total` is what the loop actually paid for.
     renders,

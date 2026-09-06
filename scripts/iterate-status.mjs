@@ -112,6 +112,25 @@ if (args.json) {
         `   (last pass closed ${g.from - g.to} blocking mismatch(es))`,
     );
   }
+  // The two axes, side by side and never folded together: how close the render
+  // is, and whether the passes are still moving it. A reader who sees only one
+  // of them is one step from calling a stalled wrong page a finished one.
+  if (status.parity) {
+    const { fidelity: f, movement: m } = status.parity;
+    const measured =
+      f.classification === null
+        ? "not measured"
+        : `${f.classification}` +
+          (f.percent !== null ? ` (${f.percent.toFixed(3)}% of the page` : "") +
+          (f.parityScore !== null ? `, parity ${f.parityScore}` : "") +
+          (f.ssim !== null ? `, ssim ${f.ssim}` : "") +
+          (f.percent !== null ? ")" : "");
+    console.log(`  fidelity                ${f.level}   ${measured}`);
+    console.log(
+      `  movement                ${m.level}` +
+        (m.materialPercent !== null ? `   (material move ${m.materialPercent}%)` : ""),
+    );
+  }
   // Measurements, not folders. One revision rendered ten times is ten of these
   // and one of the above; the difference is what a sweep costs.
   if (status.renders?.total > 0) {

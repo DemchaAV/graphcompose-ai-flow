@@ -666,17 +666,25 @@ test("a quoted pixel count that disagrees with the measured one is not a measure
   assert.match(status.reasons.join("\n"), /211674/);
 });
 
+// The subject here is the claims audit — an honest quote is not downgraded —
+// and the fixture used to prove it with `classification: "CRITICAL"` and
+// `gate.passed: false` while asserting READY_FOR_APPROVAL. That is the defect
+// the fidelity veto exists to stop, so the test was passing on the strength of
+// it: the audit was not downgrading, and nothing else was looking. The fixture
+// is now internally honest (a MINOR page, a gate that passed, a quote that
+// matches) so the assertion turns on the audit and not on the absent veto. The
+// audit itself is unchanged; see the CRITICAL and MAJOR cases below.
 test("a quoted pixel count that matches the measured one passes", () => {
   const dir = projectWith([
     {
       ...REVIEW_READY,
-      stats: { mismatchPx: 211674, percent: 9.73, classification: "CRITICAL" },
+      stats: { mismatchPx: 9200, percent: 0.423, classification: "MINOR" },
       review: {
         gate: {
           kind: "visual-review",
-          passed: false,
-          metric: "diff: 211674 px (9.738%)",
-          pages: [{ page: 1, mismatchPixels: 211674 }],
+          passed: true,
+          metric: "diff: 9200 px (0.423%)",
+          pages: [{ page: 1, mismatchPixels: 9200 }],
         },
       },
     },
@@ -1216,4 +1224,173 @@ test("a harness focus written by render-and-diff outranks the review's, and the 
   assert.equal(status.focusSource, "page-parity");
   assert.equal(status.sameMismatchAttempts, 3, "three passes with the page model open are three attempts at it");
   assert.equal(status.verdict, "CONVERGENCE_LIMIT_REACHED");
+});
+
+// ---------------------------------------------------------------------------
+// Fidelity is binding: the comparator can refuse a verdict the review wrote.
+//
+// Every fixture below passes the checks that already existed — the revision is
+// sealed, it was measured, the review is present, and its claims agree with the
+// stats file — so what refuses them is the fidelity axis and nothing else.
+// ---------------------------------------------------------------------------
+
+/**
+ * The run this guard was written for, reproduced from its artifacts.
+ *
+ * TestHarness/graphcompose-flow/projects/nora-bennett-cv, revision-001, on
+ * harness 0.24.0-beta.1 with Gemini 3 Flash. The comparator measured 308095
+ * mismatched pixels (14.174% of the page, parityScore 43, ssim 0.4196) and
+ * classified it CRITICAL. The review quoted 308095 back correctly, labelled the
+ * four differences MINOR and INTENTIONAL_DIFFERENCE, wrote `gate.passed: true`
+ * and `verdict: READY_FOR_APPROVAL` — and the loop stopped after one pass and
+ * offered the template for approval.
+ *
+ * Nothing in that chain was a lie the audit could catch: the number is right,
+ * and severity is the review's to assign. The only thing that disagreed was the
+ * comparator, and nobody was reading it.
+ */
+test("the nora-bennett-cv run cannot reach READY: CRITICAL is binding", () => {
+  const dir = projectWith([
+    {
+      ...REVIEW_READY,
+      statsReferenceInside: true,
+      stats: {
+        width: 1240,
+        height: 1753,
+        totalPx: 2173720,
+        mismatchPx: 308095,
+        percent: 14.173628618221299,
+        parityScore: 43,
+        classification: "CRITICAL",
+        perceptual: { ssim: 0.4196, classification: "CRITICAL" },
+      },
+      review: {
+        pixelSimilaritySignal: 85.83,
+        gate: {
+          kind: "visual-review",
+          passed: true,
+          metric: "diff: 308095 px (14.174%) — visual-review",
+          pages: [{ page: 1, mismatchPixels: 308095, percentOfPage: 14.173628618221299 }],
+        },
+        mismatches: [
+          { id: "typography-antialiasing", severity: "MINOR", cause: "TYPOGRAPHY", reason: "aa", action: "keep" },
+          { id: "monogram-approximation", severity: "INTENTIONAL_DIFFERENCE", cause: "ASSET", reason: "as planned" },
+        ],
+      },
+    },
+  ], "nora-bennett-regression");
+
+  const status = statusOf(dir);
+  assert.notEqual(status.verdict, "READY_FOR_APPROVAL");
+  assert.equal(status.verdict, "REVISE");
+  assert.equal(status.parity.fidelity.level, "CRITICAL");
+  assert.equal(status.parity.fidelity.classification, "CRITICAL");
+  assert.equal(status.parity.fidelity.parityScore, 43);
+  assert.equal(status.parity.fidelity.ssim, 0.4196);
+  assert.ok(
+    status.reasons.some((r) => r.includes("CRITICAL classification is never")),
+    `the refusal must say why; got ${JSON.stringify(status.reasons)}`,
+  );
+});
+
+test("a MAJOR page that has stopped moving is a stall, not a finish", () => {
+  // Three passes carrying the same mismatch id, because movement needs two
+  // deltas and the first pass has nothing to be measured against. The severity
+  // is MINOR so the claims audit has nothing to say and the refusal is the
+  // fidelity axis's alone. The page moves 4.30% -> 4.20% -> 4.19%, both deltas
+  // under the 0.25 material move: STALLED movement, NEEDS_WORK fidelity — the
+  // loop has stopped without arriving.
+  const listed = (id) => ({
+    largestMismatch: id,
+    mismatches: [{ id, severity: "MINOR", cause: "GEOMETRY", reason: "differs", action: "nudge it" }],
+  });
+  const dir = projectWith([
+    { verdict: "REVISE", statsReferenceInside: true,
+      stats: { mismatchPx: 92000, percent: 4.30, classification: "MAJOR" },
+      review: listed("sidebar-width") },
+    { verdict: "REVISE", statsReferenceInside: true,
+      stats: { mismatchPx: 90000, percent: 4.20, classification: "MAJOR" },
+      review: listed("sidebar-width") },
+    { ...REVIEW_READY, statsReferenceInside: true,
+      stats: { mismatchPx: 89900, percent: 4.19, classification: "MAJOR" },
+      review: {
+        ...listed("sidebar-width"),
+        gate: { kind: "visual-review", passed: true, metric: "diff: 89900 px (4.190%)",
+                pages: [{ page: 1, mismatchPixels: 89900 }] },
+      } },
+  ], "major-stalled");
+
+  const status = statusOf(dir);
+  // The veto takes READY down to REVISE; the same-cause bound, which the third
+  // pass has now spent, takes REVISE on to CONVERGENCE_LIMIT_REACHED. That
+  // composition is the "stalled, needs a person" state: a document exists and
+  // the loop is out of ideas, which is neither success nor a blocked build.
+  assert.notEqual(status.verdict, "READY_FOR_APPROVAL");
+  assert.equal(status.verdict, "CONVERGENCE_LIMIT_REACHED");
+  assert.equal(status.parity.fidelity.level, "NEEDS_WORK");
+  assert.equal(status.parity.movement.level, "STALLED");
+  assert.ok(
+    status.reasons.some((r) => r.includes("stall, not a finish")),
+    `a converged bad result must be reported as a stall; got ${JSON.stringify(status.reasons)}`,
+  );
+});
+
+test("a MAJOR page still moving is told to keep going, not that it is ready", () => {
+  const dir = projectWith([
+    { ...REVIEW_READY, statsReferenceInside: true,
+      stats: { mismatchPx: 89900, percent: 4.19, classification: "MAJOR" },
+      review: {
+        gate: { kind: "visual-review", passed: true, metric: "diff: 89900 px (4.190%)",
+                pages: [{ page: 1, mismatchPixels: 89900 }] },
+      } },
+  ], "major-improving");
+
+  const status = statusOf(dir);
+  assert.equal(status.verdict, "REVISE");
+  assert.equal(status.parity.fidelity.level, "NEEDS_WORK");
+});
+
+test("MINOR and IDENTICAL leave a READY verdict alone", () => {
+  for (const classification of ["MINOR", "IDENTICAL"]) {
+    const dir = projectWith([
+      { ...REVIEW_READY, statsReferenceInside: true,
+        stats: { mismatchPx: 4000, percent: classification === "IDENTICAL" ? 0 : 0.18, classification },
+        review: {
+          gate: { kind: "visual-review", passed: true, metric: "diff: 4000 px (0.184%)",
+                  pages: [{ page: 1, mismatchPixels: 4000 }] },
+        } },
+    ], `pass-${classification}`);
+
+    const status = statusOf(dir);
+    assert.equal(status.verdict, "READY_FOR_APPROVAL", `${classification} must not be refused`);
+    assert.equal(status.parity.fidelity.level, "PASS");
+  }
+});
+
+test("fidelity never rescues a REVISE into a READY", () => {
+  // The measurement may refuse; it may not approve. A review that asked for
+  // another pass keeps its answer even on a page the comparator likes.
+  const dir = projectWith([
+    { verdict: "REVISE", mismatch: "icon-baseline", statsReferenceInside: true,
+      stats: { mismatchPx: 0, percent: 0, classification: "IDENTICAL" } },
+  ], "no-rescue");
+
+  const status = statusOf(dir);
+  assert.equal(status.verdict, "REVISE");
+  assert.equal(status.parity.fidelity.level, "PASS");
+});
+
+test("a stats file with no classification is UNMEASURED, and never reads as a pass", () => {
+  const dir = projectWith([
+    { ...REVIEW_READY, statsReferenceInside: true,
+      stats: { mismatchPx: 12, percent: 0.001 },
+      review: {
+        gate: { kind: "visual-review", passed: true, metric: "diff: 12 px (0.001%)",
+                pages: [{ page: 1, mismatchPixels: 12 }] },
+      } },
+  ], "unclassified");
+
+  const status = statusOf(dir);
+  assert.equal(status.parity.fidelity.level, "UNMEASURED");
+  assert.equal(status.parity.fidelity.classification, null);
 });
