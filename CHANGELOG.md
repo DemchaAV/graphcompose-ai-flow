@@ -5,6 +5,51 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.24.0-beta.4 — 2026-09-06
+
+**What this beta is.** `beta.3` plus the two holes the first clean Antigravity
+run found. The analysis contract and the fidelity gate are untouched.
+
+**A template copied from another project is refused.** With the analysis bound
+to its reference, the run routed around it: it wrote a genuine new analysis —
+measured containers and all, because the schema made it — and then copied
+`generated-template.java` byte for byte out of another project with
+`Copy-Item`. The measurements were made and reached no code. Both projects'
+diffs came out at **13.9810%**, to four decimal places, because it was the same
+Java rendering the same data.
+
+`render-and-diff` now recognises it where the template is first resolved. It
+deliberately does not flag another revision of the *same* project — `pass.mjs`
+carries a template forward, which is the loop working — and it does not flag
+the **original**: identity is symmetric, so once a copy exists each file is the
+other's twin, and the project that did nothing wrong would be the one unable to
+render. Only a twin from a revision opened earlier counts. What it claims is
+content identity and nothing more; a copy from another workspace, or one edited
+after copying, is out of reach, and the module says so.
+
+**Icons requested and icons described have to agree.** `icons` is optional at
+the root, and a terse model omits what is optional: the same run resolved 33
+icons through the asset request and wrote `icons: []`, exactly as an earlier one
+had omitted `spacing` and `typography`. Icons then render as inline glyphs at
+text size, because nothing recorded that they were half again the cap height.
+More prose would not fix that — the previous release's prose did not. A request
+naming icons beside an analysis describing none is a contradiction a script can
+see, and it now holds the plan barrier.
+
+**What the run got right, for the record.** The measured contract worked on a
+weak model: `shape` came back `rounded-rectangle` rather than the previous
+release's "rounded capsule shape", `sizing: fill-parent` named the shrink-to-fit
+defect, `repeats: 10` was correct, and three of five containers carried correct
+`fill`/`stroke`. Both new barriers fired mid-run and were obeyed without help —
+`write-artifact` rejected the first analysis draft and `check-analysis` rejected
+the first plan, and the model read each schema and complied.
+
+**Still open, and known.** A radius estimated by eye came back `0.15` for a true
+`0.09` — no longer a capsule, which was the point, but not the number either.
+The lever there is measuring the container deterministically rather than asking
+for a better guess, and that is not in this release. Nor is the
+`DocumentStroke.of(PAPER, 0.0)` white-stroke renderer bug.
+
 ## v0.24.0-beta.3 — 2026-09-06
 
 **What this beta is.** `beta.2` plus the analysis contract, cut for a clean
