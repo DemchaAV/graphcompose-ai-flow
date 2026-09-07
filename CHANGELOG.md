@@ -5,6 +5,52 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.24.0-beta.8 — 2026-09-07
+
+**What this beta is.** `beta.7` as its own Antigravity run sent it back, plus
+one negative result worth keeping.
+
+**The run, first.** It is the best the corpus has produced. The measurement
+check added in `beta.7` did what it was built for: the first family match was
+refused, the model **re-cropped to the exact line**, and both roles came back
+valid — body `score 0.129 / widthRatio 1.084` against `beta.6`'s `1.1649 /
+0.379`, headings separated by `0.0404` against `0.0061`. That is the first time
+a new barrier changed what a model did rather than only stopping it.
+
+**A card that repeats has to be able to take a second line.** The competency
+card was measured `fill-parent` — true of its width — and built as
+`roundedRect(144.0, 21.5, 2.5)` with the text `position`ed over it at an
+offset. The longest label shipped as "Budgeting & Financial Managemen", clipped
+at the border, because text laid over a shape cannot wrap and a shape given
+both dimensions cannot grow. No field was broken: `sizing` describes width, and
+nothing asked what happens when the content needs another line. So
+`check-region-primitives` now reads the code, and the author contract names
+`softPanel(color, radius, padding, stroke)` — on every flow builder, documented
+in the pack's own guide, named by no route and no contract until now.
+
+**The type size is measured too.** The same run measured a family for both
+roles and a size for neither, then set its contact strip to 6.2 and 6.4pt so
+the longest address would not wrap — the size traded away instead of the column
+fixed. `--role` now works for `search` as well as `match`, `headings` and
+`body` carry a `size`, and the barrier holds one that no sweep backs, that
+disagrees with its sweep, or whose sweep the tool itself calls indecisive. The
+scale the sweep needs is `page.referencePx.width ÷ page.sizePt.width`, already
+in the analysis.
+
+**A negative result: font class cannot be read from the ranking.** The plan was
+a serif/sans/slab/mono map over the 48 bundled families, so that a match whose
+top candidates straddle a class could be refused. Run against crops with known
+ground truth, the ranking below first place carries no class information at
+all: on LATO's own crop a sans and a serif sit 0.0003 apart at ranks two and
+three; on PT_SERIF's own crop the nearest competitor is a sans, with two serifs
+below it. A class check over the top-N would report "undecided" even where the
+winner is exactly right at score 0.0000. It was not built, and the experiment
+is recorded so it is not proposed again.
+
+**Verification.** 1446/1446 `node scripts/run-tests.mjs scripts/test`, thirteen
+gates clean under `node scripts/verify.mjs`. Both new checks replayed against
+the `nora-b7` artifacts they came from.
+
 ## v0.24.0-beta.7 — 2026-09-07
 
 **What this beta is.** `beta.6` as it came back from its own Antigravity run.
