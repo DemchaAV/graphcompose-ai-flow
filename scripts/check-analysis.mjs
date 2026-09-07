@@ -82,6 +82,7 @@ import { loadPipelineConfig } from "./lib/pipeline-config.mjs";
 import { loadFailure, ready, schemaValidator } from "./lib/schema-validator.mjs";
 import { compareFingerprint, computeFingerprint } from "./lib/reference-fingerprint.mjs";
 import { describeColour, probeFill } from "./lib/fill-probe.mjs";
+import { CORNERS, claimedRadius, isUniform, probeCorners } from "./lib/corner-probe.mjs";
 import { auditTypography } from "./lib/typography-roles.mjs";
 
 const repoRoot = installRoot();
@@ -371,6 +372,91 @@ function fillClaimsMeasured(analysis, referenceFile) {
 }
 
 /**
+ * How far a claimed corner may sit from the measured one.
+ *
+ * Set from the runs rather than from taste. The probe's own error against
+ * synthesised rasters is about 0.06, and the estimate this contract is happy
+ * with — a card claimed 0.12 against a true 0.09 — is 0.03 out. The two misses
+ * it has to catch are a panel claimed 0 that measures 0.30, and the same panel
+ * claimed 0.18 on all four corners when three of them are square. At 0.10 the
+ * good estimate passes with room and both misses are held.
+ */
+const RADIUS_TOLERANCE = 0.1;
+
+/**
+ * A corner is as round as the reference makes it, and one number cannot always say so.
+ *
+ * The identity panel in the CV has three square corners and one strongly
+ * rounded bottom-right. Gemini recorded `cornerRadiusRatio: 0` and rendered a
+ * rectangle. GPT recorded `0.18` and rendered a lozenge. Neither was careless:
+ * the field was a single scalar, so the shape had no honest value, and each
+ * model rounded toward a different corner.
+ *
+ * GPT had already seen it. Its analysis says, in `notes`, "Only the
+ * bottom-right corner is strongly rounded in the reference" — the truth
+ * reached the artifact and stopped, because the author builds from the number.
+ *
+ * So the schema now takes four, and this holds two different mistakes: a claim
+ * the reference contradicts, and a single number covering corners that are not
+ * alike. The second is the one no schema change alone would have caught, since
+ * `0.18` is a perfectly valid number for a shape that has no single radius.
+ */
+function cornerClaimsMeasured(analysis, referenceFile) {
+  const name = "corner claims measured";
+  const containers = (analysis.shapeOwnership ?? []).filter(
+    (s) => s?.bounds && s.cornerRadiusRatio !== undefined && s.cornerRadiusRatio !== null,
+  );
+  if (containers.length === 0) return { name, ok: true, detail: "no containers with a radius to check" };
+  if (!fs.existsSync(referenceFile)) return { name, ok: true, detail: "no reference on disk to sample" };
+
+  let raster;
+  try {
+    const require = createRequire(path.join(repoRoot, "tools", "visual-diff", "package.json"));
+    const { PNG } = require("pngjs");
+    raster = PNG.sync.read(fs.readFileSync(referenceFile));
+  } catch (err) {
+    return { name, ok: true, detail: `reference not sampled — ${err.message}` };
+  }
+
+  const held = [];
+  let checked = 0;
+  for (const c of containers) {
+    const probe = probeCorners(raster, c.bounds);
+    const measured = CORNERS.filter((corner) => probe.corners[corner]?.measurable);
+    if (measured.length === 0) continue;
+    checked += 1;
+
+    // A single number over corners the reference does not treat alike. Reported
+    // before the per-corner gaps, because it is the cause of them.
+    if (isUniform(c.cornerRadiusRatio) && measured.length > 1) {
+      const values = measured.map((corner) => probe.corners[corner].radiusRatio);
+      const spread = Math.max(...values) - Math.min(...values);
+      if (spread > RADIUS_TOLERANCE) {
+        held.push(
+          `"${c.container}" gives one radius for corners the reference rounds differently ` +
+            `(${measured.map((corner) => `${corner} ${probe.corners[corner].radiusRatio}`).join(", ")}) — ` +
+            "name them instead of averaging them",
+        );
+        continue;
+      }
+    }
+
+    for (const corner of measured) {
+      const claimed = claimedRadius(c.cornerRadiusRatio, corner);
+      if (claimed === null) continue;
+      const actual = probe.corners[corner].radiusRatio;
+      if (Math.abs(claimed - actual) <= RADIUS_TOLERANCE) continue;
+      held.push(`"${c.container}" claims ${claimed} at ${corner} and the reference measures ${actual}`);
+    }
+  }
+
+  if (checked === 0) return { name, ok: true, detail: "no container corner could be sampled" };
+  return held.length === 0
+    ? { name, ok: true, detail: `${checked} container corner set(s) agree with the reference` }
+    : { name, ok: false, detail: held.join("; ") };
+}
+
+/**
  * The face each type role uses is a measurement, or it says it is not.
  *
  * Three runs on one reference put every region at CRITICAL with a spread of
@@ -655,6 +741,9 @@ if (args.only) {
     artifacts.push(panelsDescribed(docs["visual-analysis.json"]));
     artifacts.push(
       fillClaimsMeasured(docs["visual-analysis.json"], path.join(projectDir, "reference", "reference.png")),
+    );
+    artifacts.push(
+      cornerClaimsMeasured(docs["visual-analysis.json"], path.join(projectDir, "reference", "reference.png")),
     );
     // Here and not at the authoring barrier: the face belongs in the asset
     // request, which is written in this same phase, and a family chosen after

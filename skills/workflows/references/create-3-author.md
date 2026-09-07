@@ -163,7 +163,8 @@ unclaimed, so every id you were given has your name against it.
 
 | The analysis says | You write | Getting it wrong looks like |
 |---|---|---|
-| `cornerRadiusRatio` | radius = ratio × the box's **shorter side**. 0.09 on a 32px box is ~3px | 0.09 built as a capsule — the error this contract exists to stop |
+| `cornerRadiusRatio` as a number | radius = ratio × the box's **shorter side**. 0.09 on a 32px box is ~3px | 0.09 built as a capsule — the error this contract exists to stop |
+| `cornerRadiusRatio` naming corners | `DocumentCornerRadius.of(topLeft, topRight, bottomRight, bottomLeft)` — same order, same names, omitted corners are 0. `bottom(r)` and `right(r)` round a pair | all four corners rounded because the builder was handed one number |
 | `shape: pill` | and only then radius = height ÷ 2 | every rounded box becoming a capsule |
 | `sizing: fill-parent` | a container that spans its parent's content width | ten boxes shrinking to ten different widths |
 | `sizing: hug-content` | a container that wraps its content | a short label stretched across the column |

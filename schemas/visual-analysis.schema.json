@@ -421,10 +421,25 @@
             "description": "The outline. `pill` is reserved for a capsule whose radius really is half its height — it is NOT a synonym for \"quite rounded\". If the corners are rounded at all but not fully, this is `rounded-rectangle` and cornerRadiusRatio carries how much."
           },
           "cornerRadiusRatio": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 0.5,
-            "description": "Corner radius divided by the SHORTER side of the container. 0 is a square corner, 0.5 is a capsule or a circle. This is the field that makes rectangle-versus-pill a measurement instead of a word: the box that was called a capsule measures 0.09. Estimate it by eye against the container's own height — a corner that turns over roughly a tenth of the short side is 0.1 — and say so in `notes` if the estimate is coarse. Required for every shape; use 0.5 for circle and ellipse."
+            "description": "Corner radius divided by the SHORTER side of the container. 0 is a square corner, 0.5 is a capsule or a circle. This is the field that makes rectangle-versus-pill a measurement instead of a word: the box that was called a capsule measures 0.09. A number sets all four corners. When they differ, name them — a panel with one rounded corner has no honest single value, and two models given the same such panel wrote 0 and 0.18 rather than saying so. Omitted corners in the object form are square. Required for every shape; use 0.5 for circle and ellipse.",
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 0.5
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "topLeft": { "type": "number", "minimum": 0, "maximum": 0.5 },
+                  "topRight": { "type": "number", "minimum": 0, "maximum": 0.5 },
+                  "bottomRight": { "type": "number", "minimum": 0, "maximum": 0.5 },
+                  "bottomLeft": { "type": "number", "minimum": 0, "maximum": 0.5 }
+                }
+              }
+            ]
           },
           "sizing": {
             "type": "string",

@@ -172,6 +172,21 @@ exception: the `page` block carries the measurement from phase 1.
   side, padding and gap likewise — so the numbers survive any resolution.
   Estimating by eye is expected; say in `notes` when an estimate is coarse.
 
+  **When the corners differ, name them.** `cornerRadiusRatio` takes a
+  number for all four, or an object — omitted corners are square:
+
+  ```json
+  "cornerRadiusRatio": { "bottomRight": 0.3 }
+  ```
+
+  A panel with one rounded corner has no honest single value. Given
+  exactly that panel, two models wrote `0` and `0.18`: one rendered a
+  rectangle, the other a lozenge, and one of them had already written
+  *"only the bottom-right corner is strongly rounded"* in `notes`, where
+  nothing reads it. `check-analysis` measures each corner off the
+  reference and refuses both mistakes — a radius the pixels contradict,
+  and one number spread over corners that are not alike.
+
   **Every container carries `bounds`**, as page fractions, the same frame
   regions use — the first instance, when it repeats. That is what makes the
   rest checkable rather than merely stated: `check-analysis` samples the
