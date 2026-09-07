@@ -36,10 +36,22 @@ rendered a lozenge. Opposite errors, one cause — the field was a single scalar
 so the shape had no honest value. GPT had already written *"Only the
 bottom-right corner is strongly rounded in the reference"* in `notes`, where
 nothing reads it. The field now takes a number or an object naming the corners,
-and the barrier holds both a radius the pixels contradict and one number spread
-over corners the reference does not treat alike. Nothing was needed from the
-engine: `DocumentCornerRadius.of(topLeft, topRight, bottomRight, bottomLeft)`
-has been there all along, in that order and under those names.
+so an analysis can say which corner is round, and the author contract names the
+call that builds it. Nothing was needed from the engine:
+`DocumentCornerRadius.of(topLeft, topRight, bottomRight, bottomLeft)` has been
+there all along, in that order and under those names.
+
+**No barrier holds a corner yet, and that is deliberate.** A probe was built to
+measure each corner off the reference and is not wired to anything, because
+running it against the CV it was built for showed it measuring the identity
+panel at **0.016** — a square corner, against a truth near 0.22. The cause is
+the model rather than the tuning: the quarter-circle relation
+`gap = r·(1−1/√2)` puts the boundary 15px along the diagonal for r≈50 and there
+is no ink there, because the reference's corner is a flatter sweep than a
+circular arc. Shipping it would have been worse than shipping nothing — the
+value it returns for that panel would have *confirmed* the `cornerRadiusRatio:
+0` one model wrote, as a measurement. `scripts/lib/corner-probe.mjs` keeps its
+tests and says in its own docstring what a working version needs.
 
 **The palette cannot contradict a measured container.** One analysis carried
 `fill.present: false` on the competency cards and, four fields away,
@@ -73,14 +85,14 @@ one of them. Stalling covers "not moving" and had nothing to say about
 retreating, so both commands now name the render to go back to, at the fifth
 render of that trail rather than after it.
 
-**Verification.** 1424/1424 `node scripts/run-tests.mjs scripts/test`, and
-`node scripts/verify.mjs` clean across all thirteen gates. Both new probes and
-the fill check were replayed against the real `nora-g5` and `nora-gpt1`
-artifacts; the corner probe's confirmation runs across three parallel rays
-rather than along one, because the first version measured filled containers and
-refused outlined ones. The typography matcher was confirmed end to end by hand:
-fed its own crop and the correct specimen string, `BARLOW_CONDENSED` ranks first
-at score 0.0082, `widthRatio` 1, leading by 0.32.
+**Verification.** 1419/1419 `node scripts/run-tests.mjs scripts/test`, and
+`node scripts/verify.mjs` clean across all thirteen gates. Every new check was
+replayed against the real `nora-g5` and `nora-gpt1` artifacts rather than
+against fixtures alone — which is how the corner probe was caught and pulled,
+after the fixtures had passed it ten times out of ten. The typography matcher
+was confirmed end to end by hand: fed its own crop and the correct specimen
+string, `BARLOW_CONDENSED` ranks first at score 0.0082, `widthRatio` 1, leading
+by 0.32.
 
 ## v0.24.0-beta.5 — 2026-09-06
 
