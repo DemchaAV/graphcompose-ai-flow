@@ -40,6 +40,7 @@ import {
 } from "./lib/workspace.mjs";
 import { checkRegionPrimitives, methodBody } from "./lib/region-primitives.mjs";
 import { checkContainerFills, checkContainerGrowth } from "./lib/container-fidelity.mjs";
+import { checkHeadingInset } from "./lib/heading-inset.mjs";
 import { checkPaginationPlan } from "./lib/pagination-plan.mjs";
 
 const repoRoot = installRoot();
@@ -178,6 +179,16 @@ const findings = [
   ...checkContainerGrowth({
     shapeOwnership: analysis.shapeOwnership ?? [],
     componentMapping,
+    source: template.source,
+    readMethod: methodBody,
+  }),
+  // The fifth: the analysis says the body starts under the heading's title and
+  // the Java starts it under the heading's icon. Two numbers, compared — a
+  // flush body is a real design and is never asked to change.
+  ...checkHeadingInset({
+    regions: analysis.regions ?? [],
+    componentMapping,
+    pageWidthPt: analysis.page?.sizePt?.width ?? undefined,
     source: template.source,
     readMethod: methodBody,
   }),

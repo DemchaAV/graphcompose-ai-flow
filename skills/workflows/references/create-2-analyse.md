@@ -152,6 +152,13 @@ exception: the `page` block carries the measurement from phase 1.
   page fractions.** Every later artifact addresses regions by id; the
   bounds are what make a region croppable and measurable. A region without
   bounds cannot be evidenced, and the tool refuses rather than guessing.
+- **A heading of "icon, then title" gives its region two left edges.**
+  `bounds.x` is the icon's. Measure the leftmost ink of the BODY and record
+  it as `contentLeft` — the barrier asks for it wherever a container sits at
+  its region's own edge and is narrow against it. Write the region's own `x`
+  when the body really is flush; silence cannot be told from not looking.
+  One run started every paragraph 24 pt left of the title it belonged
+  under, for eight revisions, with the region's box correct throughout.
 - **Record relationships, not offsets** — "badge sits at the top-right of
   the avatar".
 - **Measure every container; do not name a style of it.** `shapeOwnership`

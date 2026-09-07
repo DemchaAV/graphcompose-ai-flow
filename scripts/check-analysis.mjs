@@ -84,6 +84,7 @@ import { compareFingerprint, computeFingerprint } from "./lib/reference-fingerpr
 import { describeColour, probeFill } from "./lib/fill-probe.mjs";
 import { referencePageFile } from "./lib/page-pairs.mjs";
 import { auditPalette } from "./lib/palette-claims.mjs";
+import { auditContentLeft } from "./lib/heading-inset.mjs";
 import { auditTypography } from "./lib/typography-roles.mjs";
 import { recordPhase, trace } from "./lib/run-telemetry.mjs";
 
@@ -431,6 +432,31 @@ function paletteAgreesWithContainers(analysis) {
 }
 
 /**
+ * A section headed by a marker says where its body starts.
+ *
+ * A heading of "icon, then title" gives its region two left edges: the icon's,
+ * which is the region's own, and the title's, which is where the paragraphs
+ * below it line up. `bounds` records only the first. One run measured the badge
+ * at x 0.313 inside a region at 0.315, built the heading as an 18 pt lane and a
+ * 6 pt gap, and started every paragraph and company name 24 pt left of the
+ * title they belonged under — for eight revisions, with the region's box
+ * correct the whole time.
+ *
+ * A flush body is a real design, so this asks for the measurement rather than
+ * asserting the indent: write `contentLeft`, and write the region's own x when
+ * the body really does start there. What it refuses is silence, which cannot be
+ * told apart from not having looked.
+ */
+function bodyEdgeStated(analysis) {
+  const name = "body edge stated";
+  const audit = auditContentLeft({ regions: analysis.regions, shapeOwnership: analysis.shapeOwnership });
+  if (audit.checked === 0) return { name, ok: true, detail: "no region is headed by a marker at its own edge" };
+  return audit.held.length === 0
+    ? { name, ok: true, detail: `${audit.checked} marker-headed region(s) say where the body starts` }
+    : { name, ok: false, detail: audit.held.join("; ") };
+}
+
+/**
  * The face each type role uses is a measurement, or it says it is not.
  *
  * Three runs on one reference put every region at CRITICAL with a spread of
@@ -720,6 +746,9 @@ if (args.only) {
     );
     // No reference needed: this one is the artifact disagreeing with itself.
     artifacts.push(paletteAgreesWithContainers(docs["visual-analysis.json"]));
+    // Nor here: a region headed by a marker at its own left edge has two left
+    // edges, and which one the body uses is a measurement nobody was asked for.
+    artifacts.push(bodyEdgeStated(docs["visual-analysis.json"]));
     // Here and not at the authoring barrier: the face belongs in the asset
     // request, which is written in this same phase, and a family chosen after
     // the fonts are resolved is a family resolved twice.

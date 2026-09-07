@@ -239,6 +239,12 @@
             "minLength": 1,
             "description": "The region's share of its parent, as a ratio or weight — never a pixel width. E.g. \"0.31 of the content row\"."
           },
+          "contentLeft": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Where the region's BODY text starts, as a fraction of the page — when that is not `bounds.x`. A section whose heading is an icon followed by a title has two left edges: the icon's, which is the region's, and the title's, which is where the paragraphs below it line up. `bounds` records only the first, so a run measured a badge at x 0.313 inside a region at x 0.315, built the heading as a fixed 18pt lane plus a 6pt gap, and started every paragraph and company name 24pt to the left of the title it belonged under. Nothing was wrong with the region's box, and nothing else had a place to say the body was indented. Measure it the way `bounds.x` is measured — leftmost ink of the body, not of the heading — and omit it when the body really does start at the region's own edge."
+          },
           "notes": {
             "anyOf": [
               {

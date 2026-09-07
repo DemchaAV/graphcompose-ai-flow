@@ -110,6 +110,13 @@ Record the base constants in `architecture-plan.json` under
 `baseConstants`, with the derivation, so the next revision can change
 one number instead of hunting fifteen.
 
+A heading built as `fixed(BADGE)` + `gap(G)` puts its title `BADGE + G`
+from the section's edge. If the analysis's `contentLeft` says the body
+lines up with the title, inset the body by that same **derived** constant
+— not by a typed 24. One run left it out entirely and every paragraph and
+company name sat under the icon instead of the words; the number existed
+nowhere, because it was two literals in a third place.
+
 ## Anchors, not hand-computed offsets
 
 Element-to-element positioning uses engine primitives — `LayerAlign`,
