@@ -962,8 +962,19 @@ export function computeIterationStatus({ projectDir, config, revisionId = null, 
       // latest pass to have strictly reduced the blocking count again.
       const grantsUsed = agentIterations - limits.maxIterations;
       const grantsLeft = Math.max(0, limits.maxIterationGrants - grantsUsed);
+      // The severity ledger is written by the review; the page difference is
+      // not. A run ended its eighth pass by calling its one remaining CRITICAL
+      // a MINOR named "residual-font-rendering-variance" — blocking count 1 ->
+      // 0, an extension granted — on a page the comparator still classified
+      // CRITICAL at 14.15%, which had moved 0.187 points. A relabel and a fix
+      // are indistinguishable in that count, so the measurement is asked too.
+      //
+      // Only STALLED refuses. UNKNOWN keeps the old behaviour on purpose:
+      // declining on "cannot tell" would tighten the bound on loops with too
+      // few measurements, which is not what this is about.
+      const relabelled = movement.level === CONVERGENCE.STALLED;
 
-      if (converged.converging && grantsLeft > 0) {
+      if (converged.converging && grantsLeft > 0 && !relabelled) {
         grantedExtension = { used: grantsUsed + 1, of: limits.maxIterationGrants, ...converged };
         reasons.push(
           `${agentIterations} agent passes is at the limit of ${limits.maxIterations}, and the ` +
@@ -991,10 +1002,14 @@ export function computeIterationStatus({ projectDir, config, revisionId = null, 
               : "") +
             (grantsLeft <= 0
               ? `; all ${limits.maxIterationGrants} extensions are spent`
-              : converged.measurable
-                ? `; the last pass closed no blocking mismatch (${converged.from} -> ` +
-                  `${converged.to}), so there is nothing to extend on`
-                : "; there is no second reviewed pass to measure progress against"),
+              : relabelled && converged.converging
+                ? `; the last pass closed a blocking mismatch (${converged.from} -> ${converged.to}) ` +
+                  "and the page did not move with it — a severity the review lowered is not a " +
+                  "difference the comparator stopped seeing, so there is nothing to extend on"
+                : converged.measurable
+                  ? `; the last pass closed no blocking mismatch (${converged.from} -> ` +
+                    `${converged.to}), so there is nothing to extend on`
+                  : "; there is no second reviewed pass to measure progress against"),
         );
       }
     }

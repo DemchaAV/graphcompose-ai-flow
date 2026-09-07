@@ -82,7 +82,9 @@ function projectWith(passes, label = "loop") {
         mismatches: pass.mismatch
           ? [{
               id: pass.mismatch,
-              severity: "MAJOR",
+              // MAJOR unless the case is about severity itself: the
+              // blocking count an extension is granted on reads this.
+              severity: pass.severity ?? "MAJOR",
               reason: "differs",
               action: "fix it",
               ...(pass.rootCause ? { rootCause: pass.rootCause } : {}),
@@ -1757,4 +1759,40 @@ test("a chain still moving is not called stalled by the fallback", () => {
 
   assert.equal(status.parity.movement.scope, "chain");
   assert.equal(status.parity.movement.level, "IMPROVING");
+});
+
+/** A loop exactly at the iteration ceiling, whose last pass drops the severity. */
+const atTheCeiling = (percents, label) =>
+  projectWith(
+    percents.map((percent, i) => ({
+      verdict: "REVISE",
+      mismatch: `cause-${i + 1}`,
+      severity: i === percents.length - 1 ? "MINOR" : "CRITICAL",
+      statsReferenceInside: true,
+      stats: { mismatchPx: Math.round(percent * 15000), percent, classification: "CRITICAL" },
+    })),
+    label,
+  );
+
+test("THE RELABEL: an extension is not earned by lowering a severity", () => {
+  // The eighth pass of nora-b8 called its one remaining CRITICAL a MINOR named
+  // "residual-font-rendering-variance". Blocking count 1 -> 0, extension
+  // granted — on a page the comparator still classified CRITICAL at 14.15%.
+  // The ledger is written by the review; the page difference is not.
+  const status = statusOf(atTheCeiling([15.12, 14.216, 14.23, 14.224, 14.447, 14.377, 14.339, 14.152], "relabelled"));
+
+  assert.equal(status.verdict, "CONVERGENCE_LIMIT_REACHED");
+  assert.equal(status.grantedExtension, null);
+  assert.match(status.reasons.join("\n"), /the page did not move with it/);
+  assert.match(status.reasons.join("\n"), /a severity the review lowered is not a difference the comparator stopped seeing/);
+});
+
+test("a pass that closed a mismatch AND moved the page still earns its extension", () => {
+  // The quiet half: the grant exists for a loop that is demonstrably
+  // converging, and this must not start refusing those.
+  const status = statusOf(atTheCeiling([30, 26, 22, 19, 16, 13, 10, 7], "still-earning"));
+
+  assert.ok(status.grantedExtension, `no extension: ${status.reasons.join(" | ")}`);
+  assert.equal(status.grantedExtension.used, 1);
+  assert.match(status.reasons.join("\n"), /extension 1 of 3/);
 });
