@@ -168,6 +168,7 @@ unclaimed, so every id you were given has your name against it.
 | `shape: pill` | and only then radius = height ÷ 2 | every rounded box becoming a capsule |
 | `sizing: fill-parent` | a container that spans its parent's content width | ten boxes shrinking to ten different widths |
 | `sizing: hug-content` | a container that wraps its content | a short label stretched across the column |
+| a container that **repeats** with different content | `softPanel(color, radius, padding, stroke)` on the flow builder, with the content added as children | a fixed `roundedRect(w, h, r)` with the text `position`ed over it: the longest label is clipped, not wrapped |
 | `fill.present: false` | **no fill at all** — the ground shows through | a white box painted over a coloured panel |
 | `stroke.present: false` | no stroke — not a zero-width one, and not one in the background colour | a hairline nobody asked for (see the note below) |
 | `padding` per side | each side separately | content optically off-centre |
@@ -181,6 +182,24 @@ named constant rather than sprinkling the arithmetic.
 **"No stroke" is not a stroke you cannot see.** A zero-width stroke, or one
 in the page colour, still paints — on a tinted panel it leaves a pale band
 around every box. If `stroke.present` is false, emit no stroke.
+
+**`sizing` is about width. Height is decided by what you build.** A card
+that repeats with different content has to be able to take a second line:
+the reference is one dataset, and a longer label is the next one. Build it
+so the content decides the height —
+
+```java
+sidebar.addSection(card -> {
+    card.name("competency-box");
+    card.softPanel(TRANSPARENT, 2.5, 7.5, DocumentStroke.of(CORAL, 0.5));
+    card.addParagraph(p -> p.text(item.label()).textStyle(STYLE_LABEL));
+});
+```
+
+— and the panel's `padding` is the inset, so no offset has to be guessed.
+`check-region-primitives` reports a repeating container given both
+dimensions with its content positioned over it; one run shipped
+"Budgeting & Financial Managemen", clipped at the border.
 
 **Name each container with the id the analysis gave it.** `name(String)`
 is on `ShapeContainerBuilder`, `ShapeBuilder` and `EllipseBuilder`:

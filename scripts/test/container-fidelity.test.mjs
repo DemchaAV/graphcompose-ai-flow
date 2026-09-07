@@ -12,7 +12,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { checkContainerFills, constructions, paintsFill } from "../lib/container-fidelity.mjs";
+import { checkContainerFills, checkContainerGrowth, constructions, paintsFill } from "../lib/container-fidelity.mjs";
 import { methodBody } from "../lib/region-primitives.mjs";
 
 /** Exactly the shape the failing template had, down to the call order. */
@@ -182,4 +182,88 @@ test("a chained builder does not swallow the statements after it", () => {
 
   assert.equal(paintsFill(found[0].text), false, "the first construction picked up the second's fill");
   assert.equal(paintsFill(found[1].text), true);
+});
+
+// ------------------------------------ a card that cannot grow with its label ---
+//
+// The run this comes from measured the competency card as `fill-parent` — true
+// of its width — and built it as a fixed box with the text laid on top. The
+// longest label came out "Budgeting & Financial Managemen", clipped at the
+// border. No field was broken: `sizing` describes the width only, and nothing
+// asks what happens when the content needs a second line.
+
+/** The card exactly as that template built it. */
+const FIXED_CARD = `
+    private void renderSidebarCompetencies(SectionBuilder sidebar, Spec spec) {
+        for (Spec.Competency comp : spec.sidebar().competencies()) {
+            sidebar.addContainer(c -> {
+                c.name("competency-box");
+                c.roundedRect(144.0, 21.5, 2.5);
+                c.stroke(DocumentStroke.of(COLOR_BORDER_CORAL, 0.5));
+                ParagraphBuilder pb = new ParagraphBuilder();
+                pb.inlineText(comp.name(), STYLE_COMPETENCY);
+                c.position(pb.build(), 7.5, 0, LayerAlign.CENTER_LEFT);
+            });
+        }
+    }
+`;
+
+/** The same card built so its content decides its height. */
+const GROWING_CARD = `
+    private void renderSidebarCompetencies(SectionBuilder sidebar, Spec spec) {
+        for (Spec.Competency comp : spec.sidebar().competencies()) {
+            sidebar.addSection(card -> {
+                card.name("competency-box");
+                card.softPanel(DocumentColor.TRANSPARENT, 2.5, 7.5, DocumentStroke.of(COLOR_BORDER_CORAL, 0.5));
+                card.addParagraph(p -> p.text(comp.name()).textStyle(STYLE_COMPETENCY));
+            });
+        }
+    }
+`;
+
+const CARD_SPEC = { container: "competency-box", sizing: "fill-parent", repeats: 10, fill: { present: false } };
+const CARD_MAPPING = [{ region: "sidebar-competencies", renderMethod: "renderSidebarCompetencies", containers: ["competency-box"] }];
+
+const growth = (source, shapeOwnership = [CARD_SPEC], componentMapping = CARD_MAPPING) =>
+  checkContainerGrowth({ shapeOwnership, componentMapping, source, readMethod: methodBody });
+
+test("THE CASE: a repeating card with both dimensions fixed and its text laid over it", () => {
+  const findings = growth(FIXED_CARD);
+
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].kind, "container-cannot-grow");
+  assert.equal(findings[0].container, "competency-box");
+  assert.match(findings[0].detail, /clipped rather than wrapped/);
+  assert.match(findings[0].detail, /softPanel\(color, radius, padding, stroke\)/, "the call that does grow is named");
+});
+
+test("built to flow, it reports nothing", () => {
+  assert.deepEqual(growth(GROWING_CARD), []);
+});
+
+test("a badge that hugs its content is the shape it should be", () => {
+  // A fixed circle around an icon is correct, and holding it would refuse the
+  // thing `sizing: hug-content` exists to describe.
+  const badge = { ...CARD_SPEC, sizing: "hug-content" };
+  assert.deepEqual(growth(FIXED_CARD, [badge]), []);
+});
+
+test("a panel that occurs once is a surface, not a row of cards", () => {
+  // The monogram panel really is one fixed surface; the label that overflows is
+  // the one that repeats with different text each time.
+  assert.deepEqual(growth(FIXED_CARD, [{ ...CARD_SPEC, repeats: 1 }]), []);
+});
+
+test("a fixed box whose content flows inside it is not held", () => {
+  // Only the pair matters: both dimensions literal AND content positioned over
+  // the shape. A sized box that still flows its children can grow its content.
+  const flowed = FIXED_CARD.replace(
+    'c.position(pb.build(), 7.5, 0, LayerAlign.CENTER_LEFT);',
+    'c.center(pb.build());',
+  );
+  assert.deepEqual(growth(flowed), []);
+});
+
+test("a container the plan never claimed is left to the barrier that reports that", () => {
+  assert.deepEqual(growth(FIXED_CARD, [CARD_SPEC], [{ region: "x", renderMethod: "renderX", containers: [] }]), []);
 });

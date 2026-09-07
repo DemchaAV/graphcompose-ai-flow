@@ -118,6 +118,82 @@ export function paintsFill(text) {
   return false;
 }
 
+/** A rectangle whose width AND height are both literal numbers: it cannot grow. */
+const FIXED_RECT = /\.\s*(?:roundedRect|rectangle)\s*\(\s*[^,()]*?[0-9][^,()]*,\s*[0-9][0-9.]*\s*[,)]/;
+
+/** Content laid over a shape at an offset, rather than flowed inside it. */
+const OVERLAID = /\.\s*position\s*\(/;
+
+/**
+ * Report a container built so that its content cannot make it grow.
+ *
+ * A run measured the competency card as `fill-parent`, which is true of its
+ * width, and built it as
+ *
+ *     c.roundedRect(144.0, 21.5, 2.5);
+ *     c.position(pb.build(), 7.5, 0, LayerAlign.CENTER_LEFT);
+ *
+ * — a fixed box with its text laid on top at an offset. The longest label came
+ * out as "Budgeting & Financial Managemen", clipped at the border, because text
+ * placed over a shape cannot wrap and a shape given both dimensions cannot get
+ * taller. The left inset is the literal 7.5 rather than padding.
+ *
+ * Nothing in the contract was broken, which is the point: `sizing` describes
+ * the width only — "spans its parent's content width", "wraps its content" —
+ * and no field asks what happens when the content needs a second line. So this
+ * reads the code instead, where the answer is unambiguous: both dimensions
+ * literal, and content positioned rather than flowed.
+ *
+ * `softPanel(color, radius, padding, stroke)` is the call that does grow. It is
+ * on every flow builder, documented in the pack's own backgrounds-and-panels
+ * guide, and named by no route and no contract — which is why a fixed rectangle
+ * is what gets reached for.
+ */
+export function checkContainerGrowth({ shapeOwnership = [], componentMapping = [], source = "", readMethod }) {
+  const findings = [];
+  const methodFor = new Map();
+  for (const entry of Array.isArray(componentMapping) ? componentMapping : []) {
+    for (const container of entry?.containers ?? []) {
+      if (typeof container === "string") methodFor.set(container, entry.renderMethod ?? null);
+    }
+  }
+
+  for (const container of Array.isArray(shapeOwnership) ? shapeOwnership : []) {
+    if (!container?.container) continue;
+    // A container that hugs its content horizontally is a badge or a marker —
+    // a fixed circle around an icon is the right shape for one, and holding it
+    // would refuse the thing the field exists to describe.
+    if (container.sizing !== "fill-parent") continue;
+    // A repeat count of one is a panel, not a row of cards: the monogram panel
+    // really is one fixed surface, and the label that overflows is the one that
+    // repeats with different text each time.
+    if (typeof container.repeats === "number" && container.repeats < 2) continue;
+
+    const method = methodFor.get(container.container);
+    if (!method) continue;
+    const body = readMethod(source, method);
+    if (body === null) continue;
+
+    const built = constructions(body).find((c) => c.name === container.container)
+      ?? (constructions(body).length === 1 ? constructions(body)[0] : null);
+    if (!built) continue;
+    if (!FIXED_RECT.test(built.text) || !OVERLAID.test(built.text)) continue;
+
+    findings.push({
+      kind: "container-cannot-grow",
+      container: container.container,
+      method,
+      detail:
+        `"${container.container}" repeats with different content and is built as a fixed box with its ` +
+        "content positioned over it, so a label that needs a second line is clipped rather than wrapped — " +
+        "softPanel(color, radius, padding, stroke) on the flow builder grows with what it holds, and its " +
+        "padding is the inset rather than an offset",
+    });
+  }
+
+  return findings;
+}
+
 /**
  * Report code that fills a container the reference was measured to leave unfilled.
  *

@@ -39,7 +39,7 @@ import {
   resolveWorkspace,
 } from "./lib/workspace.mjs";
 import { checkRegionPrimitives, methodBody } from "./lib/region-primitives.mjs";
-import { checkContainerFills } from "./lib/container-fidelity.mjs";
+import { checkContainerFills, checkContainerGrowth } from "./lib/container-fidelity.mjs";
 import { checkPaginationPlan } from "./lib/pagination-plan.mjs";
 
 const repoRoot = installRoot();
@@ -167,6 +167,15 @@ const findings = [
   // it however it liked. A run measured `fill.present: false` on the competency
   // cards and painted them white; every gate passed.
   ...checkContainerFills({
+    shapeOwnership: analysis.shapeOwnership ?? [],
+    componentMapping,
+    source: template.source,
+    readMethod: methodBody,
+  }),
+  // The fourth: a container the reference repeats with different content, built
+  // so that content cannot make it grow. `sizing` describes the width only, so
+  // a fixed height breaks no field — and clips the longest label.
+  ...checkContainerGrowth({
     shapeOwnership: analysis.shapeOwnership ?? [],
     componentMapping,
     source: template.source,
