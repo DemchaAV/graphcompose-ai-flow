@@ -224,6 +224,22 @@ Go back to what that render did. One run in the corpus went
 six, the trail was printed on every render after it, and the run spent
 its last three moving further away.
 
+The same question is asked **across revisions**, and it is the one that
+costs most. Two revisions that have not beaten the best in the loop, and
+`iterate-status` names the revision to return to:
+
+```
+revision-001 measured 15.304% and is still the best of this loop;
+6 revision(s) since have not beaten it and revision-007 is 0.384% worse
+```
+
+That run shipped its seventh revision worse than its first. Six passes
+went into matching absolute y-positions section by section while the
+line breaks — set by column width and type size — stayed wrong, so every
+line below each fix was still displaced. **When the best is behind you,
+the lever you are pulling is not the one that matters.** Change what you
+are measuring before taking another pass.
+
 Stop early, and say which of these it was, when: the review recommends
 `APPROVE`; the remaining differences were explicitly accepted; the next
 fix needs information only the user has; the next fix is blocked by

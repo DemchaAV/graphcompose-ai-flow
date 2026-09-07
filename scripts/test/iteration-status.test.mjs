@@ -24,6 +24,7 @@ import {
   computeIterationStatus,
   IterationStatusError,
   measurementEvidence,
+  chainRegression,
 } from "../lib/iteration-status.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -1509,4 +1510,97 @@ test("a retreat is reported instead of a plateau, not beside it", async () => {
     1,
     JSON.stringify(status.reasons),
   );
+});
+
+// -------------------------------------- the best revision, six passes back ---
+//
+// `diminishingReturns` asks whether the last two moves were small, over the run
+// of revisions sharing one focus — and it breaks the moment the focus changes.
+// A run that changed focus every pass therefore had no cross-revision signal at
+// all, and shipped its seventh revision 0.384% worse than its first.
+
+/** A chain, oldest first, from page figures alone. */
+const chainOf = (percents) =>
+  percents.map((percent, i) => ({
+    id: `revision-00${i + 1}`,
+    stats: percent === null ? null : { percent },
+  }));
+
+/** The trail the run actually produced. */
+const REAL_CHAIN = [15.304, 15.54, 15.554, 15.589, 15.438, 15.77, 15.688];
+
+test("THE CASE: the best revision is named, with how far behind it the loop is", () => {
+  const answer = chainRegression(chainOf(REAL_CHAIN));
+
+  assert.equal(answer.regressed, true);
+  assert.equal(answer.best, 15.304);
+  assert.equal(answer.bestRevision, "revision-001", "the revision to go back to");
+  assert.equal(answer.sinceBest, 6);
+  assert.equal(answer.worseThanBest, 0.384);
+});
+
+test("it fires on the third revision, not the seventh", () => {
+  // Two passes that failed to beat the best is the point. On this trail that is
+  // revision-003, four revisions before the run actually stopped.
+  assert.equal(chainRegression(chainOf(REAL_CHAIN.slice(0, 2))).regressed, false, "two cannot say");
+  assert.equal(chainRegression(chainOf(REAL_CHAIN.slice(0, 3))).regressed, true);
+});
+
+test("a loop that keeps improving is never held", () => {
+  const answer = chainRegression(chainOf([17.6, 15.0, 14.2, 13.1]));
+
+  assert.equal(answer.regressed, false);
+  assert.equal(answer.bestRevision, "revision-004");
+  assert.equal(answer.sinceBest, 0);
+  assert.equal(answer.worseThanBest, 0);
+});
+
+test("one pass away from the best is exploring, not retreating", () => {
+  assert.equal(chainRegression(chainOf([17.6, 15.0, 15.4])).regressed, false);
+});
+
+test("coming back to the best clears it", () => {
+  // The best is the latest, so there is nothing behind to return to.
+  assert.equal(chainRegression(chainOf([17.6, 15.0, 16.2, 14.9])).regressed, false);
+});
+
+test("revisions that never rendered do not count as passes", () => {
+  const answer = chainRegression(chainOf([15.304, null, 15.54, null, 15.554]));
+
+  assert.equal(answer.regressed, true);
+  assert.equal(answer.sinceBest, 2, "two measured revisions, not four folders");
+});
+
+test("fewer than three measured revisions cannot say either way", () => {
+  const answer = chainRegression(chainOf([17.6, 18.9]));
+  assert.equal(answer.measurable, false);
+  assert.equal(answer.regressed, false);
+});
+
+test("the chain regression reaches the loop and the movement axis", async () => {
+  const { recordAttempt } = await import("../lib/attempts.mjs");
+  const dir = projectWith(
+    REAL_CHAIN.map((_, i) => ({ verdict: "REVISE", mismatch: `cause-${i}` })),
+    "chain-regressed",
+  );
+  REAL_CHAIN.forEach((percent, i) => {
+    const rev = path.join(dir, "revisions", `revision-00${i + 1}`);
+    fs.writeFileSync(path.join(rev, "GeneratedCvTemplate.java"), `v${i}`);
+    fs.writeFileSync(
+      path.join(rev, "visual-diff-stats.json"),
+      JSON.stringify({ reference: path.join(rev, "reference-scaled.png"), percent, mismatchPx: Math.round(percent * 1000) }),
+    );
+    recordAttempt(rev, { percent, mismatchPx: Math.round(percent * 1000) });
+  });
+
+  const status = computeIterationStatus({ projectDir: dir, config });
+  const reason = status.reasons.find((r) => /is still the best of this loop/.test(r));
+  assert.ok(reason, JSON.stringify(status.reasons));
+  assert.match(reason, /revision-001 measured 15\.304%/);
+  assert.match(reason, /go back to what revision-001 did/);
+
+  // Not improving, and attributed to the chain rather than to a sweep — a
+  // different focus each pass leaves the focus-run test with nothing to read.
+  assert.equal(status.parity.movement.level, "STALLED");
+  assert.equal(status.parity.movement.source, "revisions");
 });

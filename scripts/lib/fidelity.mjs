@@ -164,7 +164,12 @@ export function fidelityOf(stats) {
  * @returns {{ level: string, materialPercent: number|null, moves: Array, source: string|null }}
  */
 export function convergenceOf(stalling, sweep = null) {
-  const chainMeasurable = Boolean(stalling?.measurable);
+  // `regressed` makes the chain measurable on its own: it is computed over
+  // every revision, while `measurable` describes only the run of passes sharing
+  // one focus — and a loop that changes focus every pass has no such run. One
+  // did, and spent six revisions failing to beat its first with nothing to say
+  // so.
+  const chainMeasurable = Boolean(stalling?.measurable || stalling?.regressed);
   // Two renders give one delta; the stall test wants two, so three renders is
   // the point a sweep can say anything. Below that it is not evidence.
   const sweepMeasurable = Boolean(sweep && sweep.renders >= 3);
@@ -173,7 +178,7 @@ export function convergenceOf(stalling, sweep = null) {
     return { level: CONVERGENCE.UNKNOWN, materialPercent: null, moves: [], source: null };
   }
 
-  const chainStalled = chainMeasurable && stalling.stalled;
+  const chainStalled = chainMeasurable && (stalling.stalled || stalling.regressed === true);
   // A sweep that has left its own best two renders behind is not improving,
   // whatever else it is doing. It is reported as STALLED rather than as a
   // fourth level: the three-state model is what the fidelity gate is built on,

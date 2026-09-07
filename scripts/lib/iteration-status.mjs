@@ -384,6 +384,71 @@ export function attemptHistory(chain, focusKey, limitations = []) {
  * @param {Array<{moved:number|null}>} history from {@link attemptHistory}
  * @param {number} materialPercent
  */
+/**
+ * Has the loop stopped beating the best revision it already has?
+ *
+ * `diminishingReturns` below asks whether the last two *moves* were small, and
+ * `attemptHistory` feeds it only the run of revisions sharing one focus — it
+ * breaks the moment the focus changes. A run that changes focus every pass
+ * therefore has no cross-revision signal at all, and one did exactly that:
+ *
+ *     001 15.304  <- best      005 15.438
+ *     002 15.540               006 15.770
+ *     003 15.554               007 15.688  <- shipped
+ *     004 15.589
+ *
+ * Seven revisions, six of them worse than the first, and nothing said so. The
+ * loop stopped on its iteration bound, having spent six passes moving away from
+ * a result it had after one.
+ *
+ * This reads the whole chain instead, and asks the question the trail makes
+ * obvious: how many revisions ago was the best one. Two passes that failed to
+ * improve on it is the point — a pass that does not beat the best by the
+ * material threshold bought nothing, which is the same standard `stalled`
+ * applies to consecutive moves, anchored to the best rather than to whatever
+ * came immediately before.
+ *
+ * @param {Array<{id: string, stats: object|null}>} chain oldest first
+ * @returns {{measurable: boolean, best: number|null, bestRevision: string|null,
+ *            latest: number|null, worseThanBest: number|null, sinceBest: number,
+ *            regressed: boolean}}
+ */
+export function chainRegression(chain) {
+  const measured = (chain ?? [])
+    .filter((entry) => typeof entry?.stats?.percent === "number")
+    .map((entry) => ({ revision: entry.id, percent: round(entry.stats.percent, 3) }));
+
+  if (measured.length < 3) {
+    return {
+      measurable: false,
+      best: null,
+      bestRevision: null,
+      latest: measured.at(-1)?.percent ?? null,
+      worseThanBest: null,
+      sinceBest: 0,
+      regressed: false,
+    };
+  }
+
+  let bestAt = 0;
+  for (let i = 1; i < measured.length; i += 1) {
+    if (measured[i].percent < measured[bestAt].percent) bestAt = i;
+  }
+  const best = measured[bestAt];
+  const latest = measured.at(-1);
+  const sinceBest = measured.length - 1 - bestAt;
+
+  return {
+    measurable: true,
+    best: best.percent,
+    bestRevision: best.revision,
+    latest: latest.percent,
+    worseThanBest: round(latest.percent - best.percent, 3),
+    sinceBest,
+    regressed: sinceBest >= 2,
+  };
+}
+
 export function diminishingReturns(history, materialPercent) {
   const measured = history.filter((attempt) => attempt.moved !== null);
   if (measured.length < 2) return { measurable: false, stalled: false, moves: [] };
@@ -514,7 +579,14 @@ export function computeIterationStatus({ projectDir, config, revisionId = null, 
   // attempts are still moving anything. Computed before the bounds so both the
   // bound's reason and the payload can name them.
   const history = attemptHistory(chain, focusKey, limitations);
-  const stalling = diminishingReturns(history, limits.materialMovePercent ?? 0.25);
+  // Across the whole chain, not the focus run: see chainRegression's note. It
+  // joins `stalling` because both answer one question — is the loop still
+  // buying anything between revisions — and `convergenceOf` reads them together.
+  const chainBest = chainRegression(chain);
+  const stalling = {
+    ...diminishingReturns(history, limits.materialMovePercent ?? 0.25),
+    regressed: chainBest.regressed,
+  };
   const reasons = [];
 
   for (const skip of focus.skipped ?? []) {
@@ -542,6 +614,17 @@ export function computeIterationStatus({ projectDir, config, revisionId = null, 
     latest: perRevision[perRevision.length - 1] ?? null,
   };
   const latestRenders = renders.latest;
+  // Reported beside the sweep's own retreat rather than instead of it: one is
+  // about renders inside this revision, the other about which revision to go
+  // back to, and a loop can need to hear both.
+  if (chainBest.regressed) {
+    reasons.push(
+      `${chainBest.bestRevision} measured ${chainBest.best}% and is still the best of this loop; ` +
+        `${chainBest.sinceBest} revision(s) since have not beaten it and ${latest.id} is ` +
+        `${chainBest.worseThanBest}% worse — go back to what ${chainBest.bestRevision} did rather than ` +
+        "taking another pass away from it",
+    );
+  }
   // Regression is reported in place of stalling when both hold, not beside it:
   // they describe one trail, and this one carries the trail plus the render to
   // go back to. A plateau says change approach; a retreat says return to what
