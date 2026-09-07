@@ -5,6 +5,112 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.24.0-beta.9 — 2026-09-07
+
+**What this beta is.** `beta.8` as its own Antigravity run sent it back, plus a
+four-angle review of everything on the branch.
+
+**The run, first — and it is the most instructive one yet.** `nora-b8` produced
+the best pixel figure the corpus has: **14.152%**, against `b7`'s 14.784. It also
+regressed on perception — SSIM `0.4132` against `b7`'s `0.4407` — so the two
+measures disagree and only the first one gates. Worth remembering before the
+figure is quoted as progress.
+
+The trail underneath is the finding:
+
+```
+revision-001   15.120   ssim 0.3497
+revision-002   14.216   ssim 0.3732   <- arrived here in one pass
+revision-003   14.230   ssim 0.3658
+revision-004   14.224   ssim 0.3716
+revision-005   14.447   ssim 0.3823   <- worse than revision-002
+revision-006   14.377   ssim 0.3996
+revision-007   14.339   ssim 0.4049
+revision-008   14.152   ssim 0.4132
+```
+
+Six passes after revision-002 bought 0.064 percentage points. Every move between
+consecutive revisions was under `materialMovePercent`. The movement axis reported
+`UNKNOWN` with `moves: []`, and the loop ended on its iteration budget rather
+than on the stall that had been there since the fourth revision. SSIM did climb
+monotonically from revision-003, so the passes were not empty — but nothing that
+gates could see it.
+
+**One habit blinded three guards.** The review named a new mismatch id on every
+pass — `section-header-wrap`, `certifications-heading-wrap`,
+`sidebar-content-top-spacing`, `header-summary-alignment`,
+`competency-card-pitch`, `sidebar-achievements-geometry`,
+`experience-item-spacing`, `residual-font-rendering-variance`. Eight ids, none
+repeated. `attemptHistory` feeds the stall test only the run of passes sharing
+one focus, so that run was length 1 every time and `diminishingReturns` measured
+nothing; `sameMismatchAttempts` never reached 2, so the same-cause bound could
+not bind; and the eighth pass calling its last CRITICAL a MINOR read as "closed 1
+blocking mismatch" and **earned an extension**.
+
+So the chain is asked when the focus run has nothing to say. The measurement does
+not depend on what anything was called: every revision has a
+`visual-diff-stats.json`. The focus run stays the first question, and `scope`
+says which of the two answered. And an extension now needs the page to have
+moved: a severity the review lowered is not a difference the comparator stopped
+seeing. Replayed on `nora-b8`, `UNKNOWN` becomes `STALLED` quoting `-0.038` and
+`-0.187`, and the extension is refused.
+
+**A retreat is the loop changing approach, not a new loop.** `beta.8` taught
+`iterate-status` to print `pass --open --revision <best>`, and following that
+advice made the new revision's parent an old one — so the chain was rebuilt from
+there and the budget came back full. Reproduced end to end: a project at 8/8
+refuses to open, and the same project told to branch from `revision-001` opened
+`revision-009` reporting `budget iterations 1/8`. The bound existed and the
+retreat handed back a fresh one, on exactly the runs late enough to be advised to
+retreat. It is counted by revisions now — the loop's own spending, whichever
+branch each sits on. `iterations` keeps meaning the ancestry; `loopIterations` is
+reported beside it.
+
+**A name typed in the wrong case is the same project.** `--project
+Nora-Bennett-CV` opens `projects/nora-bennett-cv` on Windows and macOS. The
+analysis fingerprint stamped the typed casing, so a differently-typed run
+reported `foreign-project` — copy someone else's analysis — for an analysis
+written from this project's own reference. The copied-template tripwire skipped
+nothing, found the project's own parent revision, and killed the render accusing
+the author of a shortcut they had not taken. Both ask the filesystem for the name
+now. Deliberately not lowercased: where the filesystem is case-sensitive, `Nora`
+and `nora` are two projects.
+
+**A second page is a second raster.** The fill probe decoded `reference.png` for
+every container, so a card correctly measured as filled on page 2 was sampled
+against blank ground on page 1 and refused, with no edit that could clear it. A
+page nobody imported is named as unsampled rather than judged against page 1.
+
+**Two writers who both read first.** Recording one typography role and recording
+one telemetry phase are both read-modify-write, which an atomic rename does
+nothing for. Two `typography.mjs` invocations each wrote a document missing the
+other's entry; three discovery workers lost a telemetry phase in fourteen of
+twenty-five rounds. `withFileLock` joins `atomic-write`.
+
+**Observability, second axis.** `scripts/telemetry/` prices a run in tokens and
+cannot say where it stalled. `run-telemetry.mjs` records phase durations,
+attempts, retries and validation results at four call sites, rewriting the
+summary after every phase — `run-metrics finish` has been called zero times
+across eight corpus projects, and a summary that waits for a closing call is a
+summary that does not exist. Detail is opt-in via `GRAPHCOMPOSE_TRACE=on`;
+prompts and responses are written at no level. Telemetry failure never reaches
+the caller.
+
+**Also in this beta.** The reader no longer fails the review it just wrote on
+(`carriedFrom` is not in the schema, and the gate now reads the document as
+written); the region-role focus is a string for container and pagination
+findings, which were writing `focus: undefined` into `harness-focus.json` for
+iterate-status to silently discard; the copied-template tripwire works in install
+mode, where the harness's own corpus lives under `examples/`; `preflight` names
+`write-artifact.mjs` and `handoff.mjs`, which the contracts require and neither
+of its lists knew; a chain-level stall with no figure behind it no longer prints
+"moved it by less than null%"; and an assumed type role may not state a size no
+sweep backs.
+
+Verification: 1485/1485 `node scripts/run-tests.mjs scripts/test`, thirteen gates
+clean under `node scripts/verify.mjs`, and every loop change replayed against the
+`nora-b8` artifacts.
+
 ## v0.24.0-beta.8 — 2026-09-07
 
 **What this beta is.** `beta.7` as its own Antigravity run sent it back, plus
