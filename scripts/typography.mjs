@@ -55,6 +55,8 @@ import {
   SHAPE_BLUR,
   SHAPE_BOX,
   TRIM_FUZZ_PERCENT,
+  COMPARABLE_ASPECT,
+  MEANINGFUL_SEPARATION,
   expandCandidates,
   nodeToPixelRect,
   numericRange,
@@ -268,6 +270,10 @@ function recordMatch(result, args) {
       family: e.family,
       score: e.score,
       separation: e.separation,
+      // The barrier needs both halves of the score, not the sum: a crop that
+      // does not hold the string scores badly on width while its letterforms
+      // match, and only `widthRatio` tells those apart.
+      widthRatio: e.widthRatio,
     })),
   };
   doc.matches = [...doc.matches.filter((m) => m?.role !== args.role), entry];
@@ -529,7 +535,7 @@ function main() {
     const first = result.ranked[0];
     lines.push("");
     lines.push(
-      first.separation != null && first.separation < 0.02
+      first.separation != null && first.separation < MEANINGFUL_SEPARATION
         ? `  ⚠ ${first.family} wins by ${first.separation}, which is inside the noise — treat the top few as equally likely.`
         : `  ${first.family} leads the runner-up by ${first.separation}.`,
     );

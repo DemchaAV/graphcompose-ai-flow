@@ -65,6 +65,34 @@ export const SHAPE_BLUR = 4;
  */
 export const MEANINGFUL_POINTS = 0.1;
 
+/**
+ * The gap to the runner-up below which a family match decided nothing.
+ *
+ * Lived as a bare 0.02 in the CLI's warning line, printed and then forgotten.
+ * A real run recorded `PT_SERIF 0.0914 | TIMES_ROMAN 0.0975` — a separation of
+ * 0.0061 — as a measured face; re-run over three families instead of forty-eight
+ * the same crop put TIMES_ROMAN first. A winner that changes with the candidate
+ * set is not a winner, and the number that says so was already being computed.
+ */
+export const MEANINGFUL_SEPARATION = 0.02;
+
+/**
+ * How far the two runs may differ in aspect before they are not the same
+ * measurement, as |log(candidate ÷ reference)|.
+ *
+ * `widthRatio` near 1 means the crop and the specimen ran to comparable
+ * proportions; far from it means they do not contain the same thing. The same
+ * run recorded a body face whose winner scored 1.1649 — shape penalty only
+ * 0.194, so the letterforms matched, and width penalty 0.97 at a ratio of
+ * **0.379**. That is not a font difference, it is a crop that does not hold the
+ * string it was matched against.
+ *
+ * 0.35 admits a ratio of 0.70 to 1.42, which covers a genuinely condensed cut
+ * of a family — the case the CLI warns about — and excludes the 0.379 above by
+ * a wide margin. The valid crop in the same run measured 0.98 to 1.04.
+ */
+export const COMPARABLE_ASPECT = 0.35;
+
 /** Tolerance for the trim that finds the ink, as a percentage. */
 export const TRIM_FUZZ_PERCENT = 12;
 

@@ -18,7 +18,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { REQUIRED_ROLES, ROLES, TOP_N, auditTypography, rankOf } from "../lib/typography-roles.mjs";
+import { REQUIRED_ROLES, ROLES, TOP_N, auditTypography, measurementFault, rankOf } from "../lib/typography-roles.mjs";
+import { COMPARABLE_ASPECT, MEANINGFUL_SEPARATION } from "../lib/typography-match.mjs";
 
 /** A recorded ranking, best first, in the shape `typography.mjs match` writes. */
 const match = (role, families) => ({
@@ -190,4 +191,106 @@ test("the role vocabulary is the one the schema publishes", () => {
   // Drifting these apart would let an analysis validate and then be audited
   // against a role name this module has never heard of.
   for (const required of REQUIRED_ROLES) assert.ok(ROLES.includes(required), `${required} is not a role`);
+});
+
+// ------------------------------- an order is not always a measurement ---
+//
+// The first run to reach this barrier called the tool, recorded the ranking and
+// wrote `source: "measured"` for both roles. Neither ranking had measured
+// anything, in two different ways, and both were visible in the numbers the
+// tool had already written down.
+
+/** The heading ranking exactly as that run recorded it. */
+const INDECISIVE = {
+  role: "headings",
+  text: "NORA BENNETT",
+  ranked: [
+    { rank: 1, family: "PT_SERIF", score: 0.0914, separation: 0.0061, widthRatio: 0.9768 },
+    { rank: 2, family: "TIMES_ROMAN", score: 0.0975, separation: null, widthRatio: 1.0389 },
+  ],
+};
+
+/** The body ranking from the same run: letterforms matched, widths did not. */
+const INCOMPARABLE = {
+  role: "body",
+  text: "Dynamic and detail-oriented Event Manager with over 7 years of experience delivering",
+  ranked: [
+    { rank: 1, family: "HELVETICA", score: 1.1649, separation: 0.1362, widthRatio: 0.379 },
+    { rank: 2, family: "UBUNTU", score: 1.3011, separation: null, widthRatio: 0.3295 },
+  ],
+};
+
+test("THE CASE: a winner inside the measurement's own noise decided nothing", () => {
+  // Re-run over three families instead of forty-eight, the same crop put
+  // TIMES_ROMAN first. A winner that changes with the candidate set is not one.
+  const fault = measurementFault(INDECISIVE);
+
+  assert.ok(fault, "0.0061 of separation was accepted");
+  assert.match(fault, /leads by 0\.0061/);
+  assert.match(fault, /inside the measurement's own noise/);
+  assert.match(fault, /TIMES_ROMAN 0\.0975/, "the runner-up is quoted, so the reader can judge it");
+});
+
+test("THE OTHER CASE: a crop that does not hold the string is not a font result", () => {
+  // score 1.1649 with a shape penalty of only 0.194: the letterforms matched
+  // and the widths were incomparable.
+  const fault = measurementFault(INCOMPARABLE);
+
+  assert.ok(fault, "widthRatio 0.379 was accepted");
+  assert.match(fault, /not the same shape \(widthRatio 0\.379\)/);
+  assert.match(fault, /re-cut it to the exact line/);
+});
+
+test("both faults reach the audit, and name the role", () => {
+  const audit = auditTypography({
+    typography: {
+      roles: [
+        { role: "headings", fontName: "PT_SERIF", source: "measured" },
+        { role: "body", fontName: "HELVETICA", source: "measured" },
+      ],
+    },
+    matches: [INDECISIVE, INCOMPARABLE],
+  });
+
+  assert.equal(audit.held.length, 2);
+  assert.match(audit.held.join("\n"), /"headings" claims to be measured and its match decided nothing/);
+  assert.match(audit.held.join("\n"), /"body" claims to be measured and its match decided nothing/);
+});
+
+test("a decisive, comparable match is not held", () => {
+  // The controlled case: a family fed its own crop and the correct string.
+  const good = {
+    role: "headings",
+    text: "Handgloves 0123",
+    ranked: [
+      { rank: 1, family: "BARLOW_CONDENSED", score: 0.0082, separation: 0.3213, widthRatio: 1 },
+      { rank: 2, family: "PT_SERIF", score: 0.3295, separation: null, widthRatio: 1.2786 },
+    ],
+  };
+  assert.equal(measurementFault(good), null);
+});
+
+test("a condensed cut of a family is a font difference, not a bad crop", () => {
+  // The CLI's own warning names this case, so the band has to admit it.
+  for (const widthRatio of [0.75, 1.35]) {
+    const fault = measurementFault({
+      ranked: [{ rank: 1, family: "BARLOW_CONDENSED", score: 0.2, separation: 0.1, widthRatio }],
+    });
+    assert.equal(fault, null, `widthRatio ${widthRatio} was refused`);
+  }
+  assert.ok(Math.abs(Math.log(0.379)) > COMPARABLE_ASPECT, "the real defect is outside the band");
+  assert.ok(Math.abs(Math.log(0.9768)) < COMPARABLE_ASPECT, "the real valid crop is inside it");
+});
+
+test("a recording made before these fields existed is not held for lacking them", () => {
+  // Holding on a missing field would refuse a run for having been measured
+  // before the check was written.
+  assert.equal(measurementFault({ ranked: [{ rank: 1, family: "LATO", score: 0.1 }] }), null);
+  assert.equal(measurementFault({ ranked: [] }), null);
+  assert.equal(measurementFault(null), null);
+});
+
+test("the noise line is the one the tool prints, not a second opinion", () => {
+  assert.equal(MEANINGFUL_SEPARATION, 0.02);
+  assert.ok(INDECISIVE.ranked[0].separation < MEANINGFUL_SEPARATION);
 });

@@ -285,7 +285,19 @@ exception: the `page` block carries the measurement from phase 1.
 
   A face with no bundled equivalent is a real answer: `"source":
   "assumed"` with a `why` clears, and stays reviewable. What does not
-  clear is `"measured"` with nothing recorded.
+  clear is `"measured"` with nothing recorded — **or a ranking that
+  decided nothing.** Two ways it can order the candidates and measure
+  nothing, both from one real run:
+
+  | The tool says | What it means |
+  |---|---|
+  | `leads by 0.0061` | inside its own noise: over three families instead of forty-eight, the same crop put a different family first |
+  | `ratio 0.379` | the crop and the specimen are not the same shape — the crop does not hold that string on its own |
+
+  The second is the more common: crop the **exact line**, and pass that
+  line's exact words as `--text`. A crop holding four wrapped lines
+  matched against one line of text scores every candidate above 1.1 and
+  still returns a winner.
 
   The prose fields beside `roles` — `headings`, `likelyFontFamily`,
   `scale` — still describe the type, and describing is not choosing.

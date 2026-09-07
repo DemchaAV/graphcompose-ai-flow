@@ -41,6 +41,8 @@
  * runs off synthesised rasters.
  */
 
+import { COMPARABLE_ASPECT, MEANINGFUL_SEPARATION } from "./typography-match.mjs";
+
 /** The type roles a page can name. A document need not use all of them. */
 export const ROLES = Object.freeze(["title", "headings", "body", "meta", "table"]);
 
@@ -70,10 +72,64 @@ export function rankOf(match, fontName) {
   return null;
 }
 
+/** The winning entry of a ranking, whole, so a message can quote its numbers. */
+function winnerEntry(match) {
+  return (match?.ranked ?? []).find((e) => e?.rank === 1) ?? match?.ranked?.[0] ?? null;
+}
+
 /** The family the ranking put first, for a message that names the alternative. */
 function winnerOf(match) {
-  const first = (match?.ranked ?? []).find((e) => e?.rank === 1) ?? match?.ranked?.[0];
+  const first = winnerEntry(match);
   return typeof first?.family === "string" ? first.family : null;
+}
+
+/**
+ * Did this ranking measure anything, or only produce an order?
+ *
+ * Two ways it can produce an order and measure nothing, both seen in one run:
+ *
+ *   - the top families sit inside the measurement's own noise. `PT_SERIF 0.0914
+ *     | TIMES_ROMAN 0.0975` separated by 0.0061, and re-running the same crop
+ *     over three families instead of forty-eight put TIMES_ROMAN first. A
+ *     winner that changes with the candidate set is not a winner.
+ *   - the crop and the specimen are not the same shape. A body role's winner
+ *     scored 1.1649 with a shape penalty of only 0.194 and a `widthRatio` of
+ *     **0.379** — the letterforms matched and the widths were incomparable,
+ *     which is a crop that does not hold the string, not a font difference.
+ *
+ * Both are the tool's own numbers. Nothing had to be invented to notice either,
+ * and until now nothing read them: the ranking was recorded and the winner was
+ * taken, with the same authority as a decisive match.
+ *
+ * Returns null when the recording predates these fields — an older match is not
+ * evidence of a problem, and holding on a missing field would refuse a run for
+ * having been measured before the check existed.
+ */
+export function measurementFault(match) {
+  const winner = winnerEntry(match);
+  if (!winner) return null;
+
+  if (typeof winner.widthRatio === "number" && winner.widthRatio > 0) {
+    const aspect = Math.abs(Math.log(winner.widthRatio));
+    if (aspect > COMPARABLE_ASPECT) {
+      return (
+        `the crop and the specimen are not the same shape (widthRatio ${winner.widthRatio}) — ` +
+        "the crop does not hold that string on its own, so re-cut it to the exact line before trusting the order"
+      );
+    }
+  }
+
+  if (typeof winner.separation === "number" && winner.separation < MEANINGFUL_SEPARATION) {
+    const runnerUp = (match.ranked ?? [])[1];
+    return (
+      `${winner.family} leads by ${winner.separation}, inside the measurement's own noise ` +
+      `(under ${MEANINGFUL_SEPARATION})` +
+      (runnerUp ? ` — ${winner.family} ${winner.score} against ${runnerUp.family} ${runnerUp.score}` : "") +
+      " — match a longer sample, or record the class you can defend as assumed"
+    );
+  }
+
+  return null;
 }
 
 /**
@@ -131,6 +187,15 @@ export function auditTypography({ typography, matches = [] }) {
         `"${name}" claims to be measured and no match was recorded for it — ` +
           `run: node scripts/typography.mjs match --role ${name} --reference <crop.png> --text "<the exact string>"`,
       );
+      continue;
+    }
+
+    // Before asking where the family placed: did the ranking measure anything?
+    // An order over candidates that are all indistinguishable, or all compared
+    // against the wrong crop, has a first place and no meaning.
+    const fault = measurementFault(match);
+    if (fault) {
+      held.push(`"${name}" claims to be measured and its match decided nothing: ${fault}`);
       continue;
     }
 
