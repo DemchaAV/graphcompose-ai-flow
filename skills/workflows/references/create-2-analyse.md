@@ -267,9 +267,15 @@ exception: the `page` block carries the measurement from phase 1.
   one `fontName` per role and says how it was chosen. `headings` and
   `body` are required, because between them they set the whole page:
 
+  Cut the crop from the region that carries the role — this works before
+  any render exists, which is where you are:
+
   ```bash
+  node tools/visual-diff/bin/crop-region.mjs --revision <revision-dir> \
+    --region <region-id> --reference <project>/reference/reference.png
+  # -> <revision-dir>/crops/<region-id>-reference.png
   node scripts/typography.mjs match --role headings \
-    --reference <crop.png> --text "<the exact string in that crop>" \
+    --reference <that crop> --text "<the exact string in that crop>" \
     --project <id>
   ```
 
