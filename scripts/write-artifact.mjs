@@ -73,6 +73,7 @@ function stampProvenance(content, { projectDir, projectId }) {
 import { stageAndCommit } from "./lib/atomic-write.mjs";
 import { findDataFile } from "./lib/data-spec.mjs";
 import { loadFailure, ready, schemaValidator } from "./lib/schema-validator.mjs";
+import { recordPhase } from "./lib/run-telemetry.mjs";
 
 const repoRoot = installRoot();
 
@@ -171,7 +172,9 @@ async function main() {
   }
   if (!args.project || !args.artifact || !args.from) usage(2);
 
-  const canonical = canonicalArtifactName(args.artifact);
+  // The phase clock starts where the work does, not where the process did.
+  const startedAt = Date.now();
+const canonical = canonicalArtifactName(args.artifact);
   if (!canonical) {
     process.stderr.write(
       `[artifact] --artifact takes one of ${Object.keys(ARTIFACTS).join(", ")}, not "${args.artifact}"\n`,
@@ -270,6 +273,19 @@ async function main() {
     return verdict.valid
       ? { ok: true }
       : { ok: false, detail: `fails ${schemaName}: ${String(verdict.errors).slice(0, 400)}` };
+  });
+
+  // One line, after the work and before the exit: the artifact phase is the
+  // only place that knows whether a document was written or refused, and a
+  // rejection is the retry the summary counts.
+  recordPhase(projectDir, {
+    name: `discovery.${canonical}`,
+    durationMs: Date.now() - startedAt,
+    result: result.ok ? "PASS" : "FAIL",
+    validation: result.ok ? "PASS" : "FAIL",
+    artifact: canonical,
+    artifactStatus: result.ok ? (result.replaced ? "replaced" : "generated") : "rejected",
+    reason: result.ok ? null : result.detail,
   });
 
   report(args, {

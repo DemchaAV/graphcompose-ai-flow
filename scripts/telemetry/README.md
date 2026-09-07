@@ -103,3 +103,39 @@ the file says why each way round.
 `providers/codex.mjs` is a named seam and says plainly that it is not
 implemented; it returns nulls rather than zeros, because a run that looks
 free invites the wrong conclusion.
+
+## The other axis: where the pipeline spent its time
+
+`scripts/lib/run-telemetry.mjs` answers what a transcript cannot — where the
+workflow stalled, how often it retried, which phase is unstable. Tokens and
+wall clock are different questions, so they are different files; this one is
+not host-specific and needs no provider.
+
+```text
+projects/<id>/telemetry/current-run.json          the run id, shared between processes
+projects/<id>/telemetry/runs/<runId>/summary.json  always
+projects/<id>/telemetry/runs/<runId>/trace.jsonl   GRAPHCOMPOSE_TRACE only
+```
+
+`GRAPHCOMPOSE_TRACE=on` in the shape of `GRAPHCOMPOSE_GUARD=off`. Not
+`--debug`: `pass.mjs` and `preview-live.mjs` already use that flag for a render
+with guide lines.
+
+**The summary is rewritten after every phase, not at the end.** `run-metrics
+finish` has been called zero times across eight corpus projects — the model
+calls `start` because the setup contract says to, and the run ends when the
+user stops asking. A summary that waits for a closing call is a summary that
+does not exist, and an abandoned run is the one most worth reading.
+
+**Counted, not copied.** `attempts.json` already holds every render of a
+revision with its figure and its source fingerprint. The loop phase records
+that a render happened and how long it took; it does not restate what the
+revision already knows.
+
+Instrumented today: `write-artifact` (artifact written, replaced or rejected),
+`check-analysis` (the validator's own answer, plus each failing check by name
+in the trace), `render-and-diff` (one pass, its duration, and a retreat from
+the revision's best as the reason). `run-metrics start` opens the run.
+
+Prompts and responses are never written at any level: they are large, and the
+host's transcript already has them.

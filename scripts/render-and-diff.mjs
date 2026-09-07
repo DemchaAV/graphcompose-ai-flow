@@ -50,6 +50,7 @@ import { compareEdgeBands } from "./lib/edge-bands.mjs";
 import { describeIgnoredCopies, resolveTemplateSource } from "./lib/template-source.mjs";
 import { describeForeignTwin, findForeignTwin } from "./lib/template-origin.mjs";
 import { INFERRED_NEW_SCOPE, resolveScope } from "./lib/pipeline-config.mjs";
+import { recordPhase } from "./lib/run-telemetry.mjs";
 
 const repoRoot = installRoot();
 
@@ -111,6 +112,8 @@ if (banner && !args.json) console.log(banner);
 
 const projectDir = workspaceProjectDir(workspace, args.project);
 const revisionDir = path.join(projectDir, "revisions", args.revision);
+/** The pass's clock: a render, its diff and its gates are one phase. */
+const renderStartedAt = Date.now();
 
 const result = {
   project: args.project,
@@ -1110,6 +1113,19 @@ step("attempt", (entry) => {
   });
   const summary = describeAttempts(readAttempts(revisionDir));
   result.attempt = { ...written, revisionSummary: summary };
+
+  // The loop's own attempts are already on disk in `attempts.json`, with the
+  // figure and the source fingerprint behind each one. This does not copy
+  // them: it records that a render happened and how long it took, which is
+  // the half no artifact carries, and the summary points at the rest.
+  recordPhase(projectDir, {
+    name: "loop.render",
+    durationMs: Date.now() - renderStartedAt,
+    result: result.diff?.classification === "IDENTICAL" ? "PASS" : "FAIL",
+    artifact: "output.png",
+    artifactStatus: args.skipRender ? "reused" : "generated",
+    reason: summary.regressed ? `worse than render ${summary.bestAt} by ${summary.worseThanBest}%` : null,
+  });
 
   const trail = summary.trail.length > 1 ? ` — ${summary.trail.map((p) => `${p.toFixed(2)}%`).join(" → ")}` : "";
   entry.detail =

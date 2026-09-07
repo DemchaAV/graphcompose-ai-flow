@@ -84,6 +84,7 @@ import { compareFingerprint, computeFingerprint } from "./lib/reference-fingerpr
 import { describeColour, probeFill } from "./lib/fill-probe.mjs";
 import { auditPalette } from "./lib/palette-claims.mjs";
 import { auditTypography } from "./lib/typography-roles.mjs";
+import { recordPhase, trace } from "./lib/run-telemetry.mjs";
 
 const repoRoot = installRoot();
 
@@ -191,6 +192,7 @@ if (!revisionId) {
   process.exit(2);
 }
 const revisionDir = path.join(projectDir, "revisions", revisionId);
+const barrierStartedAt = Date.now();
 if (!fs.existsSync(revisionDir)) {
   process.stderr.write(`[analysis] no such revision: ${revisionDir}\n`);
   process.exit(2);
@@ -713,6 +715,20 @@ if (args.only) {
 }
 
 const complete = artifacts.every((a) => a.ok);
+
+// The barrier is the pipeline's validator, so it is the phase whose result is
+// a validation result. Each failing check goes to the trace by name — a
+// summary that says "the plan barrier failed twice" is worth much less than
+// one that says which check it was, and only the trace can afford the detail.
+recordPhase(projectDir, {
+  name: args.only ? `discovery.check.${args.only}` : `barrier.${args.for}`,
+  durationMs: Date.now() - barrierStartedAt,
+  result: complete ? "PASS" : "FAIL",
+  validation: complete ? "PASS" : "FAIL",
+});
+for (const a of artifacts.filter((x) => !x.ok)) {
+  trace(projectDir, { type: "validation_failed", phase: args.only ? `discovery.check.${args.only}` : `barrier.${args.for}`, check: a.name, detail: a.detail });
+}
 const result = {
   project: args.project,
   revision: revisionId,

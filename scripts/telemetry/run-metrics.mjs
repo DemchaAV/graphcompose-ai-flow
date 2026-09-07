@@ -49,6 +49,7 @@ import { provider as gemini } from "./providers/gemini.mjs";
 import { describeWorkspaceLine, installRoot, projectDir as workspaceProjectDir, resolveWorkspace } from "../lib/workspace.mjs";
 import { loadPipelineConfig } from "../lib/pipeline-config.mjs";
 import { compareLines } from "../lib/version-resolver.mjs";
+import { startRun } from "../lib/run-telemetry.mjs";
 
 function usage(code = 0) {
   process.stdout.write(
@@ -147,6 +148,17 @@ if (command === "start") {
     runProject: args.project,
     runWorkflow: args.workflow ?? null,
   });
+  // The same command opens the phase run, so a second template in one session
+  // does not extend the first one's clock. It is deliberately the only place
+  // that resets it: every other caller joins whatever run is current, because
+  // discovery, authoring and the loop are separate processes and none of them
+  // can know it is the first.
+  try {
+    const workspace = resolveWorkspace({ explicitRoot: args.root ?? null });
+    startRun(workspaceProjectDir(workspace, args.project));
+  } catch {
+    /* never load-bearing */
+  }
   process.stdout.write(`[telemetry] run started for ${args.project}\n`);
   process.exit(0);
 }
