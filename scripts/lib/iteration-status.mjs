@@ -454,10 +454,16 @@ export function measurementEvidence(revisionDir) {
 /**
  * Compute the loop status for one project.
  *
- * @param {{ projectDir: string, config: object, revisionId?: string|null }} options
+ * `validateReview` is injected rather than resolved here because loading the
+ * shipped validator is asynchronous and this function is not — every caller is
+ * a CLI that has already awaited `ready()`. Omitted, the review's shape goes
+ * unchecked, which is what every caller did before it existed.
+ *
+ * @param {{ projectDir: string, config: object, revisionId?: string|null,
+ *          validateReview?: ((doc: unknown) => {valid: boolean, errors: string|null})|null }} options
  * @returns {object} status report; `verdict` is the decision, `reasons` explains it
  */
-export function computeIterationStatus({ projectDir, config, revisionId = null }) {
+export function computeIterationStatus({ projectDir, config, revisionId = null, validateReview = null }) {
   const project = readJsonOr(path.join(projectDir, "template-project.json"));
   if (!project) {
     throw new IterationStatusError(`no template-project.json in ${projectDir}`);
@@ -562,6 +568,27 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
       `${latest.id} has no visual-review.json — a render without a review is not an iteration, ` +
         "it is an unfinished one",
     );
+  } else if (validateReview) {
+    // `visual-review.json` is the artifact this whole verdict starts from, and
+    // it was the one artifact nothing validated: `write-artifact` does not
+    // accept it, the write guard leaves it alone by name, and until now no
+    // runtime path ran `schemas/visual-review.schema.json` against it. One run
+    // conformed only because the model went and read the schema itself.
+    //
+    // A document that does not match its schema is not a review, so its verdict
+    // does not get to stand — whatever that verdict was. Downgrading only
+    // READY_FOR_APPROVAL would leave a review free to invent a verdict the enum
+    // does not have and have it carried through the loop as written; the bounds
+    // below still escalate to BLOCKED or CONVERGENCE_LIMIT_REACHED on their own
+    // evidence, so REVISE here is a floor and not a ceiling.
+    const shape = validateReview(latest.review);
+    if (!shape.valid) {
+      reasons.push(
+        `${latest.id}: visual-review.json does not match visual-review.schema.json ` +
+          `(${String(shape.errors ?? "").slice(0, 200)}) — a review nothing can read is not a judgement`,
+      );
+      verdict = "REVISE";
+    }
   }
 
   // A revision edited after it was judged is not the revision that was judged.

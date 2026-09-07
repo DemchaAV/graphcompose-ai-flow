@@ -29,6 +29,7 @@ import { fileURLToPath } from "node:url";
 
 import { loadPipelineConfig } from "./lib/pipeline-config.mjs";
 import { computeIterationStatus, IterationStatusError } from "./lib/iteration-status.mjs";
+import { loadFailure, ready, schemaValidator } from "./lib/schema-validator.mjs";
 import { elapsed, formatDuration, formatTokens, processedTokens } from "./telemetry/core.mjs";
 import {
   describeWorkspaceLine,
@@ -75,12 +76,21 @@ const workspace = resolveWorkspace({ explicitRoot: args.root });
 const banner = describeWorkspaceLine(workspace);
 if (banner && !args.json) console.log(banner);
 
+// The loop verdict starts from `visual-review.json`, and that was the one
+// artifact nothing validated: `write-artifact` does not accept it and the write
+// guard leaves it alone by name. Resolved here rather than inside the library
+// because loading the shipped validator is asynchronous and computing the
+// status is not.
+const reviewSchema = path.join(installRoot(), "schemas", "visual-review.schema.json");
+const validateReview = (await ready()) ? schemaValidator(reviewSchema) : null;
+
 let status;
 try {
   status = computeIterationStatus({
     projectDir: requireProjectDir(workspace, args.project),
     config,
     revisionId: args.revision,
+    validateReview,
   });
 } catch (err) {
   if (err instanceof IterationStatusError || err.name === "WorkspaceError") {
@@ -88,6 +98,13 @@ try {
     process.exit(2);
   }
   throw err;
+}
+
+// An unusable validator is reported and does not change the verdict: preflight
+// already names a broken install, and dropping the check silently is the one
+// outcome that would let a malformed review read as a judged one.
+if (!validateReview) {
+  status.reasons = [...(status.reasons ?? []), `visual-review.json went unchecked — ${loadFailure()}`];
 }
 
 if (args.json) {

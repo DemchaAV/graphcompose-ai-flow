@@ -19,6 +19,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { loadPipelineConfig } from "../lib/pipeline-config.mjs";
+import { ready, schemaValidator } from "../lib/schema-validator.mjs";
 import {
   computeIterationStatus,
   IterationStatusError,
@@ -1393,4 +1394,74 @@ test("a stats file with no classification is UNMEASURED, and never reads as a pa
   const status = statusOf(dir);
   assert.equal(status.parity.fidelity.level, "UNMEASURED");
   assert.equal(status.parity.fidelity.classification, null);
+});
+
+// ------------------------------------------------- the review's own schema ---
+//
+// `visual-review.json` is the artifact the whole loop verdict starts from, and
+// it was the one artifact nothing validated: `write-artifact` does not accept
+// it and the write guard leaves it alone by name. `schemas/visual-review.schema
+// .json` — 359 lines, with enums for verdict, severity and cause — was run by
+// no runtime path at all. One run conformed to it only because the model went
+// and read the schema for itself.
+
+const reviewValidator = (await ready())
+  ? schemaValidator(path.join(repoRoot, "schemas", "visual-review.schema.json"))
+  : null;
+
+/** The same call the CLI makes, with the real validator rather than a stub. */
+const checkedStatusOf = (projectDir, revisionId = null) =>
+  computeIterationStatus({ projectDir, config, revisionId, validateReview: reviewValidator });
+
+test("THE CASE: a review that does not match its schema is not a judgement", { skip: !reviewValidator && "the schema validator is not installed" }, () => {
+  const dir = projectWith([
+    { ...REVIEW_READY, statsReferenceInside: true,
+      stats: { mismatchPx: 12, percent: 0.001, classification: "IDENTICAL" },
+      review: { mismatches: [{ id: "x", severity: "SEVERE", reason: "differs" }] } },
+  ], "review-bad-enum");
+
+  const status = checkedStatusOf(dir);
+  assert.equal(status.verdict, "REVISE", "a malformed review kept its verdict");
+  assert.match(status.reasons.join("\n"), /does not match visual-review\.schema\.json/);
+  assert.match(status.reasons.join("\n"), /a review nothing can read is not a judgement/);
+});
+
+test("an invented verdict does not travel, whatever it says", { skip: !reviewValidator && "the schema validator is not installed" }, () => {
+  // The enum has four members. A fifth is not a decision the loop can act on,
+  // and leaving it to stand would carry it through every consumer as written.
+  const dir = projectWith([
+    { verdict: "SHIP_IT", statsReferenceInside: true, stats: { mismatchPx: 0, percent: 0, classification: "IDENTICAL" } },
+  ], "review-bad-verdict");
+
+  assert.equal(checkedStatusOf(dir).verdict, "REVISE");
+});
+
+test("a review that matches its schema is not held", { skip: !reviewValidator && "the schema validator is not installed" }, () => {
+  // The quiet half: this must not start refusing the reviews the corpus writes.
+  // A READY fixture needs its gate and a quoted measurement to satisfy the
+  // claims audit — that is a separate rule, and this case has to clear it to be
+  // about the schema at all.
+  const dir = projectWith([
+    { ...REVIEW_READY, statsReferenceInside: true,
+      stats: { mismatchPx: 12, percent: 0.001, classification: "IDENTICAL" },
+      review: {
+        gate: { kind: "visual-review", passed: true, metric: "diff: 12 px (0.001%)", pages: [{ page: 1, mismatchPixels: 12 }] },
+      } },
+  ], "review-valid");
+
+  const status = checkedStatusOf(dir);
+  assert.equal(status.verdict, "READY_FOR_APPROVAL");
+  assert.doesNotMatch(status.reasons.join("\n"), /does not match visual-review\.schema\.json/);
+});
+
+test("without a validator the shape goes unchecked, which is what every caller did before", () => {
+  // The injection contract: `approve-and-publish` passes none, and its behaviour
+  // is unchanged by this.
+  const dir = projectWith([
+    { ...REVIEW_READY, statsReferenceInside: true,
+      stats: { mismatchPx: 12, percent: 0.001, classification: "IDENTICAL" },
+      review: { mismatches: [{ id: "x", severity: "SEVERE", reason: "differs" }] } },
+  ], "review-unchecked");
+
+  assert.doesNotMatch(statusOf(dir).reasons.join("\n"), /does not match visual-review\.schema\.json/);
 });
