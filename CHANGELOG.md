@@ -5,6 +5,83 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.24.0-beta.6 — 2026-09-07
+
+**What this beta is.** `beta.5` plus everything three runs on one CV reference
+exposed — two models, one contract, and a page that came back with all twelve
+regions CRITICAL at a spread of only 13-22%. A miss that flat is not a few
+broken widgets, and none of what follows was the models being careless: in
+every case the contract asked a question the reference can answer, in a form
+that could not carry the answer.
+
+**A typeface is measured, not recognised.** The largest single cause of that
+flat miss was the same in all three runs: the reference sets its section
+headings in a bold grotesque and every render set them in a serif. `typography`
+was seven free strings with `required: []`, and the field authoring reads held
+sentences like *"Poppins for body and a classic serif such as Spectral or Tinos
+for display text"*. `scripts/typography.mjs match` has ranked families against a
+crop of the reference since before those runs and not one of them called it —
+the loop reference offers it and no barrier asked. `typography.roles` now
+commits one `fontName` per role and says whether a recorded match backs it;
+`match --role <name> --project <id>` records its ranking into the revision. A
+face with no bundled equivalent stays a real answer: `assumed` with a `why`
+clears. The rank window is three deep because the matcher separates a grotesque
+from a serif easily and Barlow from Fira Sans barely, and reports that
+separation itself.
+
+**A corner is measured one at a time.** The identity panel has three square
+corners and one strongly rounded bottom-right. Gemini recorded
+`cornerRadiusRatio: 0` and rendered a rectangle; GPT recorded `0.18` and
+rendered a lozenge. Opposite errors, one cause — the field was a single scalar,
+so the shape had no honest value. GPT had already written *"Only the
+bottom-right corner is strongly rounded in the reference"* in `notes`, where
+nothing reads it. The field now takes a number or an object naming the corners,
+and the barrier holds both a radius the pixels contradict and one number spread
+over corners the reference does not treat alike. Nothing was needed from the
+engine: `DocumentCornerRadius.of(topLeft, topRight, bottomRight, bottomLeft)`
+has been there all along, in that order and under those names.
+
+**The palette cannot contradict a measured container.** One analysis carried
+`fill.present: false` on the competency cards and, four fields away,
+`colors[page-bg].usedIn = "…competency boxes fill"`. Both in the first write,
+both valid. Authoring read the prose and painted the cards white — reported at
+the time as the model changing its mind mid-run, which it never did. The plan
+barrier now reads the two together. The matcher is deliberately quiet:
+"background" is not a fill word, because *"sidebar background surface"* is a
+correct sentence and a check that fires on correct sentences gets turned off.
+
+**The template cannot paint a container the reference leaves unfilled.**
+Between "the analysis is right" and "the plan named it" there was nothing, and
+the Java built the card with `fillColor(DocumentColor.WHITE)` anyway. Every gate
+passed. `check-region-primitives` now reads the template back against
+`shapeOwnership`; run against the revision it came from, it reports one finding
+and names both the container and the method. A transparent fill is not a fill —
+`fillColor(DocumentColor.rgba(0, 0, 0, 0))` is in the corpus and is correct — so
+the argument is read rather than the call counted.
+
+**The review the verdict starts from is validated.** `visual-review.json` was
+the one artifact nothing checked: `write-artifact` does not accept it, the write
+guard leaves it alone by name, and its 359-line schema was run by no runtime
+path. One run conformed only because the model read the schema itself.
+`iterate-status` now validates it, which covers `render-and-diff` too, and an
+invalid review is downgraded to REVISE whatever it claimed.
+
+**A sweep that goes backwards says where to return to.** One revision went
+17.60 → 15.06 → 14.87 → 15.54 → 15.49 → 15.74: its best was the third of six
+renders and the three after it were all worse. The trail was printed on every
+one of them. Stalling covers "not moving" and had nothing to say about
+retreating, so both commands now name the render to go back to, at the fifth
+render of that trail rather than after it.
+
+**Verification.** 1424/1424 `node scripts/run-tests.mjs scripts/test`, and
+`node scripts/verify.mjs` clean across all thirteen gates. Both new probes and
+the fill check were replayed against the real `nora-g5` and `nora-gpt1`
+artifacts; the corner probe's confirmation runs across three parallel rays
+rather than along one, because the first version measured filled containers and
+refused outlined ones. The typography matcher was confirmed end to end by hand:
+fed its own crop and the correct specimen string, `BARLOW_CONDENSED` ranks first
+at score 0.0082, `widthRatio` 1, leading by 0.32.
+
 ## v0.24.0-beta.5 — 2026-09-06
 
 **What this beta is.** `beta.4` plus the two defects the first fully clean

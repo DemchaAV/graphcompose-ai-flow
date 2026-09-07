@@ -41,6 +41,32 @@
  * Same contract as `fill-probe.mjs`: an already-decoded `{width, height, data}`
  * in, so the tests run off synthesised rasters with no files on disk, and the
  * colour primitives are shared rather than reimplemented a second way.
+ *
+ * ## Not wired to a barrier, and why
+ *
+ * This measures synthesised rasters correctly and the real reference wrongly,
+ * so nothing holds an analysis on its answer. Run against the CV it was built
+ * for, the identity panel — 299×215, its bottom-right sweeping from x≈299 at
+ * y=166 to x≈245 at y=213 — measured **0.016**, a square corner, against a
+ * truth near 0.22.
+ *
+ * The cause is the model, not the tuning. The quarter-circle relation
+ * `gap = r·(1−1/√2)` puts the boundary 15px along the diagonal for r≈50, and
+ * there is no ink there: the reference's corner is a flatter sweep than a
+ * circular arc, so the distance measured and the radius wanted are not related
+ * by that constant. Every competency-sized container declines anyway, since
+ * `MIN_SIDE` is 40px and the card is 36.
+ *
+ * Shipping it as a barrier would have been worse than shipping nothing: the
+ * value it returns for that panel would have *confirmed* the `cornerRadiusRatio:
+ * 0` one model wrote, as a measurement. The schema and both contracts already
+ * carry the half that works — an analysis can now say which corner is round,
+ * and the author contract names `DocumentCornerRadius.of(…)` to build it.
+ *
+ * What a working version needs: fit the boundary rather than assume its shape —
+ * walk the two edges inward to where each leaves the straight run, and take the
+ * corner from those two distances. That is a different measurement, not a
+ * constant to re-tune.
  */
 
 import { modalColour, sameColour } from "./fill-probe.mjs";
@@ -51,8 +77,17 @@ export const CORNERS = Object.freeze(["topLeft", "topRight", "bottomRight", "bot
 /** Geometry of a quarter-circle: the corner-to-arc gap along the diagonal. */
 const DIAGONAL_SHARE = 1 - 1 / Math.SQRT2;
 
-/** Below this the corner is a handful of pixels and any radius is noise. */
-const MIN_SIDE = 16;
+/**
+ * Below this the probe cannot resolve a corner to the tolerance it is judged at.
+ *
+ * The gap along the diagonal is r·(1−1/√2), so one pixel of anti-aliasing moves
+ * the ratio by 3.41/shortSide. The barrier's tolerance is 0.10, so anything
+ * under ~34px is answering to worse precision than the question is asked at.
+ * The first version used 16 and produced confident nonsense on a real
+ * reference: a 42px-tall card with a ~4px radius came back as 0.5, 0.474, 0.5,
+ * 0.285 — three of them the cap rather than a measurement.
+ */
+const MIN_SIDE = 40;
 
 /** How far out the exterior sample sits, and how deep, in pixels. */
 const OUTSIDE_GAP = 3;
@@ -166,9 +201,30 @@ function probeCorner(raster, rect, corner, shortSide) {
   // The median, so one ray clipped by content near the corner cannot carry it.
   found.sort((a, b) => a - b);
   const gapPx = found[Math.floor(found.length / 2)];
+  const ratio = gapPx / DIAGONAL_SHARE / shortSide;
+
+  // A capsule is the roundest a corner gets, so a gap implying materially more
+  // than that is not a corner this found — it is content, or a border the walk
+  // crossed late. Clamping it to 0.5 was the first version's mistake: it
+  // reported the cap as a measurement, and a real 42px card came back claiming
+  // 0.5, 0.474, 0.5, 0.285.
+  //
+  // The slack is one pixel's worth of ratio, because a true capsule lands a
+  // hair over 0.5 through rounding alone and refusing it would be the same
+  // error in the other direction.
+  const slack = 1 / DIAGONAL_SHARE / shortSide;
+  if (ratio > 0.5 + slack) {
+    return {
+      measurable: false,
+      radiusRatio: null,
+      gapPx,
+      reason: "the first edge along this corner is further in than any radius could put it",
+    };
+  }
+
   return {
     measurable: true,
-    radiusRatio: Math.min(0.5, Math.round((gapPx / DIAGONAL_SHARE / shortSide) * 1000) / 1000),
+    radiusRatio: Math.min(0.5, Math.round(ratio * 1000) / 1000),
     gapPx,
     reason: null,
   };

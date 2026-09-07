@@ -151,13 +151,58 @@ test("a container too small to hold a corner says so", () => {
   assert.match(probe.reason, /too small/);
 });
 
-test("the radius is capped where a capsule is, not extrapolated past it", () => {
+test("a capsule measures at the top of the range without going past it", () => {
   // Half the short side is a capsule; nothing can be rounder, and the schema
   // stops at 0.5 for the same reason.
   const raster = page({ box: BOX, radii: { topLeft: 50, topRight: 50, bottomRight: 50, bottomLeft: 50 } });
   const probe = probeCorners(raster, BOUNDS);
 
-  for (const corner of CORNERS) assert.ok(probe.corners[corner].radiusRatio <= 0.5, `${corner} exceeded a capsule`);
+  for (const corner of CORNERS) {
+    assert.equal(probe.corners[corner].measurable, true, `${corner} declined on a real capsule`);
+    assert.ok(probe.corners[corner].radiusRatio <= 0.5, `${corner} exceeded a capsule`);
+    assert.ok(probe.corners[corner].radiusRatio >= 0.4, `${corner} read ${probe.corners[corner].radiusRatio}`);
+  }
+});
+
+test("THE FIX: an edge further in than any radius allows is refused, not clamped to 0.5", () => {
+  // Found by running the built check against the real reference rather than
+  // against rasters: a 42px card with a ~4px radius came back claiming 0.5,
+  // 0.474, 0.5, 0.285. Three of those were the cap, reported as measurements,
+  // and the barrier then held the analysis for corners "rounded differently".
+  //
+  // Here the box paints nothing near its corners at all, so the first thing
+  // each diagonal meets is the content in the middle.
+  const raster = page({ box: BOX, ink: PEACH });
+  const inner = { x0: 90, y0: 75, x1: 110, y1: 105 };
+  for (let y = inner.y0; y < inner.y1; y += 1) {
+    for (let x = inner.x0; x < inner.x1; x += 1) {
+      const i = (200 * y + x) * 4;
+      [raster.data[i], raster.data[i + 1], raster.data[i + 2]] = TEAL;
+    }
+  }
+  const probe = probeCorners(raster, BOUNDS);
+
+  for (const corner of CORNERS) {
+    assert.equal(probe.corners[corner].measurable, false, `${corner} invented ${probe.corners[corner].radiusRatio}`);
+    assert.equal(probe.corners[corner].radiusRatio, null, "a cap is not a measurement");
+  }
+});
+
+test("a container too small to resolve a radius to the tolerance declines", () => {
+  // The gap is r·(1−1/√2), so one pixel of anti-aliasing moves the ratio by
+  // 3.41/shortSide. Under ~34px that is coarser than the 0.10 the barrier
+  // judges at, and the real competency card — 42px tall in the reference —
+  // is the container the first version got wrong.
+  const small = { x0: 40, y0: 40, x1: 160, y1: 70 };
+  const probe = probeCorners(page({ box: small, radii: { bottomRight: 4 } }), {
+    x: 40 / 200,
+    y: 40 / 200,
+    w: 120 / 200,
+    h: 30 / 200,
+  });
+
+  assert.equal(probe.measurable, false);
+  assert.match(probe.reason, /too small/);
 });
 
 test("claimedRadius reads a number as every corner and an object as each", () => {
