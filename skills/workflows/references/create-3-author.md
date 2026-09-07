@@ -182,6 +182,22 @@ named constant rather than sprinkling the arithmetic.
 in the page colour, still paints — on a tinted panel it leaves a pale band
 around every box. If `stroke.present` is false, emit no stroke.
 
+**Name each container with the id the analysis gave it.** `name(String)`
+is on `ShapeContainerBuilder`, `ShapeBuilder` and `EllipseBuilder`:
+
+```java
+sec.addContainer(c -> c.name("competency-pill").roundedRect(w, h, r));
+```
+
+`check-region-primitives` reads the template back and reports a container
+the reference measures as unfilled that the code paints — one run measured
+`fill.present: false` on the cards, wrote `fillColor(DocumentColor.WHITE)`
+anyway, and every gate passed. Where a method builds one container the id
+is unambiguous; where it builds several, the name is the only thing that
+ties a fill to the container it belongs to, and without it the check can
+only ask you to add one. The same name makes the container addressable in
+`layout.mjs inspect`.
+
 ## Before you choose a primitive, ask for the route
 
 The surfaces say what exists. They cannot say which of three ways is the

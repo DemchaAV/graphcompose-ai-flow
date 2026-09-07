@@ -38,7 +38,8 @@ import {
   projectDir as workspaceProjectDir,
   resolveWorkspace,
 } from "./lib/workspace.mjs";
-import { checkRegionPrimitives } from "./lib/region-primitives.mjs";
+import { checkRegionPrimitives, methodBody } from "./lib/region-primitives.mjs";
+import { checkContainerFills } from "./lib/container-fidelity.mjs";
 import { checkPaginationPlan } from "./lib/pagination-plan.mjs";
 
 const repoRoot = installRoot();
@@ -160,6 +161,16 @@ const findings = [
     referencePages,
     source: template.source,
     componentMapping,
+  }),
+  // The third disagreement, and the one that sat unwatched the longest: the
+  // analysis measured a container, the plan named it, and the Java then built
+  // it however it liked. A run measured `fill.present: false` on the competency
+  // cards and painted them white; every gate passed.
+  ...checkContainerFills({
+    shapeOwnership: analysis.shapeOwnership ?? [],
+    componentMapping,
+    source: template.source,
+    readMethod: methodBody,
   }),
 ];
 
