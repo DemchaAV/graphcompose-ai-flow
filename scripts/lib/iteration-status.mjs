@@ -532,6 +532,44 @@ export function chainRegression(chain) {
   };
 }
 
+/**
+ * Movement across every measured revision, in the shape
+ * {@link diminishingReturns} reads — and keyed on nothing.
+ *
+ * `attemptHistory` feeds the stall test only the run of passes sharing one
+ * focus, which is the right question about one cause and answers nothing about
+ * a loop that names a new cause every pass. One did: eight revisions, eight
+ * mismatch ids, no id repeated. The trailing run was length 1 every time, so
+ * `diminishingReturns` reported `measurable: false`, the same-cause bound never
+ * reached two, and the page difference sat between 14.15% and 14.45% from the
+ * second revision to the eighth with nothing able to say so.
+ *
+ * The measurement does not depend on what anything was called: every revision
+ * has a `visual-diff-stats.json`, and the movement between consecutive ones is
+ * the loop's own progress. Weaker evidence about a *cause* than the focus run —
+ * which is why it is the fallback and not the first answer — and much stronger
+ * evidence about the loop.
+ *
+ * @param {Array<object>} chain
+ * @returns {Array<{revision:string, mismatch:null, action:null,
+ *                  percent:number, moved:number|null}>}
+ */
+export function chainMovement(chain) {
+  const measured = (chain ?? [])
+    .filter((entry) => typeof entry?.stats?.percent === "number")
+    .map((entry) => ({ revision: entry.id, percent: round(entry.stats.percent, 3) }));
+
+  return measured.map((entry, index) => ({
+    revision: entry.revision,
+    // The cause is deliberately absent: this history spans revisions that named
+    // different ones, and attributing a move to any of them would be a guess.
+    mismatch: null,
+    action: null,
+    percent: entry.percent,
+    moved: index > 0 ? round(entry.percent - measured[index - 1].percent, 3) : null,
+  }));
+}
+
 export function diminishingReturns(history, materialPercent) {
   const measured = history.filter((attempt) => attempt.moved !== null);
   if (measured.length < 2) return { measurable: false, stalled: false, moves: [] };
@@ -676,10 +714,16 @@ export function computeIterationStatus({ projectDir, config, revisionId = null, 
   // joins `stalling` because both answer one question — is the loop still
   // buying anything between revisions — and `convergenceOf` reads them together.
   const chainBest = chainRegression(chain);
-  const stalling = {
-    ...diminishingReturns(history, limits.materialMovePercent ?? 0.25),
-    regressed: chainBest.regressed,
-  };
+  const material = limits.materialMovePercent ?? 0.25;
+  const onFocus = diminishingReturns(history, material);
+  // The focus run first: it is the sharper question — are the passes against
+  // THIS cause still buying anything. When it measured nothing, the loop
+  // renamed its cause rather than repeating it, and the chain is asked instead.
+  // Falling silent there is what let eight passes sit inside a third of a
+  // percentage point with the movement axis reporting UNKNOWN.
+  const stalling = onFocus.measurable
+    ? { ...onFocus, scope: "focus", regressed: chainBest.regressed }
+    : { ...diminishingReturns(chainMovement(chain), material), scope: "chain", regressed: chainBest.regressed };
   const reasons = [];
 
   for (const skip of focus.skipped ?? []) {

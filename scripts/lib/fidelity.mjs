@@ -175,7 +175,7 @@ export function convergenceOf(stalling, sweep = null) {
   const sweepMeasurable = Boolean(sweep && sweep.renders >= 3);
 
   if (!chainMeasurable && !sweepMeasurable) {
-    return { level: CONVERGENCE.UNKNOWN, materialPercent: null, moves: [], source: null };
+    return { level: CONVERGENCE.UNKNOWN, materialPercent: null, moves: [], source: null, scope: null };
   }
 
   const chainStalled = chainMeasurable && (stalling.stalled || stalling.regressed === true);
@@ -193,6 +193,11 @@ export function convergenceOf(stalling, sweep = null) {
       materialPercent,
       moves: stalling?.moves ?? [],
       source: chainStalled ? "revisions" : "sweep",
+      // Whether the movement was measured on the run of passes sharing one
+      // focus, or across the chain because the loop renamed its cause every
+      // pass. The second is the weaker claim about a cause and the reader is
+      // told which one they have.
+      scope: stalling?.scope ?? null,
     };
   }
   return {
@@ -200,6 +205,7 @@ export function convergenceOf(stalling, sweep = null) {
     materialPercent,
     moves: stalling?.moves ?? [],
     source: chainMeasurable ? "revisions" : "sweep",
+    scope: stalling?.scope ?? null,
   };
 }
 

@@ -1693,3 +1693,68 @@ test("a report made without a quote is carried without an empty one", { skip: !r
   assert.equal(status.largestMismatch, "timeline-spacing");
   assert.doesNotMatch(status.reasons.join("\n"), /does not match visual-review\.schema\.json/);
 });
+
+test("THE RENAMED CAUSE: a loop that never repeats a mismatch is still measured", () => {
+  // The nora-b8 run, to the third decimal. Eight revisions, eight mismatch ids,
+  // no id repeated — so the trailing run sharing one focus was length 1 every
+  // time, `diminishingReturns` reported measurable:false, and the movement axis
+  // said UNKNOWN while the page sat between 14.15% and 14.45% from the second
+  // revision to the eighth.
+  const percents = [15.12, 14.216, 14.23, 14.224, 14.447, 14.377, 14.339, 14.152];
+  const status = statusOf(
+    projectWith(
+      percents.map((percent, i) => ({
+        verdict: "REVISE",
+        mismatch: `cause-${i + 1}`,
+        statsReferenceInside: true,
+        stats: { mismatchPx: Math.round(percent * 15000), percent, classification: "CRITICAL" },
+      })),
+      "renamed-cause",
+    ),
+  );
+
+  assert.equal(status.sameMismatchAttempts, 1, "no id repeats, so the same-cause bound cannot bind");
+  assert.equal(status.parity.movement.level, "STALLED");
+  assert.equal(status.parity.movement.scope, "chain", "measured across revisions, not on one focus");
+  assert.deepEqual(
+    status.parity.movement.moves.map((m) => m.moved),
+    [-0.038, -0.187],
+    "the last two moves, both under a quarter of a point",
+  );
+});
+
+test("a loop that does repeat its cause is still measured on that cause", () => {
+  // The sharper question stays the first one asked: these passes are about one
+  // thing, and whether THEY are buying anything is what the reader wants.
+  const status = statusOf(
+    projectWith(
+      [14.9, 14.5, 14.45, 14.44].map((percent) => ({
+        verdict: "REVISE",
+        mismatch: "header-height",
+        statsReferenceInside: true,
+        stats: { mismatchPx: Math.round(percent * 15000), percent, classification: "CRITICAL" },
+      })),
+      "repeated-cause",
+    ),
+  );
+
+  assert.equal(status.parity.movement.scope, "focus");
+  assert.equal(status.parity.movement.level, "STALLED");
+});
+
+test("a chain still moving is not called stalled by the fallback", () => {
+  const status = statusOf(
+    projectWith(
+      [20.0, 15.0, 10.0, 5.0].map((percent, i) => ({
+        verdict: "REVISE",
+        mismatch: `cause-${i + 1}`,
+        statsReferenceInside: true,
+        stats: { mismatchPx: Math.round(percent * 15000), percent, classification: "CRITICAL" },
+      })),
+      "still-moving",
+    ),
+  );
+
+  assert.equal(status.parity.movement.scope, "chain");
+  assert.equal(status.parity.movement.level, "IMPROVING");
+});
