@@ -572,6 +572,11 @@
                 "minLength": 1,
                 "description": "The FontName constant the template will use, e.g. \"LATO\"."
               },
+              "size": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "Type size in points, from `typography.mjs search --role <name>`. The scale that search needs is page.referencePx.width / page.sizePt.width. Without this the size is chosen by trial against whether a line wraps, which trades the size away to avoid fixing the column: one run set its contacts to 6.2 then 6.4pt so the longest address would fit."
+              },
               "source": {
                 "enum": ["measured", "assumed"],
                 "description": "measured: a recorded `typography.mjs match` ranked this family near the top for this role. assumed: someone chose it and said why."

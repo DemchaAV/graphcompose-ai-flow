@@ -283,6 +283,23 @@ exception: the `page` block carries the measurement from phase 1.
   in the revision. Then write `{"role": "headings", "fontName": "LATO",
   "source": "measured"}` and the barrier checks the two agree.
 
+  **The size is the other half, and it is measured the same way.**
+  `headings` and `body` carry a `size`, from the sweep — the scale it
+  needs is `page.referencePx.width ÷ page.sizePt.width`, which you already
+  have:
+
+  ```bash
+  node scripts/typography.mjs search --role body --family <FONT> \
+    --reference <crop.png> --text "<the exact line>" \
+    --from 6 --to 14 --step 0.25 --scale <that ratio> --project <id>
+  ```
+
+  Left unmeasured, the size gets chosen by whether a line happens to wrap.
+  One run set its contact strip to 6.2pt and then 6.4pt so the longest
+  address would fit on one line — trading the type size away instead of
+  fixing the column width, and the header came out smaller than the
+  reference everywhere.
+
   A face with no bundled equivalent is a real answer: `"source":
   "assumed"` with a `why` clears, and stays reviewable. What does not
   clear is `"measured"` with nothing recorded — **or a ranking that

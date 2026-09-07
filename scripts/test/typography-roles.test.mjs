@@ -28,11 +28,17 @@ const match = (role, families) => ({
   ranked: families.map((family, i) => ({ rank: i + 1, family, score: 0.1 * (i + 1), separation: 0.05 })),
 });
 
+/** A decisive size sweep for each required role, so size is never the reason. */
+const SIZES = [
+  { role: "headings", family: "LATO", size: 11, decisive: true },
+  { role: "body", family: "LATO", size: 9, decisive: true },
+];
+
 /** Both roles the audit insists on, measured against the same ranking. */
 const bothMeasured = (fontName) => ({
   roles: [
-    { role: "headings", fontName, source: "measured" },
-    { role: "body", fontName, source: "measured" },
+    { role: "headings", fontName, size: 11, source: "measured" },
+    { role: "body", fontName, size: 9, source: "measured" },
   ],
 });
 
@@ -54,6 +60,7 @@ test("prose alone does not count as declaring a face", () => {
       headings: "Dark teal serif section headings with compact coral rules.",
       likelyFontFamily: "Poppins for body and a classic serif such as Spectral or Tinos for display text.",
     },
+    sizes: SIZES,
     matches: [],
   });
 
@@ -61,7 +68,7 @@ test("prose alone does not count as declaring a face", () => {
 });
 
 test("a claim to have measured, with nothing recorded, is held — and says how to fix it", () => {
-  const audit = auditTypography({ typography: bothMeasured("LATO"), matches: [] });
+  const audit = auditTypography({ typography: bothMeasured("LATO"), matches: [], sizes: SIZES });
 
   assert.equal(audit.held.length, 2, "one per unbacked role");
   assert.match(audit.held[0], /claims to be measured and no match was recorded/);
@@ -71,6 +78,7 @@ test("a claim to have measured, with nothing recorded, is held — and says how 
 test("a measured role the ranking put first clears", () => {
   const audit = auditTypography({
     typography: bothMeasured("LATO"),
+    sizes: SIZES,
     matches: [match("headings", ["LATO", "BARLOW"]), match("body", ["LATO", "BARLOW"])],
   });
 
@@ -83,12 +91,14 @@ test("the window is three deep, because the matcher cannot separate near neighbo
   const ranking = ["BARLOW", "FIRA_SANS", "LATO", "OPEN_SANS"];
   const inside = auditTypography({
     typography: bothMeasured("LATO"),
+    sizes: SIZES,
     matches: [match("headings", ranking), match("body", ranking)],
   });
   assert.deepEqual(inside.held, [], `rank ${TOP_N} is inside the window`);
 
   const outside = auditTypography({
     typography: bothMeasured("OPEN_SANS"),
+    sizes: SIZES,
     matches: [match("headings", ranking), match("body", ranking)],
   });
   assert.equal(outside.held.length, 2);
@@ -100,7 +110,8 @@ test("THE MISS: a serif chosen against a grotesque reference is held", () => {
   // What the runs actually did, with the ranking the matcher would have given.
   const measured = ["LATO", "BARLOW", "FIRA_SANS", "OPEN_SANS", "PT_SERIF"];
   const audit = auditTypography({
-    typography: { roles: [{ role: "headings", fontName: "PT_SERIF", source: "measured" }, { role: "body", fontName: "LATO", source: "measured" }] },
+    typography: { roles: [{ role: "headings", fontName: "PT_SERIF", size: 11, source: "measured" }, { role: "body", fontName: "LATO", size: 9, source: "measured" }] },
+    sizes: SIZES,
     matches: [match("headings", measured), match("body", measured)],
   });
 
@@ -112,6 +123,7 @@ test("THE MISS: a serif chosen against a grotesque reference is held", () => {
 test("a family the recorded ranking never saw is held, not silently ranked last", () => {
   const audit = auditTypography({
     typography: bothMeasured("AMIRI"),
+    sizes: SIZES,
     matches: [match("headings", ["LATO", "BARLOW"]), match("body", ["LATO", "BARLOW"])],
   });
 
@@ -127,6 +139,7 @@ test("assumed with a reason clears — a face with no bundled equivalent is a re
         { role: "body", fontName: "LATO", source: "assumed", why: "same family, one weight down" },
       ],
     },
+    sizes: SIZES,
     matches: [],
   });
 
@@ -143,6 +156,7 @@ test("assumed without a reason is a guess, and is held as one", () => {
         { role: "body", fontName: "LATO", source: "assumed", why: "   " },
       ],
     },
+    sizes: SIZES,
     matches: [],
   });
 
@@ -153,6 +167,7 @@ test("assumed without a reason is a guess, and is held as one", () => {
 test("the two roles that set the page are named when either is missing", () => {
   const audit = auditTypography({
     typography: { roles: [{ role: "title", fontName: "LATO", source: "assumed", why: "display only" }] },
+    sizes: SIZES,
     matches: [],
   });
 
@@ -170,6 +185,7 @@ test("one role resolves to one face", () => {
         { role: "body", fontName: "LATO", source: "assumed", why: "c" },
       ],
     },
+    sizes: SIZES,
     matches: [],
   });
 
@@ -249,6 +265,7 @@ test("both faults reach the audit, and name the role", () => {
         { role: "body", fontName: "HELVETICA", source: "measured" },
       ],
     },
+    sizes: SIZES,
     matches: [INDECISIVE, INCOMPARABLE],
   });
 
@@ -293,4 +310,96 @@ test("a recording made before these fields existed is not held for lacking them"
 test("the noise line is the one the tool prints, not a second opinion", () => {
   assert.equal(MEANINGFUL_SEPARATION, 0.02);
   assert.ok(INDECISIVE.ranked[0].separation < MEANINGFUL_SEPARATION);
+});
+
+// ------------------------------------------ the size, not only the face ---
+//
+// The run this comes from measured a face for every role and a size for none.
+// Its contacts were set at 6.2 and then 6.4pt, chosen so the longest address
+// would stay on one line — the size traded away to avoid fixing the column.
+// `typography.mjs search` answers this and was called once in ten revisions.
+
+const FACES = [match("headings", ["LATO"]), match("body", ["LATO"])];
+
+test("THE CASE: a role with a measured face and no measured size is held", () => {
+  const audit = auditTypography({
+    typography: {
+      roles: [
+        { role: "headings", fontName: "LATO", source: "measured" },
+        { role: "body", fontName: "LATO", source: "measured" },
+      ],
+    },
+    matches: FACES,
+    sizes: [],
+  });
+
+  assert.equal(audit.held.length, 2);
+  assert.match(audit.held[0], /declares no size/);
+  assert.match(audit.held[0], /typography\.mjs search --role headings --family LATO/, "the command is ready to run");
+  assert.match(audit.held[0], /page\.referencePx\.width ÷ page\.sizePt\.width/, "and the scale it needs is derived, not guessed");
+});
+
+test("a size with no sweep behind it is a number somebody typed", () => {
+  const audit = auditTypography({ typography: bothMeasured("LATO"), matches: FACES, sizes: [] });
+  assert.match(audit.held[0], /claims 11pt with no recorded size sweep behind it/);
+});
+
+test("a sweep the tool itself calls indecisive does not back a size", () => {
+  // A flat curve cannot tell 10.4 from 10.6, and `decisive` is the tool saying so.
+  const audit = auditTypography({
+    typography: bothMeasured("LATO"),
+    matches: FACES,
+    sizes: [
+      { role: "headings", size: 11, decisive: false },
+      { role: "body", size: 9, decisive: true },
+    ],
+  });
+
+  assert.equal(audit.held.length, 1);
+  assert.match(audit.held[0], /the sweep that backs it was not decisive/);
+});
+
+test("a size that disagrees with its own sweep is held, with both numbers", () => {
+  const audit = auditTypography({
+    typography: bothMeasured("LATO"),
+    matches: FACES,
+    sizes: [
+      { role: "headings", size: 13.5, decisive: true },
+      { role: "body", size: 9, decisive: true },
+    ],
+  });
+
+  assert.equal(audit.held.length, 1);
+  assert.match(audit.held[0], /claims 11pt and the sweep measured 13\.5pt/);
+});
+
+test("rounding inside a quarter point is not a disagreement", () => {
+  // The sweep steps in 0.25pt, so an analysis rounding 11.25 to 11 agrees.
+  const audit = auditTypography({
+    typography: bothMeasured("LATO"),
+    matches: FACES,
+    sizes: [
+      { role: "headings", size: 11.25, decisive: true },
+      { role: "body", size: 9.25, decisive: true },
+    ],
+  });
+
+  assert.deepEqual(audit.held, []);
+});
+
+test("only the two roles that set the page are asked for a size", () => {
+  // A size for every marker and table cell is a form to fill in.
+  const audit = auditTypography({
+    typography: {
+      roles: [
+        { role: "headings", fontName: "LATO", size: 11, source: "measured" },
+        { role: "body", fontName: "LATO", size: 9, source: "measured" },
+        { role: "meta", fontName: "LATO", source: "assumed", why: "one step down from body" },
+      ],
+    },
+    matches: FACES,
+    sizes: SIZES,
+  });
+
+  assert.deepEqual(audit.held, []);
 });

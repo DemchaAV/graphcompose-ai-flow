@@ -1099,8 +1099,8 @@ test("a recorded match that backs the chosen face clears it", () => {
       ...NO_ROLES,
       typography: {
         roles: [
-          { role: "headings", fontName: "LATO", source: "measured" },
-          { role: "body", fontName: "BARLOW", source: "measured" },
+          { role: "headings", fontName: "LATO", size: 11, source: "measured" },
+          { role: "body", fontName: "BARLOW", size: 9, source: "measured" },
         ],
       },
     },
@@ -1112,6 +1112,12 @@ test("a recorded match that backs the chosen face clears it", () => {
     matches: [
       { role: "headings", text: "SUMMARY", ranked: [{ rank: 1, family: "LATO" }, { rank: 2, family: "BARLOW" }] },
       { role: "body", text: "body copy", ranked: [{ rank: 1, family: "BARLOW" }, { rank: 2, family: "LATO" }] },
+    ],
+    // The size is measured too, and by the same tool: a face without one is
+    // half an answer, and the run this came from had exactly that half.
+    sizes: [
+      { role: "headings", family: "LATO", size: 11, decisive: true },
+      { role: "body", family: "BARLOW", size: 9, decisive: true },
     ],
   });
   const { status, parsed, out } = check(root);

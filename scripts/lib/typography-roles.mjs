@@ -140,7 +140,37 @@ export function measurementFault(match) {
  * @param {Array<object>} input.matches recorded matches, `typography-match.json`'s `matches`
  * @returns {{held: string[], measured: number, assumed: number, declared: number}}
  */
-export function auditTypography({ typography, matches = [] }) {
+/**
+ * Was this role's size measured, or traded away to stop a line wrapping?
+ *
+ * The run this comes from measured a face for every role and a size for none.
+ * Its contacts were set at 6.2 and then 6.4pt, chosen so the longest address
+ * would stay on one line — the size given up to avoid fixing the column width.
+ * `typography.mjs search` answers this and was called once in ten revisions.
+ *
+ * `decisive` is the tool's own word: a flat curve cannot tell 10.4 from 10.6,
+ * and it says so rather than returning the lowest point of noise.
+ */
+function sizeFault(role, sizes) {
+  if (typeof role.size !== "number") {
+    return (
+      "declares no size — run: node scripts/typography.mjs search --role " +
+      `${role.role} --family ${role.fontName} --reference <crop.png> --text "<the exact line>" ` +
+      "--from 6 --to 14 --step 0.25 --scale <page.referencePx.width ÷ page.sizePt.width> --project <id>"
+    );
+  }
+  const measured = sizes.find((s) => s?.role === role.role);
+  if (!measured) return `claims ${role.size}pt with no recorded size sweep behind it`;
+  if (measured.decisive !== true) {
+    return `claims ${role.size}pt and the sweep that backs it was not decisive — the curve is flat, so the size it returned is the lowest point of noise`;
+  }
+  if (typeof measured.size === "number" && Math.abs(measured.size - role.size) > 0.5) {
+    return `claims ${role.size}pt and the sweep measured ${measured.size}pt`;
+  }
+  return null;
+}
+
+export function auditTypography({ typography, matches = [], sizes = [] }) {
   const roles = Array.isArray(typography?.roles) ? typography.roles : [];
   const held = [];
 
@@ -197,6 +227,13 @@ export function auditTypography({ typography, matches = [] }) {
     if (fault) {
       held.push(`"${name}" claims to be measured and its match decided nothing: ${fault}`);
       continue;
+    }
+
+    // Only the two roles that set the page: a size for every marker and table
+    // cell is a form to fill in, and these two are where a wrong size shows.
+    if (REQUIRED_ROLES.includes(name)) {
+      const fault = sizeFault(role, sizes);
+      if (fault) held.push(`"${name}" ${fault}`);
     }
 
     const rank = rankOf(match, role.fontName);

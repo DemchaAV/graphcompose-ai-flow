@@ -85,9 +85,10 @@ function usage(code = 0) {
       "  --from / --to / --step     (search) inclusive numeric range\n" +
       "  --size <n>                 (match) the size to set every candidate at (default 24)\n" +
       "  --top <n>                  how many ranked results to print (default 10)\n" +
-      `  --role <name>              (match) record this ranking against a type role: ${ROLES.join(", ")}\n` +
-      "  --project <id>             (match) the project to record into; --role needs it\n" +
-      "  --revision <id>            (match) the revision (default: the project's current draft)\n" +
+      `  --role <name>              record this result against a type role: ${ROLES.join(", ")}\n` +
+      "                             match records the family ranking; search records the size\n" +
+      "  --project <id>             the project to record into; --role needs it\n" +
+      "  --revision <id>            the revision (default: the project's current draft)\n" +
       "  --root <workspace>         workspace override\n" +
       "  --graphcompose <version>   which GraphCompose to render against (default 2.2.1)\n" +
       "  --keep                     keep the scratch specimen instead of deleting it\n" +
@@ -186,10 +187,6 @@ function parseArgs(argv) {
   // existed in a terminal. A size sweep records nothing — the artifact commits
   // to a face per role, and a size is not a face.
   if (out.role !== null) {
-    if (out.command !== "match") {
-      process.stderr.write("[typography] --role belongs to match: a size sweep records no face\n");
-      usage(2);
-    }
     if (!ROLES.includes(out.role)) {
       process.stderr.write(`[typography] --role takes one of ${ROLES.join(", ")}, not "${out.role}"\n`);
       usage(2);
@@ -255,6 +252,31 @@ function recordMatch(result, args) {
       // file either way, and refusing to record over one would leave the run
       // with no way forward except deleting a file by hand.
     }
+  }
+
+  // A size sweep answers a different question about the same role, so it lands
+  // beside the family matches rather than replacing one. The run that prompted
+  // this measured a face for every role and a size for none: contacts were set
+  // by trial at 6.2 then 6.4pt, chosen so the longest address would not wrap,
+  // which trades the type size away to avoid fixing the column.
+  if (result.command === "search") {
+    const sizes = Array.isArray(doc.sizes) ? doc.sizes : [];
+    const measured = {
+      role: args.role,
+      text: result.text,
+      reference: cropPath(revisionDir, result.reference),
+      family: result.family,
+      scale: result.scale,
+      size: result.best?.size ?? null,
+      separation: result.best?.separation ?? null,
+      // The tool's own word on whether the curve had a minimum worth reading.
+      decisive: result.decisive === true,
+      impliedSize: result.impliedSize ?? null,
+      measuredAt: new Date().toISOString(),
+    };
+    doc.sizes = [...sizes.filter((m) => m?.role !== args.role), measured];
+    fs.writeFileSync(file, `${JSON.stringify(doc, null, 2)}\n`);
+    return file;
   }
 
   const entry = {

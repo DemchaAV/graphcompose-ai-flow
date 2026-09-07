@@ -433,10 +433,12 @@ function typographyMeasured(analysis, revisionDir, referenceFile) {
   const file = path.join(revisionDir, "typography-match.json");
 
   let matches = [];
+  let sizes = [];
   if (fs.existsSync(file)) {
     try {
       const doc = JSON.parse(fs.readFileSync(file, "utf8"));
       if (Array.isArray(doc?.matches)) matches = doc.matches;
+      if (Array.isArray(doc?.sizes)) sizes = doc.sizes;
     } catch (err) {
       // A recorded measurement that cannot be read is worse than none: it looks
       // like evidence from the outside, so say plainly that it is not.
@@ -444,7 +446,7 @@ function typographyMeasured(analysis, revisionDir, referenceFile) {
     }
   }
 
-  const audit = auditTypography({ typography: analysis.typography, matches });
+  const audit = auditTypography({ typography: analysis.typography, matches, sizes });
   return audit.held.length === 0
     ? {
         name,
