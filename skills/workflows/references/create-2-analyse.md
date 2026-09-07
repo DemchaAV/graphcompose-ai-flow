@@ -172,6 +172,14 @@ exception: the `page` block carries the measurement from phase 1.
   side, padding and gap likewise — so the numbers survive any resolution.
   Estimating by eye is expected; say in `notes` when an estimate is coarse.
 
+  **`colors[].usedIn` describes; it does not decide.** One analysis
+  measured the competency cards as `fill.present: false` and, four fields
+  away, wrote that the page background is used in *"competency boxes
+  fill"*. Both in the first write, both valid. Authoring read the prose
+  and painted the cards white. `check-analysis` now holds a palette
+  clause that claims a fill on a container measured without one — fix
+  whichever of the two is wrong, not the one that is easier to reword.
+
   **When the corners differ, name them.** `cornerRadiusRatio` takes a
   number for all four, or an object — omitted corners are square:
 

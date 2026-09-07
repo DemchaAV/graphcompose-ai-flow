@@ -83,6 +83,7 @@ import { loadFailure, ready, schemaValidator } from "./lib/schema-validator.mjs"
 import { compareFingerprint, computeFingerprint } from "./lib/reference-fingerprint.mjs";
 import { describeColour, probeFill } from "./lib/fill-probe.mjs";
 import { CORNERS, claimedRadius, isUniform, probeCorners } from "./lib/corner-probe.mjs";
+import { auditPalette } from "./lib/palette-claims.mjs";
 import { auditTypography } from "./lib/typography-roles.mjs";
 
 const repoRoot = installRoot();
@@ -369,6 +370,31 @@ function fillClaimsMeasured(analysis, referenceFile) {
   return held.length === 0
     ? { name, ok: true, detail: `${checked} container fill(s) agree with the reference` }
     : { name, ok: false, detail: held.join("; ") };
+}
+
+/**
+ * The palette's prose and the measured containers say the same thing.
+ *
+ * One analysis carried both of these, and validated:
+ *
+ *     shapeOwnership.competency-pill.fill = { present: false }
+ *     colors[page-bg].usedIn = "main content area background, competency boxes fill"
+ *
+ * The structured field was right; the prose was wrong; the template came back
+ * with `fillColor(DocumentColor.WHITE)` on that container. The model did not
+ * change its mind mid-run — the contradiction was there from the first write,
+ * and nothing read the two fields together.
+ *
+ * This needs no reference, unlike the two probes it sits beside: it is the
+ * artifact disagreeing with itself, which is decidable from the artifact.
+ */
+function paletteAgreesWithContainers(analysis) {
+  const name = "palette agrees with containers";
+  const audit = auditPalette({ colors: analysis.colors, shapeOwnership: analysis.shapeOwnership });
+  if (audit.checked === 0) return { name, ok: true, detail: "no unfilled container a colour could name" };
+  return audit.held.length === 0
+    ? { name, ok: true, detail: `${audit.checked} unfilled container(s) the palette does not contradict` }
+    : { name, ok: false, detail: audit.held.join("; ") };
 }
 
 /**
@@ -745,6 +771,8 @@ if (args.only) {
     artifacts.push(
       cornerClaimsMeasured(docs["visual-analysis.json"], path.join(projectDir, "reference", "reference.png")),
     );
+    // No reference needed: this one is the artifact disagreeing with itself.
+    artifacts.push(paletteAgreesWithContainers(docs["visual-analysis.json"]));
     // Here and not at the authoring barrier: the face belongs in the asset
     // request, which is written in this same phase, and a family chosen after
     // the fonts are resolved is a family resolved twice.

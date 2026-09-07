@@ -997,6 +997,44 @@ test("with no reference on disk the fill claim is reported unmeasured, not judge
   assert.match(named(parsed, "fill claims measured").detail, /no reference on disk/);
 });
 
+// ------------------------------------------- palette agrees with containers ---
+
+test("THE CASE: a palette clause claiming a fill the container is measured without", () => {
+  // Both fields as the failing analysis wrote them, in the first write.
+  const { root } = workspace("palette-contradiction", {
+    geometry: {
+      ...GEOMETRY,
+      shapeOwnership: [CONTAINER({ container: "competency-pill", fill: { present: false } })],
+      colors: [
+        { role: "page-bg", value: "#ffffff", usedIn: "main content area background, competency boxes fill" },
+      ],
+    },
+  });
+  const { status, parsed } = check(root);
+
+  assert.equal(status, 1);
+  assert.equal(named(parsed, "palette agrees with containers").ok, false);
+  assert.match(named(parsed, "palette agrees with containers").detail, /measured as unfilled/);
+  assert.match(named(parsed, "palette agrees with containers").detail, /competency boxes fill/);
+});
+
+test("a palette that describes the same containers honestly clears", () => {
+  const { root } = workspace("palette-honest", {
+    geometry: {
+      ...GEOMETRY,
+      shapeOwnership: [CONTAINER({ container: "competency-pill", fill: { present: false } })],
+      colors: [
+        { role: "border", value: "#f0b8a8", usedIn: "borders of the competency pills" },
+        { role: "sidebar-bg", value: "#fef2ef", usedIn: "sidebar background surface" },
+      ],
+    },
+  });
+  const { status, parsed, out } = check(root);
+
+  assert.equal(status, 0, out);
+  assert.equal(named(parsed, "palette agrees with containers").ok, true);
+});
+
 // --------------------------------------------------------- corner measured ---
 //
 // The identity panel has three square corners and one strongly rounded
