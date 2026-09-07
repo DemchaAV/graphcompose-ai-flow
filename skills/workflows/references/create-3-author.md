@@ -183,10 +183,10 @@ named constant rather than sprinkling the arithmetic.
 in the page colour, still paints — on a tinted panel it leaves a pale band
 around every box. If `stroke.present` is false, emit no stroke.
 
-**`sizing` is about width. Height is decided by what you build.** A card
-that repeats with different content has to be able to take a second line:
-the reference is one dataset, and a longer label is the next one. Build it
-so the content decides the height —
+**`sizing` is width. Height is decided by what you build.** The
+reference is one dataset; a longer label is the next one, so a repeating
+card has to take a second line. Let the content decide the height, and
+let the panel's `padding` be the inset:
 
 ```java
 sidebar.addSection(card -> {
@@ -196,26 +196,11 @@ sidebar.addSection(card -> {
 });
 ```
 
-— and the panel's `padding` is the inset, so no offset has to be guessed.
-`check-region-primitives` reports a repeating container given both
-dimensions with its content positioned over it; one run shipped
-"Budgeting & Financial Managemen", clipped at the border.
-
-**Name each container with the id the analysis gave it.** `name(String)`
-is on `ShapeContainerBuilder`, `ShapeBuilder` and `EllipseBuilder`:
-
-```java
-sec.addContainer(c -> c.name("competency-pill").roundedRect(w, h, r));
-```
-
-`check-region-primitives` reads the template back and reports a container
-the reference measures as unfilled that the code paints — one run measured
-`fill.present: false` on the cards, wrote `fillColor(DocumentColor.WHITE)`
-anyway, and every gate passed. Where a method builds one container the id
-is unambiguous; where it builds several, the name is the only thing that
-ties a fill to the container it belongs to, and without it the check can
-only ask you to add one. The same name makes the container addressable in
-`layout.mjs inspect`.
+**Name each container with the id the analysis gave it** — `name(String)`
+is on all three builders. `check-region-primitives` reads the template
+back against the measurements, and the name is what ties a finding to the
+container it belongs to when a method builds several. It also makes the
+container addressable in `layout.mjs inspect`.
 
 ## Before you choose a primitive, ask for the route
 

@@ -219,10 +219,7 @@ return to:
 revision-001 is 0.871% worse than its own best (render 3 of 6, 14.866%)
 ```
 
-Go back to what that render did. One run in the corpus went
-17.60 → 15.06 → 14.87 → 15.54 → 15.49 → 15.74 — its best was the third of
-six, the trail was printed on every render after it, and the run spent
-its last three moving further away.
+Go back to what that render did.
 
 The same question is asked **across revisions**, and it is the one that
 costs most. Two revisions that have not beaten the best in the loop, and
@@ -233,12 +230,10 @@ revision-001 measured 15.304% and is still the best of this loop;
 6 revision(s) since have not beaten it and revision-007 is 0.384% worse
 ```
 
-That run shipped its seventh revision worse than its first. Six passes
-went into matching absolute y-positions section by section while the
-line breaks — set by column width and type size — stayed wrong, so every
-line below each fix was still displaced. **When the best is behind you,
-the lever you are pulling is not the one that matters.** Change what you
-are measuring before taking another pass.
+That run shipped its seventh revision worse than its first: six passes
+matching absolute y-positions while the line breaks — set by column width
+and type size — stayed wrong. **When the best is behind you, the lever you
+are pulling is not the one that matters.**
 
 Stop early, and say which of these it was, when: the review recommends
 `APPROVE`; the remaining differences were explicitly accepted; the next

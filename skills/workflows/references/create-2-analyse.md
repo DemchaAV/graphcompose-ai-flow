@@ -172,13 +172,10 @@ exception: the `page` block carries the measurement from phase 1.
   side, padding and gap likewise — so the numbers survive any resolution.
   Estimating by eye is expected; say in `notes` when an estimate is coarse.
 
-  **`colors[].usedIn` describes; it does not decide.** One analysis
-  measured the competency cards as `fill.present: false` and, four fields
-  away, wrote that the page background is used in *"competency boxes
-  fill"*. Both in the first write, both valid. Authoring read the prose
-  and painted the cards white. `check-analysis` now holds a palette
-  clause that claims a fill on a container measured without one — fix
-  whichever of the two is wrong, not the one that is easier to reword.
+  **`colors[].usedIn` describes; it does not decide.** A palette clause
+  claiming a fill on a container measured without one is held: authoring
+  builds from whichever it reads first, so fix whichever of the two is
+  wrong rather than the one easier to reword.
 
   **When the corners differ, name them.** `cornerRadiusRatio` takes a
   number for all four, or an object — omitted corners are square:
@@ -187,13 +184,9 @@ exception: the `page` block carries the measurement from phase 1.
   "cornerRadiusRatio": { "bottomRight": 0.3 }
   ```
 
-  A panel with one rounded corner has no honest single value. Given
-  exactly that panel, two models wrote `0` and `0.18`: one rendered a
-  rectangle, the other a lozenge, and one of them had already written
-  *"only the bottom-right corner is strongly rounded"* in `notes`, where
-  nothing reads it. `check-analysis` measures each corner off the
-  reference and refuses both mistakes — a radius the pixels contradict,
-  and one number spread over corners that are not alike.
+  A panel with one rounded corner has no honest single value, and two
+  models given one wrote `0` and `0.18`. Corners that differ belong in
+  the object; `notes` is read by nothing that builds.
 
   **Every container carries `bounds`**, as page fractions, the same frame
   regions use — the first instance, when it repeats. That is what makes the
@@ -263,65 +256,30 @@ exception: the `page` block carries the measurement from phase 1.
   reports a rule the plan decided and the template never built.
 - **Set `page.pageCount`** to what the reference-shaped data produces —
   the overflow fixture's count is not a property of the document.
-- **Measure the face; do not recognise it.** `typography.roles` commits
-  one `fontName` per role and says how it was chosen. `headings` and
-  `body` are required, because between them they set the whole page:
-
-  Cut the crop from the region that carries the role — this works before
-  any render exists, which is where you are:
+- **Measure the face and the size; do not recognise them.**
+  `typography.roles` commits a `fontName` and a `size` per role, and says
+  how each was chosen. `headings` and `body` are required — between them
+  they set the page. Cut the crop, then match and sweep:
 
   ```bash
-  node tools/visual-diff/bin/crop-region.mjs --revision <revision-dir> \
-    --region <region-id> --reference <project>/reference/reference.png
-  # -> <revision-dir>/crops/<region-id>-reference.png
-  node scripts/typography.mjs match --role headings \
-    --reference <that crop> --text "<the exact string in that crop>" \
-    --project <id>
+  node tools/visual-diff/bin/crop-region.mjs --revision <revision-dir>     --region <region-id> --reference <project>/reference/reference.png
+  node scripts/typography.mjs match  --role headings --project <id>     --reference <crop> --text "<the exact string in that crop>"
+  node scripts/typography.mjs search --role headings --project <id>     --reference <crop> --text "<the same string>" --family <FONT>     --from 6 --to 14 --step 0.25 --scale <referencePx.width ÷ sizePt.width>
   ```
 
-  It ranks every bundled family against the crop and records the ranking
-  in the revision. Then write `{"role": "headings", "fontName": "LATO",
-  "source": "measured"}` and the barrier checks the two agree.
+  Both record into the revision; the barrier checks the analysis agrees
+  with what was recorded. `"source": "assumed"` with a `why` also clears —
+  a face with no bundled equivalent is a real answer. What does not clear:
 
-  **The size is the other half, and it is measured the same way.**
-  `headings` and `body` carry a `size`, from the sweep — the scale it
-  needs is `page.referencePx.width ÷ page.sizePt.width`, which you already
-  have:
-
-  ```bash
-  node scripts/typography.mjs search --role body --family <FONT> \
-    --reference <crop.png> --text "<the exact line>" \
-    --from 6 --to 14 --step 0.25 --scale <that ratio> --project <id>
-  ```
-
-  Left unmeasured, the size gets chosen by whether a line happens to wrap.
-  One run set its contact strip to 6.2pt and then 6.4pt so the longest
-  address would fit on one line — trading the type size away instead of
-  fixing the column width, and the header came out smaller than the
-  reference everywhere.
-
-  A face with no bundled equivalent is a real answer: `"source":
-  "assumed"` with a `why` clears, and stays reviewable. What does not
-  clear is `"measured"` with nothing recorded — **or a ranking that
-  decided nothing.** Two ways it can order the candidates and measure
-  nothing, both from one real run:
-
-  | The tool says | What it means |
+  | The tool says | Why it decided nothing |
   |---|---|
-  | `leads by 0.0061` | inside its own noise: over three families instead of forty-eight, the same crop put a different family first |
-  | `ratio 0.379` | the crop and the specimen are not the same shape — the crop does not hold that string on its own |
+  | `leads by 0.0061` | inside its own noise — match a longer sample |
+  | `ratio 0.379` | the crop does not hold that string alone — re-cut it to the line |
+  | a size sweep that is not `decisive` | the curve is flat; the number is the low point of noise |
 
-  The second is the more common: crop the **exact line**, and pass that
-  line's exact words as `--text`. A crop holding four wrapped lines
-  matched against one line of text scores every candidate above 1.1 and
-  still returns a winner.
-
-  The prose fields beside `roles` — `headings`, `likelyFontFamily`,
-  `scale` — still describe the type, and describing is not choosing.
-  Three runs on one reference wrote sentences like *"Poppins for body and
-  a classic serif such as Spectral"*, set the headings in a serif against
-  a grotesque, and put **all twelve regions at CRITICAL**. Every one of
-  them had this tool and none called it.
+  Unmeasured, the size ends up chosen by whether a line happens to wrap:
+  one run set its contacts to 6.4pt so an address would fit, trading the
+  size away instead of fixing the column.
 - **Anything you cannot read confidently goes in `unclearParts`** with
   the assumption you are making. A recorded assumption is a question the
   user can answer later; a silent one is a bug with no author.
