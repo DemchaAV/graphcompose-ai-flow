@@ -17,7 +17,9 @@ import test from "node:test";
 import {
   auditContentLeft,
   checkHeadingInset,
+  headingLaneFor,
   headingTextInset,
+  leftInsets,
   regionsWithLeadingContainer,
 } from "../lib/heading-inset.mjs";
 
@@ -204,4 +206,122 @@ test("a region that stated nothing is left to the analysis barrier", () => {
     readMethod,
   });
   assert.deepEqual(findings, [], "one missing measurement is one finding, and it is not this one");
+});
+
+// -------------------------------------------------- reading the left inset ---
+
+test("THE FALSE NEGATIVE: a bottom margin is not a left inset", () => {
+  // The first version of the code check tested for the presence of a
+  // padding/margin call. `renderSummary` carries a bottom margin, so the check
+  // went silent on a body still flush against the marker.
+  assert.deepEqual(leftInsets("sec.margin(new DocumentInsets(0, 0, 32.0, 0));"), [0]);
+  assert.deepEqual(leftInsets("entry.padding(new DocumentInsets(5.0, 0, 5.0, 22.0));"), [22]);
+  assert.deepEqual(leftInsets("sec.padding(4.0f, 0f, 4.0f, 20f);"), [20]);
+});
+
+test("a value from elsewhere is not a number this can read", () => {
+  // And that is the answer the authoring rules ask for, so it must not be
+  // reported against.
+  assert.deepEqual(leftInsets("sec.padding(new DocumentInsets(0, 0, 0, HEADING_INSET));"), [null]);
+  assert.deepEqual(leftInsets("sec.padding(new DocumentInsets(0, 0, 0, BADGE + GAP));"), [null]);
+  assert.deepEqual(leftInsets("sec.padding(SECTION_INSETS);"), [null]);
+});
+
+test("a nested call inside the arguments does not split them", () => {
+  assert.deepEqual(leftInsets("sec.padding(new DocumentInsets(pt(1), 0, 0, 12.0));"), [12]);
+});
+
+// --------------------------------------------- finding the heading's lane ---
+
+/** An item row built BEFORE the heading, which is what misread the lane. */
+const ITEM_ROW_FIRST = `
+    private void renderAchievements(SectionBuilder side) {
+        side.addSection("sidebar-achievements", sec -> {
+            achRow.columns(DocumentRowColumn.fixed(18.0), DocumentRowColumn.weight(1.0));
+            achRow.gap(6.0);
+            renderSidebarHeading(sec, "trophy", "KEY ACHIEVEMENTS");
+            sec.padding(new DocumentInsets(0, 0, 0, 14.0));
+        });
+    }
+    private static void renderSidebarHeading(SectionBuilder section, String icon, String title) {
+        headingRow.columns(DocumentRowColumn.fixed(20.0), DocumentRowColumn.weight(1.0));
+        headingRow.gap(5.0);
+        headingRow.addSection("sidebar-heading-badge", badgeSec -> {
+            badgeSec.addContainer(badge -> badge.name("sidebar-heading-badge").circle(16.0));
+        });
+    }
+`;
+
+test("the lane is the marker's own row, not the first row in the method", () => {
+  // 18 + 6 is the achievements item row; 20 + 5 is the heading the marker sits
+  // in. Quoting the first was a number nobody could reproduce.
+  assert.equal(headingLaneFor(ITEM_ROW_FIRST, "sidebar-heading-badge"), 25);
+  assert.equal(headingTextInset(ITEM_ROW_FIRST), 24, "the naive read, kept as the last fallback");
+});
+
+test("a marker the template never names has no lane, and nothing is guessed", () => {
+  assert.equal(headingLaneFor(ITEM_ROW_FIRST, "absent-badge"), null);
+});
+
+// ------------------------------------------ the inset that is not the lane ---
+
+const ACHIEVEMENTS = {
+  id: "sidebar-achievements",
+  label: "Key Achievements",
+  role: "content",
+  bounds: { x: 0.035, y: 0.5, w: 0.215, h: 0.16 },
+  contentLeft: 0.066,
+};
+const ACHIEVEMENTS_BADGE = {
+  container: "sidebar-heading-badge",
+  region: "sidebar-achievements",
+  bounds: { x: 0.035, y: 0.5, w: 0.03, h: 0.02 },
+};
+const ACHIEVEMENTS_MAPPING = [{ region: "sidebar-achievements", renderMethod: "renderAchievements" }];
+
+test("THE HALF-MEASURE: an inset that is not the heading's lane is reported", () => {
+  const findings = checkHeadingInset({
+    regions: [ACHIEVEMENTS],
+    shapeOwnership: [ACHIEVEMENTS_BADGE],
+    componentMapping: ACHIEVEMENTS_MAPPING,
+    source: ITEM_ROW_FIRST,
+    readMethod,
+  });
+
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].kind, "body-inset-is-not-the-heading-lane");
+  assert.match(findings[0].detail, /a 25 pt lane before the title and insets its body by 14 pt/);
+  assert.match(findings[0].detail, /11 pt apart/);
+  assert.match(findings[0].detail, /name it once in baseConstants/);
+});
+
+test("an inset that IS the lane is the answer, and is not reported", () => {
+  const matched = ITEM_ROW_FIRST.replace("0, 0, 0, 14.0", "0, 0, 0, 25.0");
+  assert.deepEqual(
+    checkHeadingInset({
+      regions: [ACHIEVEMENTS],
+      shapeOwnership: [ACHIEVEMENTS_BADGE],
+      componentMapping: ACHIEVEMENTS_MAPPING,
+      source: matched,
+      readMethod,
+    }),
+    [],
+  );
+});
+
+test("a derived inset ends the question, whatever it computes to", () => {
+  // Its arithmetic is not this check's business: naming the quantity once is
+  // what the authoring rules asked for, and reading through the name would
+  // punish the right answer.
+  const derived = ITEM_ROW_FIRST.replace("0, 0, 0, 14.0", "0, 0, 0, HEADING_TEXT_INSET");
+  assert.deepEqual(
+    checkHeadingInset({
+      regions: [ACHIEVEMENTS],
+      shapeOwnership: [ACHIEVEMENTS_BADGE],
+      componentMapping: ACHIEVEMENTS_MAPPING,
+      source: derived,
+      readMethod,
+    }),
+    [],
+  );
 });

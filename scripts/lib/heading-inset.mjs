@@ -121,8 +121,82 @@ const LEADING_FIXED = /\.\s*columns\s*\(\s*DocumentRowColumn\s*\.\s*fixed\s*\(\s
 /** The gap between a row's columns, when it is a literal. */
 const ROW_GAP = /\.\s*gap\s*\(\s*([0-9]+(?:\.[0-9]+)?)\s*[fFdD]?\s*\)/;
 
-/** Anything that could move content rightwards inside a section. */
-const LEFT_INSET = /\.\s*(?:padding|margin)\s*\(/;
+/**
+ * The LEFT of every `padding(...)` / `margin(...)` in a method body, as written.
+ *
+ * Testing for the mere presence of such a call was the first version of this,
+ * and it was a false negative on the run it was written for: `renderSummary`
+ * carried `sec.margin(new DocumentInsets(0, 0, 32.0, 0))` — a bottom margin —
+ * and the check went silent on a body still flush against the marker. The
+ * fourth argument is the one that moves content rightwards, so the fourth
+ * argument is what gets read.
+ *
+ * Numbers for literals, `null` for anything else — an identifier, a sum, a
+ * call. `null` is what a derived constant looks like, and derived is the answer
+ * the authoring rules ask for, so it is never reported against.
+ *
+ * @param {string} body
+ * @returns {Array<number|null>}
+ */
+export function leftInsets(body) {
+  const out = [];
+  const call = /\.\s*(?:padding|margin)\s*\(/g;
+  const text = String(body ?? "");
+  let hit;
+  while ((hit = call.exec(text)) !== null) {
+    const inside = balanced(text, hit.index + hit[0].length - 1);
+    if (inside === null) continue;
+    const wrapped = /^\s*new\s+DocumentInsets\s*\(([\s\S]*)\)\s*$/.exec(inside);
+    const parts = splitTopLevel(wrapped ? wrapped[1] : inside);
+    // The four-argument forms are the ones that name a left. `padding(INSETS)`
+    // hands over a value from elsewhere: unreadable, and counted as such.
+    if (parts.length === 4) {
+      const left = parts[3].trim();
+      out.push(/^[0-9]+(?:\.[0-9]+)?[fFdD]?$/.test(left) ? Number.parseFloat(left) : null);
+    } else if (parts.length === 1 && parts[0].trim() !== "") {
+      out.push(null);
+    }
+  }
+  return out;
+}
+
+/** The text between `open`'s parenthesis and its match, or null when unbalanced. */
+function balanced(text, open) {
+  let depth = 0;
+  for (let i = open; i < text.length; i += 1) {
+    if (text[i] === "(") depth += 1;
+    else if (text[i] === ")") {
+      depth -= 1;
+      if (depth === 0) return text.slice(open + 1, i);
+    }
+  }
+  return null;
+}
+
+/** Split on commas that are not nested inside brackets of any kind. */
+function splitTopLevel(text) {
+  const parts = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const c = text[i];
+    if (c === "(" || c === "[" || c === "<") depth += 1;
+    else if (c === ")" || c === "]" || c === ">") depth -= 1;
+    else if (c === "," && depth === 0) {
+      parts.push(text.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(text.slice(start));
+  return parts;
+}
+
+/**
+ * Float formatting, not a tolerance anybody chose. Two numbers written in the
+ * same file in the same units either agree or they do not; a point of slack is
+ * for `20f` against `20.0`.
+ */
+const SAME_POINT = 1;
 
 /**
  * The inset a heading's title sits at, when a method builds one and says so in
@@ -156,6 +230,7 @@ export function headingTextInset(body) {
  *
  * @param {object} input
  * @param {Array<object>} input.regions measured regions, carrying contentLeft
+ * @param {Array<object>} input.shapeOwnership measured containers, for the marker's id
  * @param {Array<object>} input.componentMapping the plan's region -> method map
  * @param {number} input.pageWidthPt the page width the insets are in
  * @param {string} input.source the generated template
@@ -164,6 +239,7 @@ export function headingTextInset(body) {
  */
 export function checkHeadingInset({
   regions = [],
+  shapeOwnership = [],
   componentMapping = [],
   pageWidthPt = 595.276,
   source = "",
@@ -174,6 +250,16 @@ export function checkHeadingInset({
   for (const entry of Array.isArray(componentMapping) ? componentMapping : []) {
     if (entry?.region && entry.renderMethod) methodFor.set(entry.region, entry.renderMethod);
   }
+
+  // Keyed on the leading container, not on the region alone: the marker's own
+  // id is how the heading row is found in the template, and it is the same id
+  // the analysis barrier asked the measurement for.
+  const markerFor = new Map(
+    regionsWithLeadingContainer({ regions, shapeOwnership }).map(({ region, container }) => [
+      region.id,
+      container.container,
+    ]),
+  );
 
   for (const region of Array.isArray(regions) ? regions : []) {
     if (!region?.id || !region.bounds) continue;
@@ -187,27 +273,100 @@ export function checkHeadingInset({
     const body = readMethod(source, method);
     if (body === null) continue;
 
-    // The heading may be built here or by a helper this calls. Either way the
-    // numbers have to be literals to be read at all.
-    const inset = headingTextInset(body) ?? headingInsetFromHelpers(source, body, readMethod);
+    // The marker's own row first, because it is the only one certain to be the
+    // heading. Then the helpers this method calls, then a row in the method
+    // itself — a template that builds its heading inline has nowhere else.
+    const marker = markerFor.get(region.id);
+    const inset =
+      (marker ? headingLaneFor(source, marker) : null) ??
+      headingInsetFromHelpers(source, body, readMethod) ??
+      headingTextInset(body);
     if (inset === null) continue;
-    if (LEFT_INSET.test(body)) continue;
 
-    findings.push({
-      kind: "body-not-under-its-heading",
-      region: region.id,
-      method,
-      detail:
-        `the reference puts "${region.id}"'s body at ${round(region.contentLeft)} of the page and the ` +
-        `region starts at ${round(region.bounds.x)} — ${Math.round(declared)} pt in, which is where the ` +
-        `heading's title sits, not its marker. ${method}() builds that heading with a ${inset} pt lane ` +
-        "before the title and then adds its content to the section with no left inset, so every " +
-        "paragraph below lines up with the icon instead of the words. Inset the body by the same " +
-        "derived amount — one constant, the lane plus the gap — rather than by a typed number",
-    });
+    // What the code actually moves the body by. A derived value reads as null
+    // and ends the question: it is the answer the authoring rules ask for, and
+    // its arithmetic is not this check's business.
+    const written = leftInsets(body);
+    if (written.some((value) => value === null)) continue;
+    const built = written.reduce((most, value) => Math.max(most, value), 0);
+
+    const measured = `the reference puts "${region.id}"'s body at ${round(region.contentLeft)} of the page ` +
+      `and the region starts at ${round(region.bounds.x)} — ${Math.round(declared)} pt in, which is where ` +
+      `the heading's title sits, not its marker`;
+
+    if (built < SAME_POINT) {
+      findings.push({
+        kind: "body-not-under-its-heading",
+        region: region.id,
+        method,
+        detail:
+          `${measured}. ${method}() builds that heading with a ${inset} pt lane before the title and then ` +
+          "adds its content to the section with no left inset, so every paragraph below lines up with the " +
+          "icon instead of the words. Inset the body by the same derived amount — one constant, the lane " +
+          "plus the gap — rather than by a typed number",
+      });
+      continue;
+    }
+
+    // Both numbers are in this one file, in points, with no rasterisation
+    // between them: the lane the heading builds is exactly where the title
+    // starts, and the body is meant to start there too. So they are compared
+    // against each other rather than against the measurement, which only had to
+    // say that the two edges differ at all.
+    if (Math.abs(built - inset) > SAME_POINT) {
+      findings.push({
+        kind: "body-inset-is-not-the-heading-lane",
+        region: region.id,
+        method,
+        detail:
+          `${measured}. ${method}() builds the heading with a ${inset} pt lane before the title and insets ` +
+          `its body by ${built} pt, so the two are ${round(Math.abs(built - inset))} pt apart and the ` +
+          "paragraphs sit under neither the icon nor the words. The lane and the inset are one quantity: " +
+          "name it once in baseConstants as the lane plus the gap and use it in both places, so a change " +
+          "to the badge cannot leave the body behind",
+      });
+    }
   }
 
   return findings;
+}
+
+/**
+ * The lane in front of the row that holds THIS marker, wherever it is written.
+ *
+ * Reading the first `columns(fixed(N))` in the region's own method was wrong
+ * twice on the run this was built against: `renderAchievements` and
+ * `renderAdditionalInfo` each build an item row before their heading, so the
+ * check quoted 24 and 22 pt for headings that are 25. The finding survived
+ * either way, and a finding that quotes a number nobody can reproduce is worth
+ * less than one that quotes none.
+ *
+ * The analysis already names the marker — it is the container the barrier keyed
+ * on — and the template names it back, so the row is found by walking from that
+ * name to the `columns(...)` that opened it. Null when the name is absent from
+ * the source, or the numbers are not literals.
+ *
+ * @param {string} source the whole template
+ * @param {string} container the marker's id, from shapeOwnership
+ * @returns {number|null} points from the row's left edge to its second column
+ */
+export function headingLaneFor(source, container) {
+  const text = String(source ?? "");
+  const quoted = `"${container}"`;
+  let at = text.indexOf(quoted);
+  while (at !== -1) {
+    const opened = text.lastIndexOf(".columns(", at);
+    if (opened !== -1) {
+      const lane = LEADING_FIXED.exec(text.slice(opened, at));
+      const gap = ROW_GAP.exec(text.slice(opened, at));
+      if (lane) {
+        const width = Number(lane[1]);
+        if (Number.isFinite(width)) return width + (gap ? Number(gap[1]) || 0 : 0);
+      }
+    }
+    at = text.indexOf(quoted, at + quoted.length);
+  }
+  return null;
 }
 
 /**

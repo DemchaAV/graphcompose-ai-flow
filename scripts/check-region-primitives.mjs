@@ -187,6 +187,7 @@ const findings = [
   // flush body is a real design and is never asked to change.
   ...checkHeadingInset({
     regions: analysis.regions ?? [],
+    shapeOwnership: analysis.shapeOwnership ?? [],
     componentMapping,
     pageWidthPt: analysis.page?.sizePt?.width ?? undefined,
     source: template.source,
