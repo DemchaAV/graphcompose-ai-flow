@@ -114,3 +114,47 @@ test("the hook protocol: Bash only, exit 2 with the reason on stderr, off switch
   assert.equal(fine.status, 0);
   assert.equal(fine.stderr, "");
 });
+
+// ---------------------------------------- reading the library, not asking ---
+//
+// A run that lost its context to a compaction spent dozens of calls grepping
+// `00-api-surface.md` — 126 KB of generated prose — and disassembling the
+// pinned jar with `javap` and `jar tf`. The route to the query CLI lives in the
+// contracts, which a compaction drops. So the answer is attached to the reach.
+
+test("searching or dumping the API surface is refused, and the CLI is named", () => {
+  for (const command of [
+    'Select-String -Path "x/00-api-surface.md" -Pattern ShapeContainer',
+    "grep -n RowBuilder skills/versions/graphcompose-2.2/00-api-surface.md",
+    "cat skills/versions/graphcompose-2.2/api-surface.json",
+  ]) {
+    const verdict = judgeCommand(command);
+    assert.equal(verdict.block, true, command);
+    assert.equal(verdict.rule, "api-surface-read");
+    assert.match(verdict.message, /node scripts\/api-query\.mjs --exists/);
+    // The route matters more than the symbol: a surface says what exists and
+    // cannot say which of three ways is right.
+    assert.match(verdict.message, /--task <id>/);
+  }
+});
+
+test("disassembling a GraphCompose jar is the same question by another route", () => {
+  for (const command of [
+    'javap -cp "C:/m2/graph-compose-2.2.2.jar" com.demcha.compose.document.dsl.ParagraphBuilder',
+    'jar tf "C:/m2/graph-compose-2.2.2.jar"',
+  ]) {
+    assert.equal(judgeCommand(command).rule, "api-surface-read", command);
+  }
+});
+
+test("the surface rule does not reach past its own subject", () => {
+  // The project's own classes, the project's own template, and the CLI itself.
+  for (const command of [
+    "javap -cp target/classes com.example.Foo",
+    "grep -n renderSummary generated-template.java",
+    "node scripts/api-query.mjs --type ListBuilder",
+    "GRAPHCOMPOSE_GUARD=off grep -n X 00-api-surface.md",
+  ]) {
+    assert.equal(judgeCommand(command).block, false, command);
+  }
+});
