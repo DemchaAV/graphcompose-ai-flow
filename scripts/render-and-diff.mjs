@@ -1118,6 +1118,13 @@ step("attempt", (entry) => {
     trail +
     (summary.renders >= 3 && summary.stalled
       ? "; the last two renders moved under 0.25% — the sweep has stopped buying anything"
+      : "") +
+    // Said at the moment it happens, not only when the loop is next asked. The
+    // trail was printed on every render of the run this comes from, and the
+    // three renders after its best all went the wrong way regardless.
+    (summary.regressed
+      ? `; ${summary.worseThanBest}% worse than render ${summary.bestAt} (${summary.best}%) — ` +
+        "the best on this revision is two renders behind you"
       : "");
 });
 

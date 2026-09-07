@@ -210,6 +210,20 @@ Every render is on the record (`attempts.json`), and `iterate-status`
 reports renders beside revisions; a trail that stopped moving is the
 signal to change approach rather than render a sixth value.
 
+A trail that is *going backwards* is a different signal with a different
+answer. Two renders past the revision's best, both materially worse than
+it, and both `render-and-diff` and `iterate-status` name the render to
+return to:
+
+```
+revision-001 is 0.871% worse than its own best (render 3 of 6, 14.866%)
+```
+
+Go back to what that render did. One run in the corpus went
+17.60 → 15.06 → 14.87 → 15.54 → 15.49 → 15.74 — its best was the third of
+six, the trail was printed on every render after it, and the run spent
+its last three moving further away.
+
 Stop early, and say which of these it was, when: the review recommends
 `APPROVE`; the remaining differences were explicitly accepted; the next
 fix needs information only the user has; the next fix is blocked by

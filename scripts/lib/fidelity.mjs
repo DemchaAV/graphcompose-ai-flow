@@ -174,7 +174,12 @@ export function convergenceOf(stalling, sweep = null) {
   }
 
   const chainStalled = chainMeasurable && stalling.stalled;
-  const sweepStalled = sweepMeasurable && sweep.stalled;
+  // A sweep that has left its own best two renders behind is not improving,
+  // whatever else it is doing. It is reported as STALLED rather than as a
+  // fourth level: the three-state model is what the fidelity gate is built on,
+  // and "not improving" is the thing this axis exists to say. The reason line
+  // that accompanies it distinguishes a plateau from a retreat.
+  const sweepStalled = sweepMeasurable && (sweep.stalled || sweep.regressed === true);
   const materialPercent = stalling?.materialPercent ?? null;
 
   if (chainStalled || sweepStalled) {

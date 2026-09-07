@@ -1465,3 +1465,48 @@ test("without a validator the shape goes unchecked, which is what every caller d
 
   assert.doesNotMatch(statusOf(dir).reasons.join("\n"), /does not match visual-review\.schema\.json/);
 });
+
+// --------------------------------------------- a sweep that goes backwards ---
+
+test("a sweep that has left its own best behind is named, with the render to return to", async () => {
+  const { recordAttempt } = await import("../lib/attempts.mjs");
+  const dir = projectWith([{ verdict: "REVISE", mismatch: "type-size" }], "regressing");
+  const only = path.join(dir, "revisions", "revision-001");
+
+  // The trail the corpus produced: best at the third of six.
+  [17.6, 15.061, 14.866, 15.538, 15.489, 15.737].forEach((percent, i) => {
+    fs.writeFileSync(path.join(only, "GeneratedCvTemplate.java"), `v${i}`);
+    recordAttempt(only, { percent, mismatchPx: Math.round(percent * 1000) });
+  });
+
+  const status = computeIterationStatus({ projectDir: dir, config });
+  assert.equal(status.renders.latest.regressed, true);
+  const reason = status.reasons.find((r) => /worse than its own best/.test(r));
+  assert.ok(reason, JSON.stringify(status.reasons));
+  assert.match(reason, /render 3 of 6/, "the render to go back to is named");
+  assert.match(reason, /the change that helped is the one to go back to/);
+
+  // Not improving, whatever else it is doing — the axis the fidelity gate reads.
+  assert.equal(status.parity.movement.level, "STALLED");
+  assert.equal(status.parity.movement.source, "sweep");
+});
+
+test("a retreat is reported instead of a plateau, not beside it", async () => {
+  // At the sixth render of that trail both hold. They describe one trail, and
+  // the regression message is the one that says where to go back to.
+  const { recordAttempt } = await import("../lib/attempts.mjs");
+  const dir = projectWith([{ verdict: "REVISE", mismatch: "type-size" }], "regress-not-stall");
+  const only = path.join(dir, "revisions", "revision-001");
+  [17.6, 15.061, 14.866, 15.538, 15.489, 15.737].forEach((percent, i) => {
+    fs.writeFileSync(path.join(only, "GeneratedCvTemplate.java"), `v${i}`);
+    recordAttempt(only, { percent, mismatchPx: Math.round(percent * 1000) });
+  });
+
+  const status = computeIterationStatus({ projectDir: dir, config });
+  assert.equal(status.renders.latest.stalled, true, "the fixture really does hold both");
+  assert.equal(
+    status.reasons.filter((r) => /stopped buying anything|worse than its own best/.test(r)).length,
+    1,
+    JSON.stringify(status.reasons),
+  );
+});

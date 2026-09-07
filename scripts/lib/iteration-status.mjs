@@ -542,7 +542,18 @@ export function computeIterationStatus({ projectDir, config, revisionId = null, 
     latest: perRevision[perRevision.length - 1] ?? null,
   };
   const latestRenders = renders.latest;
-  if (latestRenders && latestRenders.renders >= 3 && latestRenders.stalled) {
+  // Regression is reported in place of stalling when both hold, not beside it:
+  // they describe one trail, and this one carries the trail plus the render to
+  // go back to. A plateau says change approach; a retreat says return to what
+  // worked, and that is the more actionable of the two.
+  if (latestRenders && latestRenders.regressed) {
+    reasons.push(
+      `${latest.id} is ${latestRenders.worseThanBest}% worse than its own best ` +
+        `(render ${latestRenders.bestAt} of ${latestRenders.renders}, ${latestRenders.best}%): ` +
+        `${latestRenders.trail.map((p) => `${p}%`).join(" → ")} — the last two renders are both behind it, ` +
+        "so the change that helped is the one to go back to",
+    );
+  } else if (latestRenders && latestRenders.renders >= 3 && latestRenders.stalled) {
     reasons.push(
       `${latest.id} has been rendered ${latestRenders.renders} times ` +
         `(${latestRenders.trail.map((p) => `${p}%`).join(" → ")}) and the last two moved under ` +

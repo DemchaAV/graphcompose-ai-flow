@@ -149,6 +149,23 @@ export function describeAttempts(attempts, materialPercent = 0.25) {
   const recent = rendered.filter((a) => a.moved !== null).slice(-2);
   const stalled =
     recent.length === 2 && recent.every((a) => Math.abs(a.moved) < materialPercent);
+
+  // Stalling is "not moving". This is the other way a sweep fails, and the
+  // corpus produced it while nothing named it: one revision went
+  // 17.60 → 15.06 → 14.87 → 15.54 → 15.49 → 15.74, so its best was the third of
+  // six renders and the three after it were all worse. Every one of those
+  // printed the whole trail, and the run kept going in the same direction.
+  //
+  // Two renders past the best, both materially worse than it, is the point this
+  // stops being a sweep exploring and starts being a sweep that has left its
+  // own best behind. On the run above it fires at the fifth render.
+  const best = measured.length > 0 ? Math.min(...measured.map((a) => a.percent)) : null;
+  const bestAt = best === null ? null : measured.findIndex((a) => a.percent === best) + 1;
+  const regressed =
+    measured.length >= 3 &&
+    // The best being among the last two is a sweep that just came back to it.
+    measured.slice(-2).every((a) => a.percent - best > materialPercent);
+
   return {
     renders: rendered.length,
     distinctSources: distinct,
@@ -157,6 +174,10 @@ export function describeAttempts(attempts, materialPercent = 0.25) {
     last: lastPercent,
     netMoved: first !== null && lastPercent !== null ? round(lastPercent - first, 3) : null,
     stalled,
+    best,
+    bestAt,
+    worseThanBest: best !== null && lastPercent !== null ? round(lastPercent - best, 3) : null,
+    regressed,
     trail: measured.map((a) => a.percent),
   };
 }
