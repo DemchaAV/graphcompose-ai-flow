@@ -621,8 +621,16 @@ export function computeIterationStatus({ projectDir, config, revisionId = null, 
     reasons.push(
       `${chainBest.bestRevision} measured ${chainBest.best}% and is still the best of this loop; ` +
         `${chainBest.sinceBest} revision(s) since have not beaten it and ${latest.id} is ` +
-        `${chainBest.worseThanBest}% worse — go back to what ${chainBest.bestRevision} did rather than ` +
-        "taking another pass away from it",
+        `${chainBest.worseThanBest}% worse. Branch from it rather than taking another pass away from it: ` +
+        // Naming the command, because the first version of this said "go back to
+        // revision-001" and a run read it six times without going back. The
+        // ability was there — `--open` passes `--revision` through as the base —
+        // and the usage line advertised `--revision` only on the render form.
+        // `projectName` is the field the manifest actually carries; the folder
+        // name is the fallback the rest of the harness uses to address a project.
+        `node scripts/pass.mjs --project ${project.projectName ?? path.basename(projectDir)} ` +
+        '--open "<what this pass fixes>" ' +
+        `--revision ${chainBest.bestRevision}`,
     );
   }
   // Regression is reported in place of stalling when both hold, not beside it:

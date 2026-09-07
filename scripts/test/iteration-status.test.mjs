@@ -1597,7 +1597,11 @@ test("the chain regression reaches the loop and the movement axis", async () => 
   const reason = status.reasons.find((r) => /is still the best of this loop/.test(r));
   assert.ok(reason, JSON.stringify(status.reasons));
   assert.match(reason, /revision-001 measured 15\.304%/);
-  assert.match(reason, /go back to what revision-001 did/);
+  // The command, not the advice. The first version of this said "go back to
+  // revision-001" and a real run read it six times without going back: `--open`
+  // has always passed `--revision` through as the base, and the usage line
+  // advertised that flag only on the render form.
+  assert.match(reason, /node scripts\/pass\.mjs --project \S+ --open "<what this pass fixes>" --revision revision-001/);
 
   // Not improving, and attributed to the chain rather than to a sweep — a
   // different focus each pass leaves the focus-run test with nothing to read.

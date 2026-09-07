@@ -52,11 +52,13 @@ const repoRoot = installRoot();
 
 function usage(code = 0) {
   process.stdout.write(
-    "usage: node scripts/pass.mjs --project <id> --open \"<what this pass fixes>\" [--report \"<user's words>\"] [--report-id <id>]\n" +
+    "usage: node scripts/pass.mjs --project <id> --open \"<what this pass fixes>\" [--revision <id>]\n" +
+      "                             [--report \"<user's words>\"] [--report-id <id>]\n" +
       "       node scripts/pass.mjs --project <id> [--revision <id>] [--against parent|reference] [--skip-render] [--json]\n\n" +
       "  --open <message>   open the next revision (sources carried forward) and print what this pass is aimed at\n" +
       "  --report <quote>   with --open: the user's own words naming a difference (kept in front until addressed)\n" +
-      "  --revision <id>    the revision to render (default: the project's current draft)\n" +
+      "  --revision <id>    the revision to render; with --open, the revision to branch from\n" +
+      "                     instead of the current draft — how you go back to a better one\n" +
       "  --against          reference (default) or parent — the scope's gate decides\n" +
       "  --skip-render      measure the existing render only\n" +
       "  --debug            also render the debug PDF with guide lines (current-debug.pdf); off by default\n" +
