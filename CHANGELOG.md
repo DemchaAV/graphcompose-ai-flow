@@ -5,6 +5,50 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.24.0-beta.7 — 2026-09-07
+
+**What this beta is.** `beta.6` as it came back from its own Antigravity run.
+Everything here was found by that run rather than by a fixture, and two of the
+three are defects in what `beta.6` shipped.
+
+**The run, first.** It called `typography.mjs match` — the first run ever to do
+so — recorded the ranking, and built the competency cards unfilled. It also
+shipped its **seventh revision worse than its first**:
+
+    001 15.304  <- best      005 15.438
+    002 15.540               006 15.770
+    003 15.554               007 15.688  <- shipped
+    004 15.589
+
+**A chain whose best revision is behind it now says which one to return to.**
+`beta.6` gained that signal for the renders inside a revision and not for the
+revisions themselves: the cross-revision test asks only whether the last two
+*moves* were small, over the run of revisions sharing one focus — and that run
+breaks the moment the focus changes. A pass that changes focus every revision
+therefore had no cross-revision signal at all, which is exactly what this run
+did. `chainRegression` reads the whole chain and fires at revision-003, four
+revisions before the run stopped on its iteration bound.
+
+**A ranking that decided nothing is not a measured face.** The same run recorded
+`PT_SERIF 0.0914 | TIMES_ROMAN 0.0975` — a separation of 0.0061, under the 0.02
+the CLI already prints a warning for — and a body face whose winner scored
+1.1649 at a `widthRatio` of **0.379**, which is a crop that does not hold the
+string it was matched against rather than a font difference. Both numbers were
+already being computed and nothing read them. The barrier now reads both before
+it reads the rank, `widthRatio` is recorded per entry, and the noise line moved
+from an inline literal into the module that owns the scoring.
+
+**The discovery contract says how to cut the crop it requires.** `beta.6` made
+the typography match mandatory and never said where a crop comes from;
+`crop-region.mjs` is documented as cutting the reference beside the render, and
+at discovery there is no render. It works with only a reference — confirmed, not
+assumed — and the contract now shows that invocation.
+
+**Verification.** 1434/1434 `node scripts/run-tests.mjs scripts/test`, thirteen
+gates clean under `node scripts/verify.mjs`. Both new checks were replayed
+against the `nora-b6` artifacts they came from, and the chain detector against
+that run's real trail.
+
 ## v0.24.0-beta.6 — 2026-09-07
 
 **What this beta is.** `beta.5` plus everything three runs on one CV reference
