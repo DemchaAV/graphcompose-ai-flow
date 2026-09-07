@@ -57,6 +57,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { withFileLock, writeJsonAtomic } from "./atomic-write.mjs";
+
 /** Where a project's telemetry lives, beside the token module's own archives. */
 const TELEMETRY_DIR = "telemetry";
 const RUNS_DIR = "runs";
@@ -101,8 +103,18 @@ export function currentRun(projectDir, { create = true } = {}) {
     if (!create) return null;
     const run = { runId: crypto.randomUUID().slice(0, 12), startedAt: new Date().toISOString() };
     fs.mkdirSync(path.dirname(pointer), { recursive: true });
-    fs.writeFileSync(pointer, `${JSON.stringify(run, null, 2)}\n`, "utf8");
-    return run;
+    try {
+      // Exclusive: three workers starting together all found no pointer and
+      // all minted one, so the run's phases split across three directories and
+      // every summary was a third of a run. `wx` lets exactly one win, and the
+      // losers read what the winner wrote.
+      fs.writeFileSync(pointer, `${JSON.stringify(run, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+      return run;
+    } catch (err) {
+      if (err.code !== "EEXIST") throw err;
+      const held = JSON.parse(fs.readFileSync(pointer, "utf8"));
+      return held?.runId ? held : run;
+    }
   });
 }
 
@@ -146,11 +158,7 @@ function loadSummary(projectDir, run) {
 }
 
 function writeSummary(projectDir, summary) {
-  safely(() => {
-    const file = summaryFile(projectDir, summary.runId);
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, `${JSON.stringify(summary, null, 2)}\n`, "utf8");
-  });
+  safely(() => writeJsonAtomic(summaryFile(projectDir, summary.runId), summary));
 }
 
 /**
@@ -186,7 +194,7 @@ export function trace(projectDir, event) {
  * @param {string} [phase.result]    PASS | FAIL
  * @param {string} [phase.validation] PASS | FAIL — the validator's own answer
  * @param {string} [phase.artifact]  the file the phase produced
- * @param {string} [phase.artifactStatus] generated | reused | rejected
+ * @param {string} [phase.artifactStatus] generated | replaced | reused | rejected
  * @param {string} [phase.agent]     the worker, where one is named
  * @param {string} [phase.model]     only when the host states it; never guessed
  * @param {string} [phase.reason]    why it failed, for the trace
@@ -195,7 +203,18 @@ export function recordPhase(projectDir, phase) {
   return safely(() => {
     const run = currentRun(projectDir);
     if (!run) return null;
+    // Under a lock, because the whole operation is a read-modify-write and
+    // discovery runs three of them at once. Without it a worker reading while
+    // another was mid-write got half a document, `safely` swallowed the parse
+    // error, and the empty template it fell back to was written over the other
+    // two workers' phases — measured at a lost phase in fourteen of
+    // twenty-five rounds with six writers.
+    return withFileLock(summaryFile(projectDir, run.runId), () => recordUnderLock(projectDir, run, phase));
+  });
+}
 
+function recordUnderLock(projectDir, run, phase) {
+  {
     const summary = loadSummary(projectDir, run);
     const existing = summary.phases.find((p) => p.name === phase.name);
     const entry = existing ?? {
@@ -228,7 +247,12 @@ export function recordPhase(projectDir, phase) {
         attempts: acc.attempts + p.attempts,
         retries: acc.retries + p.retries,
         validationFailures: acc.validationFailures + (p.validationFailures ?? 0),
-        artifactsGenerated: acc.artifactsGenerated + (p.artifactStatus === "generated" ? 1 : 0),
+        // A rewrite is still an artifact this run produced, and
+        // write-artifact distinguishes the two: "replaced" told the trace
+        // something true and fell out of both counters, so a run that
+        // re-committed after a barrier rejection under-reported itself.
+        artifactsGenerated:
+          acc.artifactsGenerated + (p.artifactStatus === "generated" || p.artifactStatus === "replaced" ? 1 : 0),
         artifactsReused: acc.artifactsReused + (p.artifactStatus === "reused" ? 1 : 0),
       }),
       { attempts: 0, retries: 0, validationFailures: 0, artifactsGenerated: 0, artifactsReused: 0 },
@@ -252,7 +276,7 @@ export function recordPhase(projectDir, phase) {
     });
 
     return entry;
-  });
+  }
 }
 
 /**

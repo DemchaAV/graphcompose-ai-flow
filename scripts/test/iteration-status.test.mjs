@@ -68,6 +68,10 @@ function projectWith(passes, label = "loop") {
       artifacts: { userRequest: "user-request.md" },
       schemaVersion: 1,
     };
+    // A revision may name its own parent, which is how a retreat is spelled:
+    // `pass --open --revision <best>` branches off an older revision rather
+    // than the newest one.
+    if (pass.parent !== undefined) revision.parentRevisionId = pass.parent;
     if (pass.failure) revision.failure = pass.failure;
     fs.writeFileSync(path.join(revDir, "revision.json"), JSON.stringify(revision, null, 2));
 
@@ -1607,4 +1611,85 @@ test("the chain regression reaches the loop and the movement axis", async () => 
   // different focus each pass leaves the focus-run test with nothing to read.
   assert.equal(status.parity.movement.level, "STALLED");
   assert.equal(status.parity.movement.source, "revisions");
+});
+
+test("THE HOLE: a retreat does not buy the loop a fresh budget", () => {
+  // `chainRegression` prints `pass --open --revision <best>` — go back to the
+  // revision that was working. The budget was `chain.length`, and a chain is
+  // one ancestry, so branching off revision-001 counted two revisions and
+  // handed back the whole limit. The advice only appears late in a loop, so
+  // the bound was reset precisely when it was about to bind.
+  const passes = Array.from({ length: 8 }, (_, i) => ({ verdict: "REVISE", mismatch: `mismatch-${i + 1}` }));
+  passes.push({ verdict: "REVISE", mismatch: "mismatch-9", parent: "revision-001" });
+  const status = statusOf(projectWith(passes, "retreat"));
+
+  assert.equal(status.iterations, 2, "the branch's own ancestry is revision-001 and revision-009");
+  assert.equal(status.loopIterations, 9, "but the loop has opened nine revisions");
+  assert.equal(status.agentIterations, 9, "and the agent asked for all of them");
+  assert.equal(status.remaining.iterations, 0, "so there is nothing left to spend");
+  assert.equal(status.verdict, "CONVERGENCE_LIMIT_REACHED");
+});
+
+test("a retreat still counts the pass the user asked for as theirs", () => {
+  // The exemption survives the branch, and it is counted once: the same report
+  // addressed on both sides of a retreat is one report.
+  const passes = Array.from({ length: 4 }, (_, i) => ({ verdict: "REVISE", mismatch: `mismatch-${i + 1}` }));
+  passes[2].reported = { id: "timeline-rail", quote: "the rail overshoots", addressed: false };
+  passes.push({
+    verdict: "REVISE",
+    mismatch: "mismatch-5",
+    parent: "revision-001",
+    reported: { id: "timeline-rail", quote: "the rail overshoots", addressed: false },
+  });
+  const status = statusOf(projectWith(passes, "retreat-report"));
+
+  assert.equal(status.loopIterations, 5);
+  assert.deepEqual(status.humanDirected.map((h) => h.report), ["timeline-rail"], "one report, one exemption");
+  assert.equal(status.agentIterations, 4);
+});
+
+test("a loop that begins after an approval does not inherit the previous one's spending", () => {
+  const passes = Array.from({ length: 4 }, (_, i) => ({ verdict: "REVISE", mismatch: `mismatch-${i + 1}` }));
+  passes[3] = { verdict: "READY_FOR_APPROVAL", status: "APPROVED" };
+  passes.push({ verdict: "REVISE", mismatch: "new-work" });
+  const status = statusOf(projectWith(passes, "after-approval"));
+
+  assert.equal(status.loopIterations, 1, "the approval ended the loop before it");
+  assert.equal(status.agentIterations, 1);
+});
+
+test("a report carried forward does not make the review it lands on invalid", { skip: !reviewValidator && "the schema validator is not installed" }, () => {
+  // carryReportsForward attaches an open report to a review that did not
+  // restate it, stamping `carriedFrom` — which the schema does not have. The
+  // gate then validated the object this module had just written on, so a
+  // perfectly valid file was told it violated its own schema, and rewriting it
+  // re-triggered the message because the key is added by the reader.
+  const dir = projectWith([
+    { verdict: "REVISE", mismatch: "header-height" },
+    { verdict: "REVISE", mismatch: "sidebar-width" },
+  ], "carried-report");
+  fs.writeFileSync(
+    path.join(dir, "revisions", "revision-001", "human-report.json"),
+    JSON.stringify({ id: "timeline-spacing", quote: "the timeline looks wrong" }, null, 2),
+  );
+
+  const status = checkedStatusOf(dir);
+  assert.equal(status.largestMismatch, "timeline-spacing", "the report is still the focus");
+  assert.doesNotMatch(status.reasons.join("\n"), /does not match visual-review\.schema\.json/);
+});
+
+test("a report made without a quote is carried without an empty one", { skip: !reviewValidator && "the schema validator is not installed" }, () => {
+  // The schema asks for a string; `quote ?? null` gave it null.
+  const dir = projectWith([
+    { verdict: "REVISE", mismatch: "header-height" },
+    { verdict: "REVISE", mismatch: "sidebar-width" },
+  ], "carried-unquoted");
+  fs.writeFileSync(
+    path.join(dir, "revisions", "revision-001", "human-report.json"),
+    JSON.stringify({ id: "timeline-spacing" }, null, 2),
+  );
+
+  const status = checkedStatusOf(dir);
+  assert.equal(status.largestMismatch, "timeline-spacing");
+  assert.doesNotMatch(status.reasons.join("\n"), /does not match visual-review\.schema\.json/);
 });

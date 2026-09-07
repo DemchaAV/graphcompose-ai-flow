@@ -84,10 +84,36 @@ export function computeFingerprint({ projectDir, projectId }) {
     bytes += buf.length;
   }
   return {
-    project: projectId,
+    project: onDiskProjectId(projectDir, projectId),
     workspace: workspaceId(projectDir),
     reference: { sha256: digest.digest("hex"), pages, bytes },
   };
+}
+
+/**
+ * What the filesystem calls this project, rather than what the user typed.
+ *
+ * `--project Nora-Bennett-CV` opens `projects/nora-bennett-cv` on Windows and
+ * macOS without complaint, so the id reaching this module is whatever casing
+ * the command carried. Stamping that and comparing it later against a
+ * differently-typed run of the same project reported `foreign-project` — "run
+ * the analysis against this reference instead" — for an analysis written from
+ * this project's own reference minutes earlier.
+ *
+ * `realpathSync.native` answers with the name on disk, so both runs stamp and
+ * check the same string. Deliberately not a `toLowerCase()`: on a
+ * case-sensitive filesystem `Nora` and `nora` are two projects, and folding
+ * them together would let one's analysis pass the other's barrier — the exact
+ * import this module exists to catch. The fallback is the typed id, because a
+ * project directory that cannot be resolved is a problem for the caller, not a
+ * reason to refuse a fingerprint.
+ */
+function onDiskProjectId(projectDir, projectId) {
+  try {
+    return path.basename(fs.realpathSync.native(projectDir));
+  } catch {
+    return projectId;
+  }
 }
 
 /**

@@ -159,6 +159,18 @@ function sizeFault(role, sizes) {
       "--from 6 --to 14 --step 0.25 --scale <page.referencePx.width ÷ page.sizePt.width> --project <id>"
     );
   }
+  return sizeUnbacked(role, sizes);
+}
+
+/**
+ * Is the number this role states backed by a sweep that measured it?
+ *
+ * Split out of {@link sizeFault} because the two halves have different
+ * audiences. "Declares no size" is asked only of a measured role — a role with
+ * no crop to work from has nothing to sweep. "The number you wrote is not one
+ * anybody measured" is asked of every role that writes one.
+ */
+function sizeUnbacked(role, sizes) {
   const measured = sizes.find((s) => s?.role === role.role);
   if (!measured) return `claims ${role.size}pt with no recorded size sweep behind it`;
   if (measured.decisive !== true) {
@@ -206,6 +218,18 @@ export function auditTypography({ typography, matches = [], sizes = [] }) {
       // is for — an assumption that gives no reason cannot be reviewed later.
       if (!role.why || !String(role.why).trim()) {
         held.push(`"${name}" is assumed and says no why — an assumption nobody can review is a guess`);
+      }
+      // A face may be assumed; a number may not. The escape hatch answers "no
+      // crop to match a family against", which is a statement about the family.
+      // A role that assumed its face and then writes 6.4pt is claiming a
+      // measurement — and that is the exact trade this gate was written for:
+      // contacts set by trial at 6.2 then 6.4 so the longest address would not
+      // wrap, trading the type size away instead of fixing the column. A role
+      // that assumes and states no size is still exempt: there is nothing to
+      // check.
+      if (REQUIRED_ROLES.includes(name) && typeof role.size === "number") {
+        const fault = sizeUnbacked(role, sizes);
+        if (fault) held.push(`"${name}" is assumed and ${fault}`);
       }
       continue;
     }

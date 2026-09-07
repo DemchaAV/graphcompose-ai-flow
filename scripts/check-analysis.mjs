@@ -82,6 +82,7 @@ import { loadPipelineConfig } from "./lib/pipeline-config.mjs";
 import { loadFailure, ready, schemaValidator } from "./lib/schema-validator.mjs";
 import { compareFingerprint, computeFingerprint } from "./lib/reference-fingerprint.mjs";
 import { describeColour, probeFill } from "./lib/fill-probe.mjs";
+import { referencePageFile } from "./lib/page-pairs.mjs";
 import { auditPalette } from "./lib/palette-claims.mjs";
 import { auditTypography } from "./lib/typography-roles.mjs";
 import { recordPhase, trace } from "./lib/run-telemetry.mjs";
@@ -334,42 +335,73 @@ function panelsDescribed(analysis) {
  * Only the claim is checked, never invented: a container too small to sample,
  * or a project with no reference, is reported as unmeasured rather than judged.
  */
-function fillClaimsMeasured(analysis, referenceFile) {
+function fillClaimsMeasured(analysis, referenceDir) {
   const name = "fill claims measured";
   const containers = (analysis.shapeOwnership ?? []).filter((s) => s?.bounds && s?.fill);
   if (containers.length === 0) return { name, ok: true, detail: "no containers with bounds to check" };
-  if (!fs.existsSync(referenceFile)) return { name, ok: true, detail: "no reference on disk to sample" };
+  if (!fs.existsSync(referencePageFile(referenceDir, 1))) {
+    return { name, ok: true, detail: "no reference on disk to sample" };
+  }
 
-  let raster;
-  try {
-    const require = createRequire(path.join(repoRoot, "tools", "visual-diff", "package.json"));
-    const { PNG } = require("pngjs");
-    raster = PNG.sync.read(fs.readFileSync(referenceFile));
-  } catch (err) {
-    // A probe that cannot run is not a probe that passed, but it is also not
-    // the analysis's fault — say which it is.
-    return { name, ok: true, detail: `reference not sampled — ${err.message}` };
+  // Which page each container sits on. `shapeOwnership` carries no page of its
+  // own — it names a region, and the region carries one. This used to sample
+  // every container against page 1, so a card correctly measured as filled on
+  // page 2 was probed against blank ground on page 1 and the barrier refused a
+  // correct analysis; the mirror case passed a wrong one. A container naming no
+  // region is page 1, which is what a single-page document has.
+  const pageOfRegion = new Map(
+    (analysis.regions ?? []).filter((r) => r?.id).map((r) => [r.id, Number(r.page) || 1]),
+  );
+  const pageOf = (c) => pageOfRegion.get(c.region) ?? 1;
+
+  const rasters = new Map();
+  const unreadable = [];
+  function rasterFor(page) {
+    if (rasters.has(page)) return rasters.get(page);
+    const file = referencePageFile(referenceDir, page);
+    let raster = null;
+    if (!fs.existsSync(file)) {
+      unreadable.push(`page ${page} (${path.basename(file)} is not on disk)`);
+    } else {
+      try {
+        const require = createRequire(path.join(repoRoot, "tools", "visual-diff", "package.json"));
+        const { PNG } = require("pngjs");
+        raster = PNG.sync.read(fs.readFileSync(file));
+      } catch (err) {
+        // A probe that cannot run is not a probe that passed, but it is also
+        // not the analysis's fault — say which it is.
+        unreadable.push(`page ${page} (${err.message})`);
+      }
+    }
+    rasters.set(page, raster);
+    return raster;
   }
 
   const held = [];
   let checked = 0;
   for (const c of containers) {
+    const raster = rasterFor(pageOf(c));
+    if (!raster) continue;
     const probe = probeFill(raster, c.bounds);
     if (!probe.measurable) continue;
     checked += 1;
     if (probe.filled === c.fill.present) continue;
+    const where = pageOf(c) === 1 ? "the reference" : `page ${pageOf(c)} of the reference`;
     held.push(
       c.fill.present
-        ? `"${c.container}" claims a fill, and the reference shows ${describeColour(probe.inside)} inside it ` +
+        ? `"${c.container}" claims a fill, and ${where} shows ${describeColour(probe.inside)} inside it ` +
           `and ${describeColour(probe.outside)} beside it — the same ground, so it paints nothing`
-        : `"${c.container}" claims no fill, and the reference shows ${describeColour(probe.inside)} inside it ` +
+        : `"${c.container}" claims no fill, and ${where} shows ${describeColour(probe.inside)} inside it ` +
           `against ${describeColour(probe.outside)} beside it — it does paint`,
     );
   }
 
-  if (checked === 0) return { name, ok: true, detail: "containers too small to sample" };
+  // Pages that could not be read are named rather than silently treated as
+  // agreement: "12 of 15 checked" is a different fact from "15 agree".
+  const gap = unreadable.length > 0 ? ` — not sampled: ${unreadable.join(", ")}` : "";
+  if (checked === 0) return { name, ok: true, detail: `containers too small to sample${gap}` };
   return held.length === 0
-    ? { name, ok: true, detail: `${checked} container fill(s) agree with the reference` }
+    ? { name, ok: true, detail: `${checked} container fill(s) agree with the reference${gap}` }
     : { name, ok: false, detail: held.join("; ") };
 }
 
@@ -684,7 +716,7 @@ if (args.only) {
   if (docs["visual-analysis.json"]) {
     artifacts.push(panelsDescribed(docs["visual-analysis.json"]));
     artifacts.push(
-      fillClaimsMeasured(docs["visual-analysis.json"], path.join(projectDir, "reference", "reference.png")),
+      fillClaimsMeasured(docs["visual-analysis.json"], path.join(projectDir, "reference")),
     );
     // No reference needed: this one is the artifact disagreeing with itself.
     artifacts.push(paletteAgreesWithContainers(docs["visual-analysis.json"]));

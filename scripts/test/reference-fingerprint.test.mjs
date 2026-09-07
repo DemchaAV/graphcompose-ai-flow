@@ -160,3 +160,23 @@ test("the workspace id does not leak the path it was made from", () => {
   assert.doesNotMatch(id, /[\\/]/);
   assert.equal(id.length, 32);
 });
+
+test("the project id is the one on disk, not the one that was typed", () => {
+  // `--project Nora-Bennett-CV` opens `projects/nora-bennett-cv` on Windows and
+  // macOS. Stamping the typed casing and checking a differently-typed run of
+  // the same project reported "foreign-project" — copy someone else's analysis
+  // — for an analysis written from this project's own reference.
+  const host = fs.mkdtempSync(path.join(os.tmpdir(), "gcfp-typed-"));
+  temps.push(host);
+  const projectDir = path.join(host, "graphcompose-flow", "projects", "nora-bennett-cv");
+  fs.mkdirSync(path.join(projectDir, "reference"), { recursive: true });
+  fs.writeFileSync(path.join(projectDir, "reference", "reference.png"), "REFERENCE-A");
+
+  const asTyped = path.join(host, "graphcompose-flow", "projects", "Nora-Bennett-CV");
+  if (!fs.existsSync(asTyped)) return; // case-sensitive filesystem: two projects, correctly.
+
+  const stamped = computeFingerprint({ projectDir: asTyped, projectId: "Nora-Bennett-CV" });
+  const checked = computeFingerprint({ projectDir, projectId: "nora-bennett-cv" });
+  assert.equal(stamped.project, "nora-bennett-cv", "the name on disk decides");
+  assert.equal(compareFingerprint(stamped, checked).kind, "match");
+});

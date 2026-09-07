@@ -323,6 +323,13 @@ derivation, so a later revision changes one number instead of fifteen.
 Every primitive must exist in the pinned pack's allow-list — `node
 scripts/api-query.mjs --exists <Type>.<method>`.
 
+Commit it the same way the workers commit theirs — the `Write` guard
+refuses the direct write for this artifact too:
+
+```bash
+node scripts/write-artifact.mjs --project <id> --artifact architecture-plan.json --from <draft>
+```
+
 ## Close the phase: write the handoff
 
 ```bash

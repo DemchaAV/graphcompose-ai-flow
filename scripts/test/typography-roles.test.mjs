@@ -403,3 +403,54 @@ test("only the two roles that set the page are asked for a size", () => {
 
   assert.deepEqual(audit.held, []);
 });
+
+test("THE TRADE: an assumed role may not state a size nobody swept", () => {
+  // The escape hatch answers "there is no crop to match a family against",
+  // which is a statement about the family. The recorded defect is a number:
+  // contacts set by trial at 6.2 then 6.4pt so the longest address would not
+  // wrap — the type size traded away instead of the column being fixed. Marking
+  // the role `assumed` used to skip the size check with it.
+  const audit = auditTypography({
+    typography: {
+      roles: [
+        { role: "headings", fontName: "LATO", source: "assumed", why: "no bundled equivalent", size: 11 },
+        { role: "body", fontName: "LATO", source: "assumed", why: "same family", size: 6.4 },
+      ],
+    },
+    sizes: [],
+    matches: [],
+  });
+
+  assert.equal(audit.held.length, 2, audit.held.join(" | "));
+  for (const line of audit.held) assert.match(line, /is assumed and claims .*pt with no recorded size sweep behind it/);
+});
+
+test("an assumed role that states no size is still exempt — there is nothing to check", () => {
+  const audit = auditTypography({
+    typography: {
+      roles: [
+        { role: "headings", fontName: "LATO", source: "assumed", why: "no bundled equivalent" },
+        { role: "body", fontName: "LATO", source: "assumed", why: "same family" },
+      ],
+    },
+    sizes: [],
+    matches: [],
+  });
+
+  assert.deepEqual(audit.held, []);
+});
+
+test("an assumed role whose size a sweep does back is accepted", () => {
+  const audit = auditTypography({
+    typography: {
+      roles: [
+        { role: "headings", fontName: "LATO", source: "assumed", why: "no bundled equivalent", size: 11 },
+        { role: "body", fontName: "LATO", source: "assumed", why: "same family", size: 9 },
+      ],
+    },
+    sizes: SIZES,
+    matches: [],
+  });
+
+  assert.deepEqual(audit.held, []);
+});

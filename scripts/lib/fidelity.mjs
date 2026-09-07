@@ -246,12 +246,19 @@ export function reconcileVerdict({ claimed, fidelity, convergence }) {
 
   if (fidelity.level === FIDELITY.NEEDS_WORK) {
     const stalled = convergence.level === CONVERGENCE.STALLED;
+    // A stall the chain reports without a figure behind it — a loop that
+    // changed focus every pass leaves fewer than two comparable moves, so
+    // `materialPercent` is absent. Interpolating it printed "moved it by less
+    // than null%", which is the one case this sentence exists for.
+    const movement = Number.isFinite(convergence.materialPercent)
+      ? `moved it by less than ${convergence.materialPercent}%`
+      : "bought no measurable movement";
     return {
       verdict: "REVISE",
       reason:
         `the comparator measured ${measured}. MAJOR is a significant visual difference, ` +
         (stalled
-          ? `and the last passes moved it by less than ${convergence.materialPercent}% — the loop ` +
+          ? `and the last passes ${movement} — the loop ` +
             "has stopped changing the page without reaching it, which is a stall, not a finish"
           : "and the loop is still moving; readiness is a claim about parity, not about effort"),
     };

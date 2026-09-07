@@ -48,6 +48,7 @@ import { pagePairs } from "./lib/page-pairs.mjs";
 import { describeAttempts, readAttempts, recordAttempt } from "./lib/attempts.mjs";
 import { compareEdgeBands } from "./lib/edge-bands.mjs";
 import { describeIgnoredCopies, resolveTemplateSource } from "./lib/template-source.mjs";
+import { FIDELITY, fidelityOf } from "./lib/fidelity.mjs";
 import { describeForeignTwin, findForeignTwin } from "./lib/template-origin.mjs";
 import { INFERRED_NEW_SCOPE, resolveScope } from "./lib/pipeline-config.mjs";
 import { recordPhase } from "./lib/run-telemetry.mjs";
@@ -285,6 +286,19 @@ function excerptFailure(output, cap = 15) {
   return chosen.slice(-cap).join("\n");
 }
 
+/**
+ * What a contract finding is about, as one stable string.
+ *
+ * The focus is counted, not just printed: iterate-status runs the same-cause
+ * bound on consecutive passes carrying one focus key, and harness-focus.json is
+ * discarded outright when the key is not a string. Region checks name a region,
+ * container fidelity names a container, and a finding about the document as a
+ * whole is named by its kind — which is exactly as stable across passes.
+ */
+function findingSubject(finding) {
+  return finding.region ?? finding.container ?? finding.id ?? finding.kind;
+}
+
 function finish(code) {
   if (args.json) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
@@ -407,7 +421,7 @@ step("template source", (entry) => {
   // this wrote a genuine new analysis and then copied the Java, and the two
   // projects' diffs matched to four decimal places.
   const twin = findForeignTwin({
-    workspaceRoot: workspace.root,
+    projectsDir: workspace.projectsDir,
     projectId: args.project,
     templateFile: resolved.file,
   });
@@ -1121,7 +1135,12 @@ step("attempt", (entry) => {
   recordPhase(projectDir, {
     name: "loop.render",
     durationMs: Date.now() - renderStartedAt,
-    result: result.diff?.classification === "IDENTICAL" ? "PASS" : "FAIL",
+    // The fidelity band, not byte equality. A reference comparison never
+    // reaches IDENTICAL — a rasterised design against a vector render differs
+    // in font edges alone — so "IDENTICAL or it failed" recorded FAIL for
+    // every run that rendered, including the ones the loop then approved.
+    // fidelity.mjs already draws the line and MINOR sits under it.
+    result: fidelityOf(result.diff).level === FIDELITY.PASS ? "PASS" : "FAIL",
     artifact: "output.png",
     artifactStatus: args.skipRender ? "reused" : "generated",
     reason: summary.regressed ? `worse than render ${summary.bestAt} by ${summary.worseThanBest}%` : null,
@@ -1328,10 +1347,20 @@ if (pageModelOpen && result.loop.focus !== "page-size-unsettled") {
 if (result.roles?.findings?.length && result.loop?.verdict === "READY_FOR_APPROVAL") {
   const contract = result.roles.findings.filter((f) => f.kind !== "role-missing");
   const first = contract[0] ?? result.roles.findings[0];
+  // Not every contract finding is about a region. Container fidelity names a
+  // container, and a pagination finding about the document as a whole names
+  // neither — reading `first.region` for those produced `focus: undefined`, so
+  // the model was told "fill-contradicts-measurement in undefined" and
+  // JSON.stringify dropped the key out of harness-focus.json entirely, where
+  // iterate-status requires a string and silently discarded the file. The
+  // same-cause bound then never saw the finding, which is the drift that file
+  // exists to prevent.
+  const subject = findingSubject(first);
   result.loop.verdict = "REVISE";
-  result.loop.focus = first.region;
+  result.loop.focus = subject;
   result.loop.focusSource = "region-role";
-  result.loop.next = `${first.kind} in ${first.region}: ${first.detail}`;
+  result.loop.next =
+    subject === first.kind ? `${first.kind}: ${first.detail}` : `${first.kind} in ${subject}: ${first.detail}`;
 }
 
 // Furniture out of place is a defect the comparison scores as anti-aliasing
@@ -1364,7 +1393,15 @@ if (result.links?.missing?.length && result.loop?.verdict === "READY_FOR_APPROVA
 // readers, one focus.
 const HARNESS_FOCUS_SOURCES = new Set(["page-parity", "furniture", "region-role", "link-integrity", "document-integrity"]);
 const harnessFocusFile = path.join(revisionDir, "harness-focus.json");
-if (result.loop && HARNESS_FOCUS_SOURCES.has(result.loop.focusSource)) {
+// A focus that is not a string is not a focus: iterate-status requires one and
+// drops the file otherwise, so writing it would be a silent no-op dressed as a
+// handoff. Everything above sets one; this is the assertion, not a fallback.
+if (
+  result.loop &&
+  HARNESS_FOCUS_SOURCES.has(result.loop.focusSource) &&
+  typeof result.loop.focus === "string" &&
+  result.loop.focus !== ""
+) {
   fs.writeFileSync(
     harnessFocusFile,
     `${JSON.stringify(

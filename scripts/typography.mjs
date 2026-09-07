@@ -39,6 +39,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { withFileLock, writeJsonAtomic } from "./lib/atomic-write.mjs";
 import { fontsVersionFor } from "./lib/bundle-project.mjs";
 import { loadSnapshot } from "./lib/layout-inspector.mjs";
 import { ROLES } from "./lib/typography-roles.mjs";
@@ -242,6 +243,15 @@ function recordMatch(result, args) {
   if (!fs.existsSync(revisionDir)) fail(2, `no such revision: ${revisionDir}`);
 
   const file = path.join(revisionDir, "typography-match.json");
+  // Read and rewrite under one lock. One role is recorded per invocation, by
+  // reading the document and filtering that role out of it, so two invocations
+  // against one revision each wrote a document missing the other's entry — and
+  // the barrier then held with '"headings" claims to be measured and no match
+  // was recorded for it', against a measurement that had been made.
+  return withFileLock(file, () => recordUnderLock(file, revisionDir, result, args));
+}
+
+function recordUnderLock(file, revisionDir, result, args) {
   let doc = { schemaVersion: 1, matches: [] };
   if (fs.existsSync(file)) {
     try {
@@ -275,7 +285,7 @@ function recordMatch(result, args) {
       measuredAt: new Date().toISOString(),
     };
     doc.sizes = [...sizes.filter((m) => m?.role !== args.role), measured];
-    fs.writeFileSync(file, `${JSON.stringify(doc, null, 2)}\n`);
+    writeJsonAtomic(file, doc);
     return file;
   }
 
@@ -299,7 +309,7 @@ function recordMatch(result, args) {
     })),
   };
   doc.matches = [...doc.matches.filter((m) => m?.role !== args.role), entry];
-  fs.writeFileSync(file, `${JSON.stringify(doc, null, 2)}\n`);
+  writeJsonAtomic(file, doc);
   return file;
 }
 

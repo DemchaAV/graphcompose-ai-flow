@@ -93,11 +93,15 @@ function loadLoop(projectDir, revisionId) {
     // starts after it, so stop before including it.
     if (revision.status === "APPROVED" && cursor !== revisionId) break;
 
+    const review = readJsonOr(path.join(dir, "visual-review.json"));
     chain.unshift({
       id: cursor,
       dir,
       revision,
-      review: readJsonOr(path.join(dir, "visual-review.json")),
+      review,
+      // The same document, untouched. `carryReportsForward` writes onto
+      // `review`; the schema gate has to judge what the author wrote.
+      reviewOnDisk: review === null ? null : structuredClone(review),
       // What the pass actually measured, so "is this still moving?" is a
       // question about pixels rather than about how many mismatches the review
       // chose to list. A pass can rename its findings and look like progress.
@@ -115,6 +119,76 @@ function loadLoop(projectDir, revisionId) {
   }
   carryReportsForward(chain);
   return { chain, truncatedAt };
+}
+
+/**
+ * Every revision this loop has spent, including the branches it abandoned.
+ *
+ * The budget used to be `chain.length`, and the chain is one ancestry. Once
+ * `chainRegression` began printing `pass.mjs --open --revision <best>` — go
+ * back to the revision that was working — following that advice made the new
+ * revision's parent an old one, so the chain was rebuilt from there and came
+ * back short. Reproduced: a project at 8/8 refuses to open, and the same
+ * project told to branch from revision-001 opens revision-009 reporting
+ * `budget iterations 1/8`. The bound existed and a retreat handed back a fresh
+ * one, on exactly the runs late enough to be advised to retreat.
+ *
+ * A retreat is the loop changing approach, not a new loop. So the count is the
+ * revisions themselves: from where this loop began — `loadLoop` has already
+ * stopped the chain after the previous approval, so its first entry is that
+ * point — forward through every revision opened since, whichever branch each
+ * one sits on. An approval after that closes the loop, and what follows it
+ * belongs to the next one.
+ *
+ * Only counting is done here. Progress, convergence and the same-cause bound
+ * all stay on the chain, because those ask what led to the page in front.
+ */
+function loopMembers(projectDir, chain) {
+  const revisionsDir = path.join(projectDir, "revisions");
+  let names;
+  try {
+    names = fs.readdirSync(revisionsDir);
+  } catch {
+    return chain;
+  }
+
+  const start = chain[0].id;
+  const onChain = new Map(chain.map((entry) => [entry.id, entry]));
+  const all = [];
+  for (const id of names) {
+    if (id < start) continue;
+    // A revision the chain already holds comes from the chain: its review has
+    // had the open report carried onto it, and re-reading the file would lose
+    // that.
+    if (onChain.has(id)) {
+      all.push(onChain.get(id));
+      continue;
+    }
+    const dir = path.join(revisionsDir, id, "revision.json");
+    const revision = readJsonOr(dir);
+    if (!revision) continue;
+    // A branch the loop abandoned. Its review is read as written, and a report
+    // the user made against it still counts as their pass — `humanDirectedPasses`
+    // dedupes by report id, so one report addressed on both sides of a retreat
+    // is one exemption.
+    const review = readJsonOr(path.join(revisionsDir, id, "visual-review.json"));
+    const asked = readJsonOr(path.join(revisionsDir, id, "human-report.json"));
+    all.push({
+      id,
+      revision,
+      review: review?.humanReportedMismatch?.id || !asked?.id
+        ? review
+        : { ...(review ?? {}), humanReportedMismatch: { id: asked.id, addressed: false } },
+    });
+  }
+  if (all.length === 0) return chain;
+  all.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+
+  // Ids are zero-padded and monotonic (`revision-001`, `revision-002`), so a
+  // string comparison orders them. The first approval after the loop's own
+  // first revision ends it; anything past that is a later loop's spending.
+  const closed = all.findIndex((entry, i) => i > 0 && entry.revision.status === "APPROVED");
+  return closed === -1 ? all : all.slice(0, closed + 1);
 }
 
 /**
@@ -136,7 +210,11 @@ function carryReportsForward(chain) {
   for (const entry of chain) {
     const file = readJsonOr(path.join(entry.dir, "human-report.json"));
     if (file?.id && file.addressed !== true) {
-      open = { id: file.id, quote: file.quote ?? null, addressed: false, from: entry.id, source: "file" };
+      // A quote is what the user actually said; a report made without one has
+      // none. Absent rather than null, because the schema asks for a string
+      // and the carried report is read back through it.
+      const quote = typeof file.quote === "string" && file.quote !== "" ? { quote: file.quote } : {};
+      open = { id: file.id, ...quote, addressed: false, from: entry.id, source: "file" };
     }
     const review = entry.review;
     const inReview = review?.humanReportedMismatch;
@@ -146,7 +224,12 @@ function carryReportsForward(chain) {
       continue;
     }
     if (open && review && typeof review === "object") {
-      review.humanReportedMismatch = { id: open.id, quote: open.quote, addressed: false, carriedFrom: open.from };
+      review.humanReportedMismatch = {
+        id: open.id,
+        ...(typeof open.quote === "string" && open.quote !== "" ? { quote: open.quote } : {}),
+        addressed: false,
+        carriedFrom: open.from,
+      };
     }
   }
 }
@@ -545,6 +628,11 @@ export function computeIterationStatus({ projectDir, config, revisionId = null, 
   if (chain.length === 0) {
     throw new IterationStatusError(`revision ${target} not found in ${projectDir}`);
   }
+  // Everything this loop has spent, branches included. The chain is the target's
+  // own ancestry and stays the basis for every question about progress; the
+  // budget is a different question, and answering it from the ancestry let a
+  // retreat buy a fresh one — see loopMembers.
+  const spent = loopMembers(projectDir, chain);
 
   const latest = chain[chain.length - 1];
   // What this project has decided not to fix. Read once, threaded through every
@@ -556,6 +644,11 @@ export function computeIterationStatus({ projectDir, config, revisionId = null, 
   const focusKey = focusKeyOf(latest, limitations);
 
   const iterations = chain.length;
+  // What the loop has spent, which is not the same number as how long this
+  // ancestry is: a retreat branches, and both sides of the branch were passes.
+  // `iterations` stays the chain — a reader asking about revision-002 means
+  // that revision's own history — while the budget is charged against the loop.
+  const loopIterations = spent.length;
   // The budget is about the agent circling, so it counts the agent's own
   // passes. The total is still reported — a reader wants to know how many
   // revisions this loop produced, not just how many were charged for.
@@ -563,11 +656,11 @@ export function computeIterationStatus({ projectDir, config, revisionId = null, 
   // Capped, because the evidence for "the user asked for this" is a field the
   // agent writes. An uncapped exemption is an uncapped loop; see
   // humanDirectedPasses.
-  const reported = humanDirectedPasses(chain);
+  const reported = humanDirectedPasses(spent);
   const exemptionCap = config.limits.maxIterationGrants;
   const humanDirected = reported.slice(0, exemptionCap);
   const exemptionsRefused = reported.slice(exemptionCap);
-  const agentIterations = Math.max(0, iterations - humanDirected.length);
+  const agentIterations = Math.max(0, loopIterations - humanDirected.length);
   const converged = convergence(chain, limitations);
   const consecutiveBuildFailures = trailingRun(chain, isBuildFailure);
   const sameMismatchAttempts = focusKey
@@ -683,7 +776,13 @@ export function computeIterationStatus({ projectDir, config, revisionId = null, 
     // does not have and have it carried through the loop as written; the bounds
     // below still escalate to BLOCKED or CONVERGENCE_LIMIT_REACHED on their own
     // evidence, so REVISE here is a floor and not a ceiling.
-    const shape = validateReview(latest.review);
+    // The document as it was written, not as this module left it.
+    // `carryReportsForward` attaches an open report to a review that did not
+    // restate it, and `carriedFrom` is not in the schema — so validating the
+    // in-memory object accused a perfectly valid file of violating its own
+    // schema, and rewriting the file re-triggered it, because the offending
+    // key is added by the reader every time.
+    const shape = validateReview(latest.reviewOnDisk ?? latest.review);
     if (!shape.valid) {
       reasons.push(
         `${latest.id}: visual-review.json does not match visual-review.schema.json ` +
@@ -898,6 +997,11 @@ export function computeIterationStatus({ projectDir, config, revisionId = null, 
     focusSource: focus.source,
     rootCause: focusKey !== largestMismatch ? focusKey : null,
     iterations,
+    // Every revision this loop has opened, branches included. Differs from
+    // `iterations` only after a retreat, and it is the number the budget is
+    // charged against — so a reader can see why the two disagree instead of
+    // finding an arithmetic they cannot reproduce.
+    loopIterations,
     // What the budget is actually measured against, and what was excused from
     // it. Reported separately so "9 revisions, 8 of them mine" is legible
     // rather than arriving as a single number that looks like an overrun.

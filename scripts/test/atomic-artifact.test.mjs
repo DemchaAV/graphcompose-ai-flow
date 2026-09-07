@@ -27,7 +27,7 @@ import test from "node:test";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { AtomicReplaceError, replaceFileAtomic, stageAndCommit } from "../lib/atomic-write.mjs";
+import { AtomicReplaceError, replaceFileAtomic, stageAndCommit, withFileLock } from "../lib/atomic-write.mjs";
 import { canonicalArtifactName, parseStaged } from "../write-artifact.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -407,4 +407,67 @@ test("an unknown artifact name is a usage error, not a write", () => {
   const { status } = writeArtifact(root, "notes.json", "{}\n");
   assert.equal(status, 2);
   assert.deepEqual(fs.readdirSync(revision), [], "something was written for an artifact this tool does not own");
+});
+
+// ------------------------------------------------ read, modify, write back ---
+//
+// An atomic rename makes a write all-or-nothing and says nothing about two
+// writers who both READ first. `typography.mjs` records one role at a time by
+// reading the document, filtering that role out and writing the whole thing
+// back, so two invocations against one revision each wrote a document missing
+// the other's entry — and the barrier then held on "claims to be measured and
+// no match was recorded for it", against a measurement that had been made.
+
+const LOCK_WRITER = `
+import fs from "node:fs";
+import { withFileLock, writeJsonAtomic } from "${pathToFileURL(path.join(repoRoot, "scripts", "lib", "atomic-write.mjs")).href}";
+const [file, role] = process.argv.slice(2);
+withFileLock(file, () => {
+  let doc = { matches: [] };
+  try {
+    doc = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    /* first writer */
+  }
+  // The window the lock has to cover: everything between the read and the write.
+  const held = doc.matches.filter((m) => m.role !== role);
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 40);
+  writeJsonAtomic(file, { matches: [...held, { role }] });
+});
+`;
+
+test("THE LOST UPDATE: concurrent recorders keep each other's entries", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gclock-"));
+  const script = path.join(dir, "writer.mjs");
+  fs.writeFileSync(script, LOCK_WRITER, "utf8");
+  const file = path.join(dir, "typography-match.json");
+
+  const roles = ["headings", "body", "contacts", "captions"];
+  await Promise.all(
+    roles.map(
+      (role) =>
+        new Promise((resolve) => {
+          spawn(process.execPath, [script, file, role], { stdio: "ignore" }).on("exit", resolve);
+        }),
+    ),
+  );
+
+  const recorded = JSON.parse(fs.readFileSync(file, "utf8")).matches.map((m) => m.role);
+  assert.deepEqual([...recorded].sort(), [...roles].sort(), "every role that was measured is on disk");
+});
+
+test("a lock nobody released does not stop the workspace forever", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gcstale-"));
+  const file = path.join(dir, "record.json");
+  const lock = `${file}.lock`;
+  fs.mkdirSync(lock);
+  // A process killed mid-write leaves this behind. Older than the staleness
+  // window, it is taken rather than waited on.
+  const old = new Date(Date.now() - 120_000);
+  fs.utimesSync(lock, old, old);
+
+  const started = Date.now();
+  assert.equal(withFileLock(file, () => "written"), "written");
+  assert.ok(Date.now() - started < 4_000, "it did not sit out the retry ladder");
+  assert.equal(fs.existsSync(lock), false, "and it released what it took");
 });

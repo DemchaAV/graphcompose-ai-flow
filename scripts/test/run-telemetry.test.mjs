@@ -18,6 +18,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { spawn } from "node:child_process";
+import { pathToFileURL } from "node:url";
 
 import { currentRun, readSummary, recordPhase, startRun, timePhase, trace, tracing } from "../lib/run-telemetry.mjs";
 
@@ -255,4 +257,65 @@ test("starting a run is the one thing that resets the clock", () => {
   // one, so an opened-and-abandoned run leaves nothing to read wrongly.
   assert.equal(readSummary(dir), null, "the new run starts empty");
   assert.equal(readSummary(dir, first.runId).phases.length, 1, "and the old one is still readable");
+});
+
+// ------------------------------------------------------------ concurrency ---
+//
+// The discovery fan-out is three processes, and every one of them records a
+// phase. The summary was a plain load-modify-write, so a worker reading while
+// another was mid-write got half a document, `safely` swallowed the parse
+// error, and the empty template it fell back to was written over the other
+// workers' phases.
+
+test("THE FAN-OUT: three workers recording at once keep each other's phases", async () => {
+  const dir = project("concurrent");
+  const script = path.join(dir, "worker.mjs");
+  fs.writeFileSync(
+    script,
+    `import { recordPhase } from "${pathToFileURL(path.join(process.cwd(), "scripts", "lib", "run-telemetry.mjs")).href}";
+recordPhase(process.argv[2], { name: process.argv[3], durationMs: 10, result: "PASS" });
+`,
+    "utf8",
+  );
+
+  const phases = ["discovery.visual-analysis.json", "discovery.cv-data.json", "discovery.asset-request.json"];
+  await Promise.all(
+    phases.map(
+      (name) =>
+        new Promise((resolve) => {
+          spawn(process.execPath, [script, dir, name], { stdio: "ignore" }).on("exit", resolve);
+        }),
+    ),
+  );
+
+  const recorded = readSummary(dir).phases.map((p) => p.name);
+  assert.deepEqual([...recorded].sort(), [...phases].sort(), "every worker's phase survived");
+});
+
+test("workers that start together share one run rather than minting three", async () => {
+  const dir = project("one-run");
+  const script = path.join(dir, "opener.mjs");
+  fs.writeFileSync(
+    script,
+    `import { currentRun } from "${pathToFileURL(path.join(process.cwd(), "scripts", "lib", "run-telemetry.mjs")).href}";
+process.stdout.write(currentRun(process.argv[2]).runId);
+`,
+    "utf8",
+  );
+
+  const ids = await Promise.all(
+    [1, 2, 3].map(
+      () =>
+        new Promise((resolve) => {
+          const child = spawn(process.execPath, [script, dir], { stdio: ["ignore", "pipe", "ignore"] });
+          let out = "";
+          child.stdout.on("data", (c) => {
+            out += c;
+          });
+          child.on("exit", () => resolve(out.trim()));
+        }),
+    ),
+  );
+
+  assert.equal(new Set(ids).size, 1, `three processes minted ${new Set(ids).size} runs: ${ids.join(", ")}`);
 });

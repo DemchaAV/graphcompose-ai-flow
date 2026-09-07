@@ -149,3 +149,28 @@ test("a stalled sweep inside one revision is movement evidence too", () => {
   assert.equal(convergenceOf(moving, sweep).level, CONVERGENCE.STALLED);
   assert.equal(convergenceOf(moving, { renders: 6, stalled: false }).level, CONVERGENCE.IMPROVING);
 });
+
+test("a stall with nothing to measure says so, rather than saying 'null%'", () => {
+  // The chain-level stall: a loop that changes focus every pass leaves fewer
+  // than two comparable moves, so `diminishingReturns` returns no
+  // `materialPercent` at all and `regressed` is what makes it STALLED.
+  const verdict = reconcileVerdict({
+    claimed: "READY_FOR_APPROVAL",
+    fidelity: { level: FIDELITY.NEEDS_WORK, classification: "MAJOR", percent: 6.2, parityScore: 75, ssim: null },
+    convergence: { level: CONVERGENCE.STALLED, materialPercent: null, moves: [], source: "chain" },
+  });
+
+  assert.equal(verdict.verdict, "REVISE");
+  assert.doesNotMatch(verdict.reason, /null/);
+  assert.match(verdict.reason, /bought no measurable movement/);
+});
+
+test("a stall that does have a figure still quotes it", () => {
+  const verdict = reconcileVerdict({
+    claimed: "READY_FOR_APPROVAL",
+    fidelity: { level: FIDELITY.NEEDS_WORK, classification: "MAJOR", percent: 6.2, parityScore: 75, ssim: null },
+    convergence: { level: CONVERGENCE.STALLED, materialPercent: 0.25, moves: [], source: "focus" },
+  });
+
+  assert.match(verdict.reason, /moved it by less than 0\.25%/);
+});

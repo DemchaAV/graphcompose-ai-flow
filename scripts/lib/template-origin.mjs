@@ -49,15 +49,35 @@ function sha256(file) {
 }
 
 /**
+ * What the filesystem calls a directory, rather than what was typed at it.
+ * Falls back to the typed segment, which is the behaviour this replaced: a
+ * project directory that cannot be resolved has a larger problem than this
+ * comparison, and the fallback is no worse than what was here before.
+ */
+function onDiskName(dir) {
+  try {
+    return path.basename(fs.realpathSync.native(dir));
+  } catch {
+    return path.basename(dir);
+  }
+}
+
+/**
  * Find an identical template in a different project of the same workspace.
  *
- * @param {{workspaceRoot: string, projectId: string, templateFile: string}} input
+ * `projectsDir` is asked for rather than derived from the workspace root: a
+ * workspace resolved in install mode keeps its projects under
+ * `<install>/examples`, so joining "projects" onto the root named a directory
+ * that does not exist and the tripwire returned null before hashing anything —
+ * dead for every project in the harness's own corpus, while the tests passed
+ * because they built a literal `projects/` tree.
+ *
+ * @param {{projectsDir: string, projectId: string, templateFile: string}} input
  * @returns {{project: string, revision: string, file: string}|null}
  */
-export function findForeignTwin({ workspaceRoot, projectId, templateFile, revisionDir = null }) {
+export function findForeignTwin({ projectsDir, projectId, templateFile, revisionDir = null }) {
   if (!templateFile || !fs.existsSync(templateFile)) return null;
-  const projectsDir = path.join(workspaceRoot, "projects");
-  if (!fs.existsSync(projectsDir)) return null;
+  if (!projectsDir || !fs.existsSync(projectsDir)) return null;
 
   // When this revision was opened. A twin from a revision opened later is a
   // copy OF us, not one we made; that project's own render is where it gets
@@ -71,8 +91,15 @@ export function findForeignTwin({ workspaceRoot, projectId, templateFile, revisi
   const size = fs.statSync(templateFile).size;
   let mine = null;
 
+  // Ours by the name on disk, not by the name typed. `--project Nora-Bennett-CV`
+  // opens `projects/nora-bennett-cv` on Windows and macOS, and comparing the
+  // typed id against the directory listing then skipped nothing: the project
+  // found its own parent revision, whose template `pass` carries forward
+  // byte-for-byte, and the render died accusing the author of copying it.
+  const mineName = onDiskName(path.join(projectsDir, projectId));
+
   for (const project of safeReaddir(projectsDir)) {
-    if (project === projectId) continue;
+    if (project === mineName) continue;
     const revisions = path.join(projectsDir, project, "revisions");
     for (const revision of safeReaddir(revisions)) {
       for (const name of safeReaddir(path.join(revisions, revision))) {

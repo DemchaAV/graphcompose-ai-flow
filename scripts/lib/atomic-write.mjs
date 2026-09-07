@@ -209,3 +209,72 @@ export function stageAndCommit(file, content, validate, { encoding = "utf8" } = 
       `(${last?.code ?? "unknown"}) — the previous file is untouched`,
   };
 }
+
+/** How long a lock may be held before a later writer treats it as abandoned. */
+const LOCK_STALE_MS = 30_000;
+
+/**
+ * Run `body` with exclusive use of `file`, then return what it returned.
+ *
+ * An atomic rename makes a write all-or-nothing; it does nothing about two
+ * writers who both READ first. `typography.mjs` records one role at a time by
+ * reading the document, filtering its own role out and writing the whole thing
+ * back, so two invocations against one revision each wrote a document missing
+ * the other's entry — and the barrier then held on "claims to be measured and
+ * no match was recorded for it", against work that had been done correctly.
+ *
+ * `mkdir` is the lock because it is atomic everywhere: it either creates the
+ * directory or fails with EEXIST, with no window between the two. A lock older
+ * than {@link LOCK_STALE_MS} is taken anyway — a process killed mid-write must
+ * not stop the workspace forever, and the writes it guards are short.
+ *
+ * @param {string} file the file being read and rewritten
+ * @param {() => T} body
+ * @returns {T}
+ * @template T
+ */
+export function withFileLock(file, body) {
+  const lock = `${file}.lock`;
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  let held = false;
+
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      fs.mkdirSync(lock);
+      held = true;
+      break;
+    } catch (cause) {
+      if (cause.code !== "EEXIST") break; // an unlockable path is not a reason to skip the write
+      let age = 0;
+      try {
+        age = Date.now() - fs.statSync(lock).mtimeMs;
+      } catch {
+        continue; // released between the failure and the question
+      }
+      if (age > LOCK_STALE_MS) {
+        try {
+          fs.rmSync(lock, { recursive: true, force: true });
+        } catch {
+          /* someone else got there first */
+        }
+        continue;
+      }
+      if (attempt < RETRY_DELAYS_MS.length) sleepSync(RETRY_DELAYS_MS[attempt]);
+    }
+  }
+
+  try {
+    // Unheld runs the body anyway: waiting forever, or refusing to record a
+    // measurement that was made, would both be worse than the race this
+    // narrows. The lock is an improvement on nothing, not a guarantee.
+    return body();
+  } finally {
+    if (held) {
+      try {
+        fs.rmSync(lock, { recursive: true, force: true });
+      } catch {
+        /* best effort */
+      }
+    }
+  }
+}

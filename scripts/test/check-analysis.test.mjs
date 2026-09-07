@@ -1186,3 +1186,80 @@ test("with no reference there is nothing to match a face against, and none is de
   assert.equal(status, 0, out);
   assert.match(named(parsed, "typography measured").detail, /nothing to match a face against/);
 });
+
+// A second page is a second raster. The probe read `reference.png` for every
+// container, so a card correctly measured as filled on page 2 was sampled
+// against blank ground on page 1 and refused — and the analysis could not be
+// made to pass without corrupting it.
+
+/** Both pages of a two-page reference, then the provenance that covers them. */
+function twoPageReferenceFor(root, revision, { page1, page2 }) {
+  const projectDir = path.join(root, "projects", "demo");
+  referencePng(path.join(projectDir, "reference", "reference.png"), { filled: page1 });
+  referencePng(path.join(projectDir, "reference", "reference-page-2.png"), { filled: page2 });
+  const file = path.join(revision, "visual-analysis.json");
+  writeJson(file, {
+    ...JSON.parse(fs.readFileSync(file, "utf8")),
+    provenance: computeFingerprint({ projectDir, projectId: "demo" }),
+  });
+}
+
+const PAGE_TWO_REGION = {
+  id: "footer-band",
+  label: "Footer band",
+  page: 2,
+  role: "background",
+  bounds: { x: 0, y: 0, w: 1, h: 1 },
+};
+
+test("a container on page 2 is measured against page 2", () => {
+  const { root, revision } = workspace("fill-page-two", {
+    geometry: {
+      ...GEOMETRY,
+      regions: [...GEOMETRY.regions, PAGE_TWO_REGION],
+      shapeOwnership: [CONTAINER({ region: "footer-band", fill: { present: true } })],
+    },
+  });
+  // Page 1 leaves that rectangle blank; page 2 fills it. The claim is right.
+  twoPageReferenceFor(root, revision, { page1: false, page2: true });
+
+  const { status, parsed, out } = check(root);
+  assert.equal(status, 0, out);
+  assert.equal(named(parsed, "fill claims measured").ok, true);
+  assert.match(named(parsed, "fill claims measured").detail, /1 container fill\(s\) agree/);
+});
+
+test("a page-2 container that is wrong is still refused, and the page is named", () => {
+  const { root, revision } = workspace("fill-page-two-wrong", {
+    geometry: {
+      ...GEOMETRY,
+      regions: [...GEOMETRY.regions, PAGE_TWO_REGION],
+      shapeOwnership: [CONTAINER({ region: "footer-band", fill: { present: true } })],
+    },
+  });
+  // Now page 1 is the filled one and page 2 is blank: the claim is wrong.
+  twoPageReferenceFor(root, revision, { page1: true, page2: false });
+
+  const { status, parsed } = check(root);
+  assert.equal(status, 1);
+  assert.equal(named(parsed, "fill claims measured").ok, false);
+  assert.match(named(parsed, "fill claims measured").detail, /page 2 of the reference/);
+});
+
+test("a container on a page nobody imported is left unmeasured, and said so", () => {
+  const { root, revision } = workspace("fill-page-missing", {
+    geometry: {
+      ...GEOMETRY,
+      regions: [...GEOMETRY.regions, PAGE_TWO_REGION],
+      shapeOwnership: [CONTAINER({ region: "footer-band", fill: { present: true } })],
+    },
+  });
+  // Only page 1 on disk. Judging the claim against it is what this fixes; the
+  // honest answer is that nothing was sampled.
+  referenceFor(root, revision, { filled: false });
+
+  const { status, parsed, out } = check(root);
+  assert.equal(status, 0, out);
+  assert.equal(named(parsed, "fill claims measured").ok, true);
+  assert.match(named(parsed, "fill claims measured").detail, /not sampled: page 2/);
+});

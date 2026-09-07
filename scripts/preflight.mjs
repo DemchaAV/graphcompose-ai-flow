@@ -179,6 +179,20 @@ const DIAGNOSTIC_SCRIPTS = Object.freeze([
   "probe.mjs",
 ]);
 
+/**
+ * The scripts the workflow contracts NAME as the way to do something, so a
+ * tree without them cannot run the phase at all. `write-artifact.mjs` is how
+ * each discovery worker commits its artifact and `handoff.mjs` is how a phase
+ * closes; both are quoted verbatim by `create-2-analyse` and by every
+ * `check-analysis --contract` printout. They are neither diagnostics nor gates,
+ * and belonged in neither list — so an older tree reported itself complete
+ * while the skills in front of it named two files it did not have.
+ */
+const PIPELINE_SCRIPTS = Object.freeze([
+  "write-artifact.mjs",
+  "handoff.mjs",
+]);
+
 /** The gates. Same reasoning as above, and the same failure when one is absent. */
 const CHECK_SCRIPTS = Object.freeze([
   "check-border-topology.mjs",
@@ -1002,9 +1016,11 @@ function describeCapabilities(versionInfo, toolsInfo) {
   const has = (relative) => fs.existsSync(path.join(repoRoot, "scripts", relative));
   const diagnostics = Object.fromEntries(DIAGNOSTIC_SCRIPTS.map((f) => [f, has(f)]));
   const checks = Object.fromEntries(CHECK_SCRIPTS.map((f) => [f, has(f)]));
+  const pipeline = Object.fromEntries(PIPELINE_SCRIPTS.map((f) => [f, has(f)]));
   const missing = [
     ...DIAGNOSTIC_SCRIPTS.filter((f) => !diagnostics[f]),
     ...CHECK_SCRIPTS.filter((f) => !checks[f]),
+    ...PIPELINE_SCRIPTS.filter((f) => !pipeline[f]),
   ];
 
   const treeVersion = readVersion(path.join(repoRoot, "package.json"));
@@ -1050,6 +1066,7 @@ function describeCapabilities(versionInfo, toolsInfo) {
     matchingRuntime: parity === "tools-behind" ? matchingRuntimeFor(newestPack) : null,
     diagnostics,
     checks,
+    pipeline,
     missing,
     layoutSnapshot: describeSnapshotSupport(versionInfo, toolsInfo),
   };
