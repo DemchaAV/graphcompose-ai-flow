@@ -5,6 +5,56 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.24.0-beta.10 — 2026-09-07
+
+**What this beta is.** Two defects the `nora-b8` render showed a human before it
+showed the harness, and one of them turned out not to be the defect it looked
+like.
+
+**A section headed by a marker says where its body starts.** The heading is a
+circled icon, then the title, then a rule; in the reference everything under it —
+the summary paragraph, the company names — lines up with the TITLE. The run built
+the heading as `fixed(18.0)` plus `gap(6)` and added every paragraph straight to
+the section with no left inset. From the render's own snapshot: the title at
+x 207.57, the paragraph at 183.57. Twenty-four points, every section, eight
+revisions.
+
+Not for want of looking. The badge was measured exactly — `bounds.x 0.313`,
+`w 0.033`, `repeats: 5`, in a region starting at 0.315. What had nowhere to be
+recorded was the relationship. `regions[]` is a box, and the icon, the title and
+the body are all "inside region summary"; two things at different x inside one
+region are the same thing to a box. The fields that could have carried it —
+`shapeOwnership[].padding`, `.gap`, `.contentAlign` — describe a container's own
+interior, are optional, and were null on all five entries. And no gate could see
+it: 24 pt spread over dozens of text rows is thin, never the largest mismatch,
+and the region ranking ranks regions, whose box was right.
+
+So `regions[].contentLeft` is a measurement, and the barrier asks for it exactly
+where the geometry already on disk shows two left edges — a container attributed
+to the region, at the region's own left edge, narrow against it. On the corpus
+that is the heading badge and nothing else. **A flush body is a real design**, so
+nothing asserts an indent: the recovery names both answers and what is refused is
+silence. The code check then compares two numbers rather than enforcing a
+convention, and stays quiet the moment the Java carries any inset at all.
+
+**And a negative result, measured rather than assumed.** Every run has left the
+wrapped second line of a bullet starting under the marker instead of under the
+first word. `ListBuilder.continuationIndent(String)` sits on the same builder the
+runs already use correctly, is named by no route and no contract, and reads like
+the knob for exactly this.
+
+It is inert. One item wrapping to four lines, at five indent strings from `""` to
+`"MMMM"`, with two wide characters against six narrow ones so that width and
+length would separate: 48 pt at every value, on 2.2.1 and again on 2.2.2, which
+is the build the run rendered with. Had it been routed instead of measured, the
+next run would have called a method that does nothing and a barrier would have
+confirmed it. A hanging indent in 2.2 has to come from the layout, and that wants
+its own measurement before any contract names it.
+
+Verification: 1499/1499 `node scripts/run-tests.mjs scripts/test`, thirteen gates
+clean under `node scripts/verify.mjs`, both barriers replayed against the
+`nora-b8` artifacts.
+
 ## v0.24.0-beta.9 — 2026-09-07
 
 **What this beta is.** `beta.8` as its own Antigravity run sent it back, plus a
