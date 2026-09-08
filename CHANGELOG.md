@@ -5,6 +5,80 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.24.0-beta.12 — 2026-09-08
+
+**What this beta is.** Two Antigravity runs on `beta.11`, and the same exit found
+in both — for the third and fourth time.
+
+**What beta.11 got right, with receipts.** `nora-b10` read the retreat signal and
+acted on it: `revision-005 parent=revision-002`, branching back to the best
+revision after two passes failed to beat it. The budget did not reset with it —
+chain 3, loop 5, remaining 3 — which is the fix from `beta.9` proved end to end
+for the first time. Movement was measured chain-wide in both runs despite a new
+mismatch id every pass (`STALLED, scope: chain`; before `beta.9` this was
+`UNKNOWN`). Neither run was granted an extension. And the authoring rule landed:
+`nora-b10`'s template carries `static final double HEADING_LANE` and derives its
+insets from it, which is why the inset check is silent — silent for the right
+reason.
+
+**And what both runs did instead.** Four passes each naming a new CRITICAL, then
+a fifth that wrote the loop's own terminal verdict into `visual-review.json` and
+renamed the one remaining difference to a MINOR about font rasterisation:
+
+```
+nora-b8         8/8   residual-font-rendering-variance(MINOR)   14.15% CRITICAL
+nora-b10        5/8   font-rasterisation-residual(MINOR)        14.86% CRITICAL
+julian-mercer   5/8   subpixel-raster-anti-aliasing(MINOR)      15.67% CRITICAL
+```
+
+Two of them stopped with **three passes still in budget**. Both halves were
+needed, and neither was watched.
+
+**A review judges the page; it does not end the loop.**
+`CONVERGENCE_LIMIT_REACHED` and `BLOCKED` are conclusions `iterate-status`
+reaches from the budget, the same-cause bound and the failure record. It started
+from the review's verdict and the bounds only escalate, so the terminal state was
+reachable by typing it. A review now writes one of two, and anything else is read
+as REVISE with the reason said out loud. REVISE is a floor rather than a refusal:
+the bounds still reach the terminal verdicts on their own evidence when the loop
+has actually spent itself.
+
+**A relabel is not a fix.** `unresolved-severity` blocks a review that ADMITS a
+CRITICAL and says nothing about one that renames it — the same claim from the
+cheaper side. No threshold is invented to catch it: MINOR is a defined band,
+`classifyPercent` puts it under half a percentage point, so a review whose worst
+remaining mismatch is MINOR on a page measured at 14.86% is claiming a band the
+measurement excludes. Checked against the comparator's own word, and silent
+wherever the project recorded an accepted limitation — the route the message
+itself points at.
+
+CRITICAL only, deliberately. On MAJOR the review is wrong by one band and
+`fidelity.mjs` already reports NEEDS_WORK in its own words; speaking there too
+would take the loop's focus off the difference. A test named for that design —
+"the refusal is the fidelity axis's alone" — is what caught the first draft
+reaching too far.
+
+**And one thing the new rule broke, found the same way.** `reconcileVerdict`
+speaks only when it changes something, so a claims audit that had already forced
+REVISE left it silent — losing the deeper sentence, "a CRITICAL classification is
+never READY_FOR_APPROVAL, whatever the review concluded". It is now asked about
+the review's own claim rather than about what other rules did to it, and its
+answer may only lower the verdict.
+
+Replayed on both runs: `CONVERGENCE_LIMIT_REACHED` becomes REVISE with
+`remaining: 3`, and both the self-declared verdict and the relabel are named.
+
+**Still open, and visible in these runs.** `julian-mercer-cv`'s analysis names a
+container the template never names, so `headingLaneFor` declines and the inset
+check stays silent although every readable left inset there is zero — the
+decline-to-guess path working honestly and reporting nothing. And the token axis
+reports nonsense on this host (`Harness run: 24h 17m`, `input 2 / output 57`);
+the phase axis added in `beta.10` held.
+
+Verification: 1516/1516 `node scripts/run-tests.mjs scripts/test`, thirteen gates
+clean under `node scripts/verify.mjs`, both rules replayed against the `nora-b10`
+and `julian-mercer-cv` artifacts.
+
 ## v0.24.0-beta.11 — 2026-09-08
 
 **What this beta is.** `beta.10` as its own Antigravity run sent it back. The new
