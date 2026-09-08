@@ -5,6 +5,84 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.24.0-beta.11 — 2026-09-08
+
+**What this beta is.** `beta.10` as its own Antigravity run sent it back. The new
+barrier worked; the check behind it was wrong three times, and a compaction
+showed where a route goes when the contract carrying it is dropped.
+
+**The barrier changed what the model did.** `nora-b9` is the first run with
+`contentLeft` in it, and the analysis came back measured rather than filled in:
+`0.364` against a region at `0.312` for the three main sections, `0.0664` against
+`0.0351` for two sidebar ones, and the region's own `x` written back for the four
+that really are flush. Eight regions, differentiated answers. That is the second
+time a barrier has changed a model's behaviour rather than only stopping it, and
+the stronger of the two.
+
+**Then the code check reported nothing, and that was wrong three times over.**
+
+It tested for the *presence* of a padding call rather than for a left.
+`renderSummary` carries `sec.margin(new DocumentInsets(0, 0, 32.0, 0))` — a bottom
+margin — and the check went silent on a body still flush against the marker,
+which is the exact defect it exists for. The fourth argument is the one that moves
+content rightwards, so that is what gets read now, through both the four-number
+and the `DocumentInsets` forms; an identifier or a sum reads as unreadable, which
+is what a derived constant looks like and is the answer the authoring rules ask
+for.
+
+It only asked whether an inset existed, not whether it was the right one. Two
+numbers settle that, both in one file, in points, with no rasterisation between
+them: the lane the heading builds is where the title starts, and the body is meant
+to start there. So they are compared to each other, and the measurement's job is
+only to say the two edges differ at all. No tolerance anybody chose — a point of
+slack, for `20f` against `20.0`.
+
+And it read the wrong lane: the first `columns(fixed(N))` in the method, which for
+two sidebar sections is an item row built before the heading. It quoted 24 and
+22 pt for headings that are 25. The findings survived either way, and a finding
+that quotes a number nobody can reproduce is worth less than one that quotes none.
+The analysis names the marker and the template names it back, so the row is now
+found by walking from that name.
+
+Replayed on the run, 0 findings becomes 5, all quoting the same 25 pt lane:
+
+```
+summary-section          lane 25 pt, body  0 pt   flush against the marker
+experience-section       lane 25 pt, body 22 pt   3 pt apart
+projects-section         lane 25 pt, body 22 pt   3 pt apart
+sidebar-achievements     lane 25 pt, body 14 pt   11 pt apart
+sidebar-additional-info  lane 25 pt, body 14 pt   11 pt apart
+```
+
+Five headings whose lanes are typed literals — 20+5, 18+6, 16+6 — and five bodies
+inset by four different numbers, none of them the lane. The missing constant,
+showing up as drift.
+
+**A route lost to a compaction is attached to the reach instead.** The run used
+`api-query.mjs` properly for its first hour. After the first compaction it
+stopped, and spent dozens of calls on `Select-String` over `00-api-surface.md` —
+126 KB of generated prose — and on `javap` and `jar tf` against the pinned jar, to
+answer questions the CLI answers in three lines. Not a knowledge problem: the
+route lives in the contracts, and a compaction drops them; the surface file is
+what gets reached for next. So the guard sits on the reach, in the shape already
+used for the layout snapshot — the same failure with a different file, which has
+not recurred since it was guarded. The refusal names both halves, because they are
+different questions: `--exists` / `--type` for whether a symbol is real, and
+`--tasks` / `--task` for which of three ways is right.
+
+Not covered, and said so in the commit: the same file read through the host's own
+Read and Search tools, which a Bash hook cannot see.
+
+**Where the run landed.** Worse than `nora-b8` on every measure — 16.05% against
+14.15%, SSIM 0.3668 against 0.4132, best revision 15.77% against 14.15%. Not from
+the new barriers: the model built a structurally different template and spent much
+of the run re-deriving the API. Recorded here so the figure is not later read as a
+trend.
+
+Verification: 1510/1510 `node scripts/run-tests.mjs scripts/test`, thirteen gates
+clean under `node scripts/verify.mjs`, every change replayed against the `nora-b9`
+artifacts.
+
 ## v0.24.0-beta.10 — 2026-09-07
 
 **What this beta is.** Two defects the `nora-b8` render showed a human before it
