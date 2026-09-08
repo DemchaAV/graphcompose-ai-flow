@@ -1299,6 +1299,12 @@ test("the nora-bennett-cv run cannot reach READY: CRITICAL is binding", () => {
     status.reasons.some((r) => r.includes("CRITICAL classification is never")),
     `the refusal must say why; got ${JSON.stringify(status.reasons)}`,
   );
+  // And from the other side: this review relabelled a 14% page as MINOR and
+  // INTENTIONAL_DIFFERENCE, which is the move three later runs repeated.
+  assert.ok(
+    status.reasons.some((r) => r.includes("worst remaining mismatch is")),
+    `the relabel must be named too; got ${JSON.stringify(status.reasons)}`,
+  );
 });
 
 test("a MAJOR page that has stopped moving is a stall, not a finish", () => {
@@ -1795,4 +1801,128 @@ test("a pass that closed a mismatch AND moved the page still earns its extension
   assert.ok(status.grantedExtension, `no extension: ${status.reasons.join(" | ")}`);
   assert.equal(status.grantedExtension.used, 1);
   assert.match(status.reasons.join("\n"), /extension 1 of 3/);
+});
+
+// ------------------------------------------ a review judges, it does not end ---
+//
+// Three consecutive Antigravity runs finished by typing the loop's own terminal
+// verdict into the review: nora-b8 at 8 passes, nora-b10 and julian-mercer-cv at
+// 5 with three still in budget. Each paired it with a MINOR named after font
+// rasterisation — `residual-font-rendering-variance`, `font-rasterisation-
+// residual`, `subpixel-raster-anti-aliasing` — on a page the comparator called
+// CRITICAL at 14.15%, 14.86% and 15.67%.
+
+const CRITICAL_PAGE = (severity, id) => ({
+  verdict: "CONVERGENCE_LIMIT_REACHED",
+  mismatch: id,
+  severity,
+  statsReferenceInside: true,
+  stats: { mismatchPx: 308095, percent: 14.859, classification: "CRITICAL" },
+});
+
+test("THE EXIT: a review may not write the verdict the loop computes", () => {
+  const status = statusOf(
+    projectWith(
+      [
+        { verdict: "REVISE", mismatch: "header-height", statsReferenceInside: true,
+          stats: { mismatchPx: 320000, percent: 15.2, classification: "CRITICAL" } },
+        CRITICAL_PAGE("MINOR", "font-rasterisation-residual"),
+      ],
+      "self-declared-limit",
+    ),
+  );
+
+  assert.equal(status.verdict, "REVISE", "the loop had three passes left to spend");
+  assert.ok(status.remaining.iterations > 0);
+  assert.match(status.reasons.join("\n"), /claims "CONVERGENCE_LIMIT_REACHED", which is a verdict this loop computes/);
+  assert.match(status.reasons.join("\n"), /a review says READY_FOR_APPROVAL or REVISE/);
+});
+
+test("BLOCKED is the loop's word too", () => {
+  const status = statusOf(
+    projectWith(
+      [
+        { verdict: "REVISE", mismatch: "a", statsReferenceInside: true,
+          stats: { mismatchPx: 1, percent: 0.001, classification: "IDENTICAL" } },
+        { verdict: "BLOCKED", mismatch: "b", statsReferenceInside: true,
+          stats: { mismatchPx: 1, percent: 0.001, classification: "IDENTICAL" } },
+      ],
+      "self-declared-blocked",
+    ),
+  );
+  assert.match(status.reasons.join("\n"), /claims "BLOCKED", which is a verdict this loop computes/);
+});
+
+test("the two a review may write travel untouched", () => {
+  const revise = statusOf(
+    projectWith([{ verdict: "REVISE", mismatch: "header-height" }], "plain-revise"),
+  );
+  assert.doesNotMatch(revise.reasons.join("\n"), /a verdict this loop computes/);
+  assert.equal(revise.verdict, "REVISE");
+});
+
+// ------------------------------------------- the relabel, from the other side ---
+
+test("THE RELABEL: MINOR is a band the measurement excludes", () => {
+  const status = statusOf(
+    projectWith(
+      [
+        { verdict: "REVISE", mismatch: "header-height", statsReferenceInside: true,
+          stats: { mismatchPx: 320000, percent: 15.2, classification: "CRITICAL" } },
+        { ...CRITICAL_PAGE("MINOR", "font-rasterisation-residual"), verdict: "REVISE" },
+      ],
+      "relabelled-critical",
+    ),
+  );
+
+  assert.match(status.reasons.join("\n"), /the comparator classified this page CRITICAL at 14\.859% of its pixels/);
+  assert.match(status.reasons.join("\n"), /worst remaining mismatch is MINOR: font-rasterisation-residual/);
+  assert.match(status.reasons.join("\n"), /MINOR means under half a percentage point of the page/);
+  // The fidelity axis is silent here on purpose: it answers whether a claimed
+  // READY may stand, and this review claims REVISE. The regression fixture
+  // above, which does claim READY, is where both voices are checked together —
+  // and it is what caught this rule silencing that one.
+});
+
+test("a MAJOR page is left to the fidelity axis alone", () => {
+  // 0.5% to 5%: wrong by one band, and the axis already calls it NEEDS_WORK.
+  // Speaking here too would take the loop's focus off the difference itself.
+  const status = statusOf(
+    projectWith(
+      [
+        { verdict: "REVISE", mismatch: "sidebar-width", severity: "MINOR", statsReferenceInside: true,
+          stats: { mismatchPx: 90000, percent: 4.3, classification: "MAJOR" } },
+        { verdict: "REVISE", mismatch: "sidebar-width", severity: "MINOR", statsReferenceInside: true,
+          stats: { mismatchPx: 88000, percent: 4.19, classification: "MAJOR" } },
+      ],
+      "major-not-claimed",
+    ),
+  );
+  assert.doesNotMatch(status.reasons.join("\n"), /worst remaining mismatch is/);
+});
+
+test("a residual the project accepted is a decision, not a relabel", () => {
+  const dir = projectWith(
+    [
+      { verdict: "REVISE", mismatch: "header-height", statsReferenceInside: true,
+        stats: { mismatchPx: 320000, percent: 15.2, classification: "CRITICAL" } },
+      { ...CRITICAL_PAGE("MINOR", "monogram-approximation"), verdict: "REVISE" },
+    ],
+    "accepted-residual",
+  );
+  fs.writeFileSync(
+    path.join(dir, "accepted-limitations.json"),
+    JSON.stringify(
+      {
+        schemaVersion: 1,
+        limitations: [
+          { id: "monogram", mismatchIds: ["monogram-approximation"], reason: "the sprig is hand-drawn", acceptedBy: "user" },
+        ],
+      },
+      null,
+      2,
+    ),
+  );
+
+  assert.doesNotMatch(statusOf(dir).reasons.join("\n"), /worst remaining mismatch is/);
 });

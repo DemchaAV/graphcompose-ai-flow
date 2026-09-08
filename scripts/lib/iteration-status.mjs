@@ -38,6 +38,14 @@ import { describeSeal, sealState } from "./revision-seal.mjs";
 import { describeAttempts, readAttempts } from "./attempts.mjs";
 import { coveringLimitation, readLimitations } from "./limitations.mjs";
 
+/**
+ * The two a REVIEW may write. The other two in {@link VERDICTS} are this
+ * module's own conclusions — reached from the budget, the same-cause bound and
+ * the failure record — and a review that types one of them is ending the loop
+ * rather than judging the page.
+ */
+export const REVIEW_VERDICTS = Object.freeze(["READY_FOR_APPROVAL", "REVISE"]);
+
 /** Verdicts this module can return, in the order they end the loop. */
 export const VERDICTS = Object.freeze([
   "READY_FOR_APPROVAL",
@@ -799,6 +807,42 @@ export function computeIterationStatus({ projectDir, config, revisionId = null, 
 
   // Start from what the review said, then let the bounds override it.
   let verdict = latest.review?.verdict ?? "REVISE";
+  /**
+   * What the review itself claimed, kept because the fidelity axis is asked
+   * about the CLAIM and not about what other rules have already done to it.
+   * `reconcileVerdict` speaks only when it changes something, so passing it a
+   * verdict the claims audit had already forced to REVISE left it silent — and
+   * the sentence it would have said ("a CRITICAL classification is never
+   * READY_FOR_APPROVAL, whatever the review concluded") is the deeper of the
+   * two. It only ever downgrades, so asking it the original question cannot
+   * raise anything.
+   */
+  let claimedVerdict = verdict;
+
+  // A review may judge the page. It may not end the loop.
+  //
+  // `CONVERGENCE_LIMIT_REACHED` and `BLOCKED` are conclusions this function
+  // reaches from the budget, the same-cause bound and the failure record. Three
+  // consecutive runs ended by typing one of them into the review instead:
+  // nora-b8 at 8 passes, nora-b10 and julian-mercer-cv at 5 with three still in
+  // budget, each pairing it with a MINOR named after font rasterisation on a
+  // page the comparator called CRITICAL. The verdict is read as the starting
+  // point and the bounds only escalate, so nothing asked whether the review was
+  // entitled to stop.
+  //
+  // REVISE is the floor rather than a refusal: the bounds below still reach
+  // CONVERGENCE_LIMIT_REACHED or BLOCKED on their own evidence when that is
+  // what the loop has actually spent.
+  if (latest.review && !REVIEW_VERDICTS.includes(claimedVerdict)) {
+    reasons.push(
+      `${latest.id}: visual-review.json claims "${claimedVerdict}", which is a verdict this loop ` +
+        `computes rather than one a review may write — a review says ${REVIEW_VERDICTS.join(" or ")} ` +
+        "and the budget, the same-cause bound and the failure record decide the rest. Read as REVISE; " +
+        "if the loop has genuinely spent itself, iterate-status says so without being told",
+    );
+    verdict = "REVISE";
+    claimedVerdict = "REVISE";
+  }
   let failureCategory = latest.review?.failureCategory ?? null;
 
 
@@ -894,10 +938,12 @@ export function computeIterationStatus({ projectDir, config, revisionId = null, 
   // about pixels moving, and conflating the two names would hide that.
   const fidelity = fidelityOf(latest.stats);
   const movement = convergenceOf(stalling, renders.latest);
-  const reconciled = reconcileVerdict({ claimed: verdict, fidelity, convergence: movement });
+  const reconciled = reconcileVerdict({ claimed: claimedVerdict, fidelity, convergence: movement });
   if (reconciled.reason) {
     reasons.push(`${latest.id}: ${reconciled.reason}`);
-    verdict = reconciled.verdict;
+    // Never upward: the claims audit and the seal may already have lowered
+    // this, and the fidelity axis answers a question about the claim.
+    if (VERDICTS.indexOf(reconciled.verdict) > VERDICTS.indexOf(verdict)) verdict = reconciled.verdict;
   }
 
   if (truncatedAt) {
