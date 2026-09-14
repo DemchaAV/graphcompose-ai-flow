@@ -222,9 +222,17 @@ function routerSkill(name, skills, runtimeRef, linked) {
     .map((skill) => `- **${skill.dir}** — \`${runtimeRef}/skills/workflows/${skill.dir}/SKILL.md\``)
     .join("\n");
 
+  // Quoted, because the description contains `: "` — which strict YAML reads
+  // as a nested mapping. Gemini CLI tolerates it; Antigravity's parser refuses
+  // the whole file and the skill never loads.
+  const description =
+    "Produce or change a document with GraphCompose — turn a reference (screenshot, PDF, design image of a CV, invoice, proposal, cover letter, report) into a maintainable Java template, revise an existing one, review what still differs, or approve a draft into a published bundle. " +
+    `The four workflows are ${skills.map((s) => s.dir).join(", ")}. ` +
+    'Use whenever the user asks to recreate, rebuild, generate, change, compare or approve a GraphCompose document or template: "create this CV with GraphCompose", "recreate this screenshot", "make the sidebar wider", "what is still different", "approve it".';
+
   return `---
 name: ${name}
-description: Produce or change a document with GraphCompose — turn a reference (screenshot, PDF, design image of a CV, invoice, proposal, cover letter, report) into a maintainable Java template, revise an existing one, review what still differs, or approve a draft into a published bundle. The four workflows are ${skills.map((s) => s.dir).join(", ")}. Use whenever the user asks to recreate, rebuild, generate, change, compare or approve a GraphCompose document or template: "create this CV with GraphCompose", "recreate this screenshot", "make the sidebar wider", "what is still different", "approve it".
+description: ${JSON.stringify(description)}
 ---
 
 # GraphCompose AI Flow
