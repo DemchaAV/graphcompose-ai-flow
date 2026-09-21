@@ -5,6 +5,55 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.24.0-beta.13 — 2026-09-21
+
+**The pack knew what existed and not how to use it.** GraphCompose 2.4 arrives
+as a knowledge bundle: a closed allow-list, routing and claims, generated from
+the release's class files, and no prose at all. A pack with no loading map falls
+back to the newest older line that has one, so every run pinned to 2.4 read
+2.2's pages under a note saying they "may describe a construction 2.4 has
+replaced". The allow-list was current; the how-to was two lines behind. That gap
+is how a template gets authored on 2.2 habits against a 2.4 pin — which is
+exactly what the 2.4-pinned runs in the corpus were doing.
+
+**The pack now has its own prose.** A loading map and six pages covering what
+the line added: the timeline rail and its leading column, page zones whose
+content is built from a `PageContext` and can skip pages, flow width, letter
+spacing as a property of a text style, hanging indents and rich list runs, and
+the inline styled chip. `whats-new-in-2-4.md` loads always and names the
+specific places a borrowed 2.2 page is behind, plus the four exceptions its
+troubleshooting page cannot know about.
+
+Deliberately not a copy. Where 2.4 added nothing — tables, themes, shapes,
+layer stacks, backgrounds, pagination, spacing, the mapping from a reference to
+primitives — the map links across to the 2.2 page and says it is borrowed and
+why that is safe. A duplicated page drifts, and a drifted page is worse than a
+borrowed one because nothing marks it.
+
+**Seven routes the release bundle does not have.** 2.4 ships five routed
+intents, none of which reach the features it added, so the one question a
+surface cannot answer — which of three ways is right — went unanswered exactly
+where the line is new. The new routes live in `routing/tasks.local.json`, a
+filename `import-bundle.mjs` never writes, because it rewrites everything under
+`routing/` without reading it first and a route added to `tasks.json` would live
+until the next import. `api-query` merges the two by intent id and tags each
+route with its source; the seven carry no `confirmedBy` and report
+`confirmed: false`. Twelve intents answer for this line now.
+
+**Three readers that knew one pack layout of three.** `packHasAllowList` told a
+project pinned to 2.4 that its line had no allow-list while `api-query` was
+answering for it. `check-structural-smells` and `run-metrics` built their symbol
+set from the prose layout alone, so for 2.3 and 2.4 it came back empty — and an
+empty set is what switches the manual-construction rule off. Neither gate
+failed; both reported nothing and passed. All three now delegate to
+`pack-surface`.
+
+**Verification.** `npm run verify` green across all thirteen gates; the suite at
+1516 tests. Every one of the 61 API symbols named across the new pages and
+routes was checked against the 2.4 allow-list, which caught three invented calls
+before they shipped. Not covered: no template has been authored against the new
+pack yet — the wiring is proved, the result is not.
+
 ## v0.24.0-beta.12 — 2026-09-08
 
 **What this beta is.** Two Antigravity runs on `beta.11`, and the same exit found
