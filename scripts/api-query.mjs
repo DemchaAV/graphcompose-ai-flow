@@ -136,6 +136,13 @@ const line = resolveLine();
 const packDir = path.join(PACKS_DIR, `graphcompose-${line}`);
 const apiDir = path.join(packDir, "api");
 const tasksPath = path.join(packDir, "routing", "tasks.json");
+// The bundle owns `tasks.json` — `import-bundle.mjs` rewrites every file under
+// `routing/` without reading it first, so a route added there survives exactly
+// until the next import. This second table is flow-owned: a different filename
+// the importer never writes, merged over the bundle’s by intent id, so the
+// harness can route intents the release bundle has not learned yet, and correct
+// one it got wrong, without either side clobbering the other.
+const localTasksPath = path.join(packDir, "routing", "tasks.local.json");
 
 // A bundle-imported pack wins over anything the local extractor left behind:
 // it is the tree GraphCompose itself published, split per surface, and it is
@@ -264,8 +271,39 @@ function resolveLine() {
  * back labelled rather than silently, so a reader does not go looking for a
  * file this workspace has never had.
  */
+/**
+ * The bundle's routes with the flow-owned ones merged over them.
+ *
+ * Merged by `task`, flow last, so a local entry either adds an intent the
+ * bundle has never answered or replaces one it answers wrongly. Each route
+ * carries where it came from, because "the release says so" and "this harness
+ * says so" are not the same warrant and a reader has to be able to tell.
+ *
+ * @returns {Array<object>} bundle routes in their own order, new local ones after
+ */
+function mergedRoutes() {
+  const read = (file, source) => {
+    if (!fs.existsSync(file)) return [];
+    const doc = JSON.parse(fs.readFileSync(file, "utf8"));
+    return (doc.tasks ?? []).map((task) => ({ ...task, source }));
+  };
+  const merged = [];
+  const at = new Map();
+  for (const route of [...read(tasksPath, "bundle"), ...read(localTasksPath, "flow")]) {
+    const seen = at.get(route.task);
+    if (seen === undefined) {
+      at.set(route.task, merged.length);
+      merged.push(route);
+    } else {
+      merged[seen] = route;
+    }
+  }
+  return merged;
+}
+
+
 function routingAnswer() {
-  if (!fs.existsSync(tasksPath)) {
+  if (!fs.existsSync(tasksPath) && !fs.existsSync(localTasksPath)) {
     process.stderr.write(
       `[api-query] no routing table for GraphCompose ${line}: ${path.relative(repoRoot, tasksPath).split(path.sep).join("/")}\n` +
         "  Routing arrives with a GraphCompose knowledge bundle; this pack predates it.\n" +
@@ -273,15 +311,14 @@ function routingAnswer() {
     );
     process.exit(1);
   }
-  const doc = JSON.parse(fs.readFileSync(tasksPath, "utf8"));
-  const tasks = doc.tasks ?? [];
+  const tasks = mergedRoutes();
 
   if (args.tasks) {
     return {
       answer: {
         graphComposeLine: line,
         found: tasks.length > 0,
-        tasks: tasks.map((t) => ({ task: t.task, intent: t.intent })),
+        tasks: tasks.map((t) => ({ task: t.task, intent: t.intent, source: t.source })),
       },
       code: tasks.length > 0 ? 0 : 3,
     };
@@ -315,7 +352,11 @@ function routingAnswer() {
       ...route,
       // Two things a caller cannot infer from the route itself: where the
       // anchors point, and whether a human has signed off on the choice.
-      docsIn: route.docs?.length ? "the GraphCompose repository, not this workspace" : undefined,
+      docsIn: route.docs?.length
+        ? route.source === "flow"
+          ? "this workspace — paths are relative to the harness install"
+          : "the GraphCompose repository, not this workspace"
+        : undefined,
       confirmed: Boolean(route.confirmedBy),
     },
     code: 0,
