@@ -226,7 +226,7 @@ export function elapsed(fromIso, toIso = new Date().toISOString()) {
  */
 export function formatReport(report) {
   const lines = [];
-  const { cycle, run, session, counters, status } = report;
+  const { cycle, run, session, counters, status, subagentTranscripts } = report;
 
   lines.push("Run metrics");
   if (cycle?.startedAt) lines.push(`  This cycle:     ${formatDuration(elapsed(cycle.startedAt))}`);
@@ -256,6 +256,26 @@ export function formatReport(report) {
     lines.push("", parts.join(" · "));
   }
   if (status) lines.push("", `Status: ${status}`);
+
+  // The figures above are a floor, not a total, whenever a subagent's
+  // transcript could not be read: `usageBetween` adds nothing for a file that
+  // is not there, and nothing distinguishes that from an agent that cost
+  // nothing. So the shortfall is named next to the numbers it undercuts.
+  const gap = subagentTranscripts;
+  if (gap && (gap.missing > 0 || gap.unrecorded > 0)) {
+    const parts = [];
+    if (gap.missing > 0) {
+      parts.push(`${gap.missing} of ${gap.recorded} recorded subagent transcript(s) could not be read`);
+    }
+    if (gap.unrecorded > 0) {
+      parts.push(`${gap.unrecorded} subagent(s) stopped without recording a transcript`);
+    }
+    lines.push(
+      "",
+      `Incomplete: ${parts.join("; ")}.`,
+      "  Their tokens are not in the totals above, so treat these as a lower bound.",
+    );
+  }
 
   return lines.join("\n");
 }

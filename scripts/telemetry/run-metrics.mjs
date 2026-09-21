@@ -265,11 +265,16 @@ function buildReport() {
       usage: usageBetween(null, null),
     },
     subagents: state.subagents ?? 0,
+    subagentTranscripts: transcriptHealth(),
     counters,
     // Said plainly because a figure that looks final and is not would be worse
     // than no figure: the host writes its transcript asynchronously, so the
     // response being composed right now is not in these numbers yet.
     note: "Usage is as far as the transcript has been written; the current response is not counted yet.",
+    // A second, separate incompleteness, and a worse one: the first is a few
+    // seconds behind, this one is missing whole agents. Said in the payload so
+    // a reader of the JSON sees it without reading the prose.
+    incomplete: transcriptHealth().missing > 0 || transcriptHealth().unrecorded > 0,
   };
 }
 
@@ -332,9 +337,20 @@ function buildPhaseReport() {
   // An unnamed subagent transcript is reported under "(unnamed)" rather than
   // being folded into the coordinator, where it would look like main-thread cost.
   const workers = [];
+  // A transcript that cannot be read is not the same as an agent that did no
+  // work, and skipping it quietly made the two identical. It is listed instead,
+  // so a worker table that is missing a row says which row and why.
+  const unreadableWorkers = [];
   for (const extra of state.subagentTranscripts ?? []) {
     const workerEvents = eventsOf(extra);
-    if (workerEvents.length === 0) continue;
+    if (workerEvents.length === 0) {
+      unreadableWorkers.push({
+        worker: workerNameOf(extra) ?? "(unnamed)",
+        transcript: extra,
+        reason: fs.existsSync(extra) ? "no usage recorded" : "transcript no longer on disk",
+      });
+      continue;
+    }
     const folded = provider.foldEvents(workerEvents, { since: runStartedAt, until: null });
     workers.push({
       worker: workerNameOf(extra) ?? "(unnamed)",
@@ -366,6 +382,7 @@ function buildPhaseReport() {
       : null,
     phases,
     workers,
+    unreadableWorkers,
     artifacts: projectPaths?.revisionDir ? artifactSizes(projectPaths.revisionDir) : null,
     render: projectPaths?.dir ? renderTiming(projectPaths.dir) : null,
   };
@@ -415,6 +432,23 @@ function formatPhaseReport(report) {
           `${formatDuration(w.durationMs).padStart(8)}`,
       );
     }
+    if (report.unreadableWorkers?.length) {
+      // Grouped, because twenty-one identical rows is noise and the count is
+      // the fact. A named one is listed, since a name is a lead worth having.
+      const byReason = new Map();
+      for (const w of report.unreadableWorkers) {
+        const named = byReason.get(w.reason) ?? { count: 0, names: [] };
+        named.count += 1;
+        if (w.worker !== "(unnamed)") named.names.push(w.worker);
+        byReason.set(w.reason, named);
+      }
+      lines.push("");
+      for (const [reason, { count, names }] of byReason) {
+        const who = names.length > 0 ? ` (${names.join(", ")})` : "";
+        lines.push(`  ${count} worker(s) missing from this table: ${reason}${who}.`);
+      }
+      lines.push("  Their tokens are in no row above and in no total below.");
+    }
     if (report.coordinator) {
       const workerRead = report.workers.reduce((a, w) => a + w.usage.cacheReadTokens, 0);
       const all = report.coordinator.usage.cacheReadTokens + workerRead;
@@ -442,6 +476,40 @@ function formatPhaseReport(report) {
     );
   }
   return lines.join("\n");
+}
+
+/**
+ * How much of the subagent usage this report could actually see.
+ *
+ * Two ways a subagent's cost goes missing, and neither used to say anything.
+ * `SubagentStop` records the transcript path, so an agent whose stop hook never
+ * fired is never recorded at all — `subagents` counts the stops and the path
+ * list is shorter. And a path that WAS recorded can be gone by the time a
+ * report is written: the host cleans agent transcripts up, `eventsOf` returns
+ * an empty array for a file that is not there, and an empty array adds zero.
+ *
+ * Zero is indistinguishable from "this agent was free", which is how a run
+ * reported four-fifths of its true cost and looked complete doing it. So the
+ * counts travel with the numbers they qualify.
+ *
+ * @returns {{recorded: number, readable: number, missing: number, stops: number, unrecorded: number}}
+ */
+function transcriptHealth() {
+  const recorded = state.subagentTranscripts ?? [];
+  let readable = 0;
+  let missing = 0;
+  for (const transcript of recorded) {
+    if (eventsOf(transcript).length > 0) readable += 1;
+    else missing += 1;
+  }
+  const stops = state.subagents ?? 0;
+  return {
+    recorded: recorded.length,
+    readable,
+    missing,
+    stops,
+    unrecorded: Math.max(0, stops - recorded.length),
+  };
 }
 
 function eventsOf(transcriptPath) {

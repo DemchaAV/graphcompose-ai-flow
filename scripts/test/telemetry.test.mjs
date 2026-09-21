@@ -450,3 +450,28 @@ test("phases survives a session with no transcript at all", () => {
   assert.ok(!result.output.includes("ReferenceError"), result.output);
   assert.match(result.output, /unavailable/);
 });
+
+test("a subagent transcript that has vanished is named, not quietly counted as nothing", () => {
+  // The failure this guards: `usageBetween` adds nothing for a transcript that
+  // is not on disk, and nothing in the report distinguished that from an agent
+  // that cost nothing. One run reported four-fifths of its true cost and read
+  // as complete. A total that is really a floor has to say so.
+  const base = { cycle: null, run: null, session: null, counters: null, status: null };
+
+  const whole = formatReport({
+    ...base,
+    subagentTranscripts: { recorded: 4, readable: 4, missing: 0, stops: 4, unrecorded: 0 },
+  });
+  assert.ok(!whole.includes("Incomplete"), "a run whose every transcript was read must not warn");
+
+  const gap = formatReport({
+    ...base,
+    subagentTranscripts: { recorded: 25, readable: 4, missing: 21, stops: 28, unrecorded: 3 },
+  });
+  assert.match(gap, /21 of 25 recorded subagent transcript\(s\) could not be read/);
+  assert.match(gap, /3 subagent\(s\) stopped without recording a transcript/);
+  assert.match(gap, /lower bound/);
+
+  // A report from a host that records no subagents at all is not a gap.
+  assert.ok(!formatReport({ ...base }).includes("Incomplete"));
+});
