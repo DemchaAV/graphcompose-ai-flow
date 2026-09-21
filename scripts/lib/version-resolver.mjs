@@ -22,6 +22,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { packLayout } from "./pack-surface.mjs";
+
 export const BUILD_FILES = Object.freeze(["pom.xml", "build.gradle.kts", "build.gradle"]);
 
 const MAVEN_GROUP = "io.github.demchaav";
@@ -176,7 +178,11 @@ export function versionLine(version) {
  */
 export function packHasAllowList(install, line) {
   const dir = path.join(install, "skills", "versions", `graphcompose-${line}`);
-  return fs.existsSync(path.join(dir, "api-surface.json")) || fs.existsSync(path.join(dir, "00-api-surface.md"));
+  // Every layout, not the two this predates. A bundle-imported pack carries the
+  // largest allow-list a line has ever had, in `api/` — and this answered "no"
+  // for it, so a project pinned to an imported line was told `api-query` could
+  // not answer for its own version while `api-query` was answering fine.
+  return packLayout(dir) !== "none";
 }
 
 export function availableSkillPacks(install) {

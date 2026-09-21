@@ -49,6 +49,7 @@ import { provider as gemini } from "./providers/gemini.mjs";
 import { describeWorkspaceLine, installRoot, projectDir as workspaceProjectDir, resolveWorkspace } from "../lib/workspace.mjs";
 import { loadPipelineConfig } from "../lib/pipeline-config.mjs";
 import { compareLines } from "../lib/version-resolver.mjs";
+import { packSymbols } from "../lib/pack-surface.mjs";
 import { startRun } from "../lib/run-telemetry.mjs";
 
 function usage(code = 0) {
@@ -466,17 +467,18 @@ function runBaseline() {
 
   // The manual-construction rule in the lint is gated on the pinned pack, so the
   // count depends on which pack is read. An unreadable one yields an empty set,
-  // which makes that rule silent rather than wrong.
+  // which makes that rule silent rather than wrong — and reading one layout of
+  // three made it silent for every bundle-imported line, which is why the
+  // reading is delegated rather than repeated here.
   let primitives = new Set();
   try {
+    const versionsDir = path.join(repoRoot, "skills", "versions");
     const packs = fs
-      .readdirSync(path.join(repoRoot, "skills", "versions"), { withFileTypes: true })
+      .readdirSync(versionsDir, { withFileTypes: true })
       .filter((e) => e.isDirectory() && e.name.startsWith("graphcompose-"))
       .map((e) => e.name)
       .sort((a, b) => compareLines(a.slice(13), b.slice(13)));
-    const surface = path.join(repoRoot, "skills", "versions", packs[packs.length - 1], "00-api-surface.md");
-    const source = fs.readFileSync(surface, "utf8");
-    primitives = new Set([...source.matchAll(/^- `[^`]*?\b(\w+)\s*\(/gm)].map((m) => m[1]));
+    primitives = packSymbols(path.join(versionsDir, packs[packs.length - 1])) ?? new Set();
   } catch {
     /* telemetry never fails the work it measures */
   }
