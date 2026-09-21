@@ -5,6 +5,34 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.24.0-beta.14 — 2026-09-21
+
+**A run reported 40.06M tokens and looked like a complete figure.** Four of its
+twenty-eight subagents were in that number. The other twenty-four contributed
+zero, and nothing said so.
+
+Two holes, both silent. `SubagentStop` is what records a subagent's transcript
+path, so an agent whose stop hook never fired is never recorded at all — the run
+counted 28 stops against 25 recorded paths. And a path that *was* recorded can
+be gone by the time a report is written: the host cleans agent transcripts up,
+and 21 of those 25 no longer existed. `eventsOf` returns an empty array for a
+file that is not there, `usageBetween` adds an empty array as zero, and zero is
+indistinguishable from an agent that cost nothing.
+
+**The claim is what gets fixed; the data is gone.** `transcriptHealth()` counts
+recorded, readable, missing, stops and unrecorded. The report carries it
+alongside an `incomplete` flag, `formatReport` names the shortfall next to the
+totals it undercuts, and the per-phase worker table lists the workers missing
+from it rather than skipping them into silence — grouped by reason, because
+twenty-one identical rows is noise and the count is the fact. A total that is
+really a floor now says it is a floor.
+
+Not fixed: the stop hook not firing for every subagent, which is where the three
+unrecorded ones come from. That is a host-side question and needs its own look.
+
+**Verification.** Suite 1517 pass; `npm run verify` green across all thirteen
+gates.
+
 ## v0.24.0-beta.13 — 2026-09-21
 
 **The pack knew what existed and not how to use it.** GraphCompose 2.4 arrives
