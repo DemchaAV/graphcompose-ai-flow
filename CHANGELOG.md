@@ -5,6 +5,35 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.24.0-beta.15 — 2026-09-22
+
+**`attempts.json` has carried a `focus` field since it was introduced, and
+nothing ever filled it.** Across three real projects the corpus holds 55
+attempts and every one reads `null`: `render-and-diff` called `recordAttempt`
+without a focus, and the default is null.
+
+What that cost shows up in the runs. One boarding-pass loop spent ten renders
+over six revisions and moved 7.787% to 7.632% — and the mechanical cause triple
+in all ten attempts is identical, led by a region the project had already
+accepted as a limitation. Read on its own, the history says the loop hammered
+one thing. It did not: resolving the focus each revision was actually aiming at
+gives six different targets, one per revision. The record said what each render
+measured and never what it was told to fix, so wandering and converging leave
+the same trace.
+
+**`focusAimedAt(revisionDir, limitations)`** resolves it through the same
+`focusOf` the same-cause bound uses, so the two readers cannot name different
+things. "Aiming at" is the state before the render, not after: this revision's
+own focus when a previous attempt or review set one, otherwise the parent's —
+the instruction the author acted on. The ordering in `render-and-diff` already
+suits that, because the attempt is recorded before the pass rewrites
+`harness-focus.json` or the review. An accepted limitation is never recorded as
+the focus, for the same reason it is never the focus anywhere else.
+
+Only new attempts carry it; the `null`s already on disk stay as they are.
+
+**Verification.** `npm run verify` green across all thirteen gates.
+
 ## v0.24.0-beta.14 — 2026-09-21
 
 **A run reported 40.06M tokens and looked like a complete figure.** Four of its
