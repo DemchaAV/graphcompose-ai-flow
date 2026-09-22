@@ -46,6 +46,8 @@ import { createRequire } from "node:module";
 
 import { pagePairs } from "./lib/page-pairs.mjs";
 import { describeAttempts, readAttempts, recordAttempt } from "./lib/attempts.mjs";
+import { focusAimedAt } from "./lib/iteration-status.mjs";
+import { readLimitations } from "./lib/limitations.mjs";
 import { compareEdgeBands } from "./lib/edge-bands.mjs";
 import { describeIgnoredCopies, resolveTemplateSource } from "./lib/template-source.mjs";
 import { FIDELITY, fidelityOf } from "./lib/fidelity.mjs";
@@ -1117,6 +1119,11 @@ step("attempt", (entry) => {
     entry.detail = "nothing measured, nothing recorded";
     return;
   }
+  // What this render was trying to fix, resolved from the state on disk before
+  // this pass rewrites it. Without it the history says what each attempt
+  // measured and never what it was aiming at, so a loop aiming at one cause
+  // four times running looks the same as one making progress.
+  const aimedAt = focusAimedAt(revisionDir, readLimitations(projectDir));
   const written = recordAttempt(revisionDir, {
     rendered: !args.skipRender,
     against: args.against,
@@ -1124,6 +1131,7 @@ step("attempt", (entry) => {
     percent: result.diff.percent,
     worstRegions: result.regions?.ranked ?? [],
     causes: result.evidence?.packages ?? [],
+    focus: aimedAt.id,
   });
   const summary = describeAttempts(readAttempts(revisionDir));
   result.attempt = { ...written, revisionSummary: summary };

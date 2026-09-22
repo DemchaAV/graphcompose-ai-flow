@@ -22,6 +22,7 @@ import { loadPipelineConfig } from "../lib/pipeline-config.mjs";
 import { ready, schemaValidator } from "../lib/schema-validator.mjs";
 import {
   computeIterationStatus,
+  focusAimedAt,
   IterationStatusError,
   measurementEvidence,
   chainRegression,
@@ -1925,4 +1926,55 @@ test("a residual the project accepted is a decision, not a relabel", () => {
   );
 
   assert.doesNotMatch(statusOf(dir).reasons.join("\n"), /worst remaining mismatch is/);
+});
+
+test("an attempt records what it was aiming at: this revision's focus, else the parent's", () => {
+  // `attempts.json` carried a `focus` field that nothing filled — 55 attempts
+  // across three real projects, every one `null`. The history said what each
+  // render measured and never what it was told to fix, so four passes aiming
+  // at one cause looked identical to four making progress.
+  const root = tempDir("focus-aim");
+  const revisions = path.join(root, "revisions");
+  const write = (id, files) => {
+    const dir = path.join(revisions, id);
+    fs.mkdirSync(dir, { recursive: true });
+    for (const [name, body] of Object.entries(files)) {
+      fs.writeFileSync(path.join(dir, name), JSON.stringify(body, null, 2));
+    }
+    return dir;
+  };
+
+  const first = write("revision-001", {
+    "revision.json": { id: "revision-001", parentRevisionId: null },
+    "visual-review.json": { largestMismatch: "sidebar-width", mismatches: [{ id: "sidebar-width", severity: "MAJOR" }] },
+  });
+  assert.deepEqual(focusAimedAt(first), { id: "sidebar-width", source: "measured" });
+
+  // The child has no review of its own yet — which is the state every first
+  // render is in — so what it was aiming at is what the parent concluded.
+  const child = write("revision-002", { "revision.json": { id: "revision-002", parentRevisionId: "revision-001" } });
+  assert.equal(focusAimedAt(child).id, "sidebar-width");
+
+  // The harness's own focus outranks the review's, the same way it does for
+  // the same-cause bound, so both readers name one focus.
+  fs.writeFileSync(
+    path.join(child, "harness-focus.json"),
+    JSON.stringify({ focus: "dead-links", focusSource: "link-integrity" }),
+  );
+  assert.deepEqual(focusAimedAt(child), { id: "dead-links", source: "link-integrity" });
+
+  // An accepted limitation is never what a pass is aiming at.
+  const accepted = write("revision-003", {
+    "revision.json": { id: "revision-003", parentRevisionId: null },
+    "visual-review.json": {
+      largestMismatch: "qr-pattern",
+      mismatches: [{ id: "qr-pattern", severity: "MAJOR" }, { id: "strip-class-size", severity: "MINOR" }],
+    },
+  });
+  assert.equal(focusAimedAt(accepted, [{ id: "qr-pattern", mismatchIds: ["qr-pattern"] }]).id, "strip-class-size");
+
+  // Nothing on disk to aim at is a null, not a throw: the first render of a
+  // first revision has no parent and no review.
+  const bare = write("revision-004", { "revision.json": { id: "revision-004", parentRevisionId: null } });
+  assert.deepEqual(focusAimedAt(bare), { id: null, source: null });
 });

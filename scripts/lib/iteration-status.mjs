@@ -251,6 +251,47 @@ function carryReportsForward(chain) {
  * pixels. It stays in front until a review marks it addressed, so it cannot be
  * lost to a louder measured mismatch appearing.
  */
+/**
+ * The focus a revision was aiming at, read straight off disk.
+ *
+ * `attempts.json` has carried a `focus` field since it was introduced and
+ * nothing ever filled it: 55 attempts across three projects, every one of them
+ * `null`. So the record of what each render was trying to fix did not exist,
+ * and every pass re-derived the same three causes from the diff — in one run,
+ * the identical triple ten times over, led by a region the loop had already
+ * agreed to accept.
+ *
+ * "Aiming at" is the state before this render, not after it: this revision's
+ * own focus when a previous attempt or review already set one, and otherwise
+ * the parent's, which is the instruction the author actually acted on.
+ * `render-and-diff` records the attempt before it rewrites either file, so
+ * what is on disk at that moment is exactly that.
+ *
+ * @param {string} revisionDir
+ * @param {Array<object>} [limitations] accepted limitations, never the focus
+ * @returns {{id: string|null, source: string|null}}
+ */
+export function focusAimedAt(revisionDir, limitations = []) {
+  const here = focusFromDir(revisionDir, limitations);
+  if (here.id) return here;
+  const revision = readJsonOr(path.join(revisionDir, "revision.json"));
+  const parentId = revision?.parentRevisionId;
+  if (!parentId) return { id: null, source: null };
+  return focusFromDir(path.join(path.dirname(revisionDir), parentId), limitations);
+}
+
+/** One revision's focus, from the two files that can carry one. */
+function focusFromDir(dir, limitations) {
+  const focus = focusOf(
+    {
+      review: readJsonOr(path.join(dir, "visual-review.json")),
+      harnessFocus: readJsonOr(path.join(dir, "harness-focus.json")),
+    },
+    limitations,
+  );
+  return { id: focus.id ?? null, source: focus.source ?? null };
+}
+
 function focusOf(entry, limitations = []) {
   const review = entry.review;
   // The harness's own focus outranks the review's and the user's: while a
