@@ -12,7 +12,8 @@
     "test": "node scripts/run-tests.mjs scripts/test",
     "validate:schemas": "node .github/scripts/validate-schemas.mjs",
     "verify": "node scripts/verify.mjs",
-    "verify:quick": "node scripts/verify.mjs --quick"
+    "verify:quick": "node scripts/verify.mjs --quick",
+    "bundle:agensi": "node adapters/agensi/build-bundle.mjs"
   },
   "engines": {
     "node": ">=20"
