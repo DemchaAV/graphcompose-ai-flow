@@ -4,7 +4,6 @@ description: 'Turn a document reference (screenshot, PDF or design image of a CV
 license: MIT
 metadata:
   version: '{{VERSION}}'
-  homepage: https://github.com/DemchaAV/graphcompose-ai-flow
 ---
 
 # GraphCompose AI Flow
@@ -49,16 +48,43 @@ Setup is done when `.bootstrap.json` exists in the harness root and its
    node install/bootstrap.mjs
    ```
 
-   It installs the npm runtime dependencies, pre-fetches the GraphCompose
-   library into the local Maven repository, and registers the four
-   workflow skills with the agent that loaded this bundle
-   (`~/.claude/skills` or `~/.codex/skills`). Pass `--host claude` or
-   `--host codex` if it reports `host: none`.
+   It installs the npm runtime dependencies, builds the preview renderer
+   from the Java sources in `tools/preview-renderer/` with Maven,
+   pre-fetches the GraphCompose library into the local Maven repository,
+   and registers the four workflow skills with the agent that loaded this
+   bundle (`~/.claude/skills` or `~/.codex/skills`). Pass `--host claude`
+   or `--host codex` if it reports `host: none`.
 
-npm and Maven need network access. In a sandboxed agent (Codex by
-default), run the bootstrap with network allowed. On Windows, a tool
-installed during step 2 may need a new terminal before it appears on PATH;
-re-run step 1 to confirm.
+On Windows, a tool installed during step 2 may need a new terminal before
+it appears on PATH; re-run step 1 to confirm.
+
+## What this skill runs, reads and connects to
+
+Nothing here is downloaded or executed that is not either in this bundle
+as readable source or installed by a package manager you approved.
+
+- **Commands:** `node` (the scripts in this bundle), `mvn` (to build the
+  preview renderer and compile and render templates), `magick` (to
+  compare renders), and, only with `--install-missing`, the platform
+  package manager (`winget`/`scoop`, `brew`, `apt-get`).
+- **Network:** the npm registry (registry.npmjs.org) for five small
+  runtime dependencies (commander, pixelmatch, pngjs, ajv, ajv-formats),
+  and Maven Central (repo.maven.apache.org) for GraphCompose, PDFBox and
+  the Maven build plugins. Nothing else, and nothing is sent anywhere.
+- **Environment variables:** `PATH`; `CLAUDE_CONFIG_DIR` / `CODEX_HOME`
+  if you set them, to find the agent's skills directory; the harness's
+  own optional switches (`RENDER_*`, `MAGICK_BINARY`,
+  `GRAPHCOMPOSE_LIVE_DIR`, `NO_COLOR`); on Windows `LOCALAPPDATA` and
+  `ProgramFiles(x86)`, only to locate ImageMagick and SumatraPDF; and
+  `CLAUDE_CODE_SESSION_ID`, only to label which session holds a project
+  lock. None of them is logged or sent anywhere.
+- **Files written:** `.bootstrap.json` and `node_modules/` inside this
+  bundle, the built jar under `tools/preview-renderer/target/`, four stub
+  skills in the agent's skills directory, and your work under
+  `graphcompose-flow/` in your Java project.
+
+In a sandboxed agent (Codex by default), run the bootstrap with network
+allowed.
 
 ## Then: pick the workflow
 

@@ -33,6 +33,17 @@ const outIndex = argv.indexOf("--out");
 const outDir = path.resolve(outIndex >= 0 ? argv[outIndex + 1] : path.join(repoRoot, "dist", "agensi"));
 const makeZip = !argv.includes("--no-zip");
 
+/** Every file under `dir`. */
+function findAll(dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    return entry.isDirectory() ? findAll(full) : [full];
+  });
+}
+
+/** Every file named `name` under `dir`. */
+const findFiles = (dir, name) => findAll(dir).filter((file) => path.basename(file) === name);
+
 const unbuilt = missingBuilds();
 if (unbuilt.length) {
   process.stderr.write(
@@ -49,6 +60,22 @@ let files = copyRuntime(stage);
 // The contributor test suite is not runtime; nothing a skill names lives there.
 fs.rmSync(path.join(stage, "scripts", "test"), { recursive: true, force: true });
 
+// Marketplaces refuse executable binaries: a prebuilt jar cannot be audited.
+// Ship the preview renderer's sources instead; install/bootstrap.mjs builds
+// the jar with Maven, which the harness requires anyway.
+fs.rmSync(path.join(stage, "tools", "preview-renderer", "target"), { recursive: true, force: true });
+files += copyInto(
+  path.join(repoRoot, "tools", "preview-renderer", "src", "main"),
+  path.join(stage, "tools", "preview-renderer", "src", "main"),
+);
+
+// The POM namespace declarations are URLs that a marketplace scanner reads as
+// outbound network access. Maven does not need them, so the shipped POMs drop them.
+for (const pom of findFiles(stage, "pom.xml")) {
+  const text = fs.readFileSync(pom, "utf8");
+  fs.writeFileSync(pom, text.replace(/<project\s[^>]*>/, "<project>"));
+}
+
 files += copyInto(path.join(repoRoot, "adapters", "lib", "runtime.mjs"), path.join(stage, "adapters", "lib", "runtime.mjs"));
 files += copyInto(path.join(here, "bundle", "install"), path.join(stage, "install"));
 // A checkout with core.autocrlf turns the shell wrapper into CRLF, which bash
@@ -60,6 +87,22 @@ files += copyInto(path.join(repoRoot, "LICENSE"), path.join(stage, "LICENSE"));
 const skill = fs.readFileSync(path.join(here, "bundle", "SKILL.md"), "utf8").replaceAll("{{VERSION}}", version);
 fs.writeFileSync(path.join(stage, "SKILL.md"), skill);
 files += 1;
+
+// The checks Agensi's review failed us on, run here so a regression is caught
+// before upload instead of a review cycle later.
+const BINARY = /\.(jar|class|exe|dll|so|dylib|wasm|bin)$/i;
+const problems = [
+  ...findAll(stage)
+    .filter((file) => BINARY.test(file))
+    .map((file) => `binary: ${path.relative(stage, file)}`),
+  ...[path.join(stage, "SKILL.md"), ...findFiles(stage, "pom.xml")]
+    .filter((file) => /https?:\/\//.test(fs.readFileSync(file, "utf8")))
+    .map((file) => `URL in ${path.relative(stage, file)}`),
+];
+if (problems.length) {
+  process.stderr.write(`[agensi] the bundle would fail marketplace review:\n${problems.map((p) => `  ${p}\n`).join("")}`);
+  process.exit(1);
+}
 
 console.log(`[agensi] staged ${files} files, ${directorySizeKb(stage)} KB → ${stage}`);
 if (!makeZip) process.exit(0);
