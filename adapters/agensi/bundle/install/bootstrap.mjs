@@ -317,14 +317,26 @@ function npmDepsMissing() {
   return NPM_PACKAGES.filter((pkg) => !fs.existsSync(path.join(bundleRoot, pkg, "node_modules")));
 }
 
-/** The GraphCompose version of the newest knowledge pack this bundle carries. */
+/**
+ * The GraphCompose release the newest knowledge pack was imported from. The
+ * directory names only the line (graphcompose-2.4); the patch is recorded in
+ * imported-from.json, and guessing ".0" would pre-fetch a superseded release.
+ */
 function newestPackVersion() {
   const dirs = fs
     .readdirSync(path.join(bundleRoot, "skills", "versions"))
     .map((d) => /^graphcompose-(\d+)\.(\d+)$/.exec(d))
     .filter(Boolean)
     .sort((a, b) => Number(b[1]) - Number(a[1]) || Number(b[2]) - Number(a[2]));
-  return dirs.length ? `${dirs[0][1]}.${dirs[0][2]}.0` : null;
+  if (!dirs.length) return null;
+  const imported = path.join(bundleRoot, "skills", "versions", dirs[0][0], "imported-from.json");
+  try {
+    const recorded = JSON.parse(fs.readFileSync(imported, "utf8")).graphComposeVersion;
+    if (recorded) return recorded;
+  } catch {
+    /* an older pack without provenance: fall back to the line's first release */
+  }
+  return `${dirs[0][1]}.${dirs[0][2]}.0`;
 }
 
 function prefetchGraphCompose(version) {
