@@ -45,7 +45,7 @@ System packages per platform:
 
 | | Java 21 | Maven | ImageMagick |
 |---|---|---|---|
-| Windows | winget `Microsoft.OpenJDK.21` | Scoop when it is installed; otherwise printed for the user (winget has no Maven package) | winget `ImageMagick.ImageMagick` |
+| Windows | winget `Microsoft.OpenJDK.21` | Scoop when it is installed; otherwise Apache's binary archive, unpacked only if its SHA-512 matches Apache's published checksum, into `~/AppData/Local/Programs` and the user PATH (winget has no Maven package) | winget `ImageMagick.ImageMagick` |
 | macOS | `brew install --cask temurin@21` | `brew install maven` | `brew install imagemagick` |
 | Linux | `apt-get install openjdk-21-jdk` | `apt-get install maven` | `apt-get install imagemagick` |
 

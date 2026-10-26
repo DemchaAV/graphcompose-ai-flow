@@ -70,7 +70,11 @@ as readable source or installed by a package manager you approved.
 - **Network:** the npm registry (registry.npmjs.org) for five small
   runtime dependencies (commander, pixelmatch, pngjs, ajv, ajv-formats),
   and Maven Central (repo.maven.apache.org) for GraphCompose, PDFBox and
-  the Maven build plugins. Nothing else, and nothing is sent anywhere.
+  the Maven build plugins. On Windows without Scoop, and only with
+  `--install-missing`, the bootstrap downloads Apache Maven 3.9.9's
+  official binary archive from archive.apache.org and unpacks it only if
+  its SHA-512 matches the checksum Apache publishes beside it. Nothing
+  else, and nothing is sent anywhere.
 - **Environment variables:** `PATH`; `CLAUDE_CONFIG_DIR` / `CODEX_HOME`
   if you set them, to find the agent's skills directory; the harness's
   own optional switches (`RENDER_*`, `MAGICK_BINARY`,
