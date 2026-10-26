@@ -16,6 +16,10 @@ a maintainable Java template built from semantic GraphCompose primitives
 — sections, rows, weights, anchors — with the content in a JSON data
 file, the assets resolved and recorded, and every revision kept.
 
+[![Watch: AI doesn't draw PDFs. It compiles them.](https://img.youtube.com/vi/v61r7uecA00/maxresdefault.jpg)](https://www.youtube.com/watch?v=v61r7uecA00)
+
+*Watch it run: [AI doesn't draw PDFs. It compiles them.](https://www.youtube.com/watch?v=v61r7uecA00)*
+
 ---
 
 ## Install
