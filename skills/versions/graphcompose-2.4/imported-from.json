@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "bundle": "graph-compose-knowledge-2.4.0.zip",
-  "sha256": "5b878b364f530a4f2e0222b764c4512af81f60a652b8d17fd41eca1030158962",
-  "graphComposeVersion": "2.4.0",
+  "bundle": "graph-compose-knowledge-2.4.1.zip",
+  "sha256": "e8b940f76f5d5bedff5c609e7855f59557d2bbcb562e693fc49581d6123cffaf",
+  "graphComposeVersion": "2.4.1",
   "generator": "knowledge/tools/api-surface/extract-api.mjs",
   "generatorVersion": "2.0.0",
-  "sourceCommit": "23c9ea5f8ae04fbabbfa96e19cf30a452315d205",
+  "sourceCommit": "092a6190a83ae8a3165a9519395acdc1f509b55c",
   "sourceDirty": false,
   "files": [
     "manifest.json",

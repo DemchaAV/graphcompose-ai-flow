@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "note": "Provenance for one extraction run. Never committed: a tracked file cannot hold the SHA of the commit it belongs to, and class digests are not reproducible across machines, so neither belongs in a gate.",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "mode": "reactor",
   "generator": "knowledge/tools/api-surface/extract-api.mjs",
   "generatorVersion": "2.0.0",
-  "generatedAt": "2026-09-14T16:47:17.769Z",
+  "generatedAt": "2026-09-21T22:31:40.185Z",
   "git": {
-    "commit": "23c9ea5f8ae04fbabbfa96e19cf30a452315d205",
+    "commit": "092a6190a83ae8a3165a9519395acdc1f509b55c",
     "branch": "HEAD",
     "dirty": false
   },
@@ -15,32 +15,32 @@
     {
       "artifact": "graph-compose-core",
       "source": "core/target/classes",
-      "sha256": "91aa854c3d7ac10944fd948d0e29c38e5428085cb0e02943de1105ac88792ce2"
+      "sha256": "e8bf0efbef24e8ddb21ecaf9dd36e70ebab4b1743bd54b8e3281d7b7c3a84110"
     },
     {
       "artifact": "graph-compose-templates",
       "source": "templates/target/classes",
-      "sha256": "d24caa032a84f9ea2f6fd4e0ae34017397aa45031d01826bcc39f7901e701d41"
+      "sha256": "009c42bc061da687ac9ad5d6fe4fd67dc978134789fa203b3d97f93ab24d54e7"
     },
     {
       "artifact": "graph-compose-render-pdf",
       "source": "render-pdf/target/classes",
-      "sha256": "bcda8e5f4692668571e897997551ef06bdc95650a6f54557e8ba56f7657ca360"
+      "sha256": "3c50e4d2718b56247f277b803dc8ba64f397f6c75f25b3095f5811686509c8ab"
     },
     {
       "artifact": "graph-compose-render-docx",
       "source": "render-docx/target/classes",
-      "sha256": "4caf73f423deb86e4ac5caaa98dac572776748b7bc5912a53234e411d5c28900"
+      "sha256": "6111687432fe504248941a28df128cd86b28c0142fce47adb66a3d62ab2aca45"
     },
     {
       "artifact": "graph-compose-render-pptx",
       "source": "render-pptx/target/classes",
-      "sha256": "51d08d36592e9ebaccfb581afcbdff1f8be23e66d454c071e866792cbffd9c6b"
+      "sha256": "2fb315136512c631058e92da68b819a31b1f2661356bc4f268779a983a6fcc7f"
     },
     {
       "artifact": "graph-compose-testing",
       "source": "testing/target/classes",
-      "sha256": "13ae3eae4dff36d848bee226d89489d38827968896f68685d3331e6b96101636"
+      "sha256": "af3cb5f9d2b408ab7a9d851368949681c21a04b77731b7ed4c174ca81e760842"
     }
   ]
 }
