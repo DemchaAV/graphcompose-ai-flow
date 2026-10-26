@@ -48,7 +48,7 @@ Three tools ship under [`../tools/`](../tools/) and pass CI:
   and run with Maven against GraphCompose 2.2.0 from Maven Central:
   `io.github.demchaav:graph-compose:2.2.0`. Pre-1.6.7 pins still
   resolve via JitPack as `com.github.DemchaAV:GraphCompose:vX.Y.Z`.
-  They pin 2.2.0 while the newest pack describes GraphCompose 2.4.0, so
+  They pin 2.2.0 while the newest pack describes GraphCompose 2.4.1, so
   what skill validation proves is two lines behind what an agent is
   pinned to.
 
