@@ -94,3 +94,6 @@ tools/asset-resolver/.cache/
 # project; remove this line and commit the lock if you want reproducible pins.
 .devcontainer/devcontainer-lock.json
 
+
+# Built skill-marketplace bundles (npm run bundle:agensi)
+/dist/
