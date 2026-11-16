@@ -124,3 +124,63 @@ test("an anchor with no element is still refused, because nothing can read it", 
     "the refusal does not say which half of the anchor is missing",
   );
 });
+
+// --- page bands: two mechanisms, and the search behind "unsupported" -----------
+
+test("a page band records its chrome mechanism, and both mechanisms are accepted", async () => {
+  const validate = await validator();
+  const band = (role, chrome) => withRegion({ id: "page-footer", label: "Footer", role, bounds: { x: 0, y: 0.95, w: 1, h: 0.05 }, chrome });
+
+  for (const mechanism of ["header-footer", "page-zone"]) {
+    for (const role of ["page-footer", "page-header"]) {
+      const result = validate(band(role, { mechanism, reason: "logo beside the page number" }));
+      assert.ok(result.valid, `${role} as ${mechanism}: ${result.errors}`);
+    }
+  }
+  // Omitting it stays valid: analyses written before the field existed.
+  assert.ok(validate(band("page-footer", undefined)).valid);
+
+  assert.equal(validate(band("page-footer", { mechanism: "text-only" })).valid, false, "an unknown mechanism");
+  assert.equal(
+    validate(band("content", { mechanism: "page-zone" })).valid,
+    false,
+    "a chrome mechanism on a body region is a band built as body content by another name",
+  );
+});
+
+test("GRAPHCOMPOSE_API_LIMITATION is refused without the search that earned it", async () => {
+  assert.ok(await ready(), "tools/schema-validate is not installed; run `npm run setup`");
+  const validate = schemaValidator(path.join(repoRoot, "schemas", "visual-review.schema.json"));
+  const blocked = {
+    schemaVersion: 1,
+    verdict: "BLOCKED",
+    mismatches: [],
+    failureCategory: "GRAPHCOMPOSE_API_LIMITATION",
+    blockedDetail: "a footer cannot hold a logo",
+  };
+  const without = validate(blocked);
+  assert.equal(without.valid, false, "unsupported, on no recorded search");
+  assert.match(String(without.errors), /apiSearch/);
+
+  const searched = validate({
+    ...blocked,
+    apiSearch: {
+      graphComposeLine: "2.5",
+      queries: [
+        { query: "node scripts/api-query.mjs --version 2.5 --tasks", exit: 0 },
+        { query: "node scripts/api-query.mjs --version 2.5 --search footer", exit: 0 },
+        { query: "node scripts/api-query.mjs --version 2.5 --type SessionChromeApi", exit: 0, finding: "zone(DocumentPageZone)" },
+      ],
+    },
+  });
+  assert.ok(searched.valid, searched.errors);
+
+  const tooThin = validate({
+    ...blocked,
+    apiSearch: { graphComposeLine: "2.5", queries: [{ query: "node scripts/api-query.mjs --search footer", exit: 3 }] },
+  });
+  assert.equal(tooThin.valid, false, "one query is a search not finished");
+
+  const otherCategory = validate({ ...blocked, failureCategory: "MISSING_REFERENCE_INFORMATION" });
+  assert.ok(otherCategory.valid, otherCategory.errors);
+});

@@ -27,6 +27,41 @@ When the library genuinely cannot do something, that is
 tried. If a skill file disagrees with library behaviour, the skill is
 wrong — fix the skill.
 
+### Before you call anything unsupported
+
+"Not supported" is a claim about the whole pinned surface, so it is
+earned by searching the whole pinned surface — not by not finding it on
+the one builder you happened to open. The header/footer case is the
+warning: the flow taught for months that a page band was three text
+slots on `DocumentSession.header/footer(DocumentHeaderFooter)`, while
+`DocumentSession.chrome().zone(DocumentPageZone)` — nodes, a logo, a
+link, a layout — had been in every pack since 2.3. Nobody asked
+`chrome()`.
+
+Before writing `GRAPHCOMPOSE_API_LIMITATION`, an `unclearParts` entry
+saying the library cannot, or a hand-built workaround, run all of these
+against the **project's** line (`--version <line>` or `--project-dir`),
+and record them in the review's `apiSearch`:
+
+1. **The route table:** `--tasks`, then `--task <id>` for anything near
+   the intent.
+2. **The concept, on every surface:** `--search <term>` with no
+   `--surface` (the default is all five), and again for each synonym —
+   *footer*, *zone*, *chrome*, *page*; *timeline*, *rail*; *badge*,
+   *chip*.
+3. **The entry points, one level down:** `--type DocumentSession`,
+   `--type GraphCompose.DocumentBuilder`, and every type an accessor on
+   them returns (`chrome()` → `SessionChromeApi`, `pageFlow(...)` →
+   `PageFlowBuilder`), plus the builder you meant to call and its
+   `--type <Builder>` siblings.
+4. **The value types:** a capability often lives on what you pass, not
+   on what you call — `DocumentPageZone`, `PageContext`,
+   `DocumentHeaderFooter.DocumentHeaderFooterBuilder`.
+
+Only an absence on all four is a limitation, and the record names the
+line, the queries, and their exit codes. An absence on one is a search
+you have not finished.
+
 ## Semantic primitive before manual composition
 
 Before composing a visual pattern by hand, check whether GraphCompose has
@@ -38,12 +73,19 @@ nodes**.
 |---|---|
 | Dated entries on a rail — experience, education, milestones | `addTimeline(Consumer<TimelineBuilder>)` |
 | Rows and columns of data | `addTable(...)` |
-| Something repeating on every page | `DocumentSession.header(DocumentHeaderFooter)` / `footer(...)` |
+| Text repeating on every page — up to three strings, `{page}` / `{pages}` | `DocumentSession.header(DocumentHeaderFooter)` / `footer(...)` |
+| A repeating band with a logo, a link, a layout or styled numbering (2.3+) | `DocumentSession.chrome().zone(DocumentPageZone.header/footer(height, page -> node))` |
 | Content that belongs *to* a shape — initials in a disc, a label in a pill | a `ShapeContainer` anchor: `addCircle(size, colour, c -> c.center(...))` |
 | Things that overlap or sit on top of each other | `addLayerStack(...)` |
 | A colour band spanning the page behind the content | `pageBackgrounds(List<PageBackgroundFill>)` |
 | A named vertical group | `addSection(...)` |
 | A named horizontal group | `addRow(...)` with `weights(...)` |
+
+The two page-band rows are both supported and stay so; choose by what
+the band holds, as `create-2-analyse.md` records in the region's
+`chrome.mechanism`. `DocumentHeaderFooter` is not deprecated — it is
+the right build for a text footer on every line, and the only one
+before 2.3.
 
 `LineBuilder`, `ShapeBuilder`, canvas drawing, repeated margins and
 negative offsets are **fallback mechanisms, not the default authoring

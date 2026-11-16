@@ -362,7 +362,11 @@ schemas):
 
 A category without specifics is not a report. `GRAPHCOMPOSE_API_LIMITATION`
 means naming the method, the version it was verified against, and the
-alternative that was tried.
+alternative that was tried — and `apiSearch` in `visual-review.json`
+recording the search across the whole pinned surface that came back
+empty (routes, every surface, the entry points and what they return).
+The schema refuses the category without it; the search is spelled out in
+[`authoring-rules.md`](authoring-rules.md#before-you-call-anything-unsupported).
 
 ## Recording each pass
 

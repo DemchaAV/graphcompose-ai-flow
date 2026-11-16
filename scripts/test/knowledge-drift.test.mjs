@@ -149,7 +149,7 @@ test("a pack is only held to primitives it actually declares", () => {
   assert.equal(report.pack, "graphcompose-1.9");
   assert.equal(
     report.checked.length + report.dormant.length,
-    4,
+    5,
     "every pair must be classified as checked or dormant, never dropped",
   );
 
@@ -159,6 +159,54 @@ test("a pack is only held to primitives it actually declares", () => {
   });
   assert.equal(missing.status, 2, "a pack with no allow-list cannot be checked, and must say so");
   assert.match(missing.stderr, /no allow-list/);
+});
+
+// --- page bands are not text-only -------------------------------------------
+
+test("a claim that headers and footers carry only text is caught", () => {
+  for (const claim of [
+    "Headers and footers only support plain text in GraphCompose.\n",
+    "A footer cannot hold a logo, so draw the logo in the body.\n",
+    "Logos inside the page footer are not supported.\n",
+    "DocumentHeaderFooter is the only supported mechanism for a repeating band.\n",
+    "The only way to repeat a footer is DocumentSession.footer(DocumentHeaderFooter).\n",
+    "A page-footer must map to `DocumentSession.footer`, never body content.\n",
+  ]) {
+    withDoc(claim, ({ status, report }, name) => {
+      assert.equal(status, 1, `not caught: ${claim}`);
+      const finding = report.findings.find((f) => f.file.endsWith(name) && f.concept === "node-based page band");
+      assert.ok(finding, `not attributed to page bands: ${claim} ${JSON.stringify(report.findings)}`);
+      assert.match(finding.replacement, /DocumentPageZone/);
+    });
+  }
+});
+
+test("teaching both mechanisms is not drift, and neither is a text footer used correctly", () => {
+  withDoc(
+    "A text footer — three strings and {page} — is `DocumentSession.footer(DocumentHeaderFooter)`.\n" +
+      "When the footer has to hold a logo or a link, the text slots only take strings:\n" +
+      "use `DocumentSession.chrome().zone(DocumentPageZone.footer(height, page -> node))`.\n",
+    ({ status, report }, name) => {
+      assert.equal(status, 0, `false positive: ${JSON.stringify(report.findings)}`);
+      assert.ok(!report.findings.some((f) => f.file.endsWith(name)));
+    },
+  );
+  withDoc(
+    "session.footer(DocumentHeaderFooter.builder().centerText(\"Page {page} of {pages}\").build());\n" +
+      "The invoice footer is plain text, so the text slots are the right build.\n",
+    ({ status, report }) => assert.equal(status, 0, `false positive: ${JSON.stringify(report.findings)}`),
+  );
+});
+
+test("on a line before DocumentPageZone the text-only claim was true, and is left alone", () => {
+  const result = spawnSync(process.execPath, [CLI, "--version", "2.2", "--json"], { encoding: "utf8", cwd: repoRoot });
+  const report = JSON.parse(result.stdout);
+  assert.ok(report.dormant.includes("node-based page band"), "2.2 has no DocumentPageZone; the pair must be dormant");
+  assert.ok(!report.checked.includes("node-based page band"));
+  for (const line of ["2.3", "2.4", "2.5"]) {
+    const r = spawnSync(process.execPath, [CLI, "--version", line, "--json"], { encoding: "utf8", cwd: repoRoot });
+    assert.ok(JSON.parse(r.stdout).checked.includes("node-based page band"), `${line} has DocumentPageZone`);
+  }
 });
 
 test("verify runs it, so a reintroduced claim fails the gate rather than the next render", () => {

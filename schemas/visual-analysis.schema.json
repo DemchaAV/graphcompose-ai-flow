@@ -311,9 +311,52 @@
               "divider",
               "background"
             ],
-            "description": "What the region IS to the page, not what it contains. Required: a region with no role states no contract for how it may be built, and check-region-primitives cannot check it. page-header / page-footer are chrome that repeats on every page and must map to DocumentSession.header/.footer (or the version equivalent), never be drawn as body content and never bleedToEdge, which extends a fill past the margin to the paper edge. table-header repeats at the top of every page its table reaches (TableBuilder.repeatHeader). table must be built with addTable, not as rows of shapes. image must use addImage and icon addSvgIcon — a filled rectangle or a coloured disc standing in for either matches the box and nothing inside it. background is page-level fill behind everything; panel, divider and content carry no build contract."
+            "description": "What the region IS to the page, not what it contains. Required: a region with no role states no contract for how it may be built, and check-region-primitives cannot check it. page-header / page-footer are chrome that repeats on every page: never drawn as body content and never bleedToEdge, which extends a fill past the margin to the paper edge. Two mechanisms build them and both are accepted - DocumentSession.header/.footer(DocumentHeaderFooter) for text slots, and DocumentSession.chrome().zone(DocumentPageZone.header/.footer(height, page -> node)) for a node-based band (GraphCompose 2.3+); `chrome.mechanism` records which. table-header repeats at the top of every page its table reaches (TableBuilder.repeatHeader). table must be built with addTable, not as rows of shapes. image must use addImage and icon addSvgIcon — a filled rectangle or a coloured disc standing in for either matches the box and nothing inside it. background is page-level fill behind everything; panel, divider and content carry no build contract."
+          },
+          "chrome": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mechanism"
+            ],
+            "description": "How a page-header or page-footer band is built, decided at analysis time. Only for those two roles. header-footer: DocumentSession.header/.footer(DocumentHeaderFooter) - up to three plain strings (left/centre/right) with the {page}/{pages} tokens; on every GraphCompose line. page-zone: DocumentSession.chrome().zone(DocumentPageZone.header/.footer(height, page -> node)) - a node subtree built per page from its PageContext: a logo or image, an icon, a link, a row layout, page.pageNumber() as a node, appliesTo(...) to skip pages; GraphCompose 2.3+ only. Choose by what the reference band holds, not by which is shorter; check-region-primitives holds the template to the choice and refuses page-zone on a line that predates it.",
+            "properties": {
+              "mechanism": {
+                "type": "string",
+                "enum": [
+                  "header-footer",
+                  "page-zone"
+                ],
+                "description": "header-footer for text slots; page-zone for nodes (2.3+)."
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "description": "One sentence naming what in the band decided it - e.g. \"logo beside the page number\". Expected for page-zone."
+              }
+            }
           }
-        }
+        },
+        "allOf": [
+          {
+            "description": "A chrome mechanism is a decision about a repeating band, so only the two band roles carry one.",
+            "if": {
+              "required": [
+                "chrome"
+              ]
+            },
+            "then": {
+              "properties": {
+                "role": {
+                  "enum": [
+                    "page-header",
+                    "page-footer"
+                  ]
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "layoutProportions": {
@@ -834,11 +877,11 @@
                 "footer",
                 "header"
               ],
-              "description": "Which chrome zone carries it. Maps to DocumentSession.footer(...) / .header(...) with DocumentHeaderFooterZone."
+              "description": "Which chrome zone carries it: footer or header. Built as DocumentSession.footer/.header(DocumentHeaderFooter) with {page}/{pages} tokens, or as a DocumentPageZone footer/header (2.3+) holding page.pageNumber() / page.pageTotal() nodes - whichever mechanism that band's region records in chrome.mechanism."
             },
             "format": {
               "type": "string",
-              "description": "The literal chrome text, with GraphCompose's placeholders, e.g. \"Page {page} of {pages}\". The {pages} half is the part that makes a missing page detectable; \"Page 3\" alone does not."
+              "description": "The literal chrome text, with GraphCompose's placeholders, e.g. \"Page {page} of {pages}\". The {pages} half is the part that makes a missing page detectable; \"Page 3\" alone does not. In a DocumentPageZone the same text is composed from page.pageNumber() and page.pageTotal() nodes; write it here in token form all the same."
             },
             "repeat": {
               "type": "string",

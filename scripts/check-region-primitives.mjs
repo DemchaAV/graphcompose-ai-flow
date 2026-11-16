@@ -42,6 +42,9 @@ import { checkRegionPrimitives, methodBody } from "./lib/region-primitives.mjs";
 import { checkContainerFills, checkContainerGrowth } from "./lib/container-fidelity.mjs";
 import { checkHeadingInset } from "./lib/heading-inset.mjs";
 import { checkPaginationPlan } from "./lib/pagination-plan.mjs";
+import { packSymbols } from "./lib/pack-surface.mjs";
+import { readResolvedVersion } from "./lib/resolved-version.mjs";
+import { versionLine } from "./lib/version-resolver.mjs";
 
 const repoRoot = installRoot();
 
@@ -151,11 +154,27 @@ const referencePages = Math.max(
   Number(project.render?.pages) || 1,
 );
 
+// Which repeating-band mechanisms this project's line has. DocumentPageZone
+// arrived in 2.3; on 2.2 the fix is DocumentHeaderFooter and a zone-built band
+// does not compile. Asked of the pinned pack, not of a version number compared
+// here, so the answer comes from the same allow-list the agent authored against.
+// Unresolved (no record, no pack) is null: both are named, neither is refused.
+const resolvedRecord = readResolvedVersion(workspace);
+const graphComposeLine =
+  resolvedRecord?.line ?? (resolvedRecord?.version ? versionLine(resolvedRecord.version) : null);
+let pageZones = null;
+if (graphComposeLine) {
+  const symbols = packSymbols(path.join(repoRoot, "skills", "versions", `graphcompose-${graphComposeLine}`));
+  if (symbols) pageZones = symbols.has("DocumentPageZone");
+}
+
 const findings = [
   ...checkRegionPrimitives({
     regions: analysis.regions ?? [],
     componentMapping,
     source: template.source,
+    pageZones,
+    graphComposeLine,
   }),
   ...checkPaginationPlan({
     plan,
@@ -202,6 +221,8 @@ const result = {
   regions: (analysis.regions ?? []).length,
   mapped: componentMapping.length,
   referencePages,
+  graphComposeLine,
+  pageZones,
   findings,
 };
 

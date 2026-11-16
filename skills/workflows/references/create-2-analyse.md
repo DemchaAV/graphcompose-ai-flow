@@ -217,13 +217,48 @@ exception: the `page` block carries the measurement from phase 1.
   size, which is what happened to a sidebar whose icons were half again
   the cap height.
 - **`role` is the contract for how a region may be built.** `page-header`
-  / `page-footer` are chrome the engine repeats — they go through
-  `DocumentSession.header` / `.footer`; drawn as body content they appear
-  on page one and nowhere else. `table` must be `addTable` (rows of shapes
+  / `page-footer` are chrome the engine repeats — never body content,
+  which appears on page one and nowhere else — and GraphCompose has two
+  mechanisms for them (next bullet). `table` must be `addTable` (rows of shapes
   have no columns to align and cannot break across a page); `table-header`
   needs `repeatHeader`; `image` must be `addImage` and `icon`
   `addSvgIcon`. `check-region-primitives` compares roles to the render
   methods the plan maps them to, and every pass runs it.
+- **Choose the chrome mechanism for every `page-header` / `page-footer`,
+  in the region's `chrome`.** Both are supported; neither is a fallback
+  for the other.
+
+  | The band holds | `chrome.mechanism` | Build it with | Lines |
+  |---|---|---|---|
+  | Up to three plain strings — left / centre / right — and `{page}` / `{pages}` | `header-footer` | `DocumentSession.header/footer(DocumentHeaderFooter)` | every line |
+  | A logo or image, an icon, a link, a row layout, styled or positioned numbering, different content per page | `page-zone` | `DocumentSession.chrome().zone(DocumentPageZone.footer(height, page -> node))` | 2.3+ |
+
+  Pick by what the reference shows, not by which is shorter to write: a
+  footer with a logo beside the page number built as three text slots
+  loses the logo, and the loop then spends passes on a mismatch the
+  mechanism made unfixable. Write the reason (`chrome.reason`) when you
+  choose `page-zone`. On a line before 2.3, `page-zone` does not exist —
+  record `header-footer` and put what three strings cannot carry in
+  `unclearParts`. Confirm against the pinned pack before writing either:
+
+  ```bash
+  node scripts/api-query.mjs --type SessionChromeApi          # header, footer, zone
+  node scripts/api-query.mjs --type DocumentPageZone          # absent before 2.3: exit 3
+  ```
+
+  A zone's content is a node subtree built per page; `page.pageNumber()`
+  is the number as a node (a live PAGE field in DOCX), and
+  `.toBuilder().appliesTo(page -> !page.isFirst())` keeps it off a cover:
+
+  ```java
+  session.chrome().zone(DocumentPageZone.footer(34, page -> new RowBuilder()
+          .gap(8)
+          .add(new ImageBuilder().source(spec.logo()).size(18, 18).build())
+          .addParagraph(p -> p.text(spec.notice()).textStyle(theme.chrome()))
+          .flexSpacer()
+          .add(page.pageNumber(theme.chrome()))
+          .build()));
+  ```
 - **Decide fixed or flowing, in `flow`.** A one-page invoice *screenshot*
   is not a one-page *document*: the sample shows four line items, real
   data brings thirty. `fixed` means the page is the artifact (CV,
@@ -236,7 +271,7 @@ exception: the `page` block carries the measurement from phase 1.
   `required: false` with a reason is a good answer. An invoice, a
   statement, a proposal or a report is a record someone may print or file;
   a CV or a poster carries no such duty. When required, `"Page {page} of
-  {pages}"` in chrome is what carries it:
+  {pages}"` in chrome is what carries it — in a text footer:
 
   ```java
   session.footer(DocumentHeaderFooter.builder()
@@ -244,6 +279,9 @@ exception: the `page` block carries the measurement from phase 1.
           .centerText("Page {page} of {pages}")
           .build());
   ```
+
+  — or, in a `page-zone` footer, `page.pageNumber()` and `page.pageTotal()`
+  as nodes in the row; zones have no `{page}` tokens.
 
 - **Decide the page model for a multi-page reference, in
   `pagination`.** Read every page: a continuation page is not a copy of
