@@ -76,13 +76,25 @@ with `claude plugin tag`). `/plugin install` follows the marketplace's
 default branch; to hold an exact release, add the repository at its tag:
 
 ```text
-/plugin marketplace add DemchaAV/graphcompose-ai-flow@graphcompose-flow--v0.23.0
+/plugin marketplace add DemchaAV/graphcompose-ai-flow@graphcompose-flow--v0.24.0
 /plugin install graphcompose-flow@graphcompose
 ```
 
 A marketplace added at a tag stays there: `claude plugin update` will
 report it already current rather than moving you to a newer commit, which
 is the point — the version you validated is the version you keep.
+
+To move to a newer release, remove the marketplace and add it at the new
+tag. Claude Code has no command that changes a registered marketplace's
+ref, and `marketplace remove` uninstalls its plugins with their plugin
+data — your workspace under `<project>/graphcompose-flow/` is not plugin
+data and stays:
+
+```text
+/plugin marketplace remove graphcompose
+/plugin marketplace add DemchaAV/graphcompose-ai-flow@graphcompose-flow--v<new version>
+/plugin install graphcompose-flow@graphcompose
+```
 
 ### Trying it before publishing
 

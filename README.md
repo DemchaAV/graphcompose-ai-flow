@@ -27,9 +27,16 @@ https://github.com/user-attachments/assets/881eebc2-779f-4518-bc61-4dcbef6022c3
 ### Claude Code
 
 ```text
-/plugin marketplace add DemchaAV/graphcompose-ai-flow
+/plugin marketplace add DemchaAV/graphcompose-ai-flow@graphcompose-flow--v0.24.0
 /plugin install graphcompose-flow@graphcompose
 ```
+
+That pins the release you install. Drop the `@…` to follow the default
+branch instead. To move a pinned install to a newer release, remove the
+marketplace and add it again at the new tag — `/plugin marketplace remove
+graphcompose` uninstalls the plugin and its plugin data, not your
+workspace. Every release is tagged `v<version>` and
+`graphcompose-flow--v<version>`.
 
 Then, once, **inside the installed plugin** — Claude Code puts it under
 `~/.claude/plugins/cache/graphcompose/graphcompose-flow/<version>/`:
@@ -49,7 +56,7 @@ troubleshooting: [`docs/plugin-installation.md`](docs/plugin-installation.md).
 ### Codex
 
 ```bash
-git clone https://github.com/DemchaAV/graphcompose-ai-flow
+git clone --branch v0.24.0 https://github.com/DemchaAV/graphcompose-ai-flow
 cd graphcompose-ai-flow
 npm run setup
 node adapters/codex/install.mjs
@@ -60,10 +67,17 @@ installs four skills pointing into it, so **the clone is not needed
 afterwards** — move it, rename it or delete it and the skills keep
 working. See [`adapters/codex/README.md`](adapters/codex/README.md).
 
+### One zip (Agensi)
+
+Each GitHub Release carries `graphcompose-ai-flow-<version>.zip`: one
+skill bundle a skill marketplace installs into Claude Code or Codex, which
+then sets itself up on first use — Java, Maven and ImageMagick only after
+you say yes. See [`adapters/agensi/README.md`](adapters/agensi/README.md).
+
 ### Gemini CLI
 
 ```bash
-git clone https://github.com/DemchaAV/graphcompose-ai-flow
+git clone --branch v0.24.0 https://github.com/DemchaAV/graphcompose-ai-flow
 cd graphcompose-ai-flow
 npm run setup
 node adapters/gemini/install.mjs

@@ -5,6 +5,57 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.24.0 — 2026-11-16
+
+**Why update.** This is the first release since 0.23.0 that you can install
+by tag, and it brings three things at once: the pinned line moves to
+**GraphCompose 2.5**, the fifteen 0.24.0 betas that were only ever cut on a
+branch, and the one-zip Agensi bundle. Install or pin it the same way:
+
+```text
+/plugin marketplace add DemchaAV/graphcompose-ai-flow@graphcompose-flow--v0.24.0
+/plugin install graphcompose-flow@graphcompose
+```
+
+Nothing in your workspace needs migrating, and no artifact you already have is
+rewritten. Run `npm run setup` inside the new plugin directory once, as after
+every update.
+
+**GraphCompose 2.5.** The 2.5.0 knowledge pack, imported from the v2.5.0
+release bundle with its checksum verified, is the newest line; 2.4 moves to
+2.4.1. How-to for a 2.5 project comes from the 2.4 pack, the newest one with
+prose, and the 2.4 pack's seven flow-owned routes are inherited by 2.5 and held
+to its allow-list — a route naming a symbol the line lacks is withheld, never
+answered. All seven hold.
+
+**A page band has two mechanisms.** The workflow routed every page header and
+footer to `DocumentSession.header/footer(DocumentHeaderFooter)` — three text
+slots — and `check-region-primitives` reported a footer built as a
+`DocumentPageZone` (a logo, a link, a layout; public since GraphCompose 2.3) as
+missing, then told the agent to rebuild it as text. Regions now record
+`chrome.mechanism` (`header-footer` or `page-zone`); the checker reads calls
+rather than substrings, tells a header from a footer, holds the template to the
+mechanism chosen, and refuses a zone on a line before 2.3. `DocumentHeaderFooter`
+is unchanged and not deprecated.
+
+**"Unsupported" has to be earned.** `GRAPHCOMPOSE_API_LIMITATION` in
+`visual-review.json` now requires `apiSearch`: the api-query calls, across
+every surface and the session's entry points, that came back empty. And
+`api-query --exists` stopped answering "does not exist" for members of nested
+types such as `DocumentPageZone.DocumentPageZoneBuilder.appliesTo`.
+
+**The betas.** 0.24.0-beta.2 to beta.15, each with its own entry below: the loop
+cannot approve a page it measured as wrong; the analysis is of this reference
+and is measured; panels, fills, card growth and the body under a heading are
+checked against the Java; the loop sees its own flatline and a review judges
+the page without ending the loop; the 2.4 pack gained prose and seven routes;
+telemetry names what it could not count; and an attempt records what it was
+aiming at.
+
+**Agensi.** `npm run bundle:agensi` builds a one-zip skill bundle that installs
+itself into Claude Code or Codex; the zip for this release is attached to its
+GitHub Release.
+
 ## v0.24.0-beta.15 — 2026-09-22
 
 **`attempts.json` has carried a `focus` field since it was introduced, and
