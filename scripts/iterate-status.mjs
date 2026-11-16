@@ -29,6 +29,7 @@ import { fileURLToPath } from "node:url";
 
 import { loadPipelineConfig } from "./lib/pipeline-config.mjs";
 import { computeIterationStatus, IterationStatusError } from "./lib/iteration-status.mjs";
+import { loadFailure, ready, schemaValidator } from "./lib/schema-validator.mjs";
 import { elapsed, formatDuration, formatTokens, processedTokens } from "./telemetry/core.mjs";
 import {
   describeWorkspaceLine,
@@ -75,12 +76,21 @@ const workspace = resolveWorkspace({ explicitRoot: args.root });
 const banner = describeWorkspaceLine(workspace);
 if (banner && !args.json) console.log(banner);
 
+// The loop verdict starts from `visual-review.json`, and that was the one
+// artifact nothing validated: `write-artifact` does not accept it and the write
+// guard leaves it alone by name. Resolved here rather than inside the library
+// because loading the shipped validator is asynchronous and computing the
+// status is not.
+const reviewSchema = path.join(installRoot(), "schemas", "visual-review.schema.json");
+const validateReview = (await ready()) ? schemaValidator(reviewSchema) : null;
+
 let status;
 try {
   status = computeIterationStatus({
     projectDir: requireProjectDir(workspace, args.project),
     config,
     revisionId: args.revision,
+    validateReview,
   });
 } catch (err) {
   if (err instanceof IterationStatusError || err.name === "WorkspaceError") {
@@ -88,6 +98,13 @@ try {
     process.exit(2);
   }
   throw err;
+}
+
+// An unusable validator is reported and does not change the verdict: preflight
+// already names a broken install, and dropping the check silently is the one
+// outcome that would let a malformed review read as a judged one.
+if (!validateReview) {
+  status.reasons = [...(status.reasons ?? []), `visual-review.json went unchecked — ${loadFailure()}`];
 }
 
 if (args.json) {
@@ -110,6 +127,25 @@ if (args.json) {
     console.log(
       `  extension               ${g.used}/${g.of}` +
         `   (last pass closed ${g.from - g.to} blocking mismatch(es))`,
+    );
+  }
+  // The two axes, side by side and never folded together: how close the render
+  // is, and whether the passes are still moving it. A reader who sees only one
+  // of them is one step from calling a stalled wrong page a finished one.
+  if (status.parity) {
+    const { fidelity: f, movement: m } = status.parity;
+    const measured =
+      f.classification === null
+        ? "not measured"
+        : `${f.classification}` +
+          (f.percent !== null ? ` (${f.percent.toFixed(3)}% of the page` : "") +
+          (f.parityScore !== null ? `, parity ${f.parityScore}` : "") +
+          (f.ssim !== null ? `, ssim ${f.ssim}` : "") +
+          (f.percent !== null ? ")" : "");
+    console.log(`  fidelity                ${f.level}   ${measured}`);
+    console.log(
+      `  movement                ${m.level}` +
+        (m.materialPercent !== null ? `   (material move ${m.materialPercent}%)` : ""),
     );
   }
   // Measurements, not folders. One revision rendered ten times is ten of these

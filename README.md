@@ -27,9 +27,16 @@ https://github.com/user-attachments/assets/881eebc2-779f-4518-bc61-4dcbef6022c3
 ### Claude Code
 
 ```text
-/plugin marketplace add DemchaAV/graphcompose-ai-flow
+/plugin marketplace add DemchaAV/graphcompose-ai-flow@graphcompose-flow--v0.24.0
 /plugin install graphcompose-flow@graphcompose
 ```
+
+That pins the release you install. Drop the `@…` to follow the default
+branch instead. To move a pinned install to a newer release, remove the
+marketplace and add it again at the new tag — `/plugin marketplace remove
+graphcompose` uninstalls the plugin and its plugin data, not your
+workspace. Every release is tagged `v<version>` and
+`graphcompose-flow--v<version>`.
 
 Then, once, **inside the installed plugin** — Claude Code puts it under
 `~/.claude/plugins/cache/graphcompose/graphcompose-flow/<version>/`:
@@ -49,7 +56,7 @@ troubleshooting: [`docs/plugin-installation.md`](docs/plugin-installation.md).
 ### Codex
 
 ```bash
-git clone https://github.com/DemchaAV/graphcompose-ai-flow
+git clone --branch v0.24.0 https://github.com/DemchaAV/graphcompose-ai-flow
 cd graphcompose-ai-flow
 npm run setup
 node adapters/codex/install.mjs
@@ -60,10 +67,17 @@ installs four skills pointing into it, so **the clone is not needed
 afterwards** — move it, rename it or delete it and the skills keep
 working. See [`adapters/codex/README.md`](adapters/codex/README.md).
 
+### One zip (Agensi)
+
+Each GitHub Release carries `graphcompose-ai-flow-<version>.zip`: one
+skill bundle a skill marketplace installs into Claude Code or Codex, which
+then sets itself up on first use — Java, Maven and ImageMagick only after
+you say yes. See [`adapters/agensi/README.md`](adapters/agensi/README.md).
+
 ### Gemini CLI
 
 ```bash
-git clone https://github.com/DemchaAV/graphcompose-ai-flow
+git clone --branch v0.24.0 https://github.com/DemchaAV/graphcompose-ai-flow
 cd graphcompose-ai-flow
 npm run setup
 node adapters/gemini/install.mjs
@@ -319,10 +333,11 @@ integration, no MCP server, no standalone runtime.
   hand-finishing. That is the model behind the host, not the harness:
   the skills and tools are identical on all three. Usable; not where to
   start.
-- The pinned line is **GraphCompose 2.4**, and its pack is a knowledge
+- The pinned line is **GraphCompose 2.5**, and its pack is a knowledge
   pack: API surfaces, routing and claims imported from the release
-  bundle, and no prose. How-to comes from the 2.2 pack, which `preflight`
-  names explicitly — the 2.4 allow-list still decides what exists.
+  bundle, and no prose. How-to comes from the 2.4 pack, the newest one
+  with a loading map, which `preflight` names explicitly — the 2.5
+  allow-list still decides what exists.
 - The **2.2 pack** ships with five fixtures rendering identically to
   their baselines; its conceptual skills stay `needs-validation` on
   coverage — five fixtures are a subset of what fourteen skills

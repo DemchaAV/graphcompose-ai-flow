@@ -46,9 +46,15 @@ reuse — see [Template Reuse First](../references/scope-routing.md#template-reu
 | Phase | Produces | Page |
 |---|---|---|
 | **1. Set up** — preflight, workspace, import the reference, settle the page size, open revision-001 | a project with `reference/reference.png`, a measured page, a first DRAFT | [create-1-setup.md](../references/create-1-setup.md) |
-| **2. Analyse** — measure the reference in one call, describe it as regions with roles, flow and data, and resolve the assets it names | `visual-analysis.json`, `<doc-kind>-data.json` (+ overflow dataset when it flows), `asset-request.json`, `assets-manifest.json`, `architecture-plan.json` | [create-2-analyse.md](../references/create-2-analyse.md) |
-| **3. Author** — check the plan and manifest are complete (`check-analysis --for authoring`), then write the template against the pinned pack's allow-list | the template class, the spec provider | [create-3-author.md](../references/create-3-author.md) |
+| **2. Analyse** — measure the reference in one call, describe it as regions with roles, flow and data, resolve the assets it names, and record the handoff | `visual-analysis.json`, `<doc-kind>-data.json` (+ overflow dataset when it flows), `asset-request.json`, `assets-manifest.json`, `architecture-plan.json`, `handoff.json` | [create-2-analyse.md](../references/create-2-analyse.md) |
+| **3. Author** — start from the handoff, check the plan and manifest are complete (`check-analysis --for authoring`), then write the template against the pinned pack's allow-list | the template class, the spec provider | [create-3-author.md](../references/create-3-author.md) |
 | **4. Loop** — render, measure, classify, fix one cause, repeat until the loop says stop | revisions with reviews, and a verdict | [create-4-loop.md](../references/create-4-loop.md) |
+
+Phase 2 and phase 3 are separated by a **context boundary**: when the
+handoff is written, everything authoring needs is on disk, and the
+discovery conversation is no longer an input. Phases 3 and 4 are not
+separated — the render loop's passes are corrections to each other and
+keep one context.
 
 Three rules hold across all four:
 

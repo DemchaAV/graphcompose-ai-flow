@@ -10,6 +10,7 @@ the pass itself.
 
 ```bash
 node scripts/pass.mjs --project <id> --open "<what this pass fixes>"    # 1. open the next revision
+#   … add --revision <id> to branch from an earlier one instead of the draft …
 #   … edit the one owning property …
 node scripts/pass.mjs --project <id>                                    # 2. render, measure, every gate, one screen
 #   … look at both images, then write visual-review.json (review-template) …
@@ -197,6 +198,16 @@ node scripts/iterate-status.mjs <project-id> [--root <workspace>]
 | 4 | `CONVERGENCE_LIMIT_REACHED` | stop and put it to the user; what is open and what has been tried are in the status |
 | 3 | `BLOCKED` | stop and report the `failureCategory` — no usable document can be produced |
 
+**Your review writes two of those four.** `READY_FOR_APPROVAL` or `REVISE`
+— a judgement about the page. `CONVERGENCE_LIMIT_REACHED` and `BLOCKED`
+are this tool's conclusions from the budget, the same-cause bound and the
+failure record; writing one into the review is read as `REVISE`, and if
+the loop really has spent itself the status says so without being told.
+Nor does renaming the residual end it: a page the comparator classifies
+CRITICAL cannot have a MINOR as its worst remaining mismatch — MINOR is
+under half a percentage point. Record it as an accepted limitation, or
+name what actually differs.
+
 Fix one cause per pass and reuse the mismatch id when a problem survives —
 that repetition is how the tool sees a loop going nowhere. Do not raise a
 limit to keep going, and do not decide for yourself that another pass is
@@ -209,6 +220,31 @@ Fixing colour before geometry wastes a pass.
 Every render is on the record (`attempts.json`), and `iterate-status`
 reports renders beside revisions; a trail that stopped moving is the
 signal to change approach rather than render a sixth value.
+
+A trail that is *going backwards* is a different signal with a different
+answer. Two renders past the revision's best, both materially worse than
+it, and both `render-and-diff` and `iterate-status` name the render to
+return to:
+
+```
+revision-001 is 0.871% worse than its own best (render 3 of 6, 14.866%)
+```
+
+Go back to what that render did.
+
+The same question is asked **across revisions**, and it is the one that
+costs most. Two revisions that have not beaten the best in the loop, and
+`iterate-status` names the revision to return to:
+
+```
+revision-001 measured 15.304% and is still the best of this loop;
+6 revision(s) since have not beaten it and revision-007 is 0.384% worse
+```
+
+That run shipped its seventh revision worse than its first: six passes
+matching absolute y-positions while the line breaks — set by column width
+and type size — stayed wrong. **When the best is behind you, the lever you
+are pulling is not the one that matters.**
 
 Stop early, and say which of these it was, when: the review recommends
 `APPROVE`; the remaining differences were explicitly accepted; the next

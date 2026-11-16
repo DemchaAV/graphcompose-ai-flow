@@ -269,5 +269,59 @@ export function auditReviewClaims({ revisionDir, review, limitations = [] }) {
     });
   }
 
+  // --- severity-below-measurement -----------------------------------------
+  //
+  // Three runs in a row ended the same way: four passes each naming a new
+  // CRITICAL, then a fifth that renamed the one remaining difference to a
+  // MINOR about font rasterisation — `residual-font-rendering-variance`,
+  // `font-rasterisation-residual`, `subpixel-raster-anti-aliasing` — on pages
+  // the comparator still classified CRITICAL at 14.86%, 15.66% and 14.15%.
+  //
+  // `unresolved-severity` above blocks a review that ADMITS a CRITICAL. It says
+  // nothing about one that relabels it, which is the same claim from the other
+  // side and the cheaper of the two to make.
+  //
+  // No threshold is invented here. MINOR is a defined band —
+  // `classifyPercent` puts it under half a percentage point of the page — so a
+  // review whose worst remaining difference is MINOR is claiming a band the
+  // measurement excludes. The comparator's own word is what it is checked
+  // against, and an accepted limitation still lifts it, because that is the
+  // project deciding rather than the review relabelling.
+  // CRITICAL only, and deliberately not MAJOR. MAJOR is 0.5% to 5% of the
+  // page: a review calling that MINOR is wrong by one band, and the fidelity
+  // axis already reports it as NEEDS_WORK in its own words — speaking here too
+  // would take the loop's focus away from the difference itself. CRITICAL is
+  // five percent and up, thirty times the band being claimed, and it is the
+  // case with three runs behind it.
+  //
+  // Silent whenever the project has recorded a decision: an accepted
+  // limitation is the sanctioned way to keep a residual, and nagging about one
+  // would punish the route this rule points at.
+  if (
+    stats &&
+    sameComparison &&
+    stats.classification === "CRITICAL" &&
+    mismatches.length > 0 &&
+    severe.length === 0 &&
+    !mismatches.some((m) => accepted(m))
+  ) {
+    const worst = [...new Set(mismatches.map((m) => m?.severity ?? "(none)"))].join("/");
+    blocking.push({
+      id: "severity-below-measurement",
+      detail:
+        `the comparator classified this page ${stats.classification}` +
+        (Number.isFinite(stats.percent) ? ` at ${round(stats.percent)}% of its pixels` : "") +
+        `, and this review's worst remaining mismatch is ${worst}: ` +
+        `${mismatches.map((m) => m?.id ?? "(unnamed)").join(", ")}. ` +
+        "MINOR means under half a percentage point of the page, so a difference the comparator " +
+        "measures at this size cannot be one. Name what actually differs at its measured severity, " +
+        "or record the residual as an accepted limitation — renaming it does not make the page match",
+    });
+  }
+
   return { blocking, lifted };
+}
+
+function round(value) {
+  return Math.round(value * 1000) / 1000;
 }

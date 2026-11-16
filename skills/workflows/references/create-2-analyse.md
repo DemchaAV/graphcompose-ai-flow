@@ -42,16 +42,44 @@ The earlier wording said three subagents *can* produce them, and a real
 instruction, and the serial reading is the expensive one: these three are
 the whole of discovery, and everything after them waits.
 
-| Subagent | Owns, exclusively | Reads | Done when |
-|---|---|---|---|
-| geometry | `visual-analysis.json` | the reference + its schema | validates against [`visual-analysis.schema.json`](../../../schemas/visual-analysis.schema.json) |
-| content | `<doc-kind>-data.json` (+ `data-schema.md`) | the reference only | parses, and every field the spec requires is present |
-| assets | `asset-request.json` | the reference + the request format | validates against [`asset-request.schema.json`](../../../schemas/asset-request.schema.json) |
+| Subagent | Owns, exclusively | Contract |
+|---|---|---|
+| geometry | `visual-analysis.json` | `node scripts/check-analysis.mjs --contract geometry` |
+| content | `<doc-kind>-data.json` (+ `data-schema.md`) | `node scripts/check-analysis.mjs --contract content` |
+| assets | `asset-request.json` | `node scripts/check-analysis.mjs --contract assets` |
 
-Each writes only its own files — two writers on one file is a merge
-conflict with no merger. Each gets the reference and its task, **not**
-this conversation. Its reply is one line ("wrote visual-analysis.json, 9
-regions"); the parent reads results from disk.
+**Run the contract command and paste what it prints.** It is a dozen
+lines — what the worker reads, what it may query, the artifact it owns,
+the command that says it is done — declared once in
+`config/pipeline.json` rather than written out three times here. Three
+prompts composed by hand from one page end up carrying each other's
+material: in a recorded run the content worker, whose whole job is
+pulling strings out of a picture, was handed `authoring-rules.md` — 4.7k
+tokens of guidance about writing Java — and then re-read it on every one
+of its own turns.
+
+Add the task and nothing else. Each worker gets the reference and its
+contract, **not** this conversation. Its reply is one line ("wrote
+visual-analysis.json, 9 regions"); the parent reads results from disk.
+
+### Workers commit their artifact, they do not write it
+
+```bash
+node scripts/write-artifact.mjs --project <id> --artifact <name> --from <draft>
+```
+
+A worker writes its draft to a scratch file and commits it with that. The
+tool stages beside the target, validates against the schema, and renames —
+so the canonical path holds either the previous complete artifact or the
+new one, and never half of either. Writing the canonical path directly
+leaves it truncated for as long as the write takes, and the other two
+workers and the barrier are reading that directory; the failure then
+arrives as "invalid JSON", which looks like a bad artifact rather than a
+race, and re-running the worker appears to fix it. The `Write` guard
+refuses the direct write for this reason.
+
+A rejected draft leaves the canonical file untouched and says which
+schema it failed, so a worker fixes its draft rather than its artifact.
 
 ### The join is on validated artifacts, not on files existing
 
@@ -124,19 +152,113 @@ exception: the `page` block carries the measurement from phase 1.
   page fractions.** Every later artifact addresses regions by id; the
   bounds are what make a region croppable and measurable. A region without
   bounds cannot be evidenced, and the tool refuses rather than guessing.
+- **A heading of "icon, then title" gives its region two left edges.**
+  `bounds.x` is the icon's. Measure the leftmost ink of the BODY and record
+  it as `contentLeft` — the barrier asks for it wherever a container sits at
+  its region's own edge and is narrow against it. Write the region's own `x`
+  when the body really is flush; silence cannot be told from not looking.
+  One run started every paragraph 24 pt left of the title it belonged
+  under, for eight revisions, with the region's box correct throughout.
 - **Record relationships, not offsets** — "badge sits at the top-right of
-  the avatar". Shape ownership is mandatory for the five cases otherwise
-  drawn as free-floating text: initials or icons inside circles, text in
-  pills or badges, content in rounded cards, images clipped by shapes,
-  badges anchored on a shape boundary.
+  the avatar".
+- **Measure every container; do not name a style of it.** `shapeOwnership`
+  takes one entry per DISTINCT container that holds content — ten
+  competency boxes built alike are one entry with `repeats: 10`. Each
+  entry carries `shape`, `cornerRadiusRatio`, `sizing`, `fill.present` and
+  `stroke.present` because each of those has been got wrong by describing
+  it instead:
+
+  | Measure | Not | Because |
+  |---|---|---|
+  | `cornerRadiusRatio` = radius ÷ shorter side | "rounded", "capsule", "pill badge" | A run wrote "rounded capsule shape" for a box measuring **0.09**. The author read the word and implemented a capsule. `pill` means the radius really is half the height — nothing else. |
+  | `sizing: fill-parent \| hug-content` | leaving width to be inferred | Boxes sharing a left **and** right edge are `fill-parent`. Inferred, they shrink to their labels and every row ends somewhere different. |
+  | `fill.present` and `stroke.present`, separately | "white box with a border" | A container showing the ground through it is `fill.present: false`. That is not the same as a fill matching the background: one paints, one does not. |
+  | `padding` per side, `gap`, `contentAlign` | "some spacing" | Averaged padding puts content optically off-centre; `gap` is the rhythm between children, padding is the frame. |
+
+  Ratios, never pixels — radius and stroke against the container's shorter
+  side, padding and gap likewise — so the numbers survive any resolution.
+  Estimating by eye is expected; say in `notes` when an estimate is coarse.
+
+  **`colors[].usedIn` describes; it does not decide.** A palette clause
+  claiming a fill on a container measured without one is held: authoring
+  builds from whichever it reads first, so fix whichever of the two is
+  wrong rather than the one easier to reword.
+
+  **When the corners differ, name them.** `cornerRadiusRatio` takes a
+  number for all four, or an object — omitted corners are square:
+
+  ```json
+  "cornerRadiusRatio": { "bottomRight": 0.3 }
+  ```
+
+  A panel with one rounded corner has no honest single value, and two
+  models given one wrote `0` and `0.18`. Corners that differ belong in
+  the object; `notes` is read by nothing that builds.
+
+  **Every container carries `bounds`**, as page fractions, the same frame
+  regions use — the first instance, when it repeats. That is what makes the
+  rest checkable rather than merely stated: `check-analysis` samples the
+  reference inside those bounds and just outside them, and **refuses a
+  `fill.present` the pixels contradict**. A run got shape, radius, sizing and
+  repeats right on one container and `fill.present` wrong, and that single
+  field was the first thing a reader noticed about the render. Do not reason
+  about the fill — look at whether the ground shows through.
+
+  **A region with `role: panel` needs its own entry.** A panel *is* a shape: it
+  has a fill, usually a radius, and other content sits on it. The same run left
+  its dark monogram block undescribed, so nothing measured the corner (one stuck
+  out) and nothing recorded that the sidebar runs underneath it (the sidebar
+  stopped where the block began).
+- **Record icons that are not text.** `icons` takes any icon whose size or
+  placement is independent of the text beside it: `sizeRelativeToText`
+  (1.0 is text-sized, 1.45 is half again), `verticalAlign`, `gapToText`,
+  and `inline` — true when it flows in the text run, false when it is its
+  own child. Without these an icon is emitted as an inline glyph at text
+  size, which is what happened to a sidebar whose icons were half again
+  the cap height.
 - **`role` is the contract for how a region may be built.** `page-header`
-  / `page-footer` are chrome the engine repeats — they go through
-  `DocumentSession.header` / `.footer`; drawn as body content they appear
-  on page one and nowhere else. `table` must be `addTable` (rows of shapes
+  / `page-footer` are chrome the engine repeats — never body content,
+  which appears on page one and nowhere else — and GraphCompose has two
+  mechanisms for them (next bullet). `table` must be `addTable` (rows of shapes
   have no columns to align and cannot break across a page); `table-header`
   needs `repeatHeader`; `image` must be `addImage` and `icon`
   `addSvgIcon`. `check-region-primitives` compares roles to the render
   methods the plan maps them to, and every pass runs it.
+- **Choose the chrome mechanism for every `page-header` / `page-footer`,
+  in the region's `chrome`.** Both are supported; neither is a fallback
+  for the other.
+
+  | The band holds | `chrome.mechanism` | Build it with | Lines |
+  |---|---|---|---|
+  | Up to three plain strings — left / centre / right — and `{page}` / `{pages}` | `header-footer` | `DocumentSession.header/footer(DocumentHeaderFooter)` | every line |
+  | A logo or image, an icon, a link, a row layout, styled or positioned numbering, different content per page | `page-zone` | `DocumentSession.chrome().zone(DocumentPageZone.footer(height, page -> node))` | 2.3+ |
+
+  Pick by what the reference shows, not by which is shorter to write: a
+  footer with a logo beside the page number built as three text slots
+  loses the logo, and the loop then spends passes on a mismatch the
+  mechanism made unfixable. Write the reason (`chrome.reason`) when you
+  choose `page-zone`. On a line before 2.3, `page-zone` does not exist —
+  record `header-footer` and put what three strings cannot carry in
+  `unclearParts`. Confirm against the pinned pack before writing either:
+
+  ```bash
+  node scripts/api-query.mjs --type SessionChromeApi          # header, footer, zone
+  node scripts/api-query.mjs --type DocumentPageZone          # absent before 2.3: exit 3
+  ```
+
+  A zone's content is a node subtree built per page; `page.pageNumber()`
+  is the number as a node (a live PAGE field in DOCX), and
+  `.toBuilder().appliesTo(page -> !page.isFirst())` keeps it off a cover:
+
+  ```java
+  session.chrome().zone(DocumentPageZone.footer(34, page -> new RowBuilder()
+          .gap(8)
+          .add(new ImageBuilder().source(spec.logo()).size(18, 18).build())
+          .addParagraph(p -> p.text(spec.notice()).textStyle(theme.chrome()))
+          .flexSpacer()
+          .add(page.pageNumber(theme.chrome()))
+          .build()));
+  ```
 - **Decide fixed or flowing, in `flow`.** A one-page invoice *screenshot*
   is not a one-page *document*: the sample shows four line items, real
   data brings thirty. `fixed` means the page is the artifact (CV,
@@ -149,7 +271,7 @@ exception: the `page` block carries the measurement from phase 1.
   `required: false` with a reason is a good answer. An invoice, a
   statement, a proposal or a report is a record someone may print or file;
   a CV or a poster carries no such duty. When required, `"Page {page} of
-  {pages}"` in chrome is what carries it:
+  {pages}"` in chrome is what carries it — in a text footer:
 
   ```java
   session.footer(DocumentHeaderFooter.builder()
@@ -157,6 +279,9 @@ exception: the `page` block carries the measurement from phase 1.
           .centerText("Page {page} of {pages}")
           .build());
   ```
+
+  — or, in a `page-zone` footer, `page.pageNumber()` and `page.pageTotal()`
+  as nodes in the row; zones have no `{page}` tokens.
 
 - **Decide the page model for a multi-page reference, in
   `pagination`.** Read every page: a continuation page is not a copy of
@@ -176,6 +301,30 @@ exception: the `page` block carries the measurement from phase 1.
   reports a rule the plan decided and the template never built.
 - **Set `page.pageCount`** to what the reference-shaped data produces —
   the overflow fixture's count is not a property of the document.
+- **Measure the face and the size; do not recognise them.**
+  `typography.roles` commits a `fontName` and a `size` per role, and says
+  how each was chosen. `headings` and `body` are required — between them
+  they set the page. Cut the crop, then match and sweep:
+
+  ```bash
+  node tools/visual-diff/bin/crop-region.mjs --revision <revision-dir>     --region <region-id> --reference <project>/reference/reference.png
+  node scripts/typography.mjs match  --role headings --project <id>     --reference <crop> --text "<the exact string in that crop>"
+  node scripts/typography.mjs search --role headings --project <id>     --reference <crop> --text "<the same string>" --family <FONT>     --from 6 --to 14 --step 0.25 --scale <referencePx.width ÷ sizePt.width>
+  ```
+
+  Both record into the revision; the barrier checks the analysis agrees
+  with what was recorded. `"source": "assumed"` with a `why` also clears —
+  a face with no bundled equivalent is a real answer. What does not clear:
+
+  | The tool says | Why it decided nothing |
+  |---|---|
+  | `leads by 0.0061` | inside its own noise — match a longer sample |
+  | `ratio 0.379` | the crop does not hold that string alone — re-cut it to the line |
+  | a size sweep that is not `decisive` | the curve is flat; the number is the low point of noise |
+
+  Unmeasured, the size ends up chosen by whether a line happens to wrap:
+  one run set its contacts to 6.4pt so an address would fit, trading the
+  size away instead of fixing the column.
 - **Anything you cannot read confidently goes in `unclearParts`** with
   the assumption you are making. A recorded assumption is a question the
   user can answer later; a silent one is a bug with no author.
@@ -218,6 +367,44 @@ constants here and record them under `baseConstants` with their
 derivation, so a later revision changes one number instead of fifteen.
 Every primitive must exist in the pinned pack's allow-list — `node
 scripts/api-query.mjs --exists <Type>.<method>`.
+
+Commit it the same way the workers commit theirs — the `Write` guard
+refuses the direct write for this artifact too:
+
+```bash
+node scripts/write-artifact.mjs --project <id> --artifact architecture-plan.json --from <draft>
+```
+
+## Close the phase: write the handoff
+
+```bash
+node scripts/handoff.mjs write --project <id>
+```
+
+The last thing phase 2 does. It runs the authoring barrier and, only if
+that is clear, records `handoff.json`: where each of the five artifacts
+is, what it hashed to, and that the barrier passed. A red barrier writes
+nothing and names what is not done — there is no handoff that says "not
+validated", because a next phase reading one would have to decide what to
+do about it, and that decision is the barrier's.
+
+**Why it is worth a file.** Everything phase 3 needs now exists on disk.
+The measurement, the crops, the reasoning and these pages do not — they
+are how the artifacts were produced, not what they say. Measured on two
+recorded create runs, the conversation at this point held 192–266k tokens,
+never came down, and was re-read by every one of the 218–382 requests that
+followed: 84% and 96% of each run's cache-read. The handoff is what lets
+phase 3 start from four files instead of inheriting all of that.
+
+Paths and hashes only — never contents. Copying an artifact in would put
+the same document in context twice and give the run a second thing that
+can disagree with the first. `node scripts/handoff.mjs verify --project
+<id>` re-hashes and says whether the state it names still holds.
+
+**Writing it is not crossing it.** Phase 3 opens by spawning one `Agent`
+to author from these five paths; `handoff.mjs status` reports `written`,
+`requested` and `TAKEN` as three different answers, because three real
+runs wrote a correct handoff and then authored in the coordinator anyway.
 
 ## Reading copies
 

@@ -36,7 +36,8 @@ const COMMANDS = Object.freeze({
     linux: "sudo apt-get install -y openjdk-21-jdk",
   },
   maven: {
-    win32: "winget install Apache.Maven",
+    // winget carries no Apache Maven package; Scoop's main bucket does.
+    win32: "scoop install maven",
     darwin: "brew install maven",
     linux: "sudo apt-get install -y maven",
   },

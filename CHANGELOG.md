@@ -5,6 +5,1012 @@ The project follows [Semantic Versioning](https://semver.org/) and stays in
 `0.x` while the workflow stabilizes — skills are still `needs-validation`, and
 the full visual-baseline pass is the gate to `1.0.0`.
 
+## v0.24.0 — 2026-11-16
+
+**Why update.** This is the first release since 0.23.0 that you can install
+by tag, and it brings three things at once: the pinned line moves to
+**GraphCompose 2.5**, the fifteen 0.24.0 betas that were only ever cut on a
+branch, and the one-zip Agensi bundle. Install or pin it the same way:
+
+```text
+/plugin marketplace add DemchaAV/graphcompose-ai-flow@graphcompose-flow--v0.24.0
+/plugin install graphcompose-flow@graphcompose
+```
+
+Nothing in your workspace needs migrating, and no artifact you already have is
+rewritten. Run `npm run setup` inside the new plugin directory once, as after
+every update.
+
+**GraphCompose 2.5.** The 2.5.0 knowledge pack, imported from the v2.5.0
+release bundle with its checksum verified, is the newest line; 2.4 moves to
+2.4.1. How-to for a 2.5 project comes from the 2.4 pack, the newest one with
+prose, and the 2.4 pack's seven flow-owned routes are inherited by 2.5 and held
+to its allow-list — a route naming a symbol the line lacks is withheld, never
+answered. All seven hold.
+
+**A page band has two mechanisms.** The workflow routed every page header and
+footer to `DocumentSession.header/footer(DocumentHeaderFooter)` — three text
+slots — and `check-region-primitives` reported a footer built as a
+`DocumentPageZone` (a logo, a link, a layout; public since GraphCompose 2.3) as
+missing, then told the agent to rebuild it as text. Regions now record
+`chrome.mechanism` (`header-footer` or `page-zone`); the checker reads calls
+rather than substrings, tells a header from a footer, holds the template to the
+mechanism chosen, and refuses a zone on a line before 2.3. `DocumentHeaderFooter`
+is unchanged and not deprecated.
+
+**"Unsupported" has to be earned.** `GRAPHCOMPOSE_API_LIMITATION` in
+`visual-review.json` now requires `apiSearch`: the api-query calls, across
+every surface and the session's entry points, that came back empty. And
+`api-query --exists` stopped answering "does not exist" for members of nested
+types such as `DocumentPageZone.DocumentPageZoneBuilder.appliesTo`.
+
+**The betas.** 0.24.0-beta.2 to beta.15, each with its own entry below: the loop
+cannot approve a page it measured as wrong; the analysis is of this reference
+and is measured; panels, fills, card growth and the body under a heading are
+checked against the Java; the loop sees its own flatline and a review judges
+the page without ending the loop; the 2.4 pack gained prose and seven routes;
+telemetry names what it could not count; and an attempt records what it was
+aiming at.
+
+**Agensi.** `npm run bundle:agensi` builds a one-zip skill bundle that installs
+itself into Claude Code or Codex; the zip for this release is attached to its
+GitHub Release.
+
+## v0.24.0-beta.15 — 2026-09-22
+
+**`attempts.json` has carried a `focus` field since it was introduced, and
+nothing ever filled it.** Across three real projects the corpus holds 55
+attempts and every one reads `null`: `render-and-diff` called `recordAttempt`
+without a focus, and the default is null.
+
+What that cost shows up in the runs. One boarding-pass loop spent ten renders
+over six revisions and moved 7.787% to 7.632% — and the mechanical cause triple
+in all ten attempts is identical, led by a region the project had already
+accepted as a limitation. Read on its own, the history says the loop hammered
+one thing. It did not: resolving the focus each revision was actually aiming at
+gives six different targets, one per revision. The record said what each render
+measured and never what it was told to fix, so wandering and converging leave
+the same trace.
+
+**`focusAimedAt(revisionDir, limitations)`** resolves it through the same
+`focusOf` the same-cause bound uses, so the two readers cannot name different
+things. "Aiming at" is the state before the render, not after: this revision's
+own focus when a previous attempt or review set one, otherwise the parent's —
+the instruction the author acted on. The ordering in `render-and-diff` already
+suits that, because the attempt is recorded before the pass rewrites
+`harness-focus.json` or the review. An accepted limitation is never recorded as
+the focus, for the same reason it is never the focus anywhere else.
+
+Only new attempts carry it; the `null`s already on disk stay as they are.
+
+**Verification.** `npm run verify` green across all thirteen gates.
+
+## v0.24.0-beta.14 — 2026-09-21
+
+**A run reported 40.06M tokens and looked like a complete figure.** Four of its
+twenty-eight subagents were in that number. The other twenty-four contributed
+zero, and nothing said so.
+
+Two holes, both silent. `SubagentStop` is what records a subagent's transcript
+path, so an agent whose stop hook never fired is never recorded at all — the run
+counted 28 stops against 25 recorded paths. And a path that *was* recorded can
+be gone by the time a report is written: the host cleans agent transcripts up,
+and 21 of those 25 no longer existed. `eventsOf` returns an empty array for a
+file that is not there, `usageBetween` adds an empty array as zero, and zero is
+indistinguishable from an agent that cost nothing.
+
+**The claim is what gets fixed; the data is gone.** `transcriptHealth()` counts
+recorded, readable, missing, stops and unrecorded. The report carries it
+alongside an `incomplete` flag, `formatReport` names the shortfall next to the
+totals it undercuts, and the per-phase worker table lists the workers missing
+from it rather than skipping them into silence — grouped by reason, because
+twenty-one identical rows is noise and the count is the fact. A total that is
+really a floor now says it is a floor.
+
+Not fixed: the stop hook not firing for every subagent, which is where the three
+unrecorded ones come from. That is a host-side question and needs its own look.
+
+**Verification.** Suite 1517 pass; `npm run verify` green across all thirteen
+gates.
+
+## v0.24.0-beta.13 — 2026-09-21
+
+**The pack knew what existed and not how to use it.** GraphCompose 2.4 arrives
+as a knowledge bundle: a closed allow-list, routing and claims, generated from
+the release's class files, and no prose at all. A pack with no loading map falls
+back to the newest older line that has one, so every run pinned to 2.4 read
+2.2's pages under a note saying they "may describe a construction 2.4 has
+replaced". The allow-list was current; the how-to was two lines behind. That gap
+is how a template gets authored on 2.2 habits against a 2.4 pin — which is
+exactly what the 2.4-pinned runs in the corpus were doing.
+
+**The pack now has its own prose.** A loading map and six pages covering what
+the line added: the timeline rail and its leading column, page zones whose
+content is built from a `PageContext` and can skip pages, flow width, letter
+spacing as a property of a text style, hanging indents and rich list runs, and
+the inline styled chip. `whats-new-in-2-4.md` loads always and names the
+specific places a borrowed 2.2 page is behind, plus the four exceptions its
+troubleshooting page cannot know about.
+
+Deliberately not a copy. Where 2.4 added nothing — tables, themes, shapes,
+layer stacks, backgrounds, pagination, spacing, the mapping from a reference to
+primitives — the map links across to the 2.2 page and says it is borrowed and
+why that is safe. A duplicated page drifts, and a drifted page is worse than a
+borrowed one because nothing marks it.
+
+**Seven routes the release bundle does not have.** 2.4 ships five routed
+intents, none of which reach the features it added, so the one question a
+surface cannot answer — which of three ways is right — went unanswered exactly
+where the line is new. The new routes live in `routing/tasks.local.json`, a
+filename `import-bundle.mjs` never writes, because it rewrites everything under
+`routing/` without reading it first and a route added to `tasks.json` would live
+until the next import. `api-query` merges the two by intent id and tags each
+route with its source; the seven carry no `confirmedBy` and report
+`confirmed: false`. Twelve intents answer for this line now.
+
+**Three readers that knew one pack layout of three.** `packHasAllowList` told a
+project pinned to 2.4 that its line had no allow-list while `api-query` was
+answering for it. `check-structural-smells` and `run-metrics` built their symbol
+set from the prose layout alone, so for 2.3 and 2.4 it came back empty — and an
+empty set is what switches the manual-construction rule off. Neither gate
+failed; both reported nothing and passed. All three now delegate to
+`pack-surface`.
+
+**Verification.** `npm run verify` green across all thirteen gates; the suite at
+1516 tests. Every one of the 61 API symbols named across the new pages and
+routes was checked against the 2.4 allow-list, which caught three invented calls
+before they shipped. Not covered: no template has been authored against the new
+pack yet — the wiring is proved, the result is not.
+
+## v0.24.0-beta.12 — 2026-09-08
+
+**What this beta is.** Two Antigravity runs on `beta.11`, and the same exit found
+in both — for the third and fourth time.
+
+**What beta.11 got right, with receipts.** `nora-b10` read the retreat signal and
+acted on it: `revision-005 parent=revision-002`, branching back to the best
+revision after two passes failed to beat it. The budget did not reset with it —
+chain 3, loop 5, remaining 3 — which is the fix from `beta.9` proved end to end
+for the first time. Movement was measured chain-wide in both runs despite a new
+mismatch id every pass (`STALLED, scope: chain`; before `beta.9` this was
+`UNKNOWN`). Neither run was granted an extension. And the authoring rule landed:
+`nora-b10`'s template carries `static final double HEADING_LANE` and derives its
+insets from it, which is why the inset check is silent — silent for the right
+reason.
+
+**And what both runs did instead.** Four passes each naming a new CRITICAL, then
+a fifth that wrote the loop's own terminal verdict into `visual-review.json` and
+renamed the one remaining difference to a MINOR about font rasterisation:
+
+```
+nora-b8         8/8   residual-font-rendering-variance(MINOR)   14.15% CRITICAL
+nora-b10        5/8   font-rasterisation-residual(MINOR)        14.86% CRITICAL
+julian-mercer   5/8   subpixel-raster-anti-aliasing(MINOR)      15.67% CRITICAL
+```
+
+Two of them stopped with **three passes still in budget**. Both halves were
+needed, and neither was watched.
+
+**A review judges the page; it does not end the loop.**
+`CONVERGENCE_LIMIT_REACHED` and `BLOCKED` are conclusions `iterate-status`
+reaches from the budget, the same-cause bound and the failure record. It started
+from the review's verdict and the bounds only escalate, so the terminal state was
+reachable by typing it. A review now writes one of two, and anything else is read
+as REVISE with the reason said out loud. REVISE is a floor rather than a refusal:
+the bounds still reach the terminal verdicts on their own evidence when the loop
+has actually spent itself.
+
+**A relabel is not a fix.** `unresolved-severity` blocks a review that ADMITS a
+CRITICAL and says nothing about one that renames it — the same claim from the
+cheaper side. No threshold is invented to catch it: MINOR is a defined band,
+`classifyPercent` puts it under half a percentage point, so a review whose worst
+remaining mismatch is MINOR on a page measured at 14.86% is claiming a band the
+measurement excludes. Checked against the comparator's own word, and silent
+wherever the project recorded an accepted limitation — the route the message
+itself points at.
+
+CRITICAL only, deliberately. On MAJOR the review is wrong by one band and
+`fidelity.mjs` already reports NEEDS_WORK in its own words; speaking there too
+would take the loop's focus off the difference. A test named for that design —
+"the refusal is the fidelity axis's alone" — is what caught the first draft
+reaching too far.
+
+**And one thing the new rule broke, found the same way.** `reconcileVerdict`
+speaks only when it changes something, so a claims audit that had already forced
+REVISE left it silent — losing the deeper sentence, "a CRITICAL classification is
+never READY_FOR_APPROVAL, whatever the review concluded". It is now asked about
+the review's own claim rather than about what other rules did to it, and its
+answer may only lower the verdict.
+
+Replayed on both runs: `CONVERGENCE_LIMIT_REACHED` becomes REVISE with
+`remaining: 3`, and both the self-declared verdict and the relabel are named.
+
+**Still open, and visible in these runs.** `julian-mercer-cv`'s analysis names a
+container the template never names, so `headingLaneFor` declines and the inset
+check stays silent although every readable left inset there is zero — the
+decline-to-guess path working honestly and reporting nothing. And the token axis
+reports nonsense on this host (`Harness run: 24h 17m`, `input 2 / output 57`);
+the phase axis added in `beta.10` held.
+
+Verification: 1516/1516 `node scripts/run-tests.mjs scripts/test`, thirteen gates
+clean under `node scripts/verify.mjs`, both rules replayed against the `nora-b10`
+and `julian-mercer-cv` artifacts.
+
+## v0.24.0-beta.11 — 2026-09-08
+
+**What this beta is.** `beta.10` as its own Antigravity run sent it back. The new
+barrier worked; the check behind it was wrong three times, and a compaction
+showed where a route goes when the contract carrying it is dropped.
+
+**The barrier changed what the model did.** `nora-b9` is the first run with
+`contentLeft` in it, and the analysis came back measured rather than filled in:
+`0.364` against a region at `0.312` for the three main sections, `0.0664` against
+`0.0351` for two sidebar ones, and the region's own `x` written back for the four
+that really are flush. Eight regions, differentiated answers. That is the second
+time a barrier has changed a model's behaviour rather than only stopping it, and
+the stronger of the two.
+
+**Then the code check reported nothing, and that was wrong three times over.**
+
+It tested for the *presence* of a padding call rather than for a left.
+`renderSummary` carries `sec.margin(new DocumentInsets(0, 0, 32.0, 0))` — a bottom
+margin — and the check went silent on a body still flush against the marker,
+which is the exact defect it exists for. The fourth argument is the one that moves
+content rightwards, so that is what gets read now, through both the four-number
+and the `DocumentInsets` forms; an identifier or a sum reads as unreadable, which
+is what a derived constant looks like and is the answer the authoring rules ask
+for.
+
+It only asked whether an inset existed, not whether it was the right one. Two
+numbers settle that, both in one file, in points, with no rasterisation between
+them: the lane the heading builds is where the title starts, and the body is meant
+to start there. So they are compared to each other, and the measurement's job is
+only to say the two edges differ at all. No tolerance anybody chose — a point of
+slack, for `20f` against `20.0`.
+
+And it read the wrong lane: the first `columns(fixed(N))` in the method, which for
+two sidebar sections is an item row built before the heading. It quoted 24 and
+22 pt for headings that are 25. The findings survived either way, and a finding
+that quotes a number nobody can reproduce is worth less than one that quotes none.
+The analysis names the marker and the template names it back, so the row is now
+found by walking from that name.
+
+Replayed on the run, 0 findings becomes 5, all quoting the same 25 pt lane:
+
+```
+summary-section          lane 25 pt, body  0 pt   flush against the marker
+experience-section       lane 25 pt, body 22 pt   3 pt apart
+projects-section         lane 25 pt, body 22 pt   3 pt apart
+sidebar-achievements     lane 25 pt, body 14 pt   11 pt apart
+sidebar-additional-info  lane 25 pt, body 14 pt   11 pt apart
+```
+
+Five headings whose lanes are typed literals — 20+5, 18+6, 16+6 — and five bodies
+inset by four different numbers, none of them the lane. The missing constant,
+showing up as drift.
+
+**A route lost to a compaction is attached to the reach instead.** The run used
+`api-query.mjs` properly for its first hour. After the first compaction it
+stopped, and spent dozens of calls on `Select-String` over `00-api-surface.md` —
+126 KB of generated prose — and on `javap` and `jar tf` against the pinned jar, to
+answer questions the CLI answers in three lines. Not a knowledge problem: the
+route lives in the contracts, and a compaction drops them; the surface file is
+what gets reached for next. So the guard sits on the reach, in the shape already
+used for the layout snapshot — the same failure with a different file, which has
+not recurred since it was guarded. The refusal names both halves, because they are
+different questions: `--exists` / `--type` for whether a symbol is real, and
+`--tasks` / `--task` for which of three ways is right.
+
+Not covered, and said so in the commit: the same file read through the host's own
+Read and Search tools, which a Bash hook cannot see.
+
+**Where the run landed.** Worse than `nora-b8` on every measure — 16.05% against
+14.15%, SSIM 0.3668 against 0.4132, best revision 15.77% against 14.15%. Not from
+the new barriers: the model built a structurally different template and spent much
+of the run re-deriving the API. Recorded here so the figure is not later read as a
+trend.
+
+Verification: 1510/1510 `node scripts/run-tests.mjs scripts/test`, thirteen gates
+clean under `node scripts/verify.mjs`, every change replayed against the `nora-b9`
+artifacts.
+
+## v0.24.0-beta.10 — 2026-09-07
+
+**What this beta is.** Two defects the `nora-b8` render showed a human before it
+showed the harness, and one of them turned out not to be the defect it looked
+like.
+
+**A section headed by a marker says where its body starts.** The heading is a
+circled icon, then the title, then a rule; in the reference everything under it —
+the summary paragraph, the company names — lines up with the TITLE. The run built
+the heading as `fixed(18.0)` plus `gap(6)` and added every paragraph straight to
+the section with no left inset. From the render's own snapshot: the title at
+x 207.57, the paragraph at 183.57. Twenty-four points, every section, eight
+revisions.
+
+Not for want of looking. The badge was measured exactly — `bounds.x 0.313`,
+`w 0.033`, `repeats: 5`, in a region starting at 0.315. What had nowhere to be
+recorded was the relationship. `regions[]` is a box, and the icon, the title and
+the body are all "inside region summary"; two things at different x inside one
+region are the same thing to a box. The fields that could have carried it —
+`shapeOwnership[].padding`, `.gap`, `.contentAlign` — describe a container's own
+interior, are optional, and were null on all five entries. And no gate could see
+it: 24 pt spread over dozens of text rows is thin, never the largest mismatch,
+and the region ranking ranks regions, whose box was right.
+
+So `regions[].contentLeft` is a measurement, and the barrier asks for it exactly
+where the geometry already on disk shows two left edges — a container attributed
+to the region, at the region's own left edge, narrow against it. On the corpus
+that is the heading badge and nothing else. **A flush body is a real design**, so
+nothing asserts an indent: the recovery names both answers and what is refused is
+silence. The code check then compares two numbers rather than enforcing a
+convention, and stays quiet the moment the Java carries any inset at all.
+
+**And a negative result, measured rather than assumed.** Every run has left the
+wrapped second line of a bullet starting under the marker instead of under the
+first word. `ListBuilder.continuationIndent(String)` sits on the same builder the
+runs already use correctly, is named by no route and no contract, and reads like
+the knob for exactly this.
+
+It is inert. One item wrapping to four lines, at five indent strings from `""` to
+`"MMMM"`, with two wide characters against six narrow ones so that width and
+length would separate: 48 pt at every value, on 2.2.1 and again on 2.2.2, which
+is the build the run rendered with. Had it been routed instead of measured, the
+next run would have called a method that does nothing and a barrier would have
+confirmed it. A hanging indent in 2.2 has to come from the layout, and that wants
+its own measurement before any contract names it.
+
+Verification: 1499/1499 `node scripts/run-tests.mjs scripts/test`, thirteen gates
+clean under `node scripts/verify.mjs`, both barriers replayed against the
+`nora-b8` artifacts.
+
+## v0.24.0-beta.9 — 2026-09-07
+
+**What this beta is.** `beta.8` as its own Antigravity run sent it back, plus a
+four-angle review of everything on the branch.
+
+**The run, first — and it is the most instructive one yet.** `nora-b8` produced
+the best pixel figure the corpus has: **14.152%**, against `b7`'s 14.784. It also
+regressed on perception — SSIM `0.4132` against `b7`'s `0.4407` — so the two
+measures disagree and only the first one gates. Worth remembering before the
+figure is quoted as progress.
+
+The trail underneath is the finding:
+
+```
+revision-001   15.120   ssim 0.3497
+revision-002   14.216   ssim 0.3732   <- arrived here in one pass
+revision-003   14.230   ssim 0.3658
+revision-004   14.224   ssim 0.3716
+revision-005   14.447   ssim 0.3823   <- worse than revision-002
+revision-006   14.377   ssim 0.3996
+revision-007   14.339   ssim 0.4049
+revision-008   14.152   ssim 0.4132
+```
+
+Six passes after revision-002 bought 0.064 percentage points. Every move between
+consecutive revisions was under `materialMovePercent`. The movement axis reported
+`UNKNOWN` with `moves: []`, and the loop ended on its iteration budget rather
+than on the stall that had been there since the fourth revision. SSIM did climb
+monotonically from revision-003, so the passes were not empty — but nothing that
+gates could see it.
+
+**One habit blinded three guards.** The review named a new mismatch id on every
+pass — `section-header-wrap`, `certifications-heading-wrap`,
+`sidebar-content-top-spacing`, `header-summary-alignment`,
+`competency-card-pitch`, `sidebar-achievements-geometry`,
+`experience-item-spacing`, `residual-font-rendering-variance`. Eight ids, none
+repeated. `attemptHistory` feeds the stall test only the run of passes sharing
+one focus, so that run was length 1 every time and `diminishingReturns` measured
+nothing; `sameMismatchAttempts` never reached 2, so the same-cause bound could
+not bind; and the eighth pass calling its last CRITICAL a MINOR read as "closed 1
+blocking mismatch" and **earned an extension**.
+
+So the chain is asked when the focus run has nothing to say. The measurement does
+not depend on what anything was called: every revision has a
+`visual-diff-stats.json`. The focus run stays the first question, and `scope`
+says which of the two answered. And an extension now needs the page to have
+moved: a severity the review lowered is not a difference the comparator stopped
+seeing. Replayed on `nora-b8`, `UNKNOWN` becomes `STALLED` quoting `-0.038` and
+`-0.187`, and the extension is refused.
+
+**A retreat is the loop changing approach, not a new loop.** `beta.8` taught
+`iterate-status` to print `pass --open --revision <best>`, and following that
+advice made the new revision's parent an old one — so the chain was rebuilt from
+there and the budget came back full. Reproduced end to end: a project at 8/8
+refuses to open, and the same project told to branch from `revision-001` opened
+`revision-009` reporting `budget iterations 1/8`. The bound existed and the
+retreat handed back a fresh one, on exactly the runs late enough to be advised to
+retreat. It is counted by revisions now — the loop's own spending, whichever
+branch each sits on. `iterations` keeps meaning the ancestry; `loopIterations` is
+reported beside it.
+
+**A name typed in the wrong case is the same project.** `--project
+Nora-Bennett-CV` opens `projects/nora-bennett-cv` on Windows and macOS. The
+analysis fingerprint stamped the typed casing, so a differently-typed run
+reported `foreign-project` — copy someone else's analysis — for an analysis
+written from this project's own reference. The copied-template tripwire skipped
+nothing, found the project's own parent revision, and killed the render accusing
+the author of a shortcut they had not taken. Both ask the filesystem for the name
+now. Deliberately not lowercased: where the filesystem is case-sensitive, `Nora`
+and `nora` are two projects.
+
+**A second page is a second raster.** The fill probe decoded `reference.png` for
+every container, so a card correctly measured as filled on page 2 was sampled
+against blank ground on page 1 and refused, with no edit that could clear it. A
+page nobody imported is named as unsampled rather than judged against page 1.
+
+**Two writers who both read first.** Recording one typography role and recording
+one telemetry phase are both read-modify-write, which an atomic rename does
+nothing for. Two `typography.mjs` invocations each wrote a document missing the
+other's entry; three discovery workers lost a telemetry phase in fourteen of
+twenty-five rounds. `withFileLock` joins `atomic-write`.
+
+**Observability, second axis.** `scripts/telemetry/` prices a run in tokens and
+cannot say where it stalled. `run-telemetry.mjs` records phase durations,
+attempts, retries and validation results at four call sites, rewriting the
+summary after every phase — `run-metrics finish` has been called zero times
+across eight corpus projects, and a summary that waits for a closing call is a
+summary that does not exist. Detail is opt-in via `GRAPHCOMPOSE_TRACE=on`;
+prompts and responses are written at no level. Telemetry failure never reaches
+the caller.
+
+**Also in this beta.** The reader no longer fails the review it just wrote on
+(`carriedFrom` is not in the schema, and the gate now reads the document as
+written); the region-role focus is a string for container and pagination
+findings, which were writing `focus: undefined` into `harness-focus.json` for
+iterate-status to silently discard; the copied-template tripwire works in install
+mode, where the harness's own corpus lives under `examples/`; `preflight` names
+`write-artifact.mjs` and `handoff.mjs`, which the contracts require and neither
+of its lists knew; a chain-level stall with no figure behind it no longer prints
+"moved it by less than null%"; and an assumed type role may not state a size no
+sweep backs.
+
+Verification: 1485/1485 `node scripts/run-tests.mjs scripts/test`, thirteen gates
+clean under `node scripts/verify.mjs`, and every loop change replayed against the
+`nora-b8` artifacts.
+
+## v0.24.0-beta.8 — 2026-09-07
+
+**What this beta is.** `beta.7` as its own Antigravity run sent it back, plus
+one negative result worth keeping.
+
+**The run, first.** It is the best the corpus has produced. The measurement
+check added in `beta.7` did what it was built for: the first family match was
+refused, the model **re-cropped to the exact line**, and both roles came back
+valid — body `score 0.129 / widthRatio 1.084` against `beta.6`'s `1.1649 /
+0.379`, headings separated by `0.0404` against `0.0061`. That is the first time
+a new barrier changed what a model did rather than only stopping it.
+
+**A card that repeats has to be able to take a second line.** The competency
+card was measured `fill-parent` — true of its width — and built as
+`roundedRect(144.0, 21.5, 2.5)` with the text `position`ed over it at an
+offset. The longest label shipped as "Budgeting & Financial Managemen", clipped
+at the border, because text laid over a shape cannot wrap and a shape given
+both dimensions cannot grow. No field was broken: `sizing` describes width, and
+nothing asked what happens when the content needs another line. So
+`check-region-primitives` now reads the code, and the author contract names
+`softPanel(color, radius, padding, stroke)` — on every flow builder, documented
+in the pack's own guide, named by no route and no contract until now.
+
+**The type size is measured too.** The same run measured a family for both
+roles and a size for neither, then set its contact strip to 6.2 and 6.4pt so
+the longest address would not wrap — the size traded away instead of the column
+fixed. `--role` now works for `search` as well as `match`, `headings` and
+`body` carry a `size`, and the barrier holds one that no sweep backs, that
+disagrees with its sweep, or whose sweep the tool itself calls indecisive. The
+scale the sweep needs is `page.referencePx.width ÷ page.sizePt.width`, already
+in the analysis.
+
+**A negative result: font class cannot be read from the ranking.** The plan was
+a serif/sans/slab/mono map over the 48 bundled families, so that a match whose
+top candidates straddle a class could be refused. Run against crops with known
+ground truth, the ranking below first place carries no class information at
+all: on LATO's own crop a sans and a serif sit 0.0003 apart at ranks two and
+three; on PT_SERIF's own crop the nearest competitor is a sans, with two serifs
+below it. A class check over the top-N would report "undecided" even where the
+winner is exactly right at score 0.0000. It was not built, and the experiment
+is recorded so it is not proposed again.
+
+**Verification.** 1446/1446 `node scripts/run-tests.mjs scripts/test`, thirteen
+gates clean under `node scripts/verify.mjs`. Both new checks replayed against
+the `nora-b7` artifacts they came from.
+
+## v0.24.0-beta.7 — 2026-09-07
+
+**What this beta is.** `beta.6` as it came back from its own Antigravity run.
+Everything here was found by that run rather than by a fixture, and two of the
+three are defects in what `beta.6` shipped.
+
+**The run, first.** It called `typography.mjs match` — the first run ever to do
+so — recorded the ranking, and built the competency cards unfilled. It also
+shipped its **seventh revision worse than its first**:
+
+    001 15.304  <- best      005 15.438
+    002 15.540               006 15.770
+    003 15.554               007 15.688  <- shipped
+    004 15.589
+
+**A chain whose best revision is behind it now says which one to return to.**
+`beta.6` gained that signal for the renders inside a revision and not for the
+revisions themselves: the cross-revision test asks only whether the last two
+*moves* were small, over the run of revisions sharing one focus — and that run
+breaks the moment the focus changes. A pass that changes focus every revision
+therefore had no cross-revision signal at all, which is exactly what this run
+did. `chainRegression` reads the whole chain and fires at revision-003, four
+revisions before the run stopped on its iteration bound.
+
+**A ranking that decided nothing is not a measured face.** The same run recorded
+`PT_SERIF 0.0914 | TIMES_ROMAN 0.0975` — a separation of 0.0061, under the 0.02
+the CLI already prints a warning for — and a body face whose winner scored
+1.1649 at a `widthRatio` of **0.379**, which is a crop that does not hold the
+string it was matched against rather than a font difference. Both numbers were
+already being computed and nothing read them. The barrier now reads both before
+it reads the rank, `widthRatio` is recorded per entry, and the noise line moved
+from an inline literal into the module that owns the scoring.
+
+**The discovery contract says how to cut the crop it requires.** `beta.6` made
+the typography match mandatory and never said where a crop comes from;
+`crop-region.mjs` is documented as cutting the reference beside the render, and
+at discovery there is no render. It works with only a reference — confirmed, not
+assumed — and the contract now shows that invocation.
+
+**Verification.** 1434/1434 `node scripts/run-tests.mjs scripts/test`, thirteen
+gates clean under `node scripts/verify.mjs`. Both new checks were replayed
+against the `nora-b6` artifacts they came from, and the chain detector against
+that run's real trail.
+
+## v0.24.0-beta.6 — 2026-09-07
+
+**What this beta is.** `beta.5` plus everything three runs on one CV reference
+exposed — two models, one contract, and a page that came back with all twelve
+regions CRITICAL at a spread of only 13-22%. A miss that flat is not a few
+broken widgets, and none of what follows was the models being careless: in
+every case the contract asked a question the reference can answer, in a form
+that could not carry the answer.
+
+**A typeface is measured, not recognised.** The largest single cause of that
+flat miss was the same in all three runs: the reference sets its section
+headings in a bold grotesque and every render set them in a serif. `typography`
+was seven free strings with `required: []`, and the field authoring reads held
+sentences like *"Poppins for body and a classic serif such as Spectral or Tinos
+for display text"*. `scripts/typography.mjs match` has ranked families against a
+crop of the reference since before those runs and not one of them called it —
+the loop reference offers it and no barrier asked. `typography.roles` now
+commits one `fontName` per role and says whether a recorded match backs it;
+`match --role <name> --project <id>` records its ranking into the revision. A
+face with no bundled equivalent stays a real answer: `assumed` with a `why`
+clears. The rank window is three deep because the matcher separates a grotesque
+from a serif easily and Barlow from Fira Sans barely, and reports that
+separation itself.
+
+**A corner is measured one at a time.** The identity panel has three square
+corners and one strongly rounded bottom-right. Gemini recorded
+`cornerRadiusRatio: 0` and rendered a rectangle; GPT recorded `0.18` and
+rendered a lozenge. Opposite errors, one cause — the field was a single scalar,
+so the shape had no honest value. GPT had already written *"Only the
+bottom-right corner is strongly rounded in the reference"* in `notes`, where
+nothing reads it. The field now takes a number or an object naming the corners,
+so an analysis can say which corner is round, and the author contract names the
+call that builds it. Nothing was needed from the engine:
+`DocumentCornerRadius.of(topLeft, topRight, bottomRight, bottomLeft)` has been
+there all along, in that order and under those names.
+
+**No barrier holds a corner yet, and that is deliberate.** A probe was built to
+measure each corner off the reference and is not wired to anything, because
+running it against the CV it was built for showed it measuring the identity
+panel at **0.016** — a square corner, against a truth near 0.22. The cause is
+the model rather than the tuning: the quarter-circle relation
+`gap = r·(1−1/√2)` puts the boundary 15px along the diagonal for r≈50 and there
+is no ink there, because the reference's corner is a flatter sweep than a
+circular arc. Shipping it would have been worse than shipping nothing — the
+value it returns for that panel would have *confirmed* the `cornerRadiusRatio:
+0` one model wrote, as a measurement. `scripts/lib/corner-probe.mjs` keeps its
+tests and says in its own docstring what a working version needs.
+
+**The palette cannot contradict a measured container.** One analysis carried
+`fill.present: false` on the competency cards and, four fields away,
+`colors[page-bg].usedIn = "…competency boxes fill"`. Both in the first write,
+both valid. Authoring read the prose and painted the cards white — reported at
+the time as the model changing its mind mid-run, which it never did. The plan
+barrier now reads the two together. The matcher is deliberately quiet:
+"background" is not a fill word, because *"sidebar background surface"* is a
+correct sentence and a check that fires on correct sentences gets turned off.
+
+**The template cannot paint a container the reference leaves unfilled.**
+Between "the analysis is right" and "the plan named it" there was nothing, and
+the Java built the card with `fillColor(DocumentColor.WHITE)` anyway. Every gate
+passed. `check-region-primitives` now reads the template back against
+`shapeOwnership`; run against the revision it came from, it reports one finding
+and names both the container and the method. A transparent fill is not a fill —
+`fillColor(DocumentColor.rgba(0, 0, 0, 0))` is in the corpus and is correct — so
+the argument is read rather than the call counted.
+
+**The review the verdict starts from is validated.** `visual-review.json` was
+the one artifact nothing checked: `write-artifact` does not accept it, the write
+guard leaves it alone by name, and its 359-line schema was run by no runtime
+path. One run conformed only because the model read the schema itself.
+`iterate-status` now validates it, which covers `render-and-diff` too, and an
+invalid review is downgraded to REVISE whatever it claimed.
+
+**A sweep that goes backwards says where to return to.** One revision went
+17.60 → 15.06 → 14.87 → 15.54 → 15.49 → 15.74: its best was the third of six
+renders and the three after it were all worse. The trail was printed on every
+one of them. Stalling covers "not moving" and had nothing to say about
+retreating, so both commands now name the render to go back to, at the fifth
+render of that trail rather than after it.
+
+**Verification.** 1419/1419 `node scripts/run-tests.mjs scripts/test`, and
+`node scripts/verify.mjs` clean across all thirteen gates. Every new check was
+replayed against the real `nora-g5` and `nora-gpt1` artifacts rather than
+against fixtures alone — which is how the corner probe was caught and pulled,
+after the fixtures had passed it ten times out of ten. The typography matcher
+was confirmed end to end by hand: fed its own crop and the correct specimen
+string, `BARLOW_CONDENSED` ranks first at score 0.0082, `widthRatio` 1, leading
+by 0.32.
+
+## v0.24.0-beta.5 — 2026-09-06
+
+**What this beta is.** `beta.4` plus the two defects the first fully clean
+Antigravity run left on the page, and one thing it exposed about the harness
+itself.
+
+**What the run got right, first.** Writing everything from scratch on the
+measured contract, a weak model returned `shape: rounded-rectangle` (not the
+"capsule" of two releases ago), `cornerRadiusRatio: 0.12` against a true 0.09,
+`sizing: fill-parent`, `repeats: 10`, and correct `fill`/`stroke` on two of
+three containers. The fidelity gate refused its `READY_FOR_APPROVAL` again.
+Parity moved 14.597% → 14.343%, SSIM 0.363 → 0.413.
+
+**A fill is now measured, not asserted.** The one field it got wrong was
+`fill.present`, on a container that paints nothing — the sidebar shows straight
+through it, and only a hairline marks its edge. That field was the first thing
+a reader noticed. Nobody has to answer it from an image: sample inside the
+container and just outside, and if the colour is the same there is no fill. On
+the real reference the card reads `rgb(253,241,238)` inside against
+`rgb(253,241,237)` beside it, while the dark monogram panel reads `rgb(2,50,45)`
+against white — so the probe catches the error without inventing one.
+
+`bounds` is therefore now required on every container, as page fractions. It is
+what turns the other fields from claims into checkable ones.
+
+**A region called a panel has to be described as one.** `role: panel` means the
+region *is* a shape. The same run described three containers and left out the
+one a reader complained about twice — the dark monogram block. Nothing measured
+its corner, so a corner stuck out; nothing recorded that it lies *over* the
+sidebar, so the sidebar stopped where the block began instead of running behind
+it. Two visible defects from one omission.
+
+**Known, and not fixed here.** `api-query --exists` answers "is this in the
+surface dump", while a caller means "can I compile against this". The pack is
+built from `graph-compose-core` **and** `graph-compose-templates`, and tags each
+type with its artifact — but the scaffolded runner's pom pulls only the
+`graph-compose` aggregator, which carries core and render-pdf. So 161 types
+across 17 `templates.*` packages answer "exists" and will not compile. The data
+to fix it is already in the pack; surfacing it is the next commit, not this one.
+
+## v0.24.0-beta.4 — 2026-09-06
+
+**What this beta is.** `beta.3` plus the two holes the first clean Antigravity
+run found. The analysis contract and the fidelity gate are untouched.
+
+**A template copied from another project is refused.** With the analysis bound
+to its reference, the run routed around it: it wrote a genuine new analysis —
+measured containers and all, because the schema made it — and then copied
+`generated-template.java` byte for byte out of another project with
+`Copy-Item`. The measurements were made and reached no code. Both projects'
+diffs came out at **13.9810%**, to four decimal places, because it was the same
+Java rendering the same data.
+
+`render-and-diff` now recognises it where the template is first resolved. It
+deliberately does not flag another revision of the *same* project — `pass.mjs`
+carries a template forward, which is the loop working — and it does not flag
+the **original**: identity is symmetric, so once a copy exists each file is the
+other's twin, and the project that did nothing wrong would be the one unable to
+render. Only a twin from a revision opened earlier counts. What it claims is
+content identity and nothing more; a copy from another workspace, or one edited
+after copying, is out of reach, and the module says so.
+
+**Icons requested and icons described have to agree.** `icons` is optional at
+the root, and a terse model omits what is optional: the same run resolved 33
+icons through the asset request and wrote `icons: []`, exactly as an earlier one
+had omitted `spacing` and `typography`. Icons then render as inline glyphs at
+text size, because nothing recorded that they were half again the cap height.
+More prose would not fix that — the previous release's prose did not. A request
+naming icons beside an analysis describing none is a contradiction a script can
+see, and it now holds the plan barrier.
+
+**What the run got right, for the record.** The measured contract worked on a
+weak model: `shape` came back `rounded-rectangle` rather than the previous
+release's "rounded capsule shape", `sizing: fill-parent` named the shrink-to-fit
+defect, `repeats: 10` was correct, and three of five containers carried correct
+`fill`/`stroke`. Both new barriers fired mid-run and were obeyed without help —
+`write-artifact` rejected the first analysis draft and `check-analysis` rejected
+the first plan, and the model read each schema and complied.
+
+**Still open, and known.** A radius estimated by eye came back `0.15` for a true
+`0.09` — no longer a capsule, which was the point, but not the number either.
+The lever there is measuring the container deterministically rather than asking
+for a better guess, and that is not in this release. Nor is the
+`DocumentStroke.of(PAPER, 0.0)` white-stroke renderer bug.
+
+## v0.24.0-beta.3 — 2026-09-06
+
+**What this beta is.** `beta.2` plus the analysis contract, cut for a clean
+Antigravity run. Three changes, none of which touches the fidelity gate.
+
+**An analysis now has to describe the reference it sits beside.** A run asked
+to build from a new reference opened a fresh project and then copied
+`revisions/revision-001/*` and `render-runner/` from an older project of the
+same name. The analysis that landed was byte-identical, this barrier passed —
+validating says the document is well-shaped, not that anybody looked at the
+image — and four revisions were spent correcting a template built from it.
+`visual-analysis.json` carries a tool-stamped `provenance` binding the
+reference bytes, the project id **and** the workspace; in that incident the
+first two matched, so only the third would have caught it.
+
+**A container is measured, not described.** The reference's competency boxes
+are rounded rectangles of radius ~3px on a 32px box, no fill, a coral hairline,
+all ten spanning the sidebar's full width. The analysis called them *"10 white
+rounded pill badges"*, and the author faithfully wrote `cornerRadius(15)` on a
+33px box, each shrinking to its label. Nothing was lying: `shapeOwnership` was
+three prose strings with `additionalProperties: false`, so a radius had nowhere
+to go, and the guidance offered the taxonomy *circles / pills or badges /
+rounded cards* — which has no bucket for a rectangle with a small radius. Asked
+to classify, a model picks the nearest label on offer.
+
+Each entry now measures the thing:
+
+| Field | Instead of | |
+|---|---|---|
+| `cornerRadiusRatio` | "rounded", "capsule" | radius ÷ shorter side. The box called a capsule measures **0.09** |
+| `sizing` | inferring width | `fill-parent` vs `hug-content` — why ten boxes became ten widths |
+| `fill.present` / `stroke.present` | "white box with a border" | a container showing the ground through it is not a fill that matches it |
+| `padding` per side, `gap`, `contentAlign` | "some spacing" | the frame and the rhythm are different numbers |
+| `repeats` | ten entries | one entry, built once, driven by data |
+
+A new `icons` block carries `sizeRelativeToText`, `verticalAlign`, `gapToText`
+and `inline`, which is what turned icons half again the cap height into
+text-sized inline glyphs. Ratios throughout, never pixels.
+
+**And the measurement has to reach a render method.** `componentMapping`
+entries gain `containers` and `icons`, and `check-analysis --for authoring`
+holds unless every measured container and icon is claimed by exactly one
+method — otherwise the geometry arrives at the plan as prose in `notes` and
+stops there, which is what it did. `create-3-author.md` gains the table
+turning each measurement into what to write.
+
+**Migration.** Analyses written before provenance are held until re-stamped,
+with the command in the message; an analysis describing a container without
+geometry no longer validates. Both are deliberate — they are the states these
+changes exist to end. `schemaVersion` stays `1`: the new fields are required
+only within entries that exist, and legacy artifacts are already held.
+
+**Known and not fixed here.** `DocumentStroke.of(PAPER, 0.0)` is a white
+stroke, not an absent one, and paints a pale band around every box on a tinted
+panel. The author contract now says so; the renderer-side fix is its own
+commit.
+
+## v0.24.0-beta.2 — 2026-09-06
+
+**What this beta is.** `0.24.0-beta.1` plus one fix, cut so the change can be
+run on Antigravity before anyone decides whether it releases. Nothing else
+moved.
+
+**The loop can no longer approve a page it measured as wrong.**
+`iterate-status` started from the review's own verdict and asked only whether
+the review had been *done* — sealed, measured, present, its claims consistent
+with the stats file. Nothing asked what the comparator had *measured*. A run
+reached `READY_FOR_APPROVAL` after a single pass on a page 14.17% of whose
+pixels were wrong: the review quoted 308,095 mismatched pixels back correctly
+and labelled every difference MINOR, and since severity is the review's to
+assign, `review-claims` had nothing to catch. `visual-diff-stats.json` carried
+`classification: "CRITICAL"` the whole time, loaded into the chain and read by
+nothing.
+
+This was not one bad run. Swept across the 41-project corpus, **20 projects
+were sitting at `READY_FOR_APPROVAL` with a CRITICAL page**, from 7.9% of the
+pixels wrong up to 48.8%. Exactly one project in the corpus had a page the
+comparator called `IDENTICAL`.
+
+Underneath was a conflation of two questions, now separated and never folded
+together again:
+
+| Axis | Question | Values |
+|---|---|---|
+| **fidelity** | is the render close to the reference? | `PASS` · `NEEDS_WORK` · `CRITICAL` · `UNMEASURED` |
+| **movement** | have the passes stopped changing it? | `IMPROVING` · `STALLED` · `UNKNOWN` |
+
+A small delta between pass N and N+1 means the process stopped moving. It says
+nothing about whether it stopped on the right picture — and the run above was
+printing *"the last two moved under 0.25% — a sweep that has stopped buying
+anything"* while reporting itself ready.
+
+`CRITICAL` is never `READY_FOR_APPROVAL`, at any budget. `MAJOR` is refused
+too, and a stalled `MAJOR` is named a stall so a spent budget becomes
+`CONVERGENCE_LIMIT_REACHED` — a document exists and a person decides — rather
+than success.
+
+**No new threshold was invented.** `classification` was already the validated
+gate; `parityScore`, `percent` and `perceptual.ssim` are reported rather than
+obeyed, for the reasons now written down in
+[`docs/how-similarity-is-measured.md`](docs/how-similarity-is-measured.md). A
+stats file with no classification is `UNMEASURED`, never a pass.
+
+**The veto only ever refuses.** A page the comparator likes does not overrule a
+review that asked for another pass. And approval itself is untouched:
+`approve-template` never read this verdict, so you can still approve a page the
+loop declined to call ready.
+
+**What you will notice.** `iterate-status` prints two new lines, `fidelity` and
+`movement`, and exits `2` on projects where it used to exit `0`. Nothing in a
+workspace needs migrating, and no revision changes status.
+
+## v0.24.0-beta.1 — 2026-09-06
+
+**What this beta is.** The tree at `20c2dba`, cut as a beta for hands-on
+testing before deciding whether it releases. It carries none of the ten commits
+that followed it on `release-v0.23.0` (measurement retention, `edges` /
+`boundary`, the `colors` fix, the typography specimen fix, the convergence
+changes); those stay on that branch and are not part of this build. The
+six-run benchmark behind the choice makes no performance claim in either
+direction.
+
+
+**Why update.** Correctness and observability, not speed. **This release makes
+no claim to reduce tokens** — see the note at the end of this entry, which says
+plainly what four real runs did and did not establish.
+
+It starts with a measurement rather than an assumption. `run-metrics phases`
+splits a real run's transcript by phase, and on the recorded create runs the
+answer was not where anyone was looking: the three-agent discovery fan-out was
+**3.0% and 0.0%** of cache-read, while authoring-plus-loop was **84% and 96%**.
+The cause is context lifetime, not agent count — the coordinator's conversation
+reached 266k and 197k tokens by the discovery/authoring boundary, never came
+down, and was re-read by every one of the 218–382 requests that followed.
+
+So phase 2 now ends by writing `handoff.json`: the five artifact paths, their
+sha256s, and that the authoring barrier was clear; and phase 3 opens by spawning
+one `Agent` to author from those paths alone. `handoff.mjs status` reports
+`written`, `requested` and `TAKEN` as three separate answers, because a handoff
+existing has never been evidence that a fresh context was used.
+
+Nothing in your workspace needs migrating. Two things change in a run: a
+discovery worker commits its artifact through `write-artifact.mjs` instead of
+writing the canonical path (a `Write` guard refuses the direct write, the way
+the Bash guard already refuses reading a template through `cat`), and phase 2
+has one more command at the end of it.
+
+### Added
+
+- **`scripts/write-artifact.mjs`** — stage, validate, rename. A canonical
+  discovery artifact is written to a sibling temp file, checked against its
+  schema, and only then renamed into place, so the canonical path holds either
+  the previous complete artifact or the new one and never half of either. The
+  join stays semantic: `check-analysis` still catches the schema-valid artifact
+  that disagrees with another one, the required artifact nobody wrote, and the
+  requested icon the manifest has no record of — none of which file atomicity
+  can see, and none of which is delegated to a model.
+- **`scripts/handoff.mjs`** — `write` records the discovery/authoring boundary
+  once the authoring barrier is clear, `show` prints it, `verify` re-hashes and
+  exits 1 naming the artifact that has changed or gone. Paths and hashes only,
+  never contents: copying an artifact in would put the same document in context
+  twice and give the run a second thing that can disagree with the first. A red
+  barrier writes nothing — there is no handoff that says "not validated",
+  because a next phase reading one would have to decide what to do about it.
+- **`run-metrics phases`** — per-phase requests, input/output/cache-read/write,
+  tool calls, context growth and wall clock, with the discovery workers
+  attributed by name from the transcripts the host writes for them. It reports
+  how it segmented the run (a recorded handoff timestamp where there is one,
+  the marker tools `config/pipeline.json` declares otherwise), and where a host
+  reports no usage it omits the table rather than printing zeros.
+- **`check-analysis --contract geometry|content|assets`** — a discovery
+  worker's input contract, printed for pasting into its prompt: what it reads,
+  what it may query, the artifact it owns, the command that says it is done.
+  Declared once in `config/pipeline.json` instead of written out three times in
+  a skill page, which is how a recorded run's content worker — whose job is
+  pulling strings out of a picture — came to be handed 4.7k tokens of Java
+  authoring rules and re-read them on every one of its own turns.
+- **`scripts/hooks/guard-artifact-write.mjs`** — a `PreToolUse` guard on
+  `Write` that refuses replacing a canonical artifact in place and names
+  `write-artifact.mjs` instead. `Edit` is deliberately untouched: it is a
+  targeted change during the loop, where there is one writer and no concurrent
+  reader, and forcing it through a whole-file rewrite would cost more output
+  tokens than the race costs anything. `GRAPHCOMPOSE_GUARD=off` bypasses it.
+- **`replaceFileAtomic` / `stageAndCommit`** in `scripts/lib/atomic-write.mjs`,
+  beside the existing forgiving `writeFileAtomic`. The difference is what
+  happens when the rename cannot be made: a workspace record falls back to an
+  in-place write, and a canonical artifact must not — that fallback is the
+  truncation window the rename exists to close. Windows refuses `rename` over a
+  file another process has open (`EPERM`), so it is retried for about five
+  seconds and then reported, with the previous artifact intact.
+
+### Changed
+
+- **`config/pipeline.json`** declares `discovery.workers` (each worker's reads,
+  queryable tools, owned artifact and completion command) and
+  `discovery.boundary` (the context boundary, between `authoringBarrier` and
+  `templateCoder`, and the record that carries it). `pipeline-config.mjs`
+  validates both, and `pipeline-config.test.mjs` fails the build when two
+  workers claim one artifact, when a worker is handed a skill-pack page it does
+  not author with, or when the boundary's stages fall out of order in the chain.
+- **The create skill's phase 2 and 3 pages** say the contract is a command to
+  run rather than prose to copy, that workers commit through
+  `write-artifact.mjs`, and that phase 3 begins at the handoff. The phase table
+  in `create-template/SKILL.md` names the boundary and says plainly that phases
+  3 and 4 do *not* have one.
+- **The telemetry providers** now report each request's context size and its
+  tool calls, which is what makes per-phase attribution possible; Gemini's
+  `input` already includes its cached share, so it is used as-is rather than
+  re-summed.
+
+### The boundary, after four runs: MECHANISM PROVEN, BENEFIT UNPROVEN
+
+A fifth run crossed it. `create-3-author.md` now names the host action the way
+the fan-out page does — `handoff.mjs request --mechanism Agent`, then exactly
+one `Agent` whose prompt is the author's contract and the `claim` command — and
+the boundary fired: four agents, the coordinator did not author, and context
+dropped **211.2k -> 43.8k, 167.4k released**, claimed by `author` from the far
+side. The run converged to READY with no CRITICAL or MAJOR mismatch.
+
+Three defects that run exposed are fixed here:
+
+- **A crossing survived only until the next `write`.** The loop rewrote the
+  handoff mid-run, erased the boundary block, and `status` then reported
+  `TAKEN: NO` on a run where a second context demonstrably authored the
+  template — the exact confusion the state machine exists to prevent, arriving
+  from the other side. Crossings are now append-only (`boundary.crossings[]`,
+  keyed by a fingerprint of the artifact hashes), so a rewrite ends the current
+  generation without forgetting that a crossing happened.
+- **The fresh context did not stay fresh.** It opened at 43.8k and reached
+  333.7k in 131 requests, beginning with `cat` of the whole `authoring-rules.md`,
+  then whole pack pages, then a harness source file, then another project's
+  revision. `check-analysis --contract author` now states what it reads, which
+  narrow tools answer its questions, and what not to load by default — with
+  `handoff.mjs escalate --read <path> --because <why>` as a recorded way out,
+  because a rule with no escape hatch is a rule that gets ignored.
+- **The iteration bound was advisory.** A run reached 10 autonomous passes
+  against a limit of 8 and was told so afterwards, two full compile/render/diff
+  cycles later. `pass.mjs --open` now checks `remaining.iterations` before it
+  creates anything and exits 4 without opening a revision or rendering.
+  Human-directed passes (`--report`) and granted extensions are unaffected.
+
+### What four real runs established, and what they did not
+
+**Established.** The handoff is written correctly, verifies, and is sufficient:
+its five paths are everything authoring reads. Atomic commits held under real
+concurrency (three workers, zero direct writes to a canonical path, the `Write`
+guard firing once and redirecting). Worker contracts, the barrier, asset
+resolution and render/review ordering all behaved. Both completed runs converged
+to READY with no CRITICAL or MAJOR mismatch, and neither self-approved.
+
+**Not established: any token saving.** A replay predicted 31-38%. Three runs
+wrote a correct handoff and then authored in the coordinator anyway - the page
+said authoring "may", then "must", run in a fresh context, and neither word gave
+a host anything to execute. Measured cache-read per post-boundary request:
+472.3k (baseline), 461.5k, 368.0k - and the boundary fired in none of them, so
+none of those numbers is attributable to it.
+
+**And a limit on what one run could ever show.** Two runs of the *same* code
+path differed by 47% in total cache-read (139.3M vs 74.02M). Run-to-run variance
+exceeds the effect being chased, so the benefit needs several paired runs, not
+one A/B. That measurement has not been made, and nothing here should be read as
+having made it.
+
+### Measured, and deliberately not built
+
+- **A discovery-artifact cache.** Across the 20-project real-run corpus, no two
+  projects share a reference: every duplicate hash is a project's own
+  `reference.png` and `source.png`, which the importer copies. Discovery also
+  already runs once per project rather than once per revision — 146 of 147
+  revisions carry a `visual-analysis.json` carried forward by `pass --open`. A
+  cache keyed on the reference would have had a 0% hit rate on everything
+  recorded, so there is nothing here to cache yet.
+- **A cheaper model for the leaf workers.** They are 3.0% of a run's
+  cache-read, so the whole envelope is a rounding error against the loop, and
+  the geometry worker's output is what every later stage addresses regions by.
+  Worth revisiting only after the loop's own cost moves.
+
 ## v0.23.0 — 2026-09-02
 
 **Why update.** If you are on 0.22.0, this release changes when the create loop

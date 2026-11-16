@@ -52,11 +52,13 @@ const repoRoot = installRoot();
 
 function usage(code = 0) {
   process.stdout.write(
-    "usage: node scripts/pass.mjs --project <id> --open \"<what this pass fixes>\" [--report \"<user's words>\"] [--report-id <id>]\n" +
+    "usage: node scripts/pass.mjs --project <id> --open \"<what this pass fixes>\" [--revision <id>]\n" +
+      "                             [--report \"<user's words>\"] [--report-id <id>]\n" +
       "       node scripts/pass.mjs --project <id> [--revision <id>] [--against parent|reference] [--skip-render] [--json]\n\n" +
       "  --open <message>   open the next revision (sources carried forward) and print what this pass is aimed at\n" +
       "  --report <quote>   with --open: the user's own words naming a difference (kept in front until addressed)\n" +
-      "  --revision <id>    the revision to render (default: the project's current draft)\n" +
+      "  --revision <id>    the revision to render; with --open, the revision to branch from\n" +
+      "                     instead of the current draft — how you go back to a better one\n" +
       "  --against          reference (default) or parent — the scope's gate decides\n" +
       "  --skip-render      measure the existing render only\n" +
       "  --debug            also render the debug PDF with guide lines (current-debug.pdf); off by default\n" +
@@ -141,6 +143,45 @@ if (!project) {
 
 if (args.open) {
   const parentId = args.revision ?? project.currentDraftRevisionId ?? project.currentApprovedRevisionId ?? null;
+
+  // The budget is checked BEFORE anything is created.
+  //
+  // It used to be checked after, by iterate-status, which meant the bound only
+  // bound an agent that remembered to ask. A real run reached iteration 10
+  // against a limit of 8 and was told so afterwards — two passes of compiling,
+  // rendering and diffing already spent. A limit that is enforced only on
+  // request is a suggestion with a number in it.
+  //
+  // `--report` carries the user's own words, so it is a human-directed pass and
+  // keeps its exemption: a person asking for a change is not the runaway this
+  // guards against. Grants are honoured too, because the verdict below already
+  // accounts for them rather than this re-deriving the arithmetic.
+  if (parentId && !args.report) {
+    const budget = iterateStatus(parentId);
+    // `remaining.iterations` and not the verdict: once the newest revision has a
+    // review the verdict can read READY while the budget is long gone, which is
+    // precisely the state the over-running run ended in — 10 agent passes
+    // against a limit of 8, verdict READY, failureCategory null. The count is
+    // the fact; the verdict is a judgement about the newest render.
+    //
+    // It is also already the right number: iteration-status derives it from
+    // `agentIterations`, so human-directed passes never consume it and a
+    // granted extension has already been added.
+    const left = budget?.remaining?.iterations;
+    if (Number.isFinite(left) && left <= 0) {
+      const line = `${budget.agentIterations ?? budget.iterations}/${budget.limits?.maxIterations ?? "?"}`;
+      process.stderr.write(
+        `[pass] CONVERGENCE_LIMIT_REACHED — ${args.project} has spent its iteration budget (${line}).\n` +
+          "       No revision opened, nothing rendered.\n\n" +
+          "       This is the end of the autonomous loop, not a failure of it. Report the\n" +
+          "       current state to the user and wait; do not approve on their behalf.\n\n" +
+          `       A change the user asks for is not bound by this: re-run with --report "<their words>".\n` +
+          `       node scripts/iterate-status.mjs ${args.project} explains the budget in full.\n`,
+      );
+      process.exit(4);
+    }
+  }
+
   const cliArgs = ["new-revision", args.open, "--project", projectDir];
   if (args.revision) cliArgs.push("--base", args.revision);
   if (args.report) cliArgs.push("--report", args.report);

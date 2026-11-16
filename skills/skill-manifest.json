@@ -5,14 +5,79 @@
     "1.6.x",
     "1.7.x",
     "1.9.x",
-    "2.2.x"
+    "2.2.x",
+    "2.3.x",
+    "2.4.x"
   ],
-  "defaultGraphComposeVersion": "2.2.x",
+  "defaultGraphComposeVersion": "2.4.x",
   "skills": [
     {
+      "id": "graphcompose-2-4-whats-new",
+      "file": "versions/graphcompose-2.4/whats-new-in-2-4.md",
+      "verifiedAgainst": "2.4.0",
+      "status": "active",
+      "topics": [
+        "always",
+        "delta",
+        "version-migration"
+      ]
+    },
+    {
+      "id": "graphcompose-timeline-and-rails",
+      "file": "versions/graphcompose-2.4/timeline-and-rails.md",
+      "verifiedAgainst": "2.4.0",
+      "status": "active",
+      "topics": [
+        "timeline",
+        "dated-history",
+        "layout"
+      ]
+    },
+    {
+      "id": "graphcompose-page-zones-and-chrome",
+      "file": "versions/graphcompose-2.4/page-zones-and-chrome.md",
+      "verifiedAgainst": "2.4.0",
+      "status": "active",
+      "topics": [
+        "chrome",
+        "pagination",
+        "page-furniture"
+      ]
+    },
+    {
+      "id": "graphcompose-flow-width-and-sizing",
+      "file": "versions/graphcompose-2.4/flow-width-and-sizing.md",
+      "verifiedAgainst": "2.4.0",
+      "status": "active",
+      "topics": [
+        "layout",
+        "sizing"
+      ]
+    },
+    {
+      "id": "graphcompose-typography-2-4",
+      "file": "versions/graphcompose-2.4/typography-2-4.md",
+      "verifiedAgainst": "2.4.0",
+      "status": "active",
+      "topics": [
+        "typography",
+        "letter-spacing"
+      ]
+    },
+    {
+      "id": "graphcompose-lists-and-inline-2-4",
+      "file": "versions/graphcompose-2.4/lists-and-inline-2-4.md",
+      "verifiedAgainst": "2.4.0",
+      "status": "active",
+      "topics": [
+        "lists",
+        "inline-text"
+      ]
+    },
+    {
       "id": "graphcompose-loading-map",
-      "file": "versions/graphcompose-2.2/00-loading-map.md",
-      "verifiedAgainst": "2.2.0",
+      "file": "versions/graphcompose-2.4/00-loading-map.md",
+      "verifiedAgainst": "2.4.0",
       "status": "active",
       "topics": [
         "always",
@@ -22,8 +87,8 @@
     },
     {
       "id": "graphcompose-api-surface",
-      "file": "versions/graphcompose-2.2/00-api-surface.md",
-      "verifiedAgainst": "2.2.0",
+      "file": "versions/graphcompose-2.4/api/authoring.md",
+      "verifiedAgainst": "2.4.0",
       "status": "active",
       "topics": [
         "always",

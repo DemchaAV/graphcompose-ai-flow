@@ -6,10 +6,16 @@
  *   node scripts/telemetry/run-metrics.mjs report  [--project <id>] [--json] [--status <verdict>]
  *   node scripts/telemetry/run-metrics.mjs finish  [--project <id>]
  *   node scripts/telemetry/run-metrics.mjs cycles  [--json]
+ *   node scripts/telemetry/run-metrics.mjs phases  [--project <id>] [--json]
  *
  * `start` marks where a workflow began. `report` prints the block a workflow
  * shows at a handoff. `finish` archives the run into the project so dozens of
  * runs can be compared later, not just the one still in front of you.
+ *
+ * `phases` splits the same transcript by phase — setup, discovery, authoring,
+ * loop — with the three discovery workers attributed by name. `report` answers
+ * "what did this cost"; only `phases` answers "which part of it", which is the
+ * question that has to be answered before anything is changed. See phases.mjs.
  *
  * The session id comes from the host, so this is only meaningful inside a
  * session whose hooks have been running. Outside one — a plain shell, a host
@@ -27,18 +33,24 @@ import {
   addUsage,
   elapsed,
   emptyUsage,
+  formatDuration,
   formatReport,
+  formatTokens,
   latestRevision,
   processedTokens,
   projectCounters,
   readState,
   writeState,
 } from "./core.mjs";
+import { artifactSizes, foldByPhase, phaseMarkers, renderTiming, resolveMarks, workerNameOf } from "./phases.mjs";
 import { workspaceBaseline } from "./baseline.mjs";
 import { provider as claudeCode } from "./providers/claude-code.mjs";
 import { provider as gemini } from "./providers/gemini.mjs";
-import { describeWorkspaceLine, projectDir as workspaceProjectDir, resolveWorkspace } from "../lib/workspace.mjs";
+import { describeWorkspaceLine, installRoot, projectDir as workspaceProjectDir, resolveWorkspace } from "../lib/workspace.mjs";
+import { loadPipelineConfig } from "../lib/pipeline-config.mjs";
 import { compareLines } from "../lib/version-resolver.mjs";
+import { packSymbols } from "../lib/pack-surface.mjs";
+import { startRun } from "../lib/run-telemetry.mjs";
 
 function usage(code = 0) {
   process.stdout.write(
@@ -47,6 +59,7 @@ function usage(code = 0) {
       "  report  [--project <id>] [--json] [--status <verdict>]\n" +
       "  finish  [--project <id>]                     archive the run into the project\n" +
       "  cycles  [--json]                             per-cycle breakdown for this session\n" +
+      "  phases  [--project <id>] [--json]            per-phase tokens, tool calls, context growth\n" +
       "  baseline [--json] [--root <dir>]             recount the corpus; needs no session\n\n" +
       "  --session <id>   override the host session id (default: $CLAUDE_CODE_SESSION_ID, then the newest session on record)\n" +
       "  --root <dir>     workspace override\n",
@@ -136,6 +149,17 @@ if (command === "start") {
     runProject: args.project,
     runWorkflow: args.workflow ?? null,
   });
+  // The same command opens the phase run, so a second template in one session
+  // does not extend the first one's clock. It is deliberately the only place
+  // that resets it: every other caller joins whatever run is current, because
+  // discovery, authoring and the loop are separate processes and none of them
+  // can know it is the first.
+  try {
+    const workspace = resolveWorkspace({ explicitRoot: args.root ?? null });
+    startRun(workspaceProjectDir(workspace, args.project));
+  } catch {
+    /* never load-bearing */
+  }
   process.stdout.write(`[telemetry] run started for ${args.project}\n`);
   process.exit(0);
 }
@@ -147,6 +171,16 @@ if (command === "report" || command === "finish") {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   } else {
     process.stdout.write(`${formatReport(report)}\n`);
+  }
+  process.exit(0);
+}
+
+if (command === "phases") {
+  const report = buildPhaseReport();
+  if (args.json) {
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+  } else {
+    process.stdout.write(`${formatPhaseReport(report)}\n`);
   }
   process.exit(0);
 }
@@ -231,11 +265,250 @@ function buildReport() {
       usage: usageBetween(null, null),
     },
     subagents: state.subagents ?? 0,
+    subagentTranscripts: transcriptHealth(),
     counters,
     // Said plainly because a figure that looks final and is not would be worse
     // than no figure: the host writes its transcript asynchronously, so the
     // response being composed right now is not in these numbers yet.
     note: "Usage is as far as the transcript has been written; the current response is not counted yet.",
+    // A second, separate incompleteness, and a worse one: the first is a few
+    // seconds behind, this one is missing whole agents. Said in the payload so
+    // a reader of the JSON sees it without reading the prose.
+    incomplete: transcriptHealth().missing > 0 || transcriptHealth().unrecorded > 0,
+  };
+}
+
+/**
+ * Per-phase attribution for the current run.
+ *
+ * Everything here degrades to null rather than to zero. A phase table produced
+ * from a transcript with no usage in it would be a plausible-looking answer to
+ * a question the host cannot answer, and the whole point of splitting the run
+ * this way is to make it possible to be wrong about which phase is expensive.
+ */
+function buildPhaseReport() {
+  const projectId = args.project ?? state.runProject ?? null;
+  const runStartedAt = state.runStartedAt ?? (state.cycles ?? [])[0]?.startedAt ?? null;
+
+  let projectPaths = null;
+  try {
+    const workspace = resolveWorkspace({ explicitRoot: args.root ?? null });
+    if (projectId) {
+      const dir = workspaceProjectDir(workspace, projectId);
+      if (fs.existsSync(dir)) {
+        const revision = latestRevision(dir);
+        projectPaths = { dir, revisionDir: revision ? path.join(dir, "revisions", revision) : null, revision };
+      }
+    }
+  } catch {
+    /* a bad project id costs the caller its artifact sizes, not its tokens */
+  }
+
+  const events = eventsOf(state.transcriptPath).filter((e) => {
+    if (!runStartedAt || e.atMs === null) return true;
+    return e.atMs >= Date.parse(runStartedAt);
+  });
+
+  let config = null;
+  try {
+    config = loadPipelineConfig({ repoRoot: installRoot() });
+  } catch {
+    /* the markers have defaults; a broken config should not cost a report */
+  }
+
+  // A recorded handoff is an exact boundary, so it wins over the inferred one.
+  const recorded = [];
+  if (projectPaths?.revisionDir) {
+    try {
+      const handoff = JSON.parse(fs.readFileSync(path.join(projectPaths.revisionDir, "handoff.json"), "utf8"));
+      if (handoff.validatedAt && handoff.nextPhase) {
+        recorded.push({ phase: handoff.nextPhase, atMs: Date.parse(handoff.validatedAt) });
+      }
+    } catch {
+      /* no handoff, so the marker tools stand alone */
+    }
+  }
+  const { marks, source: markSource } = resolveMarks(events, phaseMarkers(config), recorded);
+
+  const hasUsage = events.some((e) => processedTokens(e.usage) > 0);
+  const phases = hasUsage ? foldByPhase(events, marks) : null;
+
+  // Workers are attributed by the name the host put in their transcript file.
+  // An unnamed subagent transcript is reported under "(unnamed)" rather than
+  // being folded into the coordinator, where it would look like main-thread cost.
+  const workers = [];
+  // A transcript that cannot be read is not the same as an agent that did no
+  // work, and skipping it quietly made the two identical. It is listed instead,
+  // so a worker table that is missing a row says which row and why.
+  const unreadableWorkers = [];
+  for (const extra of state.subagentTranscripts ?? []) {
+    const workerEvents = eventsOf(extra);
+    if (workerEvents.length === 0) {
+      unreadableWorkers.push({
+        worker: workerNameOf(extra) ?? "(unnamed)",
+        transcript: extra,
+        reason: fs.existsSync(extra) ? "no usage recorded" : "transcript no longer on disk",
+      });
+      continue;
+    }
+    const folded = provider.foldEvents(workerEvents, { since: runStartedAt, until: null });
+    workers.push({
+      worker: workerNameOf(extra) ?? "(unnamed)",
+      transcript: extra,
+      requests: folded.usage.requests,
+      usage: folded.usage,
+      processedTokens: processedTokens(folded.usage),
+      toolCalls: workerEvents.reduce((a, e) => a + (e.tools?.length ?? 0), 0),
+      durationMs:
+        folded.firstAt && folded.lastAt ? Date.parse(folded.lastAt) - Date.parse(folded.firstAt) : null,
+    });
+  }
+
+  const coordinator = hasUsage
+    ? provider.foldEvents(events, { since: null, until: null, includeSidechains: true }).usage
+    : null;
+
+  return {
+    sessionId,
+    project: projectId,
+    revision: projectPaths?.revision ?? null,
+    provider: provider.name,
+    runStartedAt,
+    markSource,
+    // Said plainly: a null is "the host did not tell us", not "it was free".
+    tokenTelemetry: hasUsage ? "available" : "unavailable — this host's transcript carries no usage",
+    coordinator: coordinator
+      ? { requests: coordinator.requests, usage: coordinator, processedTokens: processedTokens(coordinator) }
+      : null,
+    phases,
+    workers,
+    unreadableWorkers,
+    artifacts: projectPaths?.revisionDir ? artifactSizes(projectPaths.revisionDir) : null,
+    render: projectPaths?.dir ? renderTiming(projectPaths.dir) : null,
+  };
+}
+
+function formatPhaseReport(report) {
+  const lines = [`Phase metrics — ${report.project ?? "(no project)"}${report.revision ? ` / ${report.revision}` : ""}`];
+  lines.push(`  segmentation: ${report.markSource}`);
+
+  if (!report.phases) {
+    lines.push("", `  ${report.tokenTelemetry}`);
+    lines.push("  Phase token figures are omitted rather than reported as zero.");
+  } else {
+    lines.push("", "  phase        reqs   output   cache-read   share   tools   ctx grown    wall");
+    for (const p of report.phases) {
+      lines.push(
+        `  ${p.phase.padEnd(12)}${String(p.requests).padStart(4)}` +
+          `${formatTokens(p.usage.outputTokens).padStart(9)}` +
+          `${formatTokens(p.usage.cacheReadTokens).padStart(13)}` +
+          `${(p.shareOfCacheRead === null ? "-" : `${(p.shareOfCacheRead * 100).toFixed(1)}%`).padStart(8)}` +
+          `${String(p.toolCalls).padStart(8)}` +
+          `${(p.contextGrowth === null ? "-" : `+${formatTokens(p.contextGrowth)}`).padStart(12)}` +
+          `${formatDuration(p.durationMs).padStart(8)}`,
+      );
+    }
+    // A request that came back with no usage is a request and not a
+    // measurement — an API error, a usage limit, a cancelled turn. Said out
+    // loud, because a run that was cut short should not read like a complete one.
+    const unmeasured = report.phases.reduce((a, p) => a + (p.unmeasured ?? 0), 0);
+    if (unmeasured > 0) {
+      lines.push(
+        "",
+        `  ${unmeasured} request(s) returned no usage — an error, a usage limit or a cancelled turn.`,
+        "  They are counted as requests and excluded from the context figures.",
+      );
+    }
+  }
+
+  if (report.workers.length > 0) {
+    lines.push("", "  worker        reqs   output   cache-read   tools    wall");
+    for (const w of report.workers) {
+      lines.push(
+        `  ${w.worker.padEnd(13)}${String(w.requests).padStart(4)}` +
+          `${formatTokens(w.usage.outputTokens).padStart(9)}` +
+          `${formatTokens(w.usage.cacheReadTokens).padStart(13)}` +
+          `${String(w.toolCalls).padStart(8)}` +
+          `${formatDuration(w.durationMs).padStart(8)}`,
+      );
+    }
+    if (report.unreadableWorkers?.length) {
+      // Grouped, because twenty-one identical rows is noise and the count is
+      // the fact. A named one is listed, since a name is a lead worth having.
+      const byReason = new Map();
+      for (const w of report.unreadableWorkers) {
+        const named = byReason.get(w.reason) ?? { count: 0, names: [] };
+        named.count += 1;
+        if (w.worker !== "(unnamed)") named.names.push(w.worker);
+        byReason.set(w.reason, named);
+      }
+      lines.push("");
+      for (const [reason, { count, names }] of byReason) {
+        const who = names.length > 0 ? ` (${names.join(", ")})` : "";
+        lines.push(`  ${count} worker(s) missing from this table: ${reason}${who}.`);
+      }
+      lines.push("  Their tokens are in no row above and in no total below.");
+    }
+    if (report.coordinator) {
+      const workerRead = report.workers.reduce((a, w) => a + w.usage.cacheReadTokens, 0);
+      const all = report.coordinator.usage.cacheReadTokens + workerRead;
+      if (all > 0) {
+        lines.push(
+          "",
+          `  workers are ${((workerRead / all) * 100).toFixed(1)}% of this run's cache-read ` +
+            `(${formatTokens(workerRead)} of ${formatTokens(all)})`,
+        );
+      }
+    }
+  }
+
+  if (report.artifacts) {
+    const written = Object.entries(report.artifacts).filter(([, size]) => size !== null);
+    if (written.length > 0) {
+      lines.push("", `  artifacts: ${written.map(([n, s]) => `${n} ${(s / 1024).toFixed(1)}KB`).join(" · ")}`);
+    }
+  }
+  if (report.render) {
+    const ttf = report.render.timeToFirstRenderMs;
+    lines.push(
+      "",
+      `  renders: ${report.render.renders} · time to first render: ${ttf === null ? "not recorded" : formatDuration(ttf)}`,
+    );
+  }
+  return lines.join("\n");
+}
+
+/**
+ * How much of the subagent usage this report could actually see.
+ *
+ * Two ways a subagent's cost goes missing, and neither used to say anything.
+ * `SubagentStop` records the transcript path, so an agent whose stop hook never
+ * fired is never recorded at all — `subagents` counts the stops and the path
+ * list is shorter. And a path that WAS recorded can be gone by the time a
+ * report is written: the host cleans agent transcripts up, `eventsOf` returns
+ * an empty array for a file that is not there, and an empty array adds zero.
+ *
+ * Zero is indistinguishable from "this agent was free", which is how a run
+ * reported four-fifths of its true cost and looked complete doing it. So the
+ * counts travel with the numbers they qualify.
+ *
+ * @returns {{recorded: number, readable: number, missing: number, stops: number, unrecorded: number}}
+ */
+function transcriptHealth() {
+  const recorded = state.subagentTranscripts ?? [];
+  let readable = 0;
+  let missing = 0;
+  for (const transcript of recorded) {
+    if (eventsOf(transcript).length > 0) readable += 1;
+    else missing += 1;
+  }
+  const stops = state.subagents ?? 0;
+  return {
+    recorded: recorded.length,
+    readable,
+    missing,
+    stops,
+    unrecorded: Math.max(0, stops - recorded.length),
   };
 }
 
@@ -262,17 +535,18 @@ function runBaseline() {
 
   // The manual-construction rule in the lint is gated on the pinned pack, so the
   // count depends on which pack is read. An unreadable one yields an empty set,
-  // which makes that rule silent rather than wrong.
+  // which makes that rule silent rather than wrong — and reading one layout of
+  // three made it silent for every bundle-imported line, which is why the
+  // reading is delegated rather than repeated here.
   let primitives = new Set();
   try {
+    const versionsDir = path.join(repoRoot, "skills", "versions");
     const packs = fs
-      .readdirSync(path.join(repoRoot, "skills", "versions"), { withFileTypes: true })
+      .readdirSync(versionsDir, { withFileTypes: true })
       .filter((e) => e.isDirectory() && e.name.startsWith("graphcompose-"))
       .map((e) => e.name)
       .sort((a, b) => compareLines(a.slice(13), b.slice(13)));
-    const surface = path.join(repoRoot, "skills", "versions", packs[packs.length - 1], "00-api-surface.md");
-    const source = fs.readFileSync(surface, "utf8");
-    primitives = new Set([...source.matchAll(/^- `[^`]*?\b(\w+)\s*\(/gm)].map((m) => m[1]));
+    primitives = packSymbols(path.join(versionsDir, packs[packs.length - 1])) ?? new Set();
   } catch {
     /* telemetry never fails the work it measures */
   }

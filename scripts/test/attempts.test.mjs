@@ -137,3 +137,67 @@ test("a --skip-render re-measure is recorded as not rendered and not counted as 
   assert.equal(summary.renders, 0);
   assert.equal(readAttempts(dir)[0].rendered, false);
 });
+
+// ------------------------------------------- leaving your own best behind ---
+//
+// Stalling is "not moving". This is the other way a sweep fails, and the corpus
+// produced it while nothing named it. One revision went
+// 17.60 → 15.06 → 14.87 → 15.54 → 15.49 → 15.74: its best was the third of six
+// renders, and the three after it were all worse. `render-and-diff` printed the
+// whole trail on every one of them and the run kept going the same way.
+
+/** The real trail, as a summary — no files, so the numbers are the numbers. */
+const summaryOf = (trail) =>
+  describeAttempts(
+    trail.map((percent, i) => ({
+      percent,
+      rendered: true,
+      moved: i === 0 ? null : percent - trail[i - 1],
+      sources: { fingerprint: `f${i}` },
+    })),
+    0.25,
+  );
+
+const REAL_TRAIL = [17.6, 15.061, 14.866, 15.538, 15.489, 15.737];
+
+test("THE CASE: a sweep two renders past its own best is reported as regressed", () => {
+  const summary = summaryOf(REAL_TRAIL);
+
+  assert.equal(summary.regressed, true);
+  assert.equal(summary.best, 14.866);
+  assert.equal(summary.bestAt, 3, "the render to go back to, not an index");
+  assert.equal(summary.worseThanBest, 0.871);
+});
+
+test("it fires one render before that run ended, and not before it can", () => {
+  // Three renders: the best is the last, nothing to regress from.
+  assert.equal(summaryOf(REAL_TRAIL.slice(0, 3)).regressed, false);
+  // Four: one render past the best is a sweep exploring, not a sweep retreating.
+  assert.equal(summaryOf(REAL_TRAIL.slice(0, 4)).regressed, false);
+  // Five: two past it, both materially worse.
+  assert.equal(summaryOf(REAL_TRAIL.slice(0, 5)).regressed, true);
+});
+
+test("coming back to the best is not a regression", () => {
+  assert.equal(summaryOf([17.6, 15.0, 16.2, 15.0]).regressed, false);
+});
+
+test("a sweep that keeps improving is never regressed", () => {
+  const summary = summaryOf([17.6, 15.0, 14.2, 13.1]);
+  assert.equal(summary.regressed, false);
+  assert.equal(summary.bestAt, 4);
+  assert.equal(summary.worseThanBest, 0);
+});
+
+test("drifting inside the material threshold is a plateau, not a retreat", () => {
+  // Both after the best, neither by enough to matter: that is `stalled`'s
+  // business, and calling it a regression would send a reader back to a render
+  // indistinguishable from the one they have.
+  assert.equal(summaryOf([15.0, 14.8, 14.9, 14.95]).regressed, false);
+});
+
+test("two renders cannot say either way", () => {
+  const summary = summaryOf([17.6, 18.9]);
+  assert.equal(summary.regressed, false);
+  assert.equal(summary.best, 17.6);
+});

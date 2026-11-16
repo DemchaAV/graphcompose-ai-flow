@@ -254,9 +254,39 @@ function renderVisualAnalysis(a) {
     (a.anchors ?? []).map((x) => [x.element, x.relatedTo, x.relationship, code(x.region)]),
   )));
 
+  // The measurements sit beside the prose, not behind it. A reviewer comparing
+  // this table to the reference is checking numbers — a radius ratio, whether
+  // the box is filled, whether it spans its parent — and rendering only the
+  // three text columns is how "rounded capsule shape" read as a description of
+  // a box measuring 0.09.
   out.push(...section("Shape ownership", table(
-    ["container", "owned content", "relationship"],
-    (a.shapeOwnership ?? []).map((x) => [x.container, list(x.ownedContent), x.relationship]),
+    ["container", "owned content", "shape", "radius", "sizing", "fill", "stroke", "pad / gap", "align", "×", "relationship"],
+    (a.shapeOwnership ?? []).map((x) => [
+      x.container,
+      list(x.ownedContent),
+      x.shape ?? "—",
+      x.cornerRadiusRatio === undefined ? "—" : String(x.cornerRadiusRatio),
+      x.sizing ?? "—",
+      paint(x.fill, x.fill?.color),
+      paint(x.stroke, x.stroke?.color, x.stroke?.widthRatio),
+      insets(x.padding, x.gap),
+      x.contentAlign ? `${x.contentAlign.horizontal ?? "—"}/${x.contentAlign.vertical ?? "—"}` : "—",
+      x.repeats ? String(x.repeats) : "—",
+      x.relationship,
+    ]),
+  )));
+
+  out.push(...section("Icons", table(
+    ["icon", "region", "× text", "align", "gap", "placement", "notes"],
+    (a.icons ?? []).map((i) => [
+      code(i.id),
+      code(i.region),
+      i.sizeRelativeToText === undefined ? "—" : `${i.sizeRelativeToText}×`,
+      i.verticalAlign ?? "—",
+      i.gapToText === undefined ? "—" : String(i.gapToText),
+      i.inline === undefined ? "—" : i.inline ? "inline" : "own child",
+      i.notes ?? "",
+    ]),
   )));
 
   if (a.typography) out.push(...section("Typography", keyValues(a.typography)));
@@ -461,6 +491,28 @@ function cell(value) {
 
 function code(value) {
   return value === undefined || value === null || value === "" ? "" : `\`${value}\``;
+}
+
+/**
+ * A fill or a stroke as one cell. "none" is written out rather than left blank,
+ * because absent paint is a decision — a container showing the ground through
+ * it — and a blank cell reads as an unanswered question.
+ */
+function paint(spec, color, widthRatio) {
+  if (!spec || typeof spec.present !== "boolean") return "—";
+  if (!spec.present) return "none";
+  const parts = [color ?? "yes"];
+  if (widthRatio !== undefined) parts.push(`w ${widthRatio}`);
+  return parts.join(" ");
+}
+
+/** Padding as t/r/b/l with the gap after it, both in container-side fractions. */
+function insets(padding, gap) {
+  const pad = padding
+    ? [padding.top, padding.right, padding.bottom, padding.left].map((v) => (v === undefined ? "—" : v)).join("/")
+    : null;
+  const both = [pad, gap === undefined ? null : `gap ${gap}`].filter(Boolean);
+  return both.length > 0 ? both.join("  ") : "—";
 }
 
 function list(value) {

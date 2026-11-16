@@ -19,10 +19,13 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { loadPipelineConfig } from "../lib/pipeline-config.mjs";
+import { ready, schemaValidator } from "../lib/schema-validator.mjs";
 import {
   computeIterationStatus,
+  focusAimedAt,
   IterationStatusError,
   measurementEvidence,
+  chainRegression,
 } from "../lib/iteration-status.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -66,6 +69,10 @@ function projectWith(passes, label = "loop") {
       artifacts: { userRequest: "user-request.md" },
       schemaVersion: 1,
     };
+    // A revision may name its own parent, which is how a retreat is spelled:
+    // `pass --open --revision <best>` branches off an older revision rather
+    // than the newest one.
+    if (pass.parent !== undefined) revision.parentRevisionId = pass.parent;
     if (pass.failure) revision.failure = pass.failure;
     fs.writeFileSync(path.join(revDir, "revision.json"), JSON.stringify(revision, null, 2));
 
@@ -76,7 +83,9 @@ function projectWith(passes, label = "loop") {
         mismatches: pass.mismatch
           ? [{
               id: pass.mismatch,
-              severity: "MAJOR",
+              // MAJOR unless the case is about severity itself: the
+              // blocking count an extension is granted on reads this.
+              severity: pass.severity ?? "MAJOR",
               reason: "differs",
               action: "fix it",
               ...(pass.rootCause ? { rootCause: pass.rootCause } : {}),
@@ -666,17 +675,25 @@ test("a quoted pixel count that disagrees with the measured one is not a measure
   assert.match(status.reasons.join("\n"), /211674/);
 });
 
+// The subject here is the claims audit — an honest quote is not downgraded —
+// and the fixture used to prove it with `classification: "CRITICAL"` and
+// `gate.passed: false` while asserting READY_FOR_APPROVAL. That is the defect
+// the fidelity veto exists to stop, so the test was passing on the strength of
+// it: the audit was not downgrading, and nothing else was looking. The fixture
+// is now internally honest (a MINOR page, a gate that passed, a quote that
+// matches) so the assertion turns on the audit and not on the absent veto. The
+// audit itself is unchanged; see the CRITICAL and MAJOR cases below.
 test("a quoted pixel count that matches the measured one passes", () => {
   const dir = projectWith([
     {
       ...REVIEW_READY,
-      stats: { mismatchPx: 211674, percent: 9.73, classification: "CRITICAL" },
+      stats: { mismatchPx: 9200, percent: 0.423, classification: "MINOR" },
       review: {
         gate: {
           kind: "visual-review",
-          passed: false,
-          metric: "diff: 211674 px (9.738%)",
-          pages: [{ page: 1, mismatchPixels: 211674 }],
+          passed: true,
+          metric: "diff: 9200 px (0.423%)",
+          pages: [{ page: 1, mismatchPixels: 9200 }],
         },
       },
     },
@@ -1216,4 +1233,748 @@ test("a harness focus written by render-and-diff outranks the review's, and the 
   assert.equal(status.focusSource, "page-parity");
   assert.equal(status.sameMismatchAttempts, 3, "three passes with the page model open are three attempts at it");
   assert.equal(status.verdict, "CONVERGENCE_LIMIT_REACHED");
+});
+
+// ---------------------------------------------------------------------------
+// Fidelity is binding: the comparator can refuse a verdict the review wrote.
+//
+// Every fixture below passes the checks that already existed — the revision is
+// sealed, it was measured, the review is present, and its claims agree with the
+// stats file — so what refuses them is the fidelity axis and nothing else.
+// ---------------------------------------------------------------------------
+
+/**
+ * The run this guard was written for, reproduced from its artifacts.
+ *
+ * TestHarness/graphcompose-flow/projects/nora-bennett-cv, revision-001, on
+ * harness 0.24.0-beta.1 with Gemini 3 Flash. The comparator measured 308095
+ * mismatched pixels (14.174% of the page, parityScore 43, ssim 0.4196) and
+ * classified it CRITICAL. The review quoted 308095 back correctly, labelled the
+ * four differences MINOR and INTENTIONAL_DIFFERENCE, wrote `gate.passed: true`
+ * and `verdict: READY_FOR_APPROVAL` — and the loop stopped after one pass and
+ * offered the template for approval.
+ *
+ * Nothing in that chain was a lie the audit could catch: the number is right,
+ * and severity is the review's to assign. The only thing that disagreed was the
+ * comparator, and nobody was reading it.
+ */
+test("the nora-bennett-cv run cannot reach READY: CRITICAL is binding", () => {
+  const dir = projectWith([
+    {
+      ...REVIEW_READY,
+      statsReferenceInside: true,
+      stats: {
+        width: 1240,
+        height: 1753,
+        totalPx: 2173720,
+        mismatchPx: 308095,
+        percent: 14.173628618221299,
+        parityScore: 43,
+        classification: "CRITICAL",
+        perceptual: { ssim: 0.4196, classification: "CRITICAL" },
+      },
+      review: {
+        pixelSimilaritySignal: 85.83,
+        gate: {
+          kind: "visual-review",
+          passed: true,
+          metric: "diff: 308095 px (14.174%) — visual-review",
+          pages: [{ page: 1, mismatchPixels: 308095, percentOfPage: 14.173628618221299 }],
+        },
+        mismatches: [
+          { id: "typography-antialiasing", severity: "MINOR", cause: "TYPOGRAPHY", reason: "aa", action: "keep" },
+          { id: "monogram-approximation", severity: "INTENTIONAL_DIFFERENCE", cause: "ASSET", reason: "as planned" },
+        ],
+      },
+    },
+  ], "nora-bennett-regression");
+
+  const status = statusOf(dir);
+  assert.notEqual(status.verdict, "READY_FOR_APPROVAL");
+  assert.equal(status.verdict, "REVISE");
+  assert.equal(status.parity.fidelity.level, "CRITICAL");
+  assert.equal(status.parity.fidelity.classification, "CRITICAL");
+  assert.equal(status.parity.fidelity.parityScore, 43);
+  assert.equal(status.parity.fidelity.ssim, 0.4196);
+  assert.ok(
+    status.reasons.some((r) => r.includes("CRITICAL classification is never")),
+    `the refusal must say why; got ${JSON.stringify(status.reasons)}`,
+  );
+  // And from the other side: this review relabelled a 14% page as MINOR and
+  // INTENTIONAL_DIFFERENCE, which is the move three later runs repeated.
+  assert.ok(
+    status.reasons.some((r) => r.includes("worst remaining mismatch is")),
+    `the relabel must be named too; got ${JSON.stringify(status.reasons)}`,
+  );
+});
+
+test("a MAJOR page that has stopped moving is a stall, not a finish", () => {
+  // Three passes carrying the same mismatch id, because movement needs two
+  // deltas and the first pass has nothing to be measured against. The severity
+  // is MINOR so the claims audit has nothing to say and the refusal is the
+  // fidelity axis's alone. The page moves 4.30% -> 4.20% -> 4.19%, both deltas
+  // under the 0.25 material move: STALLED movement, NEEDS_WORK fidelity — the
+  // loop has stopped without arriving.
+  const listed = (id) => ({
+    largestMismatch: id,
+    mismatches: [{ id, severity: "MINOR", cause: "GEOMETRY", reason: "differs", action: "nudge it" }],
+  });
+  const dir = projectWith([
+    { verdict: "REVISE", statsReferenceInside: true,
+      stats: { mismatchPx: 92000, percent: 4.30, classification: "MAJOR" },
+      review: listed("sidebar-width") },
+    { verdict: "REVISE", statsReferenceInside: true,
+      stats: { mismatchPx: 90000, percent: 4.20, classification: "MAJOR" },
+      review: listed("sidebar-width") },
+    { ...REVIEW_READY, statsReferenceInside: true,
+      stats: { mismatchPx: 89900, percent: 4.19, classification: "MAJOR" },
+      review: {
+        ...listed("sidebar-width"),
+        gate: { kind: "visual-review", passed: true, metric: "diff: 89900 px (4.190%)",
+                pages: [{ page: 1, mismatchPixels: 89900 }] },
+      } },
+  ], "major-stalled");
+
+  const status = statusOf(dir);
+  // The veto takes READY down to REVISE; the same-cause bound, which the third
+  // pass has now spent, takes REVISE on to CONVERGENCE_LIMIT_REACHED. That
+  // composition is the "stalled, needs a person" state: a document exists and
+  // the loop is out of ideas, which is neither success nor a blocked build.
+  assert.notEqual(status.verdict, "READY_FOR_APPROVAL");
+  assert.equal(status.verdict, "CONVERGENCE_LIMIT_REACHED");
+  assert.equal(status.parity.fidelity.level, "NEEDS_WORK");
+  assert.equal(status.parity.movement.level, "STALLED");
+  assert.ok(
+    status.reasons.some((r) => r.includes("stall, not a finish")),
+    `a converged bad result must be reported as a stall; got ${JSON.stringify(status.reasons)}`,
+  );
+});
+
+test("a MAJOR page still moving is told to keep going, not that it is ready", () => {
+  const dir = projectWith([
+    { ...REVIEW_READY, statsReferenceInside: true,
+      stats: { mismatchPx: 89900, percent: 4.19, classification: "MAJOR" },
+      review: {
+        gate: { kind: "visual-review", passed: true, metric: "diff: 89900 px (4.190%)",
+                pages: [{ page: 1, mismatchPixels: 89900 }] },
+      } },
+  ], "major-improving");
+
+  const status = statusOf(dir);
+  assert.equal(status.verdict, "REVISE");
+  assert.equal(status.parity.fidelity.level, "NEEDS_WORK");
+});
+
+test("MINOR and IDENTICAL leave a READY verdict alone", () => {
+  for (const classification of ["MINOR", "IDENTICAL"]) {
+    const dir = projectWith([
+      { ...REVIEW_READY, statsReferenceInside: true,
+        stats: { mismatchPx: 4000, percent: classification === "IDENTICAL" ? 0 : 0.18, classification },
+        review: {
+          gate: { kind: "visual-review", passed: true, metric: "diff: 4000 px (0.184%)",
+                  pages: [{ page: 1, mismatchPixels: 4000 }] },
+        } },
+    ], `pass-${classification}`);
+
+    const status = statusOf(dir);
+    assert.equal(status.verdict, "READY_FOR_APPROVAL", `${classification} must not be refused`);
+    assert.equal(status.parity.fidelity.level, "PASS");
+  }
+});
+
+test("fidelity never rescues a REVISE into a READY", () => {
+  // The measurement may refuse; it may not approve. A review that asked for
+  // another pass keeps its answer even on a page the comparator likes.
+  const dir = projectWith([
+    { verdict: "REVISE", mismatch: "icon-baseline", statsReferenceInside: true,
+      stats: { mismatchPx: 0, percent: 0, classification: "IDENTICAL" } },
+  ], "no-rescue");
+
+  const status = statusOf(dir);
+  assert.equal(status.verdict, "REVISE");
+  assert.equal(status.parity.fidelity.level, "PASS");
+});
+
+test("a stats file with no classification is UNMEASURED, and never reads as a pass", () => {
+  const dir = projectWith([
+    { ...REVIEW_READY, statsReferenceInside: true,
+      stats: { mismatchPx: 12, percent: 0.001 },
+      review: {
+        gate: { kind: "visual-review", passed: true, metric: "diff: 12 px (0.001%)",
+                pages: [{ page: 1, mismatchPixels: 12 }] },
+      } },
+  ], "unclassified");
+
+  const status = statusOf(dir);
+  assert.equal(status.parity.fidelity.level, "UNMEASURED");
+  assert.equal(status.parity.fidelity.classification, null);
+});
+
+// ------------------------------------------------- the review's own schema ---
+//
+// `visual-review.json` is the artifact the whole loop verdict starts from, and
+// it was the one artifact nothing validated: `write-artifact` does not accept
+// it and the write guard leaves it alone by name. `schemas/visual-review.schema
+// .json` — 359 lines, with enums for verdict, severity and cause — was run by
+// no runtime path at all. One run conformed to it only because the model went
+// and read the schema for itself.
+
+const reviewValidator = (await ready())
+  ? schemaValidator(path.join(repoRoot, "schemas", "visual-review.schema.json"))
+  : null;
+
+/** The same call the CLI makes, with the real validator rather than a stub. */
+const checkedStatusOf = (projectDir, revisionId = null) =>
+  computeIterationStatus({ projectDir, config, revisionId, validateReview: reviewValidator });
+
+test("THE CASE: a review that does not match its schema is not a judgement", { skip: !reviewValidator && "the schema validator is not installed" }, () => {
+  const dir = projectWith([
+    { ...REVIEW_READY, statsReferenceInside: true,
+      stats: { mismatchPx: 12, percent: 0.001, classification: "IDENTICAL" },
+      review: { mismatches: [{ id: "x", severity: "SEVERE", reason: "differs" }] } },
+  ], "review-bad-enum");
+
+  const status = checkedStatusOf(dir);
+  assert.equal(status.verdict, "REVISE", "a malformed review kept its verdict");
+  assert.match(status.reasons.join("\n"), /does not match visual-review\.schema\.json/);
+  assert.match(status.reasons.join("\n"), /a review nothing can read is not a judgement/);
+});
+
+test("an invented verdict does not travel, whatever it says", { skip: !reviewValidator && "the schema validator is not installed" }, () => {
+  // The enum has four members. A fifth is not a decision the loop can act on,
+  // and leaving it to stand would carry it through every consumer as written.
+  const dir = projectWith([
+    { verdict: "SHIP_IT", statsReferenceInside: true, stats: { mismatchPx: 0, percent: 0, classification: "IDENTICAL" } },
+  ], "review-bad-verdict");
+
+  assert.equal(checkedStatusOf(dir).verdict, "REVISE");
+});
+
+test("a review that matches its schema is not held", { skip: !reviewValidator && "the schema validator is not installed" }, () => {
+  // The quiet half: this must not start refusing the reviews the corpus writes.
+  // A READY fixture needs its gate and a quoted measurement to satisfy the
+  // claims audit — that is a separate rule, and this case has to clear it to be
+  // about the schema at all.
+  const dir = projectWith([
+    { ...REVIEW_READY, statsReferenceInside: true,
+      stats: { mismatchPx: 12, percent: 0.001, classification: "IDENTICAL" },
+      review: {
+        gate: { kind: "visual-review", passed: true, metric: "diff: 12 px (0.001%)", pages: [{ page: 1, mismatchPixels: 12 }] },
+      } },
+  ], "review-valid");
+
+  const status = checkedStatusOf(dir);
+  assert.equal(status.verdict, "READY_FOR_APPROVAL");
+  assert.doesNotMatch(status.reasons.join("\n"), /does not match visual-review\.schema\.json/);
+});
+
+test("without a validator the shape goes unchecked, which is what every caller did before", () => {
+  // The injection contract: `approve-and-publish` passes none, and its behaviour
+  // is unchanged by this.
+  const dir = projectWith([
+    { ...REVIEW_READY, statsReferenceInside: true,
+      stats: { mismatchPx: 12, percent: 0.001, classification: "IDENTICAL" },
+      review: { mismatches: [{ id: "x", severity: "SEVERE", reason: "differs" }] } },
+  ], "review-unchecked");
+
+  assert.doesNotMatch(statusOf(dir).reasons.join("\n"), /does not match visual-review\.schema\.json/);
+});
+
+// --------------------------------------------- a sweep that goes backwards ---
+
+test("a sweep that has left its own best behind is named, with the render to return to", async () => {
+  const { recordAttempt } = await import("../lib/attempts.mjs");
+  const dir = projectWith([{ verdict: "REVISE", mismatch: "type-size" }], "regressing");
+  const only = path.join(dir, "revisions", "revision-001");
+
+  // The trail the corpus produced: best at the third of six.
+  [17.6, 15.061, 14.866, 15.538, 15.489, 15.737].forEach((percent, i) => {
+    fs.writeFileSync(path.join(only, "GeneratedCvTemplate.java"), `v${i}`);
+    recordAttempt(only, { percent, mismatchPx: Math.round(percent * 1000) });
+  });
+
+  const status = computeIterationStatus({ projectDir: dir, config });
+  assert.equal(status.renders.latest.regressed, true);
+  const reason = status.reasons.find((r) => /worse than its own best/.test(r));
+  assert.ok(reason, JSON.stringify(status.reasons));
+  assert.match(reason, /render 3 of 6/, "the render to go back to is named");
+  assert.match(reason, /the change that helped is the one to go back to/);
+
+  // Not improving, whatever else it is doing — the axis the fidelity gate reads.
+  assert.equal(status.parity.movement.level, "STALLED");
+  assert.equal(status.parity.movement.source, "sweep");
+});
+
+test("a retreat is reported instead of a plateau, not beside it", async () => {
+  // At the sixth render of that trail both hold. They describe one trail, and
+  // the regression message is the one that says where to go back to.
+  const { recordAttempt } = await import("../lib/attempts.mjs");
+  const dir = projectWith([{ verdict: "REVISE", mismatch: "type-size" }], "regress-not-stall");
+  const only = path.join(dir, "revisions", "revision-001");
+  [17.6, 15.061, 14.866, 15.538, 15.489, 15.737].forEach((percent, i) => {
+    fs.writeFileSync(path.join(only, "GeneratedCvTemplate.java"), `v${i}`);
+    recordAttempt(only, { percent, mismatchPx: Math.round(percent * 1000) });
+  });
+
+  const status = computeIterationStatus({ projectDir: dir, config });
+  assert.equal(status.renders.latest.stalled, true, "the fixture really does hold both");
+  assert.equal(
+    status.reasons.filter((r) => /stopped buying anything|worse than its own best/.test(r)).length,
+    1,
+    JSON.stringify(status.reasons),
+  );
+});
+
+// -------------------------------------- the best revision, six passes back ---
+//
+// `diminishingReturns` asks whether the last two moves were small, over the run
+// of revisions sharing one focus — and it breaks the moment the focus changes.
+// A run that changed focus every pass therefore had no cross-revision signal at
+// all, and shipped its seventh revision 0.384% worse than its first.
+
+/** A chain, oldest first, from page figures alone. */
+const chainOf = (percents) =>
+  percents.map((percent, i) => ({
+    id: `revision-00${i + 1}`,
+    stats: percent === null ? null : { percent },
+  }));
+
+/** The trail the run actually produced. */
+const REAL_CHAIN = [15.304, 15.54, 15.554, 15.589, 15.438, 15.77, 15.688];
+
+test("THE CASE: the best revision is named, with how far behind it the loop is", () => {
+  const answer = chainRegression(chainOf(REAL_CHAIN));
+
+  assert.equal(answer.regressed, true);
+  assert.equal(answer.best, 15.304);
+  assert.equal(answer.bestRevision, "revision-001", "the revision to go back to");
+  assert.equal(answer.sinceBest, 6);
+  assert.equal(answer.worseThanBest, 0.384);
+});
+
+test("it fires on the third revision, not the seventh", () => {
+  // Two passes that failed to beat the best is the point. On this trail that is
+  // revision-003, four revisions before the run actually stopped.
+  assert.equal(chainRegression(chainOf(REAL_CHAIN.slice(0, 2))).regressed, false, "two cannot say");
+  assert.equal(chainRegression(chainOf(REAL_CHAIN.slice(0, 3))).regressed, true);
+});
+
+test("a loop that keeps improving is never held", () => {
+  const answer = chainRegression(chainOf([17.6, 15.0, 14.2, 13.1]));
+
+  assert.equal(answer.regressed, false);
+  assert.equal(answer.bestRevision, "revision-004");
+  assert.equal(answer.sinceBest, 0);
+  assert.equal(answer.worseThanBest, 0);
+});
+
+test("one pass away from the best is exploring, not retreating", () => {
+  assert.equal(chainRegression(chainOf([17.6, 15.0, 15.4])).regressed, false);
+});
+
+test("coming back to the best clears it", () => {
+  // The best is the latest, so there is nothing behind to return to.
+  assert.equal(chainRegression(chainOf([17.6, 15.0, 16.2, 14.9])).regressed, false);
+});
+
+test("revisions that never rendered do not count as passes", () => {
+  const answer = chainRegression(chainOf([15.304, null, 15.54, null, 15.554]));
+
+  assert.equal(answer.regressed, true);
+  assert.equal(answer.sinceBest, 2, "two measured revisions, not four folders");
+});
+
+test("fewer than three measured revisions cannot say either way", () => {
+  const answer = chainRegression(chainOf([17.6, 18.9]));
+  assert.equal(answer.measurable, false);
+  assert.equal(answer.regressed, false);
+});
+
+test("the chain regression reaches the loop and the movement axis", async () => {
+  const { recordAttempt } = await import("../lib/attempts.mjs");
+  const dir = projectWith(
+    REAL_CHAIN.map((_, i) => ({ verdict: "REVISE", mismatch: `cause-${i}` })),
+    "chain-regressed",
+  );
+  REAL_CHAIN.forEach((percent, i) => {
+    const rev = path.join(dir, "revisions", `revision-00${i + 1}`);
+    fs.writeFileSync(path.join(rev, "GeneratedCvTemplate.java"), `v${i}`);
+    fs.writeFileSync(
+      path.join(rev, "visual-diff-stats.json"),
+      JSON.stringify({ reference: path.join(rev, "reference-scaled.png"), percent, mismatchPx: Math.round(percent * 1000) }),
+    );
+    recordAttempt(rev, { percent, mismatchPx: Math.round(percent * 1000) });
+  });
+
+  const status = computeIterationStatus({ projectDir: dir, config });
+  const reason = status.reasons.find((r) => /is still the best of this loop/.test(r));
+  assert.ok(reason, JSON.stringify(status.reasons));
+  assert.match(reason, /revision-001 measured 15\.304%/);
+  // The command, not the advice. The first version of this said "go back to
+  // revision-001" and a real run read it six times without going back: `--open`
+  // has always passed `--revision` through as the base, and the usage line
+  // advertised that flag only on the render form.
+  assert.match(reason, /node scripts\/pass\.mjs --project \S+ --open "<what this pass fixes>" --revision revision-001/);
+
+  // Not improving, and attributed to the chain rather than to a sweep — a
+  // different focus each pass leaves the focus-run test with nothing to read.
+  assert.equal(status.parity.movement.level, "STALLED");
+  assert.equal(status.parity.movement.source, "revisions");
+});
+
+test("THE HOLE: a retreat does not buy the loop a fresh budget", () => {
+  // `chainRegression` prints `pass --open --revision <best>` — go back to the
+  // revision that was working. The budget was `chain.length`, and a chain is
+  // one ancestry, so branching off revision-001 counted two revisions and
+  // handed back the whole limit. The advice only appears late in a loop, so
+  // the bound was reset precisely when it was about to bind.
+  const passes = Array.from({ length: 8 }, (_, i) => ({ verdict: "REVISE", mismatch: `mismatch-${i + 1}` }));
+  passes.push({ verdict: "REVISE", mismatch: "mismatch-9", parent: "revision-001" });
+  const status = statusOf(projectWith(passes, "retreat"));
+
+  assert.equal(status.iterations, 2, "the branch's own ancestry is revision-001 and revision-009");
+  assert.equal(status.loopIterations, 9, "but the loop has opened nine revisions");
+  assert.equal(status.agentIterations, 9, "and the agent asked for all of them");
+  assert.equal(status.remaining.iterations, 0, "so there is nothing left to spend");
+  assert.equal(status.verdict, "CONVERGENCE_LIMIT_REACHED");
+});
+
+test("a retreat still counts the pass the user asked for as theirs", () => {
+  // The exemption survives the branch, and it is counted once: the same report
+  // addressed on both sides of a retreat is one report.
+  const passes = Array.from({ length: 4 }, (_, i) => ({ verdict: "REVISE", mismatch: `mismatch-${i + 1}` }));
+  passes[2].reported = { id: "timeline-rail", quote: "the rail overshoots", addressed: false };
+  passes.push({
+    verdict: "REVISE",
+    mismatch: "mismatch-5",
+    parent: "revision-001",
+    reported: { id: "timeline-rail", quote: "the rail overshoots", addressed: false },
+  });
+  const status = statusOf(projectWith(passes, "retreat-report"));
+
+  assert.equal(status.loopIterations, 5);
+  assert.deepEqual(status.humanDirected.map((h) => h.report), ["timeline-rail"], "one report, one exemption");
+  assert.equal(status.agentIterations, 4);
+});
+
+test("a loop that begins after an approval does not inherit the previous one's spending", () => {
+  const passes = Array.from({ length: 4 }, (_, i) => ({ verdict: "REVISE", mismatch: `mismatch-${i + 1}` }));
+  passes[3] = { verdict: "READY_FOR_APPROVAL", status: "APPROVED" };
+  passes.push({ verdict: "REVISE", mismatch: "new-work" });
+  const status = statusOf(projectWith(passes, "after-approval"));
+
+  assert.equal(status.loopIterations, 1, "the approval ended the loop before it");
+  assert.equal(status.agentIterations, 1);
+});
+
+test("a report carried forward does not make the review it lands on invalid", { skip: !reviewValidator && "the schema validator is not installed" }, () => {
+  // carryReportsForward attaches an open report to a review that did not
+  // restate it, stamping `carriedFrom` — which the schema does not have. The
+  // gate then validated the object this module had just written on, so a
+  // perfectly valid file was told it violated its own schema, and rewriting it
+  // re-triggered the message because the key is added by the reader.
+  const dir = projectWith([
+    { verdict: "REVISE", mismatch: "header-height" },
+    { verdict: "REVISE", mismatch: "sidebar-width" },
+  ], "carried-report");
+  fs.writeFileSync(
+    path.join(dir, "revisions", "revision-001", "human-report.json"),
+    JSON.stringify({ id: "timeline-spacing", quote: "the timeline looks wrong" }, null, 2),
+  );
+
+  const status = checkedStatusOf(dir);
+  assert.equal(status.largestMismatch, "timeline-spacing", "the report is still the focus");
+  assert.doesNotMatch(status.reasons.join("\n"), /does not match visual-review\.schema\.json/);
+});
+
+test("a report made without a quote is carried without an empty one", { skip: !reviewValidator && "the schema validator is not installed" }, () => {
+  // The schema asks for a string; `quote ?? null` gave it null.
+  const dir = projectWith([
+    { verdict: "REVISE", mismatch: "header-height" },
+    { verdict: "REVISE", mismatch: "sidebar-width" },
+  ], "carried-unquoted");
+  fs.writeFileSync(
+    path.join(dir, "revisions", "revision-001", "human-report.json"),
+    JSON.stringify({ id: "timeline-spacing" }, null, 2),
+  );
+
+  const status = checkedStatusOf(dir);
+  assert.equal(status.largestMismatch, "timeline-spacing");
+  assert.doesNotMatch(status.reasons.join("\n"), /does not match visual-review\.schema\.json/);
+});
+
+test("THE RENAMED CAUSE: a loop that never repeats a mismatch is still measured", () => {
+  // The nora-b8 run, to the third decimal. Eight revisions, eight mismatch ids,
+  // no id repeated — so the trailing run sharing one focus was length 1 every
+  // time, `diminishingReturns` reported measurable:false, and the movement axis
+  // said UNKNOWN while the page sat between 14.15% and 14.45% from the second
+  // revision to the eighth.
+  const percents = [15.12, 14.216, 14.23, 14.224, 14.447, 14.377, 14.339, 14.152];
+  const status = statusOf(
+    projectWith(
+      percents.map((percent, i) => ({
+        verdict: "REVISE",
+        mismatch: `cause-${i + 1}`,
+        statsReferenceInside: true,
+        stats: { mismatchPx: Math.round(percent * 15000), percent, classification: "CRITICAL" },
+      })),
+      "renamed-cause",
+    ),
+  );
+
+  assert.equal(status.sameMismatchAttempts, 1, "no id repeats, so the same-cause bound cannot bind");
+  assert.equal(status.parity.movement.level, "STALLED");
+  assert.equal(status.parity.movement.scope, "chain", "measured across revisions, not on one focus");
+  assert.deepEqual(
+    status.parity.movement.moves.map((m) => m.moved),
+    [-0.038, -0.187],
+    "the last two moves, both under a quarter of a point",
+  );
+});
+
+test("a loop that does repeat its cause is still measured on that cause", () => {
+  // The sharper question stays the first one asked: these passes are about one
+  // thing, and whether THEY are buying anything is what the reader wants.
+  const status = statusOf(
+    projectWith(
+      [14.9, 14.5, 14.45, 14.44].map((percent) => ({
+        verdict: "REVISE",
+        mismatch: "header-height",
+        statsReferenceInside: true,
+        stats: { mismatchPx: Math.round(percent * 15000), percent, classification: "CRITICAL" },
+      })),
+      "repeated-cause",
+    ),
+  );
+
+  assert.equal(status.parity.movement.scope, "focus");
+  assert.equal(status.parity.movement.level, "STALLED");
+});
+
+test("a chain still moving is not called stalled by the fallback", () => {
+  const status = statusOf(
+    projectWith(
+      [20.0, 15.0, 10.0, 5.0].map((percent, i) => ({
+        verdict: "REVISE",
+        mismatch: `cause-${i + 1}`,
+        statsReferenceInside: true,
+        stats: { mismatchPx: Math.round(percent * 15000), percent, classification: "CRITICAL" },
+      })),
+      "still-moving",
+    ),
+  );
+
+  assert.equal(status.parity.movement.scope, "chain");
+  assert.equal(status.parity.movement.level, "IMPROVING");
+});
+
+/** A loop exactly at the iteration ceiling, whose last pass drops the severity. */
+const atTheCeiling = (percents, label) =>
+  projectWith(
+    percents.map((percent, i) => ({
+      verdict: "REVISE",
+      mismatch: `cause-${i + 1}`,
+      severity: i === percents.length - 1 ? "MINOR" : "CRITICAL",
+      statsReferenceInside: true,
+      stats: { mismatchPx: Math.round(percent * 15000), percent, classification: "CRITICAL" },
+    })),
+    label,
+  );
+
+test("THE RELABEL: an extension is not earned by lowering a severity", () => {
+  // The eighth pass of nora-b8 called its one remaining CRITICAL a MINOR named
+  // "residual-font-rendering-variance". Blocking count 1 -> 0, extension
+  // granted — on a page the comparator still classified CRITICAL at 14.15%.
+  // The ledger is written by the review; the page difference is not.
+  const status = statusOf(atTheCeiling([15.12, 14.216, 14.23, 14.224, 14.447, 14.377, 14.339, 14.152], "relabelled"));
+
+  assert.equal(status.verdict, "CONVERGENCE_LIMIT_REACHED");
+  assert.equal(status.grantedExtension, null);
+  assert.match(status.reasons.join("\n"), /the page did not move with it/);
+  assert.match(status.reasons.join("\n"), /a severity the review lowered is not a difference the comparator stopped seeing/);
+});
+
+test("a pass that closed a mismatch AND moved the page still earns its extension", () => {
+  // The quiet half: the grant exists for a loop that is demonstrably
+  // converging, and this must not start refusing those.
+  const status = statusOf(atTheCeiling([30, 26, 22, 19, 16, 13, 10, 7], "still-earning"));
+
+  assert.ok(status.grantedExtension, `no extension: ${status.reasons.join(" | ")}`);
+  assert.equal(status.grantedExtension.used, 1);
+  assert.match(status.reasons.join("\n"), /extension 1 of 3/);
+});
+
+// ------------------------------------------ a review judges, it does not end ---
+//
+// Three consecutive Antigravity runs finished by typing the loop's own terminal
+// verdict into the review: nora-b8 at 8 passes, nora-b10 and julian-mercer-cv at
+// 5 with three still in budget. Each paired it with a MINOR named after font
+// rasterisation — `residual-font-rendering-variance`, `font-rasterisation-
+// residual`, `subpixel-raster-anti-aliasing` — on a page the comparator called
+// CRITICAL at 14.15%, 14.86% and 15.67%.
+
+const CRITICAL_PAGE = (severity, id) => ({
+  verdict: "CONVERGENCE_LIMIT_REACHED",
+  mismatch: id,
+  severity,
+  statsReferenceInside: true,
+  stats: { mismatchPx: 308095, percent: 14.859, classification: "CRITICAL" },
+});
+
+test("THE EXIT: a review may not write the verdict the loop computes", () => {
+  const status = statusOf(
+    projectWith(
+      [
+        { verdict: "REVISE", mismatch: "header-height", statsReferenceInside: true,
+          stats: { mismatchPx: 320000, percent: 15.2, classification: "CRITICAL" } },
+        CRITICAL_PAGE("MINOR", "font-rasterisation-residual"),
+      ],
+      "self-declared-limit",
+    ),
+  );
+
+  assert.equal(status.verdict, "REVISE", "the loop had three passes left to spend");
+  assert.ok(status.remaining.iterations > 0);
+  assert.match(status.reasons.join("\n"), /claims "CONVERGENCE_LIMIT_REACHED", which is a verdict this loop computes/);
+  assert.match(status.reasons.join("\n"), /a review says READY_FOR_APPROVAL or REVISE/);
+});
+
+test("BLOCKED is the loop's word too", () => {
+  const status = statusOf(
+    projectWith(
+      [
+        { verdict: "REVISE", mismatch: "a", statsReferenceInside: true,
+          stats: { mismatchPx: 1, percent: 0.001, classification: "IDENTICAL" } },
+        { verdict: "BLOCKED", mismatch: "b", statsReferenceInside: true,
+          stats: { mismatchPx: 1, percent: 0.001, classification: "IDENTICAL" } },
+      ],
+      "self-declared-blocked",
+    ),
+  );
+  assert.match(status.reasons.join("\n"), /claims "BLOCKED", which is a verdict this loop computes/);
+});
+
+test("the two a review may write travel untouched", () => {
+  const revise = statusOf(
+    projectWith([{ verdict: "REVISE", mismatch: "header-height" }], "plain-revise"),
+  );
+  assert.doesNotMatch(revise.reasons.join("\n"), /a verdict this loop computes/);
+  assert.equal(revise.verdict, "REVISE");
+});
+
+// ------------------------------------------- the relabel, from the other side ---
+
+test("THE RELABEL: MINOR is a band the measurement excludes", () => {
+  const status = statusOf(
+    projectWith(
+      [
+        { verdict: "REVISE", mismatch: "header-height", statsReferenceInside: true,
+          stats: { mismatchPx: 320000, percent: 15.2, classification: "CRITICAL" } },
+        { ...CRITICAL_PAGE("MINOR", "font-rasterisation-residual"), verdict: "REVISE" },
+      ],
+      "relabelled-critical",
+    ),
+  );
+
+  assert.match(status.reasons.join("\n"), /the comparator classified this page CRITICAL at 14\.859% of its pixels/);
+  assert.match(status.reasons.join("\n"), /worst remaining mismatch is MINOR: font-rasterisation-residual/);
+  assert.match(status.reasons.join("\n"), /MINOR means under half a percentage point of the page/);
+  // The fidelity axis is silent here on purpose: it answers whether a claimed
+  // READY may stand, and this review claims REVISE. The regression fixture
+  // above, which does claim READY, is where both voices are checked together —
+  // and it is what caught this rule silencing that one.
+});
+
+test("a MAJOR page is left to the fidelity axis alone", () => {
+  // 0.5% to 5%: wrong by one band, and the axis already calls it NEEDS_WORK.
+  // Speaking here too would take the loop's focus off the difference itself.
+  const status = statusOf(
+    projectWith(
+      [
+        { verdict: "REVISE", mismatch: "sidebar-width", severity: "MINOR", statsReferenceInside: true,
+          stats: { mismatchPx: 90000, percent: 4.3, classification: "MAJOR" } },
+        { verdict: "REVISE", mismatch: "sidebar-width", severity: "MINOR", statsReferenceInside: true,
+          stats: { mismatchPx: 88000, percent: 4.19, classification: "MAJOR" } },
+      ],
+      "major-not-claimed",
+    ),
+  );
+  assert.doesNotMatch(status.reasons.join("\n"), /worst remaining mismatch is/);
+});
+
+test("a residual the project accepted is a decision, not a relabel", () => {
+  const dir = projectWith(
+    [
+      { verdict: "REVISE", mismatch: "header-height", statsReferenceInside: true,
+        stats: { mismatchPx: 320000, percent: 15.2, classification: "CRITICAL" } },
+      { ...CRITICAL_PAGE("MINOR", "monogram-approximation"), verdict: "REVISE" },
+    ],
+    "accepted-residual",
+  );
+  fs.writeFileSync(
+    path.join(dir, "accepted-limitations.json"),
+    JSON.stringify(
+      {
+        schemaVersion: 1,
+        limitations: [
+          { id: "monogram", mismatchIds: ["monogram-approximation"], reason: "the sprig is hand-drawn", acceptedBy: "user" },
+        ],
+      },
+      null,
+      2,
+    ),
+  );
+
+  assert.doesNotMatch(statusOf(dir).reasons.join("\n"), /worst remaining mismatch is/);
+});
+
+test("an attempt records what it was aiming at: this revision's focus, else the parent's", () => {
+  // `attempts.json` carried a `focus` field that nothing filled — 55 attempts
+  // across three real projects, every one `null`. The history said what each
+  // render measured and never what it was told to fix, so four passes aiming
+  // at one cause looked identical to four making progress.
+  const root = tempDir("focus-aim");
+  const revisions = path.join(root, "revisions");
+  const write = (id, files) => {
+    const dir = path.join(revisions, id);
+    fs.mkdirSync(dir, { recursive: true });
+    for (const [name, body] of Object.entries(files)) {
+      fs.writeFileSync(path.join(dir, name), JSON.stringify(body, null, 2));
+    }
+    return dir;
+  };
+
+  const first = write("revision-001", {
+    "revision.json": { id: "revision-001", parentRevisionId: null },
+    "visual-review.json": { largestMismatch: "sidebar-width", mismatches: [{ id: "sidebar-width", severity: "MAJOR" }] },
+  });
+  assert.deepEqual(focusAimedAt(first), { id: "sidebar-width", source: "measured" });
+
+  // The child has no review of its own yet — which is the state every first
+  // render is in — so what it was aiming at is what the parent concluded.
+  const child = write("revision-002", { "revision.json": { id: "revision-002", parentRevisionId: "revision-001" } });
+  assert.equal(focusAimedAt(child).id, "sidebar-width");
+
+  // The harness's own focus outranks the review's, the same way it does for
+  // the same-cause bound, so both readers name one focus.
+  fs.writeFileSync(
+    path.join(child, "harness-focus.json"),
+    JSON.stringify({ focus: "dead-links", focusSource: "link-integrity" }),
+  );
+  assert.deepEqual(focusAimedAt(child), { id: "dead-links", source: "link-integrity" });
+
+  // An accepted limitation is never what a pass is aiming at.
+  const accepted = write("revision-003", {
+    "revision.json": { id: "revision-003", parentRevisionId: null },
+    "visual-review.json": {
+      largestMismatch: "qr-pattern",
+      mismatches: [{ id: "qr-pattern", severity: "MAJOR" }, { id: "strip-class-size", severity: "MINOR" }],
+    },
+  });
+  assert.equal(focusAimedAt(accepted, [{ id: "qr-pattern", mismatchIds: ["qr-pattern"] }]).id, "strip-class-size");
+
+  // Nothing on disk to aim at is a null, not a throw: the first render of a
+  // first revision has no parent and no review.
+  const bare = write("revision-004", { "revision.json": { id: "revision-004", parentRevisionId: null } });
+  assert.deepEqual(focusAimedAt(bare), { id: null, source: null });
 });

@@ -39,8 +39,11 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { withFileLock, writeJsonAtomic } from "./lib/atomic-write.mjs";
 import { fontsVersionFor } from "./lib/bundle-project.mjs";
 import { loadSnapshot } from "./lib/layout-inspector.mjs";
+import { ROLES } from "./lib/typography-roles.mjs";
+import { requireProjectDir, resolveWorkspace } from "./lib/workspace.mjs";
 import {
   ALL_FAMILIES,
   needsBundledFonts,
@@ -53,6 +56,8 @@ import {
   SHAPE_BLUR,
   SHAPE_BOX,
   TRIM_FUZZ_PERCENT,
+  COMPARABLE_ASPECT,
+  MEANINGFUL_SEPARATION,
   expandCandidates,
   nodeToPixelRect,
   numericRange,
@@ -81,6 +86,11 @@ function usage(code = 0) {
       "  --from / --to / --step     (search) inclusive numeric range\n" +
       "  --size <n>                 (match) the size to set every candidate at (default 24)\n" +
       "  --top <n>                  how many ranked results to print (default 10)\n" +
+      `  --role <name>              record this result against a type role: ${ROLES.join(", ")}\n` +
+      "                             match records the family ranking; search records the size\n" +
+      "  --project <id>             the project to record into; --role needs it\n" +
+      "  --revision <id>            the revision (default: the project's current draft)\n" +
+      "  --root <workspace>         workspace override\n" +
       "  --graphcompose <version>   which GraphCompose to render against (default 2.2.1)\n" +
       "  --keep                     keep the scratch specimen instead of deleting it\n" +
       "  --json                     machine-readable output\n\n" +
@@ -110,6 +120,10 @@ function parseArgs(argv) {
     graphcompose: "2.2.1",
     keep: false,
     json: false,
+    role: null,
+    project: null,
+    revision: null,
+    root: null,
   };
   const positional = [];
   for (let i = 0; i < argv.length; i += 1) {
@@ -128,6 +142,10 @@ function parseArgs(argv) {
     else if (a === "--scale") out.scale = Number(argv[++i]);
     else if (a === "--top") out.top = Number(argv[++i]);
     else if (a === "--graphcompose") out.graphcompose = argv[++i];
+    else if (a === "--role") out.role = argv[++i];
+    else if (a === "--project") out.project = argv[++i];
+    else if (a === "--revision") out.revision = argv[++i];
+    else if (a === "--root") out.root = argv[++i];
     else if (a.startsWith("-")) {
       process.stderr.write(`[typography] unknown argument: ${a}\n`);
       usage(2);
@@ -165,7 +183,134 @@ function parseArgs(argv) {
       usage(2);
     }
   }
+  // Recording is what makes a match answerable later: the analysis barrier
+  // reads `typography-match.json` and cannot take a number that only ever
+  // existed in a terminal. A size sweep records nothing — the artifact commits
+  // to a face per role, and a size is not a face.
+  if (out.role !== null) {
+    if (!ROLES.includes(out.role)) {
+      process.stderr.write(`[typography] --role takes one of ${ROLES.join(", ")}, not "${out.role}"\n`);
+      usage(2);
+    }
+    if (!out.project) {
+      process.stderr.write("[typography] --role needs --project: a recorded match has to land in a revision\n");
+      usage(2);
+    }
+  }
   return out;
+}
+
+/** How the recording names the crop it matched. See the note at its call site. */
+function cropPath(revisionDir, reference) {
+  const absolute = path.resolve(reference);
+  const relative = path.relative(revisionDir, absolute);
+  return relative && !relative.startsWith("..") && !path.isAbsolute(relative)
+    ? relative.split(path.sep).join("/")
+    : absolute;
+}
+
+/**
+ * Write this ranking into the revision, against the role it answers.
+ *
+ * A measurement that only ever reached a terminal cannot be checked later, and
+ * the runs this was built for show what happens then: the tool existed, the
+ * loop reference named it, and three runs in a row chose a face from prose
+ * without calling it. `check-analysis` reads this file, so recording is what
+ * turns "I matched it" into something a barrier can hold.
+ *
+ * The whole ranking goes in, not the winner. The barrier's window is three
+ * deep, and a reader choosing between two close faces needs to see how far
+ * apart they scored — a file holding only first place cannot answer either.
+ *
+ * One entry per role: matching a role again replaces its entry rather than
+ * appending, so the file says what is currently believed and not what was
+ * tried on the way there.
+ */
+function recordMatch(result, args) {
+  const workspace = resolveWorkspace({ explicitRoot: args.root ?? null });
+  const dir = requireProjectDir(workspace, args.project);
+
+  let manifest = {};
+  try {
+    manifest = JSON.parse(fs.readFileSync(path.join(dir, "template-project.json"), "utf8"));
+  } catch {
+    // Falls through to the "no revision named" message below, which says what
+    // to do about it; a parse error here would name the wrong problem.
+  }
+  const revisionId = args.revision ?? manifest.currentDraftRevisionId;
+  if (!revisionId) fail(2, `${args.project} has no draft revision, and none was named`);
+  const revisionDir = path.join(dir, "revisions", revisionId);
+  if (!fs.existsSync(revisionDir)) fail(2, `no such revision: ${revisionDir}`);
+
+  const file = path.join(revisionDir, "typography-match.json");
+  // Read and rewrite under one lock. One role is recorded per invocation, by
+  // reading the document and filtering that role out of it, so two invocations
+  // against one revision each wrote a document missing the other's entry — and
+  // the barrier then held with '"headings" claims to be measured and no match
+  // was recorded for it', against a measurement that had been made.
+  return withFileLock(file, () => recordUnderLock(file, revisionDir, result, args));
+}
+
+function recordUnderLock(file, revisionDir, result, args) {
+  let doc = { schemaVersion: 1, matches: [] };
+  if (fs.existsSync(file)) {
+    try {
+      const existing = JSON.parse(fs.readFileSync(file, "utf8"));
+      if (Array.isArray(existing?.matches)) doc = existing;
+    } catch {
+      // Replaced rather than merged into. The barrier refuses an unparseable
+      // file either way, and refusing to record over one would leave the run
+      // with no way forward except deleting a file by hand.
+    }
+  }
+
+  // A size sweep answers a different question about the same role, so it lands
+  // beside the family matches rather than replacing one. The run that prompted
+  // this measured a face for every role and a size for none: contacts were set
+  // by trial at 6.2 then 6.4pt, chosen so the longest address would not wrap,
+  // which trades the type size away to avoid fixing the column.
+  if (result.command === "search") {
+    const sizes = Array.isArray(doc.sizes) ? doc.sizes : [];
+    const measured = {
+      role: args.role,
+      text: result.text,
+      reference: cropPath(revisionDir, result.reference),
+      family: result.family,
+      scale: result.scale,
+      size: result.best?.size ?? null,
+      separation: result.best?.separation ?? null,
+      // The tool's own word on whether the curve had a minimum worth reading.
+      decisive: result.decisive === true,
+      impliedSize: result.impliedSize ?? null,
+      measuredAt: new Date().toISOString(),
+    };
+    doc.sizes = [...sizes.filter((m) => m?.role !== args.role), measured];
+    writeJsonAtomic(file, doc);
+    return file;
+  }
+
+  const entry = {
+    role: args.role,
+    text: result.text,
+    // Relative while the crop lives in the revision, so a workspace can move;
+    // absolute once it does not, because a `../../..` chain out of a temp
+    // directory names nothing a reader can follow.
+    reference: cropPath(revisionDir, result.reference),
+    measuredAt: new Date().toISOString(),
+    ranked: result.ranked.map((e) => ({
+      rank: e.rank,
+      family: e.family,
+      score: e.score,
+      separation: e.separation,
+      // The barrier needs both halves of the score, not the sum: a crop that
+      // does not hold the string scores badly on width while its letterforms
+      // match, and only `widthRatio` tells those apart.
+      widthRatio: e.widthRatio,
+    })),
+  };
+  doc.matches = [...doc.matches.filter((m) => m?.role !== args.role), entry];
+  writeJsonAtomic(file, doc);
+  return file;
 }
 
 /**
@@ -400,8 +545,10 @@ function main() {
     else fs.rmSync(scratch, { recursive: true, force: true });
   }
 
+  const recorded = args.role ? recordMatch(result, args) : null;
+
   if (args.json) {
-    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    process.stdout.write(`${JSON.stringify(recorded ? { ...result, role: args.role, recorded } : result, null, 2)}\n`);
     process.exit(0);
   }
 
@@ -420,12 +567,17 @@ function main() {
     const first = result.ranked[0];
     lines.push("");
     lines.push(
-      first.separation != null && first.separation < 0.02
+      first.separation != null && first.separation < MEANINGFUL_SEPARATION
         ? `  ⚠ ${first.family} wins by ${first.separation}, which is inside the noise — treat the top few as equally likely.`
         : `  ${first.family} leads the runner-up by ${first.separation}.`,
     );
     lines.push("  width = how far the string runs · shape = the letterforms with width normalised away.");
     lines.push("  They are independent: matching shapes at the wrong width is a condensed cut of the same face.");
+    if (recorded) {
+      lines.push("");
+      lines.push(`  recorded against role "${args.role}" in ${recorded}`);
+      lines.push(`  the analysis may now say { "role": "${args.role}", "fontName": "…", "source": "measured" }.`);
+    }
   } else {
     lines.push(`${result.family} against ${JSON.stringify(args.text)}:`);
     lines.push("");
