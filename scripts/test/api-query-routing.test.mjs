@@ -398,3 +398,104 @@ test("with no --version the newest pack answers, which is the bundle one", () =>
   assert.equal(parsed.graphComposeLine, "2.3");
   assert.equal(parsed.type.surface, "authoring", "the newest pack was not the one asked");
 });
+
+// ------------------------------------------------- inherited flow routes ---
+//
+// Importing a new line's bundle brings only the bundle's routing. The flow's
+// own routes — tasks.local.json — lived in the previous line's pack, so
+// importing 2.5 made `--task chrome.per-page-furniture` answer "absent" on the
+// line a project was pinned to. A pack without its own table now inherits the
+// nearest older line's, held to its own allow-list.
+
+function inheritingInstall() {
+  const root = tempDir("inherit");
+  fs.cpSync(path.join(repoRoot, "scripts"), path.join(root, "scripts"), {
+    recursive: true,
+    filter: (src) => path.basename(src) !== "test",
+  });
+  const bundlePack = (line, types, extra = {}) => {
+    const dir = path.join(root, "skills", "versions", `graphcompose-${line}`);
+    writeJson(path.join(dir, "manifest.json"), { schemaVersion: 2, targetLibrary: "GraphCompose", targetVersion: `${line}.x` });
+    writeJson(path.join(dir, "api", "authoring.json"), {
+      verifiedAgainst: `${line}.0`,
+      packages: [{ name: "com.demcha.compose.document.output", types }],
+    });
+    writeJson(path.join(dir, "routing", "tasks.json"), { schemaVersion: 1, tasks: [] });
+    if (extra.local) writeJson(path.join(dir, "routing", "tasks.local.json"), { schemaVersion: 1, tasks: extra.local });
+  };
+  const zone = { name: "DocumentPageZone", kind: "class", members: [method("footer", "DocumentPageZone", [])] };
+  const zoneBuilder = {
+    name: "DocumentPageZone.DocumentPageZoneBuilder",
+    kind: "class",
+    members: [method("appliesTo", "DocumentPageZone.DocumentPageZoneBuilder", [])],
+  };
+  const route = (task, symbols) => ({
+    task,
+    intent: `intent of ${task}`,
+    recommended: "x",
+    recommendedBecause: "y",
+    alternatives: [],
+    constraints: [],
+    symbols,
+    surfaces: ["authoring"],
+    docs: [],
+  });
+  bundlePack("2.4", [zone, zoneBuilder], {
+    local: [
+      route("chrome.per-page-furniture", ["DocumentPageZone.footer", "DocumentPageZone.DocumentPageZoneBuilder.appliesTo"]),
+      route("typography.removed-later", ["DocumentTextStyle.Builder.letterSpacing"]),
+    ],
+  });
+  // 2.5 keeps the zone and has no DocumentTextStyle at all.
+  bundlePack("2.5", [zone, zoneBuilder]);
+  return path.join(root, "scripts", "api-query.mjs");
+}
+
+const INHERIT_CLI = inheritingInstall();
+const askInherit = (...argv) => {
+  const run = spawnSync(process.execPath, [INHERIT_CLI, ...argv], { encoding: "utf8" });
+  return { status: run.status, parsed: JSON.parse(run.stdout || "null") };
+};
+
+test("a newly imported line inherits the older line's flow routes, labelled", () => {
+  const { status, parsed } = askInherit("--version", "2.5", "--task", "chrome.per-page-furniture");
+  assert.equal(status, 0, "the route vanished with the import");
+  assert.equal(parsed.source, "flow");
+  assert.equal(parsed.inheritedFrom, "2.4");
+
+  const listed = askInherit("--version", "2.5", "--tasks").parsed;
+  assert.deepEqual(
+    listed.tasks.map((t) => [t.task, t.inheritedFrom]),
+    [["chrome.per-page-furniture", "2.4"]],
+  );
+});
+
+test("an inherited route naming a symbol the newer line lacks is withheld, not answered", () => {
+  const { status, parsed } = askInherit("--version", "2.5", "--task", "typography.removed-later");
+  assert.equal(status, 3, "a route the pinned line cannot compile was offered");
+  assert.equal(parsed.found, false);
+
+  const listed = askInherit("--version", "2.5", "--tasks").parsed;
+  assert.deepEqual(listed.withheld, [
+    { task: "typography.removed-later", inheritedFrom: "2.4", missing: ["DocumentTextStyle.Builder.letterSpacing"] },
+  ]);
+});
+
+test("the line that owns the table answers it as its own, and newer prose never flows down", () => {
+  const own = askInherit("--version", "2.4", "--tasks").parsed;
+  assert.equal(own.tasks.length, 2);
+  assert.ok(own.tasks.every((t) => t.inheritedFrom === undefined));
+});
+
+test("--exists finds a member of a nested type, which is listed as Outer.Inner", () => {
+  // It used to read the segment before the member as the type, look for a type
+  // called DocumentPageZoneBuilder, and answer "does not exist" for a member the
+  // allow-list declares.
+  assert.equal(askInherit("--version", "2.5", "--exists", "DocumentPageZone.DocumentPageZoneBuilder.appliesTo").status, 0);
+  assert.equal(
+    askInherit("--version", "2.5", "--exists", "com.demcha.compose.document.output.DocumentPageZone.DocumentPageZoneBuilder.appliesTo").status,
+    0,
+  );
+  assert.equal(askInherit("--version", "2.5", "--exists", "DocumentPageZone.DocumentPageZoneBuilder.invented").status, 3);
+  assert.equal(askInherit("--version", "2.5", "--exists", "DocumentPageZone.footer").status, 0);
+});

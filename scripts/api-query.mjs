@@ -53,7 +53,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { installRoot } from "./lib/workspace.mjs";
-import { resolveVersion } from "./lib/version-resolver.mjs";
+import { compareLines, resolveVersion } from "./lib/version-resolver.mjs";
 
 const repoRoot = installRoot();
 const PACKS_DIR = path.join(repoRoot, "skills", "versions");
@@ -142,7 +142,20 @@ const tasksPath = path.join(packDir, "routing", "tasks.json");
 // the importer never writes, merged over the bundle’s by intent id, so the
 // harness can route intents the release bundle has not learned yet, and correct
 // one it got wrong, without either side clobbering the other.
-const localTasksPath = path.join(packDir, "routing", "tasks.local.json");
+//
+// A pack imported for a new line has no such table: the importer brings only
+// the bundle's. Without a fallback, importing 2.5 erased every flow-owned
+// route — `--task chrome.per-page-furniture` answered "absent" on the line the
+// project was pinned to, while the page-zones guide told the agent to run it.
+// So a pack without its own table inherits the nearest OLDER line's, the same
+// direction preflight takes for prose, and each inherited route is held to
+// THIS line's allow-list before it is offered: a route naming a symbol this
+// line lacks is withheld, never answered.
+const ownLocalTasksPath = path.join(packDir, "routing", "tasks.local.json");
+const inheritedLocalTasks = fs.existsSync(ownLocalTasksPath) ? null : olderLocalTasks(line);
+const localTasksPath = inheritedLocalTasks?.path ?? ownLocalTasksPath;
+/** Routes inherited from an older line and withheld because this line lacks a symbol. */
+const withheldRoutes = [];
 
 // A bundle-imported pack wins over anything the local extractor left behind:
 // it is the tree GraphCompose itself published, split per surface, and it is
@@ -281,15 +294,47 @@ function resolveLine() {
  *
  * @returns {Array<object>} bundle routes in their own order, new local ones after
  */
+/**
+ * The flow-owned routing table of the newest line older than `forLine`.
+ *
+ * @param {string} forLine
+ * @returns {{ line: string, path: string }|null}
+ */
+function olderLocalTasks(forLine) {
+  if (!fs.existsSync(PACKS_DIR)) return null;
+  const older = fs
+    .readdirSync(PACKS_DIR, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && /^graphcompose-\d+\.\d+$/.test(e.name))
+    .map((e) => e.name.replace("graphcompose-", ""))
+    .filter((l) => compareLines(l, forLine) < 0)
+    .filter((l) => fs.existsSync(path.join(PACKS_DIR, `graphcompose-${l}`, "routing", "tasks.local.json")))
+    .sort((a, b) => compareLines(b, a));
+  return older.length
+    ? { line: older[0], path: path.join(PACKS_DIR, `graphcompose-${older[0]}`, "routing", "tasks.local.json") }
+    : null;
+}
+
 function mergedRoutes() {
   const read = (file, source) => {
     if (!fs.existsSync(file)) return [];
     const doc = JSON.parse(fs.readFileSync(file, "utf8"));
     return (doc.tasks ?? []).map((task) => ({ ...task, source }));
   };
+  let local = read(localTasksPath, "flow");
+  if (inheritedLocalTasks && local.length) {
+    // Held to this line's allow-list. Only a bundle pack can be asked; a line
+    // with no surfaces to check against inherits nothing rather than guessing.
+    const index = usingBundle ? loadBundleSurfaces(apiDir, null, line) : null;
+    local = local.filter((route) => {
+      const missing = index ? (route.symbols ?? []).filter((s) => !symbolExists(index, s)) : ["(no allow-list)"];
+      if (missing.length) withheldRoutes.push({ task: route.task, inheritedFrom: inheritedLocalTasks.line, missing });
+      return missing.length === 0;
+    });
+    local = local.map((route) => ({ ...route, inheritedFrom: inheritedLocalTasks.line }));
+  }
   const merged = [];
   const at = new Map();
-  for (const route of [...read(tasksPath, "bundle"), ...read(localTasksPath, "flow")]) {
+  for (const route of [...read(tasksPath, "bundle"), ...local]) {
     const seen = at.get(route.task);
     if (seen === undefined) {
       at.set(route.task, merged.length);
@@ -318,7 +363,13 @@ function routingAnswer() {
       answer: {
         graphComposeLine: line,
         found: tasks.length > 0,
-        tasks: tasks.map((t) => ({ task: t.task, intent: t.intent, source: t.source })),
+        tasks: tasks.map((t) => ({
+          task: t.task,
+          intent: t.intent,
+          source: t.source,
+          ...(t.inheritedFrom ? { inheritedFrom: t.inheritedFrom } : {}),
+        })),
+        ...(withheldRoutes.length ? { withheld: withheldRoutes } : {}),
       },
       code: tasks.length > 0 ? 0 : 3,
     };
@@ -592,6 +643,42 @@ function splitParameters(raw) {
 // --------------------------------------------------------------- answering ---
 
 /**
+ * The type a dotted name refers to, and the member after it.
+ *
+ * The type is the LONGEST suffix of the qualifier that the allow-list names.
+ * Taking only the segment before the member read
+ * `DocumentPageZone.DocumentPageZoneBuilder.appliesTo` as a type called
+ * `DocumentPageZoneBuilder` — nested types are listed as `Outer.Inner` — and
+ * answered "does not exist" for a member every 2.3+ pack declares. That is the
+ * one answer this tool must never give wrongly.
+ *
+ * @param {{types: Array<{name: string}>}} index
+ * @param {string} dotted  Type.member, Outer.Inner.member, or fully qualified
+ * @returns {{ type: object|null, typeName: string|null, memberName: string|null }}
+ */
+function resolveMember(index, dotted) {
+  const parts = dotted.split(".").filter(Boolean);
+  if (parts.length < 2) return { type: null, typeName: null, memberName: null };
+  const memberName = parts[parts.length - 1];
+  for (let k = 0; k <= parts.length - 2; k += 1) {
+    const candidate = parts.slice(k, parts.length - 1).join(".");
+    const type = index.types.find((t) => t.name === candidate);
+    if (type) return { type, typeName: candidate, memberName };
+  }
+  return { type: null, typeName: parts[parts.length - 2], memberName };
+}
+
+/** Whether `Type.member` (or a bare type name) is in this allow-list. */
+function symbolExists(index, dotted) {
+  const name = dotted.replace(/\(.*$/, "");
+  if (index.types.some((t) => t.name === name)) return true;
+  const { type, memberName } = resolveMember(index, name);
+  return Boolean(
+    type && ((type.methods ?? []).some((m) => m.name === memberName) || (type.constants ?? []).includes(memberName)),
+  );
+}
+
+/**
  * The two fields a bundle pack has and a flat one does not, appended to an
  * answer the caller has already shaped.
  *
@@ -628,14 +715,13 @@ function query(index, options) {
     // "com" and answered "no type com — it does not exist for this version":
     // a confident, authoritative, wrong negative, from the one tool whose
     // whole value is that its "no" can be trusted.
-    const parts = options.exists.split(".").filter(Boolean);
-    const methodName = parts.length > 1 ? parts[parts.length - 1] : null;
-    const typeName = parts.length > 1 ? parts[parts.length - 2] : null;
+    // Nested types too: the qualifier is matched as the longest suffix the
+    // allow-list names, so Outer.Inner.member finds `Outer.Inner`.
+    const { type, typeName, memberName: methodName } = resolveMember(index, options.exists);
     if (!typeName || !methodName) {
       process.stderr.write("[api-query] --exists takes Type.method or a fully-qualified name\n");
       process.exit(2);
     }
-    const type = index.types.find((t) => t.name === typeName);
     const overloads = (type?.methods ?? []).filter((m) => m.name === methodName);
     const constant = (type?.constants ?? []).includes(methodName);
     return {
