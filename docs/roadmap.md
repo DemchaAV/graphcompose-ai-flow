@@ -10,14 +10,14 @@ the harness migration — described below and in
 
 The seven original phases and the harness migration are both shipped;
 the migration merged before v0.21.0. The pinned line is
-**GraphCompose 2.4**, whose pack is imported from the release knowledge
-bundle — as 2.3's has been since v0.22.0 — and answers routing as well as
+**GraphCompose 2.5**, whose pack is imported from the release knowledge
+bundle — as 2.3's and 2.4's have been since v0.22.0 — and answers routing as well as
 API questions.
 
 Fixture validation still runs against `io.github.demchaav:graph-compose:2.2.0`,
 which the five fixtures pin explicitly (JitPack
 `com.github.DemchaAV:GraphCompose:vX.Y.Z` remains the fallback for
-pre-1.6.7 pins) — two lines behind the pack, and the next thing worth
+pre-1.6.7 pins) — three lines behind the pack, and the next thing worth
 closing. `preview-renderer render` executes compiled template classes,
 writes `output.pdf`, generates `output.png` and clears pending
 artifacts. The invoice reference example has a render-runner and

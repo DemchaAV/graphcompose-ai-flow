@@ -31,11 +31,15 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import {
+  PAGE_ZONE_SINCE,
   ROLE_CONTRACT,
   checkRegionPrimitives,
+  chromeInstead,
+  chromeRegistrations,
   methodBody,
 } from "../lib/region-primitives.mjs";
 import { checkPaginationPlan } from "../lib/pagination-plan.mjs";
+import { packSymbols } from "../lib/pack-surface.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CLI = path.join(repoRoot, "scripts", "check-region-primitives.mjs");
@@ -98,6 +102,216 @@ test("a header drawn as body content is caught the same way", () => {
   );
   assert.deepEqual(kinds(findings), ["missing-primitive"]);
   assert.match(findings[0].detail, /DocumentSession\.header/);
+});
+
+// --- two mechanisms: text slots and node zones --------------------------------
+//
+// The check used to accept a footer only if its body contained "footer(" or
+// "DocumentHeaderFooter". A footer built as a DocumentPageZone — GraphCompose
+// 2.3+, the only way to put a logo, a link or a layout in the band — was
+// reported as missing, and the fix it printed told the agent to downgrade the
+// band to three strings. The same substrings could not tell the zones apart:
+// "DocumentHeaderFooter" is in a header and a footer alike.
+//
+// Every call below was checked with api-query against the 2.5 pack:
+// SessionChromeApi.zone(DocumentPageZone), DocumentPageZone.footer/header(double,
+// Function<PageContext, DocumentNode>), PageContext.pageNumber(DocumentTextStyle),
+// DocumentPageZone.toBuilder()/appliesTo(Predicate<PageContext>).
+
+const TEXT_FOOTER = `public final class T {
+    private void renderFooter(DocumentSession document, Spec spec) {
+        document.footer(DocumentHeaderFooter.builder()
+                .leftText(spec.company())
+                .rightText("Page {page} of {pages}")
+                .build());
+    }
+}`;
+
+const RICH_FOOTER = `public final class T {
+    private void renderFooter(DocumentSession document, Spec spec) {
+        // logo, notice and the page number, laid out as a row
+        document.chrome().zone(DocumentPageZone.footer(34, page -> new RowBuilder()
+                .name("FooterZone")
+                .gap(8)
+                .add(new ImageBuilder().source(spec.logo()).size(18, 18).build())
+                .addParagraph(p -> p.text(spec.notice()).textStyle(Theme.CHROME))
+                .flexSpacer()
+                .add(page.pageNumber(Theme.CHROME))
+                .build()));
+    }
+}`;
+
+const RICH_HEADER = `public final class T {
+    private void renderRunningHead(DocumentSession session, Spec spec) {
+        session.chrome().zone(DocumentPageZone.header(24, page -> new RowBuilder()
+                        .name("HeaderZone")
+                        .addParagraph(p -> p.text(spec.title()).textStyle(Theme.CHROME))
+                        .flexSpacer()
+                        .addParagraph(p -> p.textStyle(Theme.CHROME).inlineLink(spec.site(), spec.siteLink()))
+                        .build())
+                .toBuilder()
+                .appliesTo(page -> !page.isFirst())
+                .build());
+    }
+}`;
+
+const HEADER_REGION = [{ id: "running-head", label: "Running head", role: "page-header" }];
+const HEADER_MAPPING = [{ region: "running-head", renderMethod: "renderRunningHead" }];
+
+test("a simple text footer built with DocumentHeaderFooter passes", () => {
+  assert.deepEqual(check(TEXT_FOOTER, FOOTER_REGION, FOOTER_MAPPING), []);
+  assert.deepEqual(
+    check(TEXT_FOOTER, [{ ...FOOTER_REGION[0], chrome: { mechanism: "header-footer" } }], FOOTER_MAPPING),
+    [],
+  );
+});
+
+test("a rich footer with a logo, a layout and numbering built as a DocumentPageZone passes", () => {
+  assert.deepEqual(check(RICH_FOOTER, FOOTER_REGION, FOOTER_MAPPING), []);
+  assert.deepEqual(
+    checkRegionPrimitives({
+      regions: [{ ...FOOTER_REGION[0], chrome: { mechanism: "page-zone", reason: "logo beside the number" } }],
+      componentMapping: FOOTER_MAPPING,
+      source: RICH_FOOTER,
+      pageZones: true,
+      graphComposeLine: "2.5",
+    }),
+    [],
+  );
+});
+
+test("a rich header built as a DocumentPageZone passes, appliesTo and all", () => {
+  assert.deepEqual(check(RICH_HEADER, HEADER_REGION, HEADER_MAPPING), []);
+});
+
+test("a zone built by a builder or by a helper is read through", () => {
+  const source = `public final class T {
+    private void renderFooter(DocumentSession document, Spec spec) {
+        document.chrome().zone(footerZone(spec));
+    }
+    private DocumentPageZone footerZone(Spec spec) {
+        return DocumentPageZone.builder()
+                .zone(DocumentHeaderFooterZone.FOOTER)
+                .height(30)
+                .content(page -> new RowBuilder().add(page.pageNumber()).build())
+                .build();
+    }
+}`;
+  assert.deepEqual(check(source, FOOTER_REGION, FOOTER_MAPPING), []);
+  assert.deepEqual(chromeRegistrations(methodBody(source, "renderFooter"), source), [
+    { mechanism: "page-zone", zone: "footer" },
+  ]);
+});
+
+test("a footer rendered only as body content is caught, with both mechanisms named", () => {
+  // No bleed, nothing forbidden — a perfectly plain row at the end of the flow,
+  // which is exactly right on page one and absent from every page after it.
+  const source = `public final class T {
+    private void renderFooter(PageFlowBuilder page, Spec spec) {
+        page.addRow("Footer", row -> row
+                .addParagraph(p -> p.text(spec.company()))
+                .addParagraph(p -> p.text("Page 1 of 1")));
+    }
+}`;
+  const findings = check(source, FOOTER_REGION, FOOTER_MAPPING);
+  assert.deepEqual(kinds(findings), ["missing-primitive"]);
+  assert.match(findings[0].detail, /page one only/);
+  assert.match(findings[0].detail, /DocumentSession\.footer\(DocumentHeaderFooter\)/);
+  assert.match(findings[0].detail, /chrome\(\)\.zone\(DocumentPageZone\.footer/);
+});
+
+test("a header and a footer are not confused for each other", () => {
+  // The old substring check passed both of these: "DocumentHeaderFooter" is in
+  // either zone, and "header(" is in a table's header row.
+  const footerFromHeaderRegion = `public final class T {
+    private void renderRunningHead(DocumentSession session, Spec spec) {
+        session.footer(DocumentHeaderFooter.builder()
+                .zone(DocumentHeaderFooterZone.HEADER)
+                .centerText(spec.title())
+                .build());
+    }
+}`;
+  const wrong = check(footerFromHeaderRegion, HEADER_REGION, HEADER_MAPPING);
+  assert.deepEqual(kinds(wrong), ["wrong-zone"], "the call decides the zone, not the builder");
+  assert.match(wrong[0].detail, /registers a page footer/);
+
+  const zoneFromFooterRegion = check(RICH_HEADER.replace("renderRunningHead", "renderFooter"), FOOTER_REGION, FOOTER_MAPPING);
+  assert.deepEqual(kinds(zoneFromFooterRegion), ["wrong-zone"]);
+
+  const tableHeader = `public final class T {
+    private void renderRunningHead(PageFlowBuilder page, Spec spec) {
+        page.addTable(t -> t.header("Item", "Qty")); // not DocumentHeaderFooter
+        renderFooter(page, spec);
+        page.addParagraph(p -> p.text("session.header(DocumentHeaderFooter)"));
+    }
+}`;
+  assert.deepEqual(kinds(check(tableHeader, HEADER_REGION, HEADER_MAPPING)), ["missing-primitive"]);
+});
+
+test("pre-2.3 lines have no DocumentPageZone: the zone is reported, and the fix names text slots only", () => {
+  const onOld = checkRegionPrimitives({
+    regions: FOOTER_REGION,
+    componentMapping: FOOTER_MAPPING,
+    source: RICH_FOOTER,
+    pageZones: false,
+    graphComposeLine: "2.2",
+  });
+  assert.deepEqual(kinds(onOld), ["missing-primitive", "primitive-unavailable"]);
+  const unavailable = onOld.find((f) => f.kind === "primitive-unavailable");
+  assert.match(unavailable.detail, /GraphCompose 2\.2 does not have/);
+  assert.match(unavailable.detail, /2\.3/);
+  const missing = onOld.find((f) => f.kind === "missing-primitive");
+  assert.doesNotMatch(missing.detail, /chrome\(\)\.zone/, "advice for a line that cannot compile it");
+
+  // The text footer is the same build on every line.
+  assert.deepEqual(
+    checkRegionPrimitives({ regions: FOOTER_REGION, componentMapping: FOOTER_MAPPING, source: TEXT_FOOTER, pageZones: false }),
+    [],
+  );
+  // An analysis that chose a zone on such a line is told so, not sent to build one.
+  const chosen = checkRegionPrimitives({
+    regions: [{ ...FOOTER_REGION[0], chrome: { mechanism: "page-zone" } }],
+    componentMapping: FOOTER_MAPPING,
+    source: TEXT_FOOTER,
+    pageZones: false,
+    graphComposeLine: "2.2",
+  });
+  assert.deepEqual(kinds(chosen), ["primitive-unavailable"]);
+});
+
+test("2.3+ lines accept the zone and name it in the fix", () => {
+  for (const line of ["2.3", "2.4", "2.5"]) {
+    assert.deepEqual(
+      checkRegionPrimitives({ regions: FOOTER_REGION, componentMapping: FOOTER_MAPPING, source: RICH_FOOTER, pageZones: true, graphComposeLine: line }),
+      [],
+      line,
+    );
+  }
+  assert.match(chromeInstead("footer", true), /DocumentPageZone\.footer/);
+  assert.doesNotMatch(chromeInstead("footer", false), /DocumentPageZone\.footer\(/);
+});
+
+test("the version boundary is the packs' own answer, not a number written here", () => {
+  // If a pack ever disagreed with PAGE_ZONE_SINCE, the CLI — which asks the pack
+  // — and the advice text — which states the number — would part ways.
+  const versions = path.join(repoRoot, "skills", "versions");
+  const has = (line) => packSymbols(path.join(versions, `graphcompose-${line}`))?.has("DocumentPageZone");
+  assert.equal(has("2.2"), false, "2.2 predates DocumentPageZone");
+  for (const line of ["2.3", "2.4", "2.5"]) {
+    if (!fs.existsSync(path.join(versions, `graphcompose-${line}`))) continue;
+    assert.equal(has(line), true, `${line} should have DocumentPageZone`);
+  }
+  assert.equal(PAGE_ZONE_SINCE, "2.3");
+});
+
+test("a chosen mechanism the template did not use is reported", () => {
+  const findings = check(
+    TEXT_FOOTER,
+    [{ ...FOOTER_REGION[0], chrome: { mechanism: "page-zone", reason: "the logo sits beside the page number" } }],
+    FOOTER_MAPPING,
+  );
+  assert.deepEqual(kinds(findings), ["mechanism-mismatch"]);
+  assert.match(findings[0].detail, /Text slots cannot carry a logo/);
 });
 
 // --- the other roles ----------------------------------------------------------
@@ -322,6 +536,32 @@ test("the CLI reads the three artifacts and reports what disagrees", () => {
   assert.equal(status, 0, "findings are evidence for the loop, not a build failure");
   assert.deepEqual(kinds(parsed.findings), ["forbidden-primitive", "missing-primitive"]);
   assert.equal(parsed.regions, 1);
+});
+
+test("the CLI holds a zone-built footer to the workspace's resolved line", () => {
+  const inputs = {
+    analysis: { schemaVersion: 1, page: {}, regions: FOOTER_REGION },
+    plan: { schemaVersion: 1, componentMapping: FOOTER_MAPPING },
+    java: RICH_FOOTER,
+  };
+
+  const old = scenario("line22", inputs);
+  fs.writeFileSync(path.join(old.root, "resolved-version.json"), JSON.stringify({ schemaVersion: 1, version: "2.2.2", line: "2.2" }));
+  const onOld = runCli(old.root).parsed;
+  assert.equal(onOld.graphComposeLine, "2.2");
+  assert.equal(onOld.pageZones, false);
+  assert.ok(onOld.findings.some((f) => f.kind === "primitive-unavailable"));
+
+  const current = scenario("line25", inputs);
+  fs.writeFileSync(path.join(current.root, "resolved-version.json"), JSON.stringify({ schemaVersion: 1, version: "2.5.0", line: "2.5" }));
+  const onCurrent = runCli(current.root).parsed;
+  assert.equal(onCurrent.pageZones, true);
+  assert.deepEqual(onCurrent.findings, []);
+
+  // Nothing resolved: neither mechanism is refused.
+  const unknown = runCli(scenario("lineunknown", inputs).root).parsed;
+  assert.equal(unknown.pageZones, null);
+  assert.deepEqual(unknown.findings, []);
 });
 
 test("missing inputs are named refusals rather than an empty pass", () => {

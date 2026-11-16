@@ -38,8 +38,13 @@ import {
   projectDir as workspaceProjectDir,
   resolveWorkspace,
 } from "./lib/workspace.mjs";
-import { checkRegionPrimitives } from "./lib/region-primitives.mjs";
+import { checkRegionPrimitives, methodBody } from "./lib/region-primitives.mjs";
+import { checkContainerFills, checkContainerGrowth } from "./lib/container-fidelity.mjs";
+import { checkHeadingInset } from "./lib/heading-inset.mjs";
 import { checkPaginationPlan } from "./lib/pagination-plan.mjs";
+import { packSymbols } from "./lib/pack-surface.mjs";
+import { readResolvedVersion } from "./lib/resolved-version.mjs";
+import { versionLine } from "./lib/version-resolver.mjs";
 
 const repoRoot = installRoot();
 
@@ -149,17 +154,63 @@ const referencePages = Math.max(
   Number(project.render?.pages) || 1,
 );
 
+// Which repeating-band mechanisms this project's line has. DocumentPageZone
+// arrived in 2.3; on 2.2 the fix is DocumentHeaderFooter and a zone-built band
+// does not compile. Asked of the pinned pack, not of a version number compared
+// here, so the answer comes from the same allow-list the agent authored against.
+// Unresolved (no record, no pack) is null: both are named, neither is refused.
+const resolvedRecord = readResolvedVersion(workspace);
+const graphComposeLine =
+  resolvedRecord?.line ?? (resolvedRecord?.version ? versionLine(resolvedRecord.version) : null);
+let pageZones = null;
+if (graphComposeLine) {
+  const symbols = packSymbols(path.join(repoRoot, "skills", "versions", `graphcompose-${graphComposeLine}`));
+  if (symbols) pageZones = symbols.has("DocumentPageZone");
+}
+
 const findings = [
   ...checkRegionPrimitives({
     regions: analysis.regions ?? [],
     componentMapping,
     source: template.source,
+    pageZones,
+    graphComposeLine,
   }),
   ...checkPaginationPlan({
     plan,
     referencePages,
     source: template.source,
     componentMapping,
+  }),
+  // The third disagreement, and the one that sat unwatched the longest: the
+  // analysis measured a container, the plan named it, and the Java then built
+  // it however it liked. A run measured `fill.present: false` on the competency
+  // cards and painted them white; every gate passed.
+  ...checkContainerFills({
+    shapeOwnership: analysis.shapeOwnership ?? [],
+    componentMapping,
+    source: template.source,
+    readMethod: methodBody,
+  }),
+  // The fourth: a container the reference repeats with different content, built
+  // so that content cannot make it grow. `sizing` describes the width only, so
+  // a fixed height breaks no field — and clips the longest label.
+  ...checkContainerGrowth({
+    shapeOwnership: analysis.shapeOwnership ?? [],
+    componentMapping,
+    source: template.source,
+    readMethod: methodBody,
+  }),
+  // The fifth: the analysis says the body starts under the heading's title and
+  // the Java starts it under the heading's icon. Two numbers, compared — a
+  // flush body is a real design and is never asked to change.
+  ...checkHeadingInset({
+    regions: analysis.regions ?? [],
+    shapeOwnership: analysis.shapeOwnership ?? [],
+    componentMapping,
+    pageWidthPt: analysis.page?.sizePt?.width ?? undefined,
+    source: template.source,
+    readMethod: methodBody,
   }),
 ];
 
@@ -170,6 +221,8 @@ const result = {
   regions: (analysis.regions ?? []).length,
   mapped: componentMapping.length,
   referencePages,
+  graphComposeLine,
+  pageZones,
   findings,
 };
 

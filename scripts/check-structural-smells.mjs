@@ -44,6 +44,7 @@ import {
 } from "./lib/workspace.mjs";
 import { checkStructuralSmells } from "./lib/structural-smells.mjs";
 import { compareLines } from "./lib/version-resolver.mjs";
+import { packSymbols as symbolsOfPack } from "./lib/pack-surface.mjs";
 
 const repoRoot = installRoot();
 
@@ -112,19 +113,26 @@ function templateSource(revisionDir) {
  * reporting it against a pack that lacks the primitive would be telling an
  * author to call something that is not there. An unreadable pack yields an
  * empty set, which makes that rule silent rather than wrong.
+ *
+ * Which layout the pack is in is not this file's business, and reading only
+ * the prose one made the rule silent for every bundle-imported line: 2.3 and
+ * 2.4 both carry a larger allow-list than any prose pack ever did, under
+ * `api/`. Silence that reads as a pass is the failure this gate exists to
+ * avoid, so the reading is delegated to pack-surface.
  */
 function packSymbols(project) {
   const pack = project?.skillPack
     ? path.join(repoRoot, project.skillPack)
     : newestPack();
-  const surface = pack ? path.join(pack, "00-api-surface.md") : null;
-  if (!surface || !fs.existsSync(surface)) return { pack: null, symbols: new Set() };
-  const source = fs.readFileSync(surface, "utf8");
+  if (!pack) return { pack: null, symbols: new Set() };
+  const symbols = symbolsOfPack(pack);
+  if (!symbols) return { pack: null, symbols: new Set() };
   return {
     pack: path.relative(repoRoot, pack).split(path.sep).join("/"),
-    symbols: new Set([...source.matchAll(/^- `[^`]*?\b(\w+)\s*\(/gm)].map((m) => m[1])),
+    symbols,
   };
 }
+
 
 function newestPack() {
   const dir = path.join(repoRoot, "skills", "versions");

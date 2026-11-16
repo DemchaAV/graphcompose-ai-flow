@@ -16,6 +16,47 @@
       "const": 1,
       "description": "On-disk contract version for this artifact."
     },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project", "workspace", "reference"],
+      "description": "Which reference, in which project, in which workspace, this analysis was written for. STAMPED BY THE TOOL, never by the author: scripts/write-artifact.mjs computes it from disk when the artifact becomes canonical and replaces whatever the document arrived with, and scripts/check-analysis.mjs recomputes and compares. A value the author writes is a value a copying agent copies, and copying is exactly what this catches — a run once imported another project's revision folder wholesale, landing a byte-identical visual-analysis.json, and the barrier passed because validating says the document is well-shaped, not that anybody looked at this reference. All three parts are bound because in that incident the two projects shared an id AND the same reference bytes; only the workspace differed. Revision is deliberately absent: pass.mjs carries a parent's sources forward, which is the loop working.",
+      "properties": {
+        "project": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Project id the analysis was written for."
+        },
+        "workspace": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$",
+          "description": "Digest of the workspace root the project lives in. Hashed rather than stored because the absolute path is the user's directory layout and belongs in nobody's committed artifact."
+        },
+        "reference": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sha256", "pages"],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "description": "One digest over every reference page, each page's filename folded in with its bytes so that renaming or reordering pages is a different fingerprint."
+            },
+            "pages": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 },
+              "description": "The reference page files hashed, in page order. source.png is excluded — re-importing the same page from a different source file is not a different reference."
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Total size of the hashed pages, for a reader comparing two fingerprints by eye."
+            }
+          }
+        }
+      }
+    },
     "page": {
       "type": "object",
       "additionalProperties": false,
@@ -198,6 +239,12 @@
             "minLength": 1,
             "description": "The region's share of its parent, as a ratio or weight — never a pixel width. E.g. \"0.31 of the content row\"."
           },
+          "contentLeft": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Where the region's BODY text starts, as a fraction of the page — when that is not `bounds.x`. A section whose heading is an icon followed by a title has two left edges: the icon's, which is the region's, and the title's, which is where the paragraphs below it line up. `bounds` records only the first, so a run measured a badge at x 0.313 inside a region at x 0.315, built the heading as a fixed 18pt lane plus a 6pt gap, and started every paragraph and company name 24pt to the left of the title it belonged under. Nothing was wrong with the region's box, and nothing else had a place to say the body was indented. Measure it the way `bounds.x` is measured — leftmost ink of the body, not of the heading — and omit it when the body really does start at the region's own edge."
+          },
           "notes": {
             "anyOf": [
               {
@@ -264,9 +311,52 @@
               "divider",
               "background"
             ],
-            "description": "What the region IS to the page, not what it contains. Required: a region with no role states no contract for how it may be built, and check-region-primitives cannot check it. page-header / page-footer are chrome that repeats on every page and must map to DocumentSession.header/.footer (or the version equivalent), never be drawn as body content and never bleedToEdge, which extends a fill past the margin to the paper edge. table-header repeats at the top of every page its table reaches (TableBuilder.repeatHeader). table must be built with addTable, not as rows of shapes. image must use addImage and icon addSvgIcon — a filled rectangle or a coloured disc standing in for either matches the box and nothing inside it. background is page-level fill behind everything; panel, divider and content carry no build contract."
+            "description": "What the region IS to the page, not what it contains. Required: a region with no role states no contract for how it may be built, and check-region-primitives cannot check it. page-header / page-footer are chrome that repeats on every page: never drawn as body content and never bleedToEdge, which extends a fill past the margin to the paper edge. Two mechanisms build them and both are accepted - DocumentSession.header/.footer(DocumentHeaderFooter) for text slots, and DocumentSession.chrome().zone(DocumentPageZone.header/.footer(height, page -> node)) for a node-based band (GraphCompose 2.3+); `chrome.mechanism` records which. table-header repeats at the top of every page its table reaches (TableBuilder.repeatHeader). table must be built with addTable, not as rows of shapes. image must use addImage and icon addSvgIcon — a filled rectangle or a coloured disc standing in for either matches the box and nothing inside it. background is page-level fill behind everything; panel, divider and content carry no build contract."
+          },
+          "chrome": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mechanism"
+            ],
+            "description": "How a page-header or page-footer band is built, decided at analysis time. Only for those two roles. header-footer: DocumentSession.header/.footer(DocumentHeaderFooter) - up to three plain strings (left/centre/right) with the {page}/{pages} tokens; on every GraphCompose line. page-zone: DocumentSession.chrome().zone(DocumentPageZone.header/.footer(height, page -> node)) - a node subtree built per page from its PageContext: a logo or image, an icon, a link, a row layout, page.pageNumber() as a node, appliesTo(...) to skip pages; GraphCompose 2.3+ only. Choose by what the reference band holds, not by which is shorter; check-region-primitives holds the template to the choice and refuses page-zone on a line that predates it.",
+            "properties": {
+              "mechanism": {
+                "type": "string",
+                "enum": [
+                  "header-footer",
+                  "page-zone"
+                ],
+                "description": "header-footer for text slots; page-zone for nodes (2.3+)."
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "description": "One sentence naming what in the band decided it - e.g. \"logo beside the page number\". Expected for page-zone."
+              }
+            }
           }
-        }
+        },
+        "allOf": [
+          {
+            "description": "A chrome mechanism is a decision about a repeating band, so only the two band roles carry one.",
+            "if": {
+              "required": [
+                "chrome"
+              ]
+            },
+            "then": {
+              "properties": {
+                "role": {
+                  "enum": [
+                    "page-header",
+                    "page-footer"
+                  ]
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "layoutProportions": {
@@ -323,14 +413,20 @@
     },
     "shapeOwnership": {
       "type": "array",
-      "description": "Mandatory for the five cases skills/workflows/create-template/SKILL.md names: initials or icons inside circles, text inside pills or badges, content inside rounded cards, images clipped by rounded or circular shapes, and badges anchored inside or on a shape boundary.",
+      "description": "Every container that owns content: initials or icons inside circles, labels inside bordered boxes, content inside cards, images clipped by shapes, badges anchored on a boundary. One entry per DISTINCT container — ten competency boxes built alike are one entry with repeats: 10, not ten entries. Each entry MEASURES the container rather than naming a style of it. This used to be three prose strings, and a run described a rounded rectangle of radius ~3px on a 32px box as a \"rounded capsule shape with subtle border\"; the mapper carried the word forward and the author implemented cornerRadius(15), a capsule. Nothing was lying: the schema had nowhere to put a radius, and the guidance offered the taxonomy \"circles / pills or badges / rounded cards\", which has no bucket for a rectangle with a small radius. Ratios throughout, never pixels, so the numbers survive any resolution.",
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "container",
           "ownedContent",
-          "relationship"
+          "relationship",
+          "shape",
+          "cornerRadiusRatio",
+          "sizing",
+          "fill",
+          "stroke",
+          "bounds"
         ],
         "properties": {
           "container": {
@@ -343,8 +439,165 @@
           },
           "relationship": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "What the ownership MEANS where geometry cannot say it — \"the ring is the marker itself, page fill inside, so the rail is hidden where it crosses\". Not the place for shape adjectives: those are measured below."
+          },
+          "region": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Region id this container sits in."
+          },
+          "bounds": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["x", "y", "w", "h"],
+            "description": "The container as FRACTIONS of the page, top-left origin — the same frame regions use. For a repeated container this is the FIRST instance. Required, because it is what turns every other field here from a claim into a checkable one: check-analysis samples the reference inside these bounds and just outside them, and refuses a fill.present that the pixels contradict. A run measured this container's shape, radius, sizing and repeat count correctly and got fill.present wrong, and the wrong answer was the defect a reader saw first.",
+            "properties": {
+              "x": { "type": "number", "minimum": 0, "maximum": 1 },
+              "y": { "type": "number", "minimum": 0, "maximum": 1 },
+              "w": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+              "h": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+            }
+          },
+          "repeats": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "How many identical instances of this container the reference shows. Repeated components are built once and driven by data; recording the count is what tells the author that."
+          },
+          "shape": {
+            "type": "string",
+            "enum": ["rectangle", "rounded-rectangle", "pill", "circle", "ellipse", "other"],
+            "description": "The outline. `pill` is reserved for a capsule whose radius really is half its height — it is NOT a synonym for \"quite rounded\". If the corners are rounded at all but not fully, this is `rounded-rectangle` and cornerRadiusRatio carries how much."
+          },
+          "cornerRadiusRatio": {
+            "description": "Corner radius divided by the SHORTER side of the container. 0 is a square corner, 0.5 is a capsule or a circle. This is the field that makes rectangle-versus-pill a measurement instead of a word: the box that was called a capsule measures 0.09. A number sets all four corners. When they differ, name them — a panel with one rounded corner has no honest single value, and two models given the same such panel wrote 0 and 0.18 rather than saying so. Omitted corners in the object form are square. Required for every shape; use 0.5 for circle and ellipse.",
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 0.5
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "topLeft": { "type": "number", "minimum": 0, "maximum": 0.5 },
+                  "topRight": { "type": "number", "minimum": 0, "maximum": 0.5 },
+                  "bottomRight": { "type": "number", "minimum": 0, "maximum": 0.5 },
+                  "bottomLeft": { "type": "number", "minimum": 0, "maximum": 0.5 }
+                }
+              }
+            ]
+          },
+          "sizing": {
+            "type": "string",
+            "enum": ["hug-content", "fill-parent", "fixed-ratio"],
+            "description": "How WIDE the container is. `fill-parent` spans its parent's content width, so a stack of them share both edges; `hug-content` shrinks to what is inside, so each one differs. Ten boxes with a common left AND right edge are fill-parent — the give-away is that the short label and the long one end at the same place. Getting this wrong is not subtle and has no other field to live in."
+          },
+          "fill": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["present"],
+            "description": "The interior. A container that shows the page or panel behind it has fill.present = false — that is a different thing from a fill that happens to match the background, because the second one paints and the first one does not.",
+            "properties": {
+              "present": { "type": "boolean" },
+              "color": { "type": "string", "minLength": 1, "description": "Hex, when there is a fill." },
+              "opacity": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          },
+          "stroke": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["present"],
+            "description": "The border. A container defined ONLY by its border — no fill, the ground showing through — is common and was previously unrecordable; it is fill.present false with stroke.present true.",
+            "properties": {
+              "present": { "type": "boolean" },
+              "color": { "type": "string", "minLength": 1 },
+              "widthRatio": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Stroke width divided by the container's shorter side. A hairline on a 32px box is about 0.03."
+              }
+            }
+          },
+          "padding": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Space between the container's edge and its content, each side as a fraction of the container's SHORTER side. Asymmetry matters and averaging it away is how content ends up optically off-centre.",
+            "properties": {
+              "top": { "type": "number", "minimum": 0 },
+              "right": { "type": "number", "minimum": 0 },
+              "bottom": { "type": "number", "minimum": 0 },
+              "left": { "type": "number", "minimum": 0 }
+            }
+          },
+          "gap": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Space BETWEEN the container's children, as a fraction of the container's shorter side. Distinct from padding: one is the frame, the other is the rhythm inside it."
+          },
+          "contentAlign": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Where the content sits inside the container. Both axes, because a box whose text is vertically centred and one whose text sits on the baseline differ visibly and the difference has no other home.",
+            "properties": {
+              "horizontal": { "type": "string", "enum": ["left", "center", "right", "justify"] },
+              "vertical": { "type": "string", "enum": ["top", "center", "bottom", "baseline"] }
+            }
+          },
+          "spacingToNext": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Gap to the next instance of this container, as a fraction of the container's shorter side. Only meaningful when repeats > 1, and it is what makes a stack's rhythm reproducible."
+          },
+          "notes": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Anything the numbers above could not carry, including how coarse an estimate is."
           }
+        }
+      }
+    },
+    "icons": {
+      "type": "array",
+      "description": "Icons whose size or placement is independent of the text beside them. An icon reduced to an inline glyph at the text's own size is one of the reconstruction errors this exists to stop: the reference's icons were roughly half again the cap height and vertically centred, and nothing recorded that, so they were emitted as text-sized inline runs. Omit icons that genuinely are inline glyphs at text size — say so with inline: true rather than leaving them out, if in doubt.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "sizeRelativeToText", "verticalAlign", "inline"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "description": "What this icon is, matching the asset request's token where there is one." },
+          "region": { "type": "string", "minLength": 1 },
+          "sizeRelativeToText": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "The icon's drawn height divided by the height of the text it sits beside. 1.0 is text-sized; 1.45 is half again as tall. The single number that stops an icon becoming a glyph."
+          },
+          "boundsRatio": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "The icon's box as fractions of its region, when it is placed independently rather than in a text run.",
+            "properties": {
+              "w": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+              "h": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+            }
+          },
+          "verticalAlign": {
+            "type": "string",
+            "enum": ["top", "center", "baseline", "bottom"],
+            "description": "Against the text beside it. `baseline` and `center` differ by a visible amount at any icon larger than the text."
+          },
+          "gapToText": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Space between the icon and the text, as a fraction of the icon's height."
+          },
+          "inline": {
+            "type": "boolean",
+            "description": "true when the icon is part of the text run and flows with it; false when it is its own child, positioned independently. The two build differently and cannot be swapped."
+          },
+          "notes": { "type": "string", "minLength": 1 }
         }
       }
     },
@@ -352,6 +605,53 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "roles": {
+          "type": "array",
+          "description": "Which face each type role uses, and whether that was measured or assumed. The prose fields below describe the type; this one commits to it.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["role", "fontName", "source"],
+            "properties": {
+              "role": {
+                "enum": ["title", "headings", "body", "meta", "table"]
+              },
+              "fontName": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The FontName constant the template will use, e.g. \"LATO\"."
+              },
+              "size": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "Type size in points, from `typography.mjs search --role <name>`. The scale that search needs is page.referencePx.width / page.sizePt.width. Without this the size is chosen by trial against whether a line wraps, which trades the size away to avoid fixing the column: one run set its contacts to 6.2 then 6.4pt so the longest address would fit."
+              },
+              "source": {
+                "enum": ["measured", "assumed"],
+                "description": "measured: a recorded `typography.mjs match` ranked this family near the top for this role. assumed: someone chose it and said why."
+              },
+              "sample": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The exact string the crop contains, so the match can be reproduced."
+              },
+              "crop": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The crop of the reference that was matched."
+              },
+              "why": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Required when source is \"assumed\": what makes this the right face when nothing measured it."
+              },
+              "notes": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
         "title": {
           "type": "string",
           "minLength": 1
@@ -577,11 +877,11 @@
                 "footer",
                 "header"
               ],
-              "description": "Which chrome zone carries it. Maps to DocumentSession.footer(...) / .header(...) with DocumentHeaderFooterZone."
+              "description": "Which chrome zone carries it: footer or header. Built as DocumentSession.footer/.header(DocumentHeaderFooter) with {page}/{pages} tokens, or as a DocumentPageZone footer/header (2.3+) holding page.pageNumber() / page.pageTotal() nodes - whichever mechanism that band's region records in chrome.mechanism."
             },
             "format": {
               "type": "string",
-              "description": "The literal chrome text, with GraphCompose's placeholders, e.g. \"Page {page} of {pages}\". The {pages} half is the part that makes a missing page detectable; \"Page 3\" alone does not."
+              "description": "The literal chrome text, with GraphCompose's placeholders, e.g. \"Page {page} of {pages}\". The {pages} half is the part that makes a missing page detectable; \"Page 3\" alone does not. In a DocumentPageZone the same text is composed from page.pageNumber() and page.pageTotal() nodes; write it here in token form all the same."
             },
             "repeat": {
               "type": "string",

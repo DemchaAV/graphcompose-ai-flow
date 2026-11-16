@@ -187,3 +187,18 @@ test("a fully-qualified name resolves, instead of answering about its first segm
   assert.equal(parsed.type.name, "TimelineMarker");
   assert.ok(parsed.overloads.some((s) => s.includes("dot(")));
 });
+
+test("--exists finds a member of a nested type, which the pack lists as Outer.Inner", () => {
+  // It read the segment before the member as the type, looked for a type named
+  // DocumentPageZoneBuilder, and answered "does not exist" (exit 3) for members
+  // every 2.3+ pack declares — the false negative this tool exists to rule out.
+  const exit = (version, symbol) =>
+    spawnSync(process.execPath, [CLI, "--version", version, "--exists", symbol], { encoding: "utf8" }).status;
+  for (const version of ["2.3", "2.4", "2.5"]) {
+    assert.equal(exit(version, "DocumentPageZone.DocumentPageZoneBuilder.appliesTo"), 0, version);
+    assert.equal(exit(version, "DocumentHeaderFooter.DocumentHeaderFooterBuilder.leftText"), 0, version);
+    assert.equal(exit(version, "com.demcha.compose.document.output.DocumentPageZone.DocumentPageZoneBuilder.padding"), 0, version);
+    assert.equal(exit(version, "DocumentPageZone.DocumentPageZoneBuilder.invented"), 3, version);
+  }
+  assert.equal(exit("2.2", "DocumentPageZone.footer"), 3, "2.2 predates DocumentPageZone");
+});

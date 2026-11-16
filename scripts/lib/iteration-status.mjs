@@ -33,9 +33,18 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { auditReviewClaims } from "./review-claims.mjs";
+import { CONVERGENCE, FIDELITY, convergenceOf, fidelityOf, reconcileVerdict } from "./fidelity.mjs";
 import { describeSeal, sealState } from "./revision-seal.mjs";
 import { describeAttempts, readAttempts } from "./attempts.mjs";
 import { coveringLimitation, readLimitations } from "./limitations.mjs";
+
+/**
+ * The two a REVIEW may write. The other two in {@link VERDICTS} are this
+ * module's own conclusions — reached from the budget, the same-cause bound and
+ * the failure record — and a review that types one of them is ending the loop
+ * rather than judging the page.
+ */
+export const REVIEW_VERDICTS = Object.freeze(["READY_FOR_APPROVAL", "REVISE"]);
 
 /** Verdicts this module can return, in the order they end the loop. */
 export const VERDICTS = Object.freeze([
@@ -92,11 +101,15 @@ function loadLoop(projectDir, revisionId) {
     // starts after it, so stop before including it.
     if (revision.status === "APPROVED" && cursor !== revisionId) break;
 
+    const review = readJsonOr(path.join(dir, "visual-review.json"));
     chain.unshift({
       id: cursor,
       dir,
       revision,
-      review: readJsonOr(path.join(dir, "visual-review.json")),
+      review,
+      // The same document, untouched. `carryReportsForward` writes onto
+      // `review`; the schema gate has to judge what the author wrote.
+      reviewOnDisk: review === null ? null : structuredClone(review),
       // What the pass actually measured, so "is this still moving?" is a
       // question about pixels rather than about how many mismatches the review
       // chose to list. A pass can rename its findings and look like progress.
@@ -114,6 +127,76 @@ function loadLoop(projectDir, revisionId) {
   }
   carryReportsForward(chain);
   return { chain, truncatedAt };
+}
+
+/**
+ * Every revision this loop has spent, including the branches it abandoned.
+ *
+ * The budget used to be `chain.length`, and the chain is one ancestry. Once
+ * `chainRegression` began printing `pass.mjs --open --revision <best>` — go
+ * back to the revision that was working — following that advice made the new
+ * revision's parent an old one, so the chain was rebuilt from there and came
+ * back short. Reproduced: a project at 8/8 refuses to open, and the same
+ * project told to branch from revision-001 opens revision-009 reporting
+ * `budget iterations 1/8`. The bound existed and a retreat handed back a fresh
+ * one, on exactly the runs late enough to be advised to retreat.
+ *
+ * A retreat is the loop changing approach, not a new loop. So the count is the
+ * revisions themselves: from where this loop began — `loadLoop` has already
+ * stopped the chain after the previous approval, so its first entry is that
+ * point — forward through every revision opened since, whichever branch each
+ * one sits on. An approval after that closes the loop, and what follows it
+ * belongs to the next one.
+ *
+ * Only counting is done here. Progress, convergence and the same-cause bound
+ * all stay on the chain, because those ask what led to the page in front.
+ */
+function loopMembers(projectDir, chain) {
+  const revisionsDir = path.join(projectDir, "revisions");
+  let names;
+  try {
+    names = fs.readdirSync(revisionsDir);
+  } catch {
+    return chain;
+  }
+
+  const start = chain[0].id;
+  const onChain = new Map(chain.map((entry) => [entry.id, entry]));
+  const all = [];
+  for (const id of names) {
+    if (id < start) continue;
+    // A revision the chain already holds comes from the chain: its review has
+    // had the open report carried onto it, and re-reading the file would lose
+    // that.
+    if (onChain.has(id)) {
+      all.push(onChain.get(id));
+      continue;
+    }
+    const dir = path.join(revisionsDir, id, "revision.json");
+    const revision = readJsonOr(dir);
+    if (!revision) continue;
+    // A branch the loop abandoned. Its review is read as written, and a report
+    // the user made against it still counts as their pass — `humanDirectedPasses`
+    // dedupes by report id, so one report addressed on both sides of a retreat
+    // is one exemption.
+    const review = readJsonOr(path.join(revisionsDir, id, "visual-review.json"));
+    const asked = readJsonOr(path.join(revisionsDir, id, "human-report.json"));
+    all.push({
+      id,
+      revision,
+      review: review?.humanReportedMismatch?.id || !asked?.id
+        ? review
+        : { ...(review ?? {}), humanReportedMismatch: { id: asked.id, addressed: false } },
+    });
+  }
+  if (all.length === 0) return chain;
+  all.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+
+  // Ids are zero-padded and monotonic (`revision-001`, `revision-002`), so a
+  // string comparison orders them. The first approval after the loop's own
+  // first revision ends it; anything past that is a later loop's spending.
+  const closed = all.findIndex((entry, i) => i > 0 && entry.revision.status === "APPROVED");
+  return closed === -1 ? all : all.slice(0, closed + 1);
 }
 
 /**
@@ -135,7 +218,11 @@ function carryReportsForward(chain) {
   for (const entry of chain) {
     const file = readJsonOr(path.join(entry.dir, "human-report.json"));
     if (file?.id && file.addressed !== true) {
-      open = { id: file.id, quote: file.quote ?? null, addressed: false, from: entry.id, source: "file" };
+      // A quote is what the user actually said; a report made without one has
+      // none. Absent rather than null, because the schema asks for a string
+      // and the carried report is read back through it.
+      const quote = typeof file.quote === "string" && file.quote !== "" ? { quote: file.quote } : {};
+      open = { id: file.id, ...quote, addressed: false, from: entry.id, source: "file" };
     }
     const review = entry.review;
     const inReview = review?.humanReportedMismatch;
@@ -145,7 +232,12 @@ function carryReportsForward(chain) {
       continue;
     }
     if (open && review && typeof review === "object") {
-      review.humanReportedMismatch = { id: open.id, quote: open.quote, addressed: false, carriedFrom: open.from };
+      review.humanReportedMismatch = {
+        id: open.id,
+        ...(typeof open.quote === "string" && open.quote !== "" ? { quote: open.quote } : {}),
+        addressed: false,
+        carriedFrom: open.from,
+      };
     }
   }
 }
@@ -159,6 +251,47 @@ function carryReportsForward(chain) {
  * pixels. It stays in front until a review marks it addressed, so it cannot be
  * lost to a louder measured mismatch appearing.
  */
+/**
+ * The focus a revision was aiming at, read straight off disk.
+ *
+ * `attempts.json` has carried a `focus` field since it was introduced and
+ * nothing ever filled it: 55 attempts across three projects, every one of them
+ * `null`. So the record of what each render was trying to fix did not exist,
+ * and every pass re-derived the same three causes from the diff — in one run,
+ * the identical triple ten times over, led by a region the loop had already
+ * agreed to accept.
+ *
+ * "Aiming at" is the state before this render, not after it: this revision's
+ * own focus when a previous attempt or review already set one, and otherwise
+ * the parent's, which is the instruction the author actually acted on.
+ * `render-and-diff` records the attempt before it rewrites either file, so
+ * what is on disk at that moment is exactly that.
+ *
+ * @param {string} revisionDir
+ * @param {Array<object>} [limitations] accepted limitations, never the focus
+ * @returns {{id: string|null, source: string|null}}
+ */
+export function focusAimedAt(revisionDir, limitations = []) {
+  const here = focusFromDir(revisionDir, limitations);
+  if (here.id) return here;
+  const revision = readJsonOr(path.join(revisionDir, "revision.json"));
+  const parentId = revision?.parentRevisionId;
+  if (!parentId) return { id: null, source: null };
+  return focusFromDir(path.join(path.dirname(revisionDir), parentId), limitations);
+}
+
+/** One revision's focus, from the two files that can carry one. */
+function focusFromDir(dir, limitations) {
+  const focus = focusOf(
+    {
+      review: readJsonOr(path.join(dir, "visual-review.json")),
+      harnessFocus: readJsonOr(path.join(dir, "harness-focus.json")),
+    },
+    limitations,
+  );
+  return { id: focus.id ?? null, source: focus.source ?? null };
+}
+
 function focusOf(entry, limitations = []) {
   const review = entry.review;
   // The harness's own focus outranks the review's and the user's: while a
@@ -383,6 +516,109 @@ export function attemptHistory(chain, focusKey, limitations = []) {
  * @param {Array<{moved:number|null}>} history from {@link attemptHistory}
  * @param {number} materialPercent
  */
+/**
+ * Has the loop stopped beating the best revision it already has?
+ *
+ * `diminishingReturns` below asks whether the last two *moves* were small, and
+ * `attemptHistory` feeds it only the run of revisions sharing one focus — it
+ * breaks the moment the focus changes. A run that changes focus every pass
+ * therefore has no cross-revision signal at all, and one did exactly that:
+ *
+ *     001 15.304  <- best      005 15.438
+ *     002 15.540               006 15.770
+ *     003 15.554               007 15.688  <- shipped
+ *     004 15.589
+ *
+ * Seven revisions, six of them worse than the first, and nothing said so. The
+ * loop stopped on its iteration bound, having spent six passes moving away from
+ * a result it had after one.
+ *
+ * This reads the whole chain instead, and asks the question the trail makes
+ * obvious: how many revisions ago was the best one. Two passes that failed to
+ * improve on it is the point — a pass that does not beat the best by the
+ * material threshold bought nothing, which is the same standard `stalled`
+ * applies to consecutive moves, anchored to the best rather than to whatever
+ * came immediately before.
+ *
+ * @param {Array<{id: string, stats: object|null}>} chain oldest first
+ * @returns {{measurable: boolean, best: number|null, bestRevision: string|null,
+ *            latest: number|null, worseThanBest: number|null, sinceBest: number,
+ *            regressed: boolean}}
+ */
+export function chainRegression(chain) {
+  const measured = (chain ?? [])
+    .filter((entry) => typeof entry?.stats?.percent === "number")
+    .map((entry) => ({ revision: entry.id, percent: round(entry.stats.percent, 3) }));
+
+  if (measured.length < 3) {
+    return {
+      measurable: false,
+      best: null,
+      bestRevision: null,
+      latest: measured.at(-1)?.percent ?? null,
+      worseThanBest: null,
+      sinceBest: 0,
+      regressed: false,
+    };
+  }
+
+  let bestAt = 0;
+  for (let i = 1; i < measured.length; i += 1) {
+    if (measured[i].percent < measured[bestAt].percent) bestAt = i;
+  }
+  const best = measured[bestAt];
+  const latest = measured.at(-1);
+  const sinceBest = measured.length - 1 - bestAt;
+
+  return {
+    measurable: true,
+    best: best.percent,
+    bestRevision: best.revision,
+    latest: latest.percent,
+    worseThanBest: round(latest.percent - best.percent, 3),
+    sinceBest,
+    regressed: sinceBest >= 2,
+  };
+}
+
+/**
+ * Movement across every measured revision, in the shape
+ * {@link diminishingReturns} reads — and keyed on nothing.
+ *
+ * `attemptHistory` feeds the stall test only the run of passes sharing one
+ * focus, which is the right question about one cause and answers nothing about
+ * a loop that names a new cause every pass. One did: eight revisions, eight
+ * mismatch ids, no id repeated. The trailing run was length 1 every time, so
+ * `diminishingReturns` reported `measurable: false`, the same-cause bound never
+ * reached two, and the page difference sat between 14.15% and 14.45% from the
+ * second revision to the eighth with nothing able to say so.
+ *
+ * The measurement does not depend on what anything was called: every revision
+ * has a `visual-diff-stats.json`, and the movement between consecutive ones is
+ * the loop's own progress. Weaker evidence about a *cause* than the focus run —
+ * which is why it is the fallback and not the first answer — and much stronger
+ * evidence about the loop.
+ *
+ * @param {Array<object>} chain
+ * @returns {Array<{revision:string, mismatch:null, action:null,
+ *                  percent:number, moved:number|null}>}
+ */
+export function chainMovement(chain) {
+  const measured = (chain ?? [])
+    .filter((entry) => typeof entry?.stats?.percent === "number")
+    .map((entry) => ({ revision: entry.id, percent: round(entry.stats.percent, 3) }));
+
+  return measured.map((entry, index) => ({
+    revision: entry.revision,
+    // The cause is deliberately absent: this history spans revisions that named
+    // different ones, and attributing a move to any of them would be a guess.
+    mismatch: null,
+    action: null,
+    percent: entry.percent,
+    moved: index > 0 ? round(entry.percent - measured[index - 1].percent, 3) : null,
+  }));
+}
+
 export function diminishingReturns(history, materialPercent) {
   const measured = history.filter((attempt) => attempt.moved !== null);
   if (measured.length < 2) return { measurable: false, stalled: false, moves: [] };
@@ -453,10 +689,16 @@ export function measurementEvidence(revisionDir) {
 /**
  * Compute the loop status for one project.
  *
- * @param {{ projectDir: string, config: object, revisionId?: string|null }} options
+ * `validateReview` is injected rather than resolved here because loading the
+ * shipped validator is asynchronous and this function is not — every caller is
+ * a CLI that has already awaited `ready()`. Omitted, the review's shape goes
+ * unchecked, which is what every caller did before it existed.
+ *
+ * @param {{ projectDir: string, config: object, revisionId?: string|null,
+ *          validateReview?: ((doc: unknown) => {valid: boolean, errors: string|null})|null }} options
  * @returns {object} status report; `verdict` is the decision, `reasons` explains it
  */
-export function computeIterationStatus({ projectDir, config, revisionId = null }) {
+export function computeIterationStatus({ projectDir, config, revisionId = null, validateReview = null }) {
   const project = readJsonOr(path.join(projectDir, "template-project.json"));
   if (!project) {
     throw new IterationStatusError(`no template-project.json in ${projectDir}`);
@@ -473,6 +715,11 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
   if (chain.length === 0) {
     throw new IterationStatusError(`revision ${target} not found in ${projectDir}`);
   }
+  // Everything this loop has spent, branches included. The chain is the target's
+  // own ancestry and stays the basis for every question about progress; the
+  // budget is a different question, and answering it from the ancestry let a
+  // retreat buy a fresh one — see loopMembers.
+  const spent = loopMembers(projectDir, chain);
 
   const latest = chain[chain.length - 1];
   // What this project has decided not to fix. Read once, threaded through every
@@ -484,6 +731,11 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
   const focusKey = focusKeyOf(latest, limitations);
 
   const iterations = chain.length;
+  // What the loop has spent, which is not the same number as how long this
+  // ancestry is: a retreat branches, and both sides of the branch were passes.
+  // `iterations` stays the chain — a reader asking about revision-002 means
+  // that revision's own history — while the budget is charged against the loop.
+  const loopIterations = spent.length;
   // The budget is about the agent circling, so it counts the agent's own
   // passes. The total is still reported — a reader wants to know how many
   // revisions this loop produced, not just how many were charged for.
@@ -491,11 +743,11 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
   // Capped, because the evidence for "the user asked for this" is a field the
   // agent writes. An uncapped exemption is an uncapped loop; see
   // humanDirectedPasses.
-  const reported = humanDirectedPasses(chain);
+  const reported = humanDirectedPasses(spent);
   const exemptionCap = config.limits.maxIterationGrants;
   const humanDirected = reported.slice(0, exemptionCap);
   const exemptionsRefused = reported.slice(exemptionCap);
-  const agentIterations = Math.max(0, iterations - humanDirected.length);
+  const agentIterations = Math.max(0, loopIterations - humanDirected.length);
   const converged = convergence(chain, limitations);
   const consecutiveBuildFailures = trailingRun(chain, isBuildFailure);
   const sameMismatchAttempts = focusKey
@@ -507,7 +759,20 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
   // attempts are still moving anything. Computed before the bounds so both the
   // bound's reason and the payload can name them.
   const history = attemptHistory(chain, focusKey, limitations);
-  const stalling = diminishingReturns(history, limits.materialMovePercent ?? 0.25);
+  // Across the whole chain, not the focus run: see chainRegression's note. It
+  // joins `stalling` because both answer one question — is the loop still
+  // buying anything between revisions — and `convergenceOf` reads them together.
+  const chainBest = chainRegression(chain);
+  const material = limits.materialMovePercent ?? 0.25;
+  const onFocus = diminishingReturns(history, material);
+  // The focus run first: it is the sharper question — are the passes against
+  // THIS cause still buying anything. When it measured nothing, the loop
+  // renamed its cause rather than repeating it, and the chain is asked instead.
+  // Falling silent there is what let eight passes sit inside a third of a
+  // percentage point with the movement axis reporting UNKNOWN.
+  const stalling = onFocus.measurable
+    ? { ...onFocus, scope: "focus", regressed: chainBest.regressed }
+    : { ...diminishingReturns(chainMovement(chain), material), scope: "chain", regressed: chainBest.regressed };
   const reasons = [];
 
   for (const skip of focus.skipped ?? []) {
@@ -535,7 +800,37 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     latest: perRevision[perRevision.length - 1] ?? null,
   };
   const latestRenders = renders.latest;
-  if (latestRenders && latestRenders.renders >= 3 && latestRenders.stalled) {
+  // Reported beside the sweep's own retreat rather than instead of it: one is
+  // about renders inside this revision, the other about which revision to go
+  // back to, and a loop can need to hear both.
+  if (chainBest.regressed) {
+    reasons.push(
+      `${chainBest.bestRevision} measured ${chainBest.best}% and is still the best of this loop; ` +
+        `${chainBest.sinceBest} revision(s) since have not beaten it and ${latest.id} is ` +
+        `${chainBest.worseThanBest}% worse. Branch from it rather than taking another pass away from it: ` +
+        // Naming the command, because the first version of this said "go back to
+        // revision-001" and a run read it six times without going back. The
+        // ability was there — `--open` passes `--revision` through as the base —
+        // and the usage line advertised `--revision` only on the render form.
+        // `projectName` is the field the manifest actually carries; the folder
+        // name is the fallback the rest of the harness uses to address a project.
+        `node scripts/pass.mjs --project ${project.projectName ?? path.basename(projectDir)} ` +
+        '--open "<what this pass fixes>" ' +
+        `--revision ${chainBest.bestRevision}`,
+    );
+  }
+  // Regression is reported in place of stalling when both hold, not beside it:
+  // they describe one trail, and this one carries the trail plus the render to
+  // go back to. A plateau says change approach; a retreat says return to what
+  // worked, and that is the more actionable of the two.
+  if (latestRenders && latestRenders.regressed) {
+    reasons.push(
+      `${latest.id} is ${latestRenders.worseThanBest}% worse than its own best ` +
+        `(render ${latestRenders.bestAt} of ${latestRenders.renders}, ${latestRenders.best}%): ` +
+        `${latestRenders.trail.map((p) => `${p}%`).join(" → ")} — the last two renders are both behind it, ` +
+        "so the change that helped is the one to go back to",
+    );
+  } else if (latestRenders && latestRenders.renders >= 3 && latestRenders.stalled) {
     reasons.push(
       `${latest.id} has been rendered ${latestRenders.renders} times ` +
         `(${latestRenders.trail.map((p) => `${p}%`).join(" → ")}) and the last two moved under ` +
@@ -553,6 +848,42 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
 
   // Start from what the review said, then let the bounds override it.
   let verdict = latest.review?.verdict ?? "REVISE";
+  /**
+   * What the review itself claimed, kept because the fidelity axis is asked
+   * about the CLAIM and not about what other rules have already done to it.
+   * `reconcileVerdict` speaks only when it changes something, so passing it a
+   * verdict the claims audit had already forced to REVISE left it silent — and
+   * the sentence it would have said ("a CRITICAL classification is never
+   * READY_FOR_APPROVAL, whatever the review concluded") is the deeper of the
+   * two. It only ever downgrades, so asking it the original question cannot
+   * raise anything.
+   */
+  let claimedVerdict = verdict;
+
+  // A review may judge the page. It may not end the loop.
+  //
+  // `CONVERGENCE_LIMIT_REACHED` and `BLOCKED` are conclusions this function
+  // reaches from the budget, the same-cause bound and the failure record. Three
+  // consecutive runs ended by typing one of them into the review instead:
+  // nora-b8 at 8 passes, nora-b10 and julian-mercer-cv at 5 with three still in
+  // budget, each pairing it with a MINOR named after font rasterisation on a
+  // page the comparator called CRITICAL. The verdict is read as the starting
+  // point and the bounds only escalate, so nothing asked whether the review was
+  // entitled to stop.
+  //
+  // REVISE is the floor rather than a refusal: the bounds below still reach
+  // CONVERGENCE_LIMIT_REACHED or BLOCKED on their own evidence when that is
+  // what the loop has actually spent.
+  if (latest.review && !REVIEW_VERDICTS.includes(claimedVerdict)) {
+    reasons.push(
+      `${latest.id}: visual-review.json claims "${claimedVerdict}", which is a verdict this loop ` +
+        `computes rather than one a review may write — a review says ${REVIEW_VERDICTS.join(" or ")} ` +
+        "and the budget, the same-cause bound and the failure record decide the rest. Read as REVISE; " +
+        "if the loop has genuinely spent itself, iterate-status says so without being told",
+    );
+    verdict = "REVISE";
+    claimedVerdict = "REVISE";
+  }
   let failureCategory = latest.review?.failureCategory ?? null;
 
 
@@ -561,6 +892,33 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
       `${latest.id} has no visual-review.json — a render without a review is not an iteration, ` +
         "it is an unfinished one",
     );
+  } else if (validateReview) {
+    // `visual-review.json` is the artifact this whole verdict starts from, and
+    // it was the one artifact nothing validated: `write-artifact` does not
+    // accept it, the write guard leaves it alone by name, and until now no
+    // runtime path ran `schemas/visual-review.schema.json` against it. One run
+    // conformed only because the model went and read the schema itself.
+    //
+    // A document that does not match its schema is not a review, so its verdict
+    // does not get to stand — whatever that verdict was. Downgrading only
+    // READY_FOR_APPROVAL would leave a review free to invent a verdict the enum
+    // does not have and have it carried through the loop as written; the bounds
+    // below still escalate to BLOCKED or CONVERGENCE_LIMIT_REACHED on their own
+    // evidence, so REVISE here is a floor and not a ceiling.
+    // The document as it was written, not as this module left it.
+    // `carryReportsForward` attaches an open report to a review that did not
+    // restate it, and `carriedFrom` is not in the schema — so validating the
+    // in-memory object accused a perfectly valid file of violating its own
+    // schema, and rewriting the file re-triggered it, because the offending
+    // key is added by the reader every time.
+    const shape = validateReview(latest.reviewOnDisk ?? latest.review);
+    if (!shape.valid) {
+      reasons.push(
+        `${latest.id}: visual-review.json does not match visual-review.schema.json ` +
+          `(${String(shape.errors ?? "").slice(0, 200)}) — a review nothing can read is not a judgement`,
+      );
+      verdict = "REVISE";
+    }
   }
 
   // A revision edited after it was judged is not the revision that was judged.
@@ -607,6 +965,26 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
       reasons.push(`${latest.id}: ${claim.detail}`);
     }
     if (verdict === "READY_FOR_APPROVAL") verdict = "REVISE";
+  }
+
+  // The checks above ask whether the review was done and whether it contradicts
+  // itself. None of them asks the comparator what it measured, so a review that
+  // quoted its own pixel count honestly and then called every mismatch MINOR
+  // ended the loop on a page 14.17% of which was wrong. Fidelity and
+  // convergence are separate questions and are answered separately; see
+  // lib/fidelity.mjs for which of the five recorded numbers is binding and why.
+  // Named `movement` here, not `convergence`: this file already has a
+  // `convergence()` answering a different question — whether the severity
+  // ledger shrank, which is what an extension is granted on. This axis is
+  // about pixels moving, and conflating the two names would hide that.
+  const fidelity = fidelityOf(latest.stats);
+  const movement = convergenceOf(stalling, renders.latest);
+  const reconciled = reconcileVerdict({ claimed: claimedVerdict, fidelity, convergence: movement });
+  if (reconciled.reason) {
+    reasons.push(`${latest.id}: ${reconciled.reason}`);
+    // Never upward: the claims audit and the seal may already have lowered
+    // this, and the fidelity axis answers a question about the claim.
+    if (VERDICTS.indexOf(reconciled.verdict) > VERDICTS.indexOf(verdict)) verdict = reconciled.verdict;
   }
 
   if (truncatedAt) {
@@ -671,8 +1049,19 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
       // latest pass to have strictly reduced the blocking count again.
       const grantsUsed = agentIterations - limits.maxIterations;
       const grantsLeft = Math.max(0, limits.maxIterationGrants - grantsUsed);
+      // The severity ledger is written by the review; the page difference is
+      // not. A run ended its eighth pass by calling its one remaining CRITICAL
+      // a MINOR named "residual-font-rendering-variance" — blocking count 1 ->
+      // 0, an extension granted — on a page the comparator still classified
+      // CRITICAL at 14.15%, which had moved 0.187 points. A relabel and a fix
+      // are indistinguishable in that count, so the measurement is asked too.
+      //
+      // Only STALLED refuses. UNKNOWN keeps the old behaviour on purpose:
+      // declining on "cannot tell" would tighten the bound on loops with too
+      // few measurements, which is not what this is about.
+      const relabelled = movement.level === CONVERGENCE.STALLED;
 
-      if (converged.converging && grantsLeft > 0) {
+      if (converged.converging && grantsLeft > 0 && !relabelled) {
         grantedExtension = { used: grantsUsed + 1, of: limits.maxIterationGrants, ...converged };
         reasons.push(
           `${agentIterations} agent passes is at the limit of ${limits.maxIterations}, and the ` +
@@ -700,10 +1089,14 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
               : "") +
             (grantsLeft <= 0
               ? `; all ${limits.maxIterationGrants} extensions are spent`
-              : converged.measurable
-                ? `; the last pass closed no blocking mismatch (${converged.from} -> ` +
-                  `${converged.to}), so there is nothing to extend on`
-                : "; there is no second reviewed pass to measure progress against"),
+              : relabelled && converged.converging
+                ? `; the last pass closed a blocking mismatch (${converged.from} -> ${converged.to}) ` +
+                  "and the page did not move with it — a severity the review lowered is not a " +
+                  "difference the comparator stopped seeing, so there is nothing to extend on"
+                : converged.measurable
+                  ? `; the last pass closed no blocking mismatch (${converged.from} -> ` +
+                    `${converged.to}), so there is nothing to extend on`
+                  : "; there is no second reviewed pass to measure progress against"),
         );
       }
     }
@@ -750,6 +1143,11 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     focusSource: focus.source,
     rootCause: focusKey !== largestMismatch ? focusKey : null,
     iterations,
+    // Every revision this loop has opened, branches included. Differs from
+    // `iterations` only after a retreat, and it is the number the budget is
+    // charged against — so a reader can see why the two disagree instead of
+    // finding an arithmetic they cannot reproduce.
+    loopIterations,
     // What the budget is actually measured against, and what was excused from
     // it. Reported separately so "9 revisions, 8 of them mine" is legible
     // rather than arriving as a single number that looks like an overrun.
@@ -774,6 +1172,13 @@ export function computeIterationStatus({ projectDir, config, revisionId = null }
     // Whether those passes are still buying anything. Evidence, never a
     // verdict: a threshold nobody measured should not be what ends a loop.
     diminishingReturns: stalling,
+    // The two axes, reported together and computed separately because they
+    // answer different questions and were previously conflated: `fidelity` is
+    // how close the render is to the reference, `movement` is whether the
+    // passes are still changing it. STALLED movement with anything but a PASS
+    // fidelity is a stall, not a finish. Distinct from `convergence` above,
+    // which is the severity ledger an extension is granted on.
+    parity: { fidelity, movement },
     // Renders inside the revisions, from attempts.json: the measurements the
     // folder count hides. `total` is what the loop actually paid for.
     renders,

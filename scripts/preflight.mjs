@@ -42,6 +42,7 @@ import { installHint } from "./lib/install-hints.mjs";
 
 import {
   describeWorkspaceLine,
+  harnessBuild,
   installRoot,
   projectDir as workspaceProjectDir,
   resolveWorkspace,
@@ -178,6 +179,20 @@ const DIAGNOSTIC_SCRIPTS = Object.freeze([
   "probe.mjs",
 ]);
 
+/**
+ * The scripts the workflow contracts NAME as the way to do something, so a
+ * tree without them cannot run the phase at all. `write-artifact.mjs` is how
+ * each discovery worker commits its artifact and `handoff.mjs` is how a phase
+ * closes; both are quoted verbatim by `create-2-analyse` and by every
+ * `check-analysis --contract` printout. They are neither diagnostics nor gates,
+ * and belonged in neither list — so an older tree reported itself complete
+ * while the skills in front of it named two files it did not have.
+ */
+const PIPELINE_SCRIPTS = Object.freeze([
+  "write-artifact.mjs",
+  "handoff.mjs",
+]);
+
 /** The gates. Same reasoning as above, and the same failure when one is absent. */
 const CHECK_SCRIPTS = Object.freeze([
   "check-border-topology.mjs",
@@ -214,6 +229,10 @@ const tools = runSetupIfNeeded(describeTools());
 const capabilities = describeCapabilities(version, tools);
 
 const report = {
+  // Which harness is speaking, from its own package.json. In the payload as
+  // well as the text so a JSON consumer cannot read a version from one install
+  // while a run executes another.
+  harness: harnessBuild(),
   workspace: {
     root: workspace.root,
     mode: workspace.mode,
@@ -997,9 +1016,11 @@ function describeCapabilities(versionInfo, toolsInfo) {
   const has = (relative) => fs.existsSync(path.join(repoRoot, "scripts", relative));
   const diagnostics = Object.fromEntries(DIAGNOSTIC_SCRIPTS.map((f) => [f, has(f)]));
   const checks = Object.fromEntries(CHECK_SCRIPTS.map((f) => [f, has(f)]));
+  const pipeline = Object.fromEntries(PIPELINE_SCRIPTS.map((f) => [f, has(f)]));
   const missing = [
     ...DIAGNOSTIC_SCRIPTS.filter((f) => !diagnostics[f]),
     ...CHECK_SCRIPTS.filter((f) => !checks[f]),
+    ...PIPELINE_SCRIPTS.filter((f) => !pipeline[f]),
   ];
 
   const treeVersion = readVersion(path.join(repoRoot, "package.json"));
@@ -1045,6 +1066,7 @@ function describeCapabilities(versionInfo, toolsInfo) {
     matchingRuntime: parity === "tools-behind" ? matchingRuntimeFor(newestPack) : null,
     diagnostics,
     checks,
+    pipeline,
     missing,
     layoutSnapshot: describeSnapshotSupport(versionInfo, toolsInfo),
   };
@@ -1252,6 +1274,14 @@ function nextCommands(projectInfo, routing, tools, capabilities) {
 
 function printText(r) {
   const lines = [];
+  // First, before the workspace and before the pin. A host can hold several
+  // installs — one run had three — and an agent that reads a version from one
+  // manifest while executing another reports a build it is not running. This
+  // line comes from the package.json beside the code that prints it, so it
+  // cannot name a tree other than its own.
+  if (r.harness) {
+    lines.push(`harness ${r.harness.version ?? "unknown version"}  ${r.harness.root}`);
+  }
   if (r.workspace.banner) lines.push(r.workspace.banner);
   lines.push(`GraphCompose ${r.graphCompose.version ?? "?"} (${r.graphCompose.status}) -> ${r.graphCompose.skillPack ?? "no pack"}`);
   // Said second, before anything that would be measured against this build: a

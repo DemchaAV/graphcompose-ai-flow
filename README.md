@@ -319,10 +319,11 @@ integration, no MCP server, no standalone runtime.
   hand-finishing. That is the model behind the host, not the harness:
   the skills and tools are identical on all three. Usable; not where to
   start.
-- The pinned line is **GraphCompose 2.4**, and its pack is a knowledge
+- The pinned line is **GraphCompose 2.5**, and its pack is a knowledge
   pack: API surfaces, routing and claims imported from the release
-  bundle, and no prose. How-to comes from the 2.2 pack, which `preflight`
-  names explicitly — the 2.4 allow-list still decides what exists.
+  bundle, and no prose. How-to comes from the 2.4 pack, the newest one
+  with a loading map, which `preflight` names explicitly — the 2.5
+  allow-list still decides what exists.
 - The **2.2 pack** ships with five fixtures rendering identically to
   their baselines; its conceptual skills stay `needs-validation` on
   coverage — five fixtures are a subset of what fourteen skills

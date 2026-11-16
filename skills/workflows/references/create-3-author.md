@@ -1,13 +1,97 @@
 # Create, phase 3 — author the template
 
-## First, check that what you are about to read is finished
+## Start from the handoff, not from the conversation
+
+```bash
+node scripts/handoff.mjs show --project <id>      # the five inputs, by path
+node scripts/handoff.mjs verify --project <id>    # still what the barrier passed?
+```
+
+Phase 2 ended by recording `handoff.json`. It names the five files
+authoring reads and the hash each had when the barrier passed them. That
+is the whole input: **the discovery conversation is not one.** Everything
+in it that authoring needs is already in those files, and everything else
+— the measurements, the reference crops, the reasoning that produced the
+plan — is how they were made, not what they say.
+
+`verify` exits 1 when an artifact has changed or gone since the handoff
+was written. That is worth knowing before the Java, not after: a stale
+handoff still looks like durable state, and authoring against a plan
+someone has since edited fails later and somewhere else.
+
+## Cross the boundary: hand authoring to a fresh context
+
+**On a host with subagents this is the instruction, not a suggestion.**
+Claude Code: declare it, then spawn **exactly one** `Agent`, and do not
+write the template yourself.
+
+```bash
+node scripts/handoff.mjs request --project <id> --mechanism Agent
+```
+
+Then one `Agent` call whose entire prompt is the author's contract plus
+its task. Get the contract from the tool rather than retyping it:
+
+```bash
+node scripts/check-analysis.mjs --contract author
+```
+
+and hand the worker that, followed by:
+
+```text
+node scripts/handoff.mjs claim --project <id> --by <your agent name>
+
+Run that first: it prints the five artifact paths that are your only
+inputs, and it records that this context — not the coordinator — is
+doing the authoring.
+
+Then write generated-template.java and the spec provider, and report one
+line when it compiles.
+```
+
+Give it nothing else. **Not** the discovery conversation, not the worker
+transcripts, not a summary of the analysis — the five files say all of
+it, and anything you paste in is the cost this boundary exists to avoid.
+
+**The contract's negative half is the part with a measurement behind it.**
+The first fresh authoring context started at 43.8k and reached 333.7k in
+131 requests; its opening moves were `cat` of the whole
+`authoring-rules.md`, then whole pack pages, then a harness source file,
+then another project's revision. It released 167.4k at the boundary and
+read most of it back — the same carry cost, one phase later. So the
+contract names what not to load *by default*, and
+`handoff.mjs escalate --read <path> --because <what the narrow tool could
+not answer>` is how a genuinely needed page gets read and recorded. A
+considered read and a habit are indistinguishable in a transcript; only
+one of them is willing to say why.
+
+Three earlier versions of this page said authoring "may", then "must",
+run in a fresh context, and three real runs authored in the coordinator
+anyway: 3 subagents each time, context climbing 283k → 348k and 253k →
+299k straight through. Neither word was the problem. A page that names a
+*state* gives a host nothing to execute; the fan-out below works because
+it names the call. `handoff.mjs status` is what says whether this
+actually happened — `written` is not `taken`.
+
+**On a host without subagents**, carry on in this context. Concurrency is
+an optimization; correctness does not depend on it. Say so in the report
+rather than pretending the boundary was crossed.
+
+It is the *only* boundary in the create chain. The author/render/revise
+loop that follows keeps one context on purpose: each pass is a correction
+to the one before it, and restoring that from disk every time would cost
+more than carrying it.
+
+## Then check that what you are about to read is finished
 
 ```bash
 node scripts/check-analysis.mjs --project <id> --for authoring
 ```
 
 **Exit 1 means do not start.** Re-run whatever it names; do not work
-around it and do not begin the Java while it is red.
+around it and do not begin the Java while it is red. (A handoff exists
+only because this was clear when phase 2 ended; run it again when you are
+resuming, or when `verify` reported a change.)
 
 It is not only a sentence. `render-and-diff` runs this same barrier
 before it compiles a first render and fails the pass while it is red
@@ -67,6 +151,56 @@ two rules:
 
 Never read a *newer* line's prose for an older pinned line. Preflight will
 not offer it, and it would name API the pinned line does not have.
+
+## Containers are already measured — build to the numbers
+
+`visual-analysis.json` carries `shapeOwnership` and `icons`, and the plan
+says which of your render methods owns each one. Those are measurements,
+not suggestions: do not re-decide a radius or a width by eye from the
+reference, and do not soften one because the render "looks about right".
+The barrier already refused a plan that left a measured container
+unclaimed, so every id you were given has your name against it.
+
+| The analysis says | You write | Getting it wrong looks like |
+|---|---|---|
+| `cornerRadiusRatio` as a number | radius = ratio × the box's **shorter side**. 0.09 on a 32px box is ~3px | 0.09 built as a capsule — the error this contract exists to stop |
+| `cornerRadiusRatio` naming corners | `DocumentCornerRadius.of(topLeft, topRight, bottomRight, bottomLeft)` — same order, same names, omitted corners are 0. `bottom(r)` and `right(r)` round a pair | all four corners rounded because the builder was handed one number |
+| `shape: pill` | and only then radius = height ÷ 2 | every rounded box becoming a capsule |
+| `sizing: fill-parent` | a container that spans its parent's content width | ten boxes shrinking to ten different widths |
+| `sizing: hug-content` | a container that wraps its content | a short label stretched across the column |
+| a container that **repeats** with different content | `softPanel(color, radius, padding, stroke)` on the flow builder, with the content added as children | a fixed `roundedRect(w, h, r)` with the text `position`ed over it: the longest label is clipped, not wrapped |
+| `fill.present: false` | **no fill at all** — the ground shows through | a white box painted over a coloured panel |
+| `stroke.present: false` | no stroke — not a zero-width one, and not one in the background colour | a hairline nobody asked for (see the note below) |
+| `padding` per side | each side separately | content optically off-centre |
+| `gap` | between children; `padding` is the frame | one number doing both jobs badly |
+| `icons[].sizeRelativeToText` | icon height = ratio × the adjacent text height | 1.45 emitted as a text-sized inline glyph |
+| `icons[].inline: false` | its own child, positioned independently | an independent icon dropped into a text run |
+
+Ratios are against the container's shorter side; resolve them once into a
+named constant rather than sprinkling the arithmetic.
+
+**"No stroke" is not a stroke you cannot see.** A zero-width stroke, or one
+in the page colour, still paints — on a tinted panel it leaves a pale band
+around every box. If `stroke.present` is false, emit no stroke.
+
+**`sizing` is width. Height is decided by what you build.** The
+reference is one dataset; a longer label is the next one, so a repeating
+card has to take a second line. Let the content decide the height, and
+let the panel's `padding` be the inset:
+
+```java
+sidebar.addSection(card -> {
+    card.name("competency-box");
+    card.softPanel(TRANSPARENT, 2.5, 7.5, DocumentStroke.of(CORAL, 0.5));
+    card.addParagraph(p -> p.text(item.label()).textStyle(STYLE_LABEL));
+});
+```
+
+**Name each container with the id the analysis gave it** — `name(String)`
+is on all three builders. `check-region-primitives` reads the template
+back against the measurements, and the name is what ties a finding to the
+container it belongs to when a method builds several. It also makes the
+container addressable in `layout.mjs inspect`.
 
 ## Before you choose a primitive, ask for the route
 

@@ -8,7 +8,7 @@
  */
 
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -21,6 +21,7 @@ import {
   WORKSPACE_MANIFEST,
   WorkspaceError,
   discoverWorkspaceRoot,
+  harnessBuild,
   initWorkspace,
   installRoot,
   projectDir,
@@ -249,4 +250,34 @@ test("end to end: a project created from a user's Java project lands in their tr
 test("installRoot points at the harness, not at the workspace", () => {
   assert.equal(installRoot(), repoRoot);
   assert.ok(fs.existsSync(path.join(installRoot(), "config", "pipeline.json")));
+});
+
+// ---------------------------------------------------------------------------
+// Which harness is running. A host can hold several installs at once — one run
+// had three — and the version an agent reads from a manifest is not evidence
+// about the code it executes.
+// ---------------------------------------------------------------------------
+
+test("the harness names its own build, from the tree whose code is speaking", () => {
+  const build = harnessBuild();
+  assert.equal(build.root, installRoot(), "it can only name its own tree");
+  const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"));
+  assert.equal(build.version, pkg.version, "and its own version, not a manifest's");
+});
+
+test("preflight prints the build first, before the workspace and the pin", () => {
+  // The line that would have made a whole wasted run obvious in its first
+  // second: an agent read "beta.4" from one install's manifest and executed
+  // beta.2 from another, and both halves of that were true.
+  const run = spawnSync(
+    process.execPath,
+    [path.join(repoRoot, "scripts", "preflight.mjs"), "--project-dir", repoRoot, "--text"],
+    { encoding: "utf8" },
+  );
+  const first = String(run.stdout).split("\n")[0];
+  const build = harnessBuild();
+
+  assert.match(first, /^harness /, `first line was: ${first}`);
+  assert.ok(first.includes(build.version), "the version has to be in it");
+  assert.ok(first.includes(build.root), "and the path, because the version alone did not disambiguate");
 });

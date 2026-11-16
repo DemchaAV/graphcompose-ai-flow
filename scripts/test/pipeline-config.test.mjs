@@ -524,3 +524,135 @@ test("the loader rejects structurally broken configs", () => {
     assert.throws(() => validatePipelineConfig(broken), PipelineConfigError, `should reject: ${name}`);
   }
 });
+
+// --------------------------------------------- the fan-out's input contracts
+
+test("every discovery worker declares what it reads, owns and is finished by", () => {
+  // Declared once here so the three prompts quote a contract instead of each
+  // carrying a paragraph to drift from. A recorded run's content worker read
+  // 4.7k tokens of GraphCompose authoring rules to pull strings out of a
+  // picture, because its prompt was hand-written from the same page as the
+  // geometry worker's.
+  const workers = config.discovery?.workers;
+  assert.ok(workers, "config/pipeline.json declares no discovery.workers");
+  // `$`-prefixed keys are comments, the same convention the loader honours.
+  const names = Object.keys(workers).filter((k) => !k.startsWith("$"));
+  assert.deepEqual(names.sort(), ["assets", "author", "content", "geometry"]);
+
+  // The three that run BEFORE the boundary. The author is the far side's
+  // worker: it reads the handoff rather than the reference, and it writes Java
+  // with the editor rather than committing an artifact through the stager.
+  const discovery = Object.entries(workers).filter(([k, w]) => !k.startsWith("$") && !w.afterBoundary);
+  assert.equal(discovery.length, 3);
+  for (const [id, worker] of discovery) {
+    assert.ok(worker.reads?.length, `${id} declares no required reads`);
+    assert.ok(
+      worker.reads.some((r) => /reference/.test(r)),
+      `${id} does not read the reference, which is the one input every discovery worker has`,
+    );
+    assert.match(worker.doneWhen, /check-analysis\.mjs/, `${id}'s completion condition is not a command`);
+    assert.match(worker.writesVia, /write-artifact\.mjs/, `${id} does not write through the staging tool`);
+  }
+
+  // Every worker, wherever it sits, states what it owns and when it is done.
+  for (const [id, worker] of Object.entries(workers).filter(([k]) => !k.startsWith("$"))) {
+    assert.ok(worker.artifact, `${id} owns nothing`);
+    assert.ok(worker.doneWhen, `${id} has no completion condition`);
+  }
+});
+
+test("no discovery worker is given the authoring rules it does not author with", () => {
+  // The measured case: 4.7k tokens carried through every one of that worker's
+  // own turns, for guidance about writing Java it never writes.
+  for (const [id, worker] of Object.entries(config.discovery.workers)) {
+    for (const entry of [...(worker.reads ?? []), ...(worker.mayQuery ?? [])]) {
+      assert.ok(!/authoring-rules/.test(entry), `${id} is handed authoring-rules.md`);
+      assert.ok(!/skills\/versions/.test(entry), `${id} is handed a skill-pack page`);
+    }
+  }
+});
+
+test("each artifact has exactly one owner", () => {
+  // Two writers on one file is a merge conflict with no merger, and the
+  // fan-out's whole safety argument is that each worker owns one file.
+  const owners = Object.values(config.discovery.workers).map((w) => w.artifact);
+  assert.equal(new Set(owners).size, owners.length, `two workers own the same artifact: ${owners.join(", ")}`);
+});
+
+test("the context boundary sits between the authoring barrier and the template", () => {
+  const boundary = config.discovery?.boundary;
+  assert.ok(boundary, "config/pipeline.json declares no discovery.boundary");
+  assert.equal(boundary.after, "authoringBarrier");
+  assert.equal(boundary.before, "templateCoder");
+
+  const chain = config.scopes.new.stages;
+  assert.ok(
+    chain.indexOf(boundary.after) < chain.indexOf(boundary.before),
+    "the boundary's stages are out of order in the new-scope chain",
+  );
+  // The checkpoint stage itself runs between them, so the record exists before
+  // anything downstream could need it.
+  const checkpoint = Object.entries(config.stages).find(([, s]) => s.tool === boundary.checkpoint);
+  assert.ok(checkpoint, `no stage names ${boundary.checkpoint}`);
+  assert.ok(
+    chain.indexOf(checkpoint[0]) > chain.indexOf(boundary.after) &&
+      chain.indexOf(checkpoint[0]) < chain.indexOf(boundary.before),
+    "the checkpoint stage does not run at the boundary it describes",
+  );
+});
+
+test("the loader rejects broken discovery contracts", () => {
+  const cases = [
+    ["worker with no reads", (c) => { c.discovery.workers.geometry.reads = []; }],
+    ["worker with no artifact", (c) => { delete c.discovery.workers.content.artifact; }],
+    ["worker with no completion condition", (c) => { delete c.discovery.workers.assets.doneWhen; }],
+    ["worker with no staging tool", (c) => { delete c.discovery.workers.assets.writesVia; }],
+    ["two workers owning one artifact", (c) => { c.discovery.workers.assets.artifact = c.discovery.workers.geometry.artifact; }],
+    ["worker naming an unknown stage", (c) => { c.discovery.workers.geometry.stage = "ghost"; }],
+    ["boundary naming an unknown stage", (c) => { c.discovery.boundary.before = "ghost"; }],
+    ["boundary with no checkpoint", (c) => { delete c.discovery.boundary.checkpoint; }],
+  ];
+  for (const [name, mutate] of cases) {
+    const broken = validFixture();
+    mutate(broken);
+    assert.throws(() => validatePipelineConfig(broken), PipelineConfigError, `should reject: ${name}`);
+  }
+});
+
+// ---------------------------------------------- the author's own contract
+
+test("the author has a contract, and it runs after the boundary", () => {
+  // The author is the discovery workers' opposite number and was the one the
+  // fan-out's discipline never covered. A measured run showed why it needs one:
+  // the fresh context released 167.4k at the boundary and read most of it back
+  // as whole skill pages within its first ten calls.
+  const author = config.discovery.workers.author;
+  assert.ok(author, "config/pipeline.json declares no author contract");
+  assert.equal(author.afterBoundary, true);
+  assert.deepEqual(author.reads, ["handoff.json"], "the author's required input is the handoff, and only that");
+  assert.match(author.doneWhen, /pass\.mjs/);
+});
+
+test("the author is pointed at narrow tools, not at whole pages", () => {
+  const author = config.discovery.workers.author;
+  for (const t of ["scripts/api-query.mjs", "scripts/source.mjs", "scripts/observations.mjs"]) {
+    assert.ok(author.mayQuery.includes(t), `${t} is not offered to the author`);
+  }
+  assert.ok(author.mustNotLoadByDefault?.length, "the contract names nothing it should not preload");
+  assert.ok(
+    author.mustNotLoadByDefault.some((p) => /authoring-rules/.test(p)),
+    "authoring-rules.md — the 4.7k page the first fresh context opened with — is not named",
+  );
+  assert.ok(
+    author.mustNotLoadByDefault.some((p) => /skills\/versions/.test(p)),
+    "the knowledge pack pages are not named",
+  );
+});
+
+test("the author's restrictions are defaults with a recorded way out", () => {
+  // Not a ban: a page the narrow tools genuinely cannot replace must still be
+  // readable, or the contract just gets ignored the first time it bites.
+  const author = config.discovery.workers.author;
+  assert.match(author.escalation, /handoff\.mjs escalate/);
+  assert.match(author.escalation, /--because/, "an escalation with no reason is the habit, renamed");
+});

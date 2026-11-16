@@ -36,8 +36,19 @@ const TEMPLATE_FILE = /(?:^|[\s"'/\\=])(?:[\w.-]*[/\\])?(?:[A-Z][\w]*Template\.j
 // across a template is a legitimate question source.mjs does not answer, and
 // returns a line, not the file.
 const READER = /(?:^|[\s;&|(])(?:cat|sed|head|tail|less|more|type|Get-Content|gc|awk|nl|strings)\b/;
+/**
+ * Searching a file rather than dumping it. Legitimate on a template — one
+ * string across it is a question `source.mjs` does not answer — and not on the
+ * surface, where the CLI answers the same question in three lines.
+ */
+const SEARCHER = /(?:^|[\s;&|(])(?:grep|rg|findstr|Select-String|sls)\b/;
 const SNAPSHOT_FILE = /layout-snapshot(?:-page-\d+)?\.json\b/;
 const RAW_MAGICK_COMPARE = /(?:^|[\s;&|(])(?:magick\s+compare|compare\s+-metric|magick\s+(?:[^\s|;&]+\s+)*-metric)\b/;
+/** The generated API surface, in either of the two forms a pack ships it. */
+const SURFACE_FILE = /\b(?:00-api-surface\.md|api-surface\.json)\b/;
+/** Disassembling the library to find out what it has. */
+const BYTECODE_READER = /(?:^|[\s;&|(/\\"'])(?:javap|jar)(?:\.exe)?["']?\s+(?:-[\w:]+\s+)*(?:tf?\b|-cp\b|-classpath\b|[\w.]+\.jar\b)/;
+const GRAPHCOMPOSE_JAR = /graph[-.]?compose[\w.-]*\.jar\b/i;
 const PYTHON_INLINE = /(?:^|[\s;&|(])python3?(?:\.exe)?\s+(?:-c\b|-\s*<<|<<)/;
 const JAVA_MENTION = /\.java\b/;
 const PATCH_VERBS = /\b(?:re\.sub|replace\(|write_text|open\([^)]*['"][wa]['"]|writelines|\.write\()/;
@@ -84,7 +95,31 @@ export function judgeCommand(command) {
     );
   }
 
-  // 3. Comparing images by hand.
+  // 3. Finding out what the library has, by reading it rather than asking.
+  //
+  // A run that lost its context to a compaction spent dozens of calls grepping
+  // `00-api-surface.md` — 126 KB of generated prose — and disassembling the
+  // pinned jar with `javap`. The route to the query CLI lives in the contracts,
+  // which a compaction drops; the file itself is what the model reaches for
+  // next, so the answer is attached to the reach rather than to the contract.
+  if (
+    (SURFACE_FILE.test(text) && (READER.test(text) || SEARCHER.test(text))) ||
+    (BYTECODE_READER.test(text) && GRAPHCOMPOSE_JAR.test(text))
+  ) {
+    return block(
+      "api-surface-read",
+      "The API surface is a closed set with a query CLI; reading or disassembling it costs context and\n" +
+        "answers less. Ask it — exit 0 found, 3 does not exist:\n" +
+        "  node scripts/api-query.mjs --exists <Type>.<method>\n" +
+        "  node scripts/api-query.mjs --type <Type>\n" +
+        "  node scripts/api-query.mjs --search <term>\n" +
+        "And before choosing HOW to do something, ask for the route rather than the symbol:\n" +
+        "  node scripts/api-query.mjs --tasks\n" +
+        "  node scripts/api-query.mjs --task <id>",
+    );
+  }
+
+  // 4. Comparing images by hand.
   if (RAW_MAGICK_COMPARE.test(text)) {
     return block(
       "raw-compare",
@@ -95,7 +130,7 @@ export function judgeCommand(command) {
     );
   }
 
-  // 4. Patching Java with an inline script.
+  // 5. Patching Java with an inline script.
   if (PYTHON_INLINE.test(text) && JAVA_MENTION.test(text) && (PATCH_VERBS.test(text) || /<<\s*['"]?PY/.test(text))) {
     return block(
       "script-patch",

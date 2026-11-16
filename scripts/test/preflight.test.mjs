@@ -376,9 +376,24 @@ test("capabilities reports presence per file, and the booleans match the tree", 
   for (const [file, present] of Object.entries(parsed.capabilities.checks)) {
     assert.equal(present, fs.existsSync(path.join(repoRoot, "scripts", file)), `checks.${file}`);
   }
+  // The scripts the contracts name as the way to do something. They are
+  // neither diagnostics nor gates and belonged to neither list, so an older
+  // tree reported itself complete while the skills named files it lacked.
+  for (const [file, present] of Object.entries(parsed.capabilities.pipeline)) {
+    assert.equal(present, fs.existsSync(path.join(repoRoot, "scripts", file)), `pipeline.${file}`);
+  }
+  assert.deepEqual(
+    Object.keys(parsed.capabilities.pipeline).sort(),
+    ["handoff.mjs", "write-artifact.mjs"],
+    "the discovery contract's two hard dependencies are the ones asked about",
+  );
   assert.deepEqual(
     parsed.capabilities.missing,
-    [...Object.entries(parsed.capabilities.diagnostics), ...Object.entries(parsed.capabilities.checks)]
+    [
+      ...Object.entries(parsed.capabilities.diagnostics),
+      ...Object.entries(parsed.capabilities.checks),
+      ...Object.entries(parsed.capabilities.pipeline),
+    ]
       .filter(([, present]) => !present)
       .map(([file]) => file),
     "missing disagrees with the per-file answers",

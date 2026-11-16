@@ -24,7 +24,7 @@
         "CONVERGENCE_LIMIT_REACHED",
         "BLOCKED"
       ],
-      "description": "Loop control. READY_FOR_APPROVAL stops the loop and hands over to the user; REVISE means iterate on the highest-severity actionable mismatch; CONVERGENCE_LIMIT_REACHED means the loop spent its own budget with work still open - a document exists and a person decides what to do about the rest; BLOCKED means no usable document can be produced at all, and why is in failureCategory. The last two were one word until a run reached a finished-looking CV, hit its same-cause bound, and was reported as BLOCKED - which then refused the approval the user had already given, and sent it around the fast path that records which verdict was approved over."
+      "description": "Loop control. A REVIEW writes one of two: READY_FOR_APPROVAL stops the loop and hands over to the user; REVISE means iterate on the highest-severity actionable mismatch. CONVERGENCE_LIMIT_REACHED and BLOCKED are the LOOP's own conclusions - iterate-status reaches them from the budget, the same-cause bound and the failure record - and a review that writes one is read as REVISE, because ending the loop is not a judgement about the page. Three consecutive runs did exactly that, two of them with three passes still in budget, each pairing it with a MINOR named after font rasterisation on a page the comparator called CRITICAL. They stay in the enum because the same field carries the loop's answer back out. CONVERGENCE_LIMIT_REACHED means the loop spent its own budget with work still open - a document exists and a person decides what to do about the rest; BLOCKED means no usable document can be produced at all, and why is in failureCategory. The last two were one word until a run reached a finished-looking CV, hit its same-cause bound, and was reported as BLOCKED - which then refused the approval the user had already given, and sent it around the fast path that records which verdict was approved over."
     },
     "recommendation": {
       "type": "string",
@@ -231,7 +231,15 @@
           },
           "cause": {
             "type": "string",
-            "enum": ["GEOMETRY", "TYPOGRAPHY", "PAINT", "ASSET", "CONTENT", "PAGINATION", "UNKNOWN"],
+            "enum": [
+              "GEOMETRY",
+              "TYPOGRAPHY",
+              "PAINT",
+              "ASSET",
+              "CONTENT",
+              "PAGINATION",
+              "UNKNOWN"
+            ],
             "description": "What KIND of thing is wrong, which is a different question from `severity` (how bad) and from `rootCause` (which other mismatches share this one's origin). All three can be set at once and none substitutes for another. It exists because the fix differs entirely by kind: GEOMETRY is a layout property on a named owner, ASSET is the wrong file and must never be compensated with margins, PAGINATION invalidates every per-node comparison until it is resolved. UNKNOWN is a real answer and the default — `scripts/evidence.mjs` assigns only what two measurements can decide, and separating TYPOGRAPHY from PAINT from CONTENT needs the typography snapshot that does not exist yet. The enum is duplicated into config/pipeline.json rather than $ref-ed, because the validator compiles each schema standalone; scripts/test/pipeline-config.test.mjs asserts the copies agree."
           },
           "rootCause": {
@@ -264,6 +272,54 @@
       "type": "string",
       "minLength": 1,
       "description": "What specifically blocks progress — the missing information, or the GraphCompose behaviour that was verified and cannot be worked around."
+    },
+    "apiSearch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "graphComposeLine",
+        "queries"
+      ],
+      "description": "The search that earned a GRAPHCOMPOSE_API_LIMITATION: required with that category. Absence on one builder is not absence on the line - the flow once taught that page bands were text-only while DocumentSession.chrome().zone(DocumentPageZone) sat in every pack from 2.3. Record the api-query calls run against the project's line: the route table (--tasks / --task), the concept and its synonyms with --search across all surfaces, the entry points (--type DocumentSession, GraphCompose.DocumentBuilder, and the types their accessors return such as SessionChromeApi) and the value types passed to them. See skills/workflows/references/authoring-rules.md.",
+      "properties": {
+        "graphComposeLine": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+$",
+          "description": "The pinned line the search ran against, e.g. 2.5."
+        },
+        "queries": {
+          "type": "array",
+          "minItems": 3,
+          "description": "Each api-query invocation and its exit code. At least the route table, a --search with no --surface, and one entry-point --type.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "query",
+              "exit"
+            ],
+            "properties": {
+              "query": {
+                "type": "string",
+                "pattern": "^(node )?(scripts/)?api-query(\\.mjs)? .*--(tasks|task|search|type|exists|constant|package)(\\s|$)",
+                "description": "The command line, e.g. node scripts/api-query.mjs --version 2.5 --search footer"
+              },
+              "exit": {
+                "type": "integer",
+                "enum": [
+                  0,
+                  3
+                ],
+                "description": "0 found, 3 absent."
+              },
+              "finding": {
+                "type": "string",
+                "description": "What it returned that mattered, if anything."
+              }
+            }
+          }
+        }
+      }
     },
     "summary": {
       "type": "string",
@@ -352,6 +408,24 @@
             "minItems": 1
           }
         }
+      }
+    },
+    {
+      "description": "Calling something unsupported is a claim about the whole pinned surface, and the search that earned it is part of the report.",
+      "if": {
+        "required": [
+          "failureCategory"
+        ],
+        "properties": {
+          "failureCategory": {
+            "const": "GRAPHCOMPOSE_API_LIMITATION"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "apiSearch"
+        ]
       }
     }
   ]

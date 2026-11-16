@@ -103,8 +103,40 @@ const PRIMITIVES = [
     manual: [
       /\b(?:headers?|footers?)\b[^.]{0,60}\b(?:drawn|composed|repeated)\b[^.]{0,60}\bas (?:ordinary )?body (?:content|flow)\b/i,
     ],
-    replacement: "`DocumentSession.header(...)` / `footer(...)`",
+    replacement:
+      "`DocumentSession.header/footer(DocumentHeaderFooter)` for text, or " +
+      "`DocumentSession.chrome().zone(DocumentPageZone...)` for a node band (2.3+)",
     incident: "check-region-primitives reports the same defect after the fact; this catches the guidance",
+  },
+  {
+    // The flow's own references taught this: `DocumentSession.header/footer
+    // (DocumentHeaderFooter)` as "the" way to repeat something, three text
+    // slots, while every pack from 2.3 carried `SessionChromeApi.zone
+    // (DocumentPageZone)` — a node subtree per page, a logo, a link, a layout.
+    // An agent told a band is text-only drops the logo and calls it a
+    // limitation. On 2.2 the pair is dormant: there it was true.
+    concept: "node-based page band",
+    primitive: "DocumentPageZone",
+    manual: [
+      // "headers and footers only support text", "a footer is just three text slots"
+      /\b(?:page )?(?:headers?|footers?|page bands?|chrome)\b[^.]{0,60}\b(?:only|just|merely)\b[^.]{0,40}\b(?:text|strings?|text slots?|plain text)\b/i,
+      // "a footer cannot hold a logo / an image / a link / a layout"
+      /\b(?:page )?(?:headers?|footers?)\b[^.]{0,60}\b(?:cannot|can't|can ?not|does(?:n't| not)|do(?:n't| not)|no way to|unable to)\b[^.]{0,30}\b(?:hold|carry|contain|include|show|render|support|take|have|place|put|draw)\b[^.]{0,30}\b(?:logos?|images?|icons?|links?|layouts?|rows?|nodes?|badges?|chips?|shapes?)\b/i,
+      // "logos in a footer are not supported"
+      /\b(?:logos?|images?|icons?|links?)\b[^.]{0,40}\b(?:in|inside|within) (?:a|the) (?:page )?(?:headers?|footers?)\b[^.]{0,40}\b(?:not supported|unsupported|impossible|is not possible|cannot)\b/i,
+      // "DocumentHeaderFooter is the only way / only supported mechanism"
+      /\bDocumentHeaderFooter\b[^.]{0,40}\b(?:is|as) the only\b/i,
+      // "page-footer must map to DocumentSession.footer" — routing every band to
+      // the text mechanism, the form the schema and analyse step used
+      /\b(?:page-header|page-footer|page headers?|page footers?)\b[^.]{0,80}\b(?:must (?:map to|use|go through|be built with)|always (?:use|go through)|go through)\b[^.]{0,20}`?DocumentSession\.(?:header|footer)\b/i,
+      /\bthe only\b[^.]{0,30}\b(?:way|mechanism|supported|route|option)\b[^.]{0,60}\b(?:header|footer)\b.{0,60}?\bDocumentHeaderFooter\b/i,
+    ],
+    replacement:
+      "`DocumentSession.chrome().zone(DocumentPageZone.header/footer(height, page -> node))` — " +
+      "a node band: logo, link, layout, `page.pageNumber()`",
+    incident:
+      "create-2-analyse.md and authoring-rules.md routed every page band to DocumentHeaderFooter " +
+      "while DocumentPageZone had been public since GraphCompose 2.3",
   },
 ];
 

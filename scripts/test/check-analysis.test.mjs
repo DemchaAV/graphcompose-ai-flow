@@ -68,6 +68,17 @@ const GEOMETRY = {
   regions: [
     { id: "page-background", label: "Page chrome", page: 1, role: "background", bounds: { x: 0, y: 0, w: 1, h: 1 } },
   ],
+  // Carried by the minimum because the plan barrier asks, once a reference is
+  // on disk, how each face was chosen. "Assumed, and here is why" is the honest
+  // answer for these fixtures: their reference is a handful of synthetic pixels
+  // with no text in it, so there is no crop to match a family against. Cases
+  // that are about typography strip this out rather than the other way round.
+  typography: {
+    roles: [
+      { role: "headings", fontName: "HELVETICA", source: "assumed", why: "the fixture reference carries no text" },
+      { role: "body", fontName: "HELVETICA", source: "assumed", why: "the fixture reference carries no text" },
+    ],
+  },
   flow: { kind: "fixed", overflowExpectation: "The page is the artifact." },
 };
 const REQUEST = { icons: [], fonts: [{ role: "body", family: "Helvetica", source: "standard14" }] };
@@ -76,12 +87,27 @@ const DATA = { name: "A Person", title: "Engineer" };
 /** A workspace with one project and one revision, filled to order. */
 function workspace(
   label,
-  { geometry = GEOMETRY, data = DATA, request = REQUEST, plan = null, manifest = null, project: projectExtra = {} } = {},
+  {
+    geometry = GEOMETRY,
+    data = DATA,
+    request = REQUEST,
+    plan = null,
+    manifest = null,
+    project: projectExtra = {},
+    // Reference page bytes. Most cases leave this null: with no reference there
+    // is nothing to fingerprint, and the provenance check reports that rather
+    // than failing, so the older cases stay about what they were about.
+    reference = null,
+  } = {},
 ) {
   const host = tempDir(label);
   const root = path.join(host, "graphcompose-flow");
   const project = path.join(root, "projects", "demo");
   const revision = path.join(project, "revisions", "revision-001");
+  if (reference !== null) {
+    fs.mkdirSync(path.join(project, "reference"), { recursive: true });
+    fs.writeFileSync(path.join(project, "reference", "reference.png"), reference);
+  }
 
   writeJson(path.join(root, "flow.config.json"), { schemaVersion: 1 });
   writeJson(path.join(project, "template-project.json"), {
@@ -495,6 +521,23 @@ const REQUEST_WITH = (tokens) => ({
   fonts: [{ role: "body", family: "Helvetica", source: "standard14" }],
 });
 
+/**
+ * The analysis that goes with a request naming icons. A request that names
+ * icons beside an analysis describing none is now its own failure — a run
+ * resolved 33 and wrote `icons: []` — so a fixture about something else has to
+ * be consistent on this point or it tests the contradiction instead.
+ */
+const GEOMETRY_WITH_ICONS = (tokens) => ({
+  ...GEOMETRY,
+  icons: tokens.map((t) => ({ id: t, sizeRelativeToText: 1.2, verticalAlign: "center", inline: true })),
+});
+
+/** And the plan that owns them, since a measured icon must be claimed by one method. */
+const PLAN_WITH_ICONS = (tokens) => ({
+  ...PLAN,
+  componentMapping: PLAN.componentMapping.map((m, i) => (i === 0 ? { ...m, icons: tokens } : m)),
+});
+
 function checkFor(root, barrier) {
   const run = spawnSync(
     process.execPath,
@@ -524,8 +567,9 @@ test("the plan barrier does not wait for the manifest", () => {
 
 test("the authoring barrier waits for the plan and the manifest", () => {
   const { root } = workspace("authoring-complete", {
+    geometry: GEOMETRY_WITH_ICONS(["phone", "email"]),
     request: REQUEST_WITH(["phone", "email"]),
-    plan: PLAN,
+    plan: PLAN_WITH_ICONS(["phone", "email"]),
     manifest: manifestFor(["phone", "email"]),
   });
   const { status, parsed, out } = checkFor(root, "authoring");
@@ -549,8 +593,9 @@ test("an icon the resolver never returned is caught, though both files validate"
   // shaped; the template simply has no record to read for `website`, and the
   // icon goes missing from a render nobody flagged.
   const { root } = workspace("token-dropped", {
+    geometry: GEOMETRY_WITH_ICONS(["phone", "email", "website"]),
     request: REQUEST_WITH(["phone", "email", "website"]),
-    plan: PLAN,
+    plan: PLAN_WITH_ICONS(["phone", "email", "website"]),
     manifest: manifestFor(["phone", "email"]),
   });
   const { status, parsed } = checkFor(root, "authoring");
@@ -670,4 +715,551 @@ test("--for takes only the two barriers that exist", () => {
 
   assert.equal(run.status, 2);
   assert.match(run.stderr, /--for takes plan or authoring/);
+});
+
+// ---------------------------------------------------------------------------
+// Provenance: the analysis has to describe THIS project's reference.
+//
+// Validating only ever said the document was well-shaped. A run copied another
+// project's revision folder in, landed a byte-identical analysis, and passed
+// this barrier without discovery having executed.
+// ---------------------------------------------------------------------------
+
+import { computeFingerprint } from "../lib/reference-fingerprint.mjs";
+
+const REFERENCE_BYTES = "the reference image bytes";
+
+test("with a reference on disk, an analysis carrying no provenance holds the join", () => {
+  const { root } = workspace("no-provenance", { reference: REFERENCE_BYTES });
+  const { status, parsed } = check(root);
+
+  assert.equal(status, 1);
+  assert.equal(parsed.complete, false);
+  assert.equal(named(parsed, "visual-analysis.json").ok, false);
+  assert.match(named(parsed, "visual-analysis.json").detail, /carries no provenance/);
+});
+
+test("a correctly stamped analysis passes, and says so", () => {
+  const { root, revision } = workspace("stamped", { reference: REFERENCE_BYTES });
+  const projectDir = path.join(root, "projects", "demo");
+  const file = path.join(revision, "visual-analysis.json");
+  writeJson(file, {
+    ...JSON.parse(fs.readFileSync(file, "utf8")),
+    provenance: computeFingerprint({ projectDir, projectId: "demo" }),
+  });
+
+  const { status, parsed, out } = check(root);
+  assert.equal(status, 0, out);
+  assert.equal(named(parsed, "visual-analysis.json").ok, true);
+  assert.match(named(parsed, "visual-analysis.json").detail, /describes this project's reference/);
+});
+
+test("an analysis stamped in another workspace is refused — the incident", () => {
+  // Same project id, same reference bytes, different workspace: exactly the
+  // shape of the copy that got through.
+  const origin = workspace("incident-origin", { reference: REFERENCE_BYTES });
+  const here = workspace("incident-here", { reference: REFERENCE_BYTES });
+
+  const stolen = computeFingerprint({
+    projectDir: path.join(origin.root, "projects", "demo"),
+    projectId: "demo",
+  });
+  const file = path.join(here.revision, "visual-analysis.json");
+  writeJson(file, { ...JSON.parse(fs.readFileSync(file, "utf8")), provenance: stolen });
+
+  const { status, parsed } = check(here.root);
+  assert.equal(status, 1);
+  assert.equal(named(parsed, "visual-analysis.json").ok, false);
+  assert.match(named(parsed, "visual-analysis.json").detail, /DIFFERENT workspace/);
+});
+
+test("an analysis of a different image is refused", () => {
+  const { root, revision } = workspace("other-image", { reference: REFERENCE_BYTES });
+  const other = workspace("other-image-source", { reference: "a completely different picture" });
+  const stamp = computeFingerprint({
+    projectDir: path.join(other.root, "projects", "demo"),
+    projectId: "demo",
+  });
+  const mine = computeFingerprint({ projectDir: path.join(root, "projects", "demo"), projectId: "demo" });
+
+  const file = path.join(revision, "visual-analysis.json");
+  // Same project, same workspace — only the image the analysis describes differs.
+  writeJson(file, {
+    ...JSON.parse(fs.readFileSync(file, "utf8")),
+    provenance: { ...stamp, workspace: mine.workspace },
+  });
+
+  const { status, parsed } = check(root);
+  assert.equal(status, 1);
+  assert.match(named(parsed, "visual-analysis.json").detail, /different image/);
+});
+
+test("a project with no reference is not held to a fingerprint it cannot have", () => {
+  const { status, parsed, out } = check(workspace("no-reference").root);
+  assert.equal(status, 0, out);
+  assert.match(named(parsed, "visual-analysis.json").detail, /no reference on disk/);
+});
+
+// ---------------------------------------------------------------------------
+// Icons: a request that names them and an analysis that describes none cannot
+// both be right. A run resolved 33 icons and wrote `icons: []` — the same thing
+// `spacing` and `typography` did before, because what is optional gets omitted.
+// ---------------------------------------------------------------------------
+
+test("33 icons requested and none described holds the join", () => {
+  const { root } = workspace("icons-omitted", { request: REQUEST_WITH(["phone", "email", "website"]) });
+  const { status, parsed } = check(root);
+
+  assert.equal(status, 1);
+  assert.equal(named(parsed, "icons described").ok, false);
+  assert.match(named(parsed, "icons described").detail, /names 3 icon\(s\).*describes\s+none/s);
+  // The reason it matters, not just the count.
+  assert.match(named(parsed, "icons described").detail, /emitted as a glyph at text size/);
+});
+
+test("a request naming no icons is not asked to describe any", () => {
+  const { status, parsed, out } = check(workspace("icons-none").root);
+  assert.equal(status, 0, out);
+  assert.match(named(parsed, "icons described").detail, /no icons requested/);
+});
+
+test("described icons that match the request clear it", () => {
+  const { root } = workspace("icons-described", {
+    geometry: GEOMETRY_WITH_ICONS(["phone", "email"]),
+    request: REQUEST_WITH(["phone", "email"]),
+  });
+  const { status, parsed, out } = check(root);
+
+  assert.equal(status, 0, out);
+  assert.match(named(parsed, "icons described").detail, /2 of 2 requested icon\(s\) described/);
+});
+
+test("an icon id matching no requested token is caught", () => {
+  // A typo here points the plan's `icons` claim at nothing.
+  const { root } = workspace("icons-typo", {
+    geometry: GEOMETRY_WITH_ICONS(["phone", "emial"]),
+    request: REQUEST_WITH(["phone", "email"]),
+  });
+  const { status, parsed } = check(root);
+
+  assert.equal(status, 1);
+  assert.equal(named(parsed, "icons described").ok, false);
+  assert.match(named(parsed, "icons described").detail, /emial/);
+});
+
+// ---------------------------------------------------------------------------
+// Panels, and fills the reference can settle.
+//
+// A run described three containers and left out the one a reader complained
+// about twice — the dark monogram block, role "panel" — so nothing measured its
+// corner. On another container it got shape, radius, sizing and repeats right
+// and `fill.present` wrong, and that field was the first thing anyone noticed.
+// ---------------------------------------------------------------------------
+
+import { createRequire } from "node:module";
+
+const PANEL_REGION = {
+  id: "sidebar-header",
+  label: "Monogram panel",
+  page: 1,
+  role: "panel",
+  bounds: { x: 0, y: 0, w: 0.28, h: 0.14 },
+};
+
+const CONTAINER = (extra = {}) => ({
+  container: "competency-card",
+  ownedContent: "icon and label",
+  relationship: "an icon and a label share one row",
+  region: "sidebar-competencies",
+  bounds: { x: 0.2, y: 0.2, w: 0.6, h: 0.2 },
+  shape: "rounded-rectangle",
+  cornerRadiusRatio: 0.09,
+  sizing: "fill-parent",
+  fill: { present: false },
+  stroke: { present: true },
+  ...extra,
+});
+
+test("a region the analysis calls a panel must be described as a container", () => {
+  const { root } = workspace("panel-undescribed", {
+    geometry: { ...GEOMETRY, regions: [...GEOMETRY.regions, PANEL_REGION] },
+  });
+  const { status, parsed } = check(root);
+
+  assert.equal(status, 1);
+  assert.equal(named(parsed, "panels described").ok, false);
+  assert.match(named(parsed, "panels described").detail, /sidebar-header/);
+  assert.match(named(parsed, "panels described").detail, /A panel IS a shape/);
+});
+
+test("a panel with an entry against it clears, and a document with no panels is not asked", () => {
+  const { root } = workspace("panel-described", {
+    geometry: {
+      ...GEOMETRY,
+      regions: [...GEOMETRY.regions, PANEL_REGION],
+      shapeOwnership: [CONTAINER({ container: "monogram-panel", region: "sidebar-header" })],
+    },
+  });
+  const { status, parsed, out } = check(root);
+  assert.equal(status, 0, out);
+  assert.match(named(parsed, "panels described").detail, /1 panel region\(s\)/);
+
+  const bare = check(workspace("panel-none").root);
+  assert.match(named(bare.parsed, "panels described").detail, /no panel regions/);
+});
+
+/** A page of `ground` with one bordered box, written as a real PNG. */
+function referencePng(file, { filled }) {
+  const require = createRequire(path.join(repoRoot, "tools", "visual-diff", "package.json"));
+  const { PNG } = require("pngjs");
+  const png = new PNG({ width: 200, height: 200 });
+  const put = (x, y, c) => {
+    const i = (200 * y + x) * 4;
+    [png.data[i], png.data[i + 1], png.data[i + 2], png.data[i + 3]] = [...c, 255];
+  };
+  for (let y = 0; y < 200; y += 1) for (let x = 0; x < 200; x += 1) put(x, y, [253, 241, 237]);
+  // The container at bounds {0.2, 0.2, 0.6, 0.2} => x 40..160, y 40..80.
+  for (let y = 40; y < 80; y += 1) {
+    for (let x = 40; x < 160; x += 1) {
+      const edge = x < 41 || x >= 159 || y < 41 || y >= 79;
+      if (edge) put(x, y, [243, 206, 197]);
+      else if (filled) put(x, y, [255, 255, 255]);
+    }
+  }
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, PNG.sync.write(png));
+}
+
+/**
+ * Write the reference, then stamp the analysis for it. Provenance is computed
+ * from the reference on disk, so a fixture that writes the image after the
+ * analysis has to re-stamp or it fails a different check than it is testing.
+ */
+function referenceFor(root, revision, options) {
+  const projectDir = path.join(root, "projects", "demo");
+  referencePng(path.join(projectDir, "reference", "reference.png"), options);
+  const file = path.join(revision, "visual-analysis.json");
+  writeJson(file, {
+    ...JSON.parse(fs.readFileSync(file, "utf8")),
+    provenance: computeFingerprint({ projectDir, projectId: "demo" }),
+  });
+}
+
+test("a fill the reference contradicts is refused, and the pixels are quoted", () => {
+  // The exact error: an unfilled container claimed as filled.
+  const { root, revision } = workspace("fill-wrong", {
+    geometry: { ...GEOMETRY, shapeOwnership: [CONTAINER({ fill: { present: true } })] },
+    reference: "placeholder",
+  });
+  referenceFor(root, revision, { filled: false });
+  const { status, parsed } = check(root);
+
+  assert.equal(status, 1);
+  assert.equal(named(parsed, "fill claims measured").ok, false);
+  assert.match(named(parsed, "fill claims measured").detail, /claims a fill/);
+  assert.match(named(parsed, "fill claims measured").detail, /the same ground, so it paints nothing/);
+  assert.match(named(parsed, "fill claims measured").detail, /rgb\(/, "the measurement, not just a verdict");
+});
+
+test("a fill claim the reference agrees with passes, either way round", () => {
+  for (const filled of [false, true]) {
+    const { root, revision } = workspace(`fill-ok-${filled}`, {
+      geometry: { ...GEOMETRY, shapeOwnership: [CONTAINER({ fill: { present: filled } })] },
+      reference: "placeholder",
+    });
+    referenceFor(root, revision, { filled });
+    const { status, parsed, out } = check(root);
+
+    assert.equal(status, 0, out);
+    assert.match(named(parsed, "fill claims measured").detail, /agree with the reference/);
+  }
+});
+
+test("a missing fill claim is refused as unfilled when the reference says it paints", () => {
+  const { root, revision } = workspace("fill-missing", {
+    geometry: { ...GEOMETRY, shapeOwnership: [CONTAINER({ fill: { present: false } })] },
+    reference: "placeholder",
+  });
+  referenceFor(root, revision, { filled: true });
+  const { parsed } = check(root);
+
+  assert.equal(named(parsed, "fill claims measured").ok, false);
+  assert.match(named(parsed, "fill claims measured").detail, /it does paint/);
+});
+
+test("with no reference on disk the fill claim is reported unmeasured, not judged", () => {
+  const { root } = workspace("fill-no-reference", {
+    geometry: { ...GEOMETRY, shapeOwnership: [CONTAINER({ fill: { present: true } })] },
+  });
+  const { status, parsed, out } = check(root);
+
+  assert.equal(status, 0, out);
+  assert.match(named(parsed, "fill claims measured").detail, /no reference on disk/);
+});
+
+// ------------------------------------------- palette agrees with containers ---
+
+test("THE CASE: a palette clause claiming a fill the container is measured without", () => {
+  // Both fields as the failing analysis wrote them, in the first write.
+  const { root } = workspace("palette-contradiction", {
+    geometry: {
+      ...GEOMETRY,
+      shapeOwnership: [CONTAINER({ container: "competency-pill", fill: { present: false } })],
+      colors: [
+        { role: "page-bg", value: "#ffffff", usedIn: "main content area background, competency boxes fill" },
+      ],
+    },
+  });
+  const { status, parsed } = check(root);
+
+  assert.equal(status, 1);
+  assert.equal(named(parsed, "palette agrees with containers").ok, false);
+  assert.match(named(parsed, "palette agrees with containers").detail, /measured as unfilled/);
+  assert.match(named(parsed, "palette agrees with containers").detail, /competency boxes fill/);
+});
+
+test("a palette that describes the same containers honestly clears", () => {
+  const { root } = workspace("palette-honest", {
+    geometry: {
+      ...GEOMETRY,
+      shapeOwnership: [CONTAINER({ container: "competency-pill", fill: { present: false } })],
+      colors: [
+        { role: "border", value: "#f0b8a8", usedIn: "borders of the competency pills" },
+        { role: "sidebar-bg", value: "#fef2ef", usedIn: "sidebar background surface" },
+      ],
+    },
+  });
+  const { status, parsed, out } = check(root);
+
+  assert.equal(status, 0, out);
+  assert.equal(named(parsed, "palette agrees with containers").ok, true);
+});
+
+// ----------------------------------------------------- typography measured ---
+//
+// Three runs on one reference set their section headings in a serif against a
+// grotesque, and every region came back CRITICAL. The barrier could not have
+// caught any of them: the face lived in prose. These hold the two halves — the
+// roles have to exist once there is something to measure against, and a claim
+// to have measured has to be backed by a recording.
+
+/** Strip the honest roles the minimum carries, to get back the old world. */
+const NO_ROLES = (() => {
+  const { typography, ...rest } = GEOMETRY;
+  return rest;
+})();
+
+test("THE CASE: with a reference on disk, an analysis that names no face is held", () => {
+  const { root, revision } = workspace("type-no-roles", { geometry: NO_ROLES, reference: "placeholder" });
+  referenceFor(root, revision, { filled: false });
+  const { status, parsed } = check(root);
+
+  assert.equal(status, 1);
+  assert.equal(named(parsed, "typography measured").ok, false);
+  assert.match(named(parsed, "typography measured").detail, /typography\.roles is empty/);
+});
+
+test("prose about the type is not a face, and the barrier says which is missing", () => {
+  const { root, revision } = workspace("type-prose", {
+    geometry: {
+      ...NO_ROLES,
+      typography: { headings: "Dark teal serif headings", likelyFontFamily: "Poppins and a classic serif" },
+    },
+    reference: "placeholder",
+  });
+  referenceFor(root, revision, { filled: false });
+  const { parsed } = check(root);
+
+  assert.equal(named(parsed, "typography measured").ok, false);
+});
+
+test("a face claimed as measured with nothing recorded is held", () => {
+  const { root, revision } = workspace("type-unbacked", {
+    geometry: {
+      ...NO_ROLES,
+      typography: {
+        roles: [
+          { role: "headings", fontName: "LATO", source: "measured" },
+          { role: "body", fontName: "LATO", source: "measured" },
+        ],
+      },
+    },
+    reference: "placeholder",
+  });
+  referenceFor(root, revision, { filled: false });
+  const { parsed } = check(root);
+
+  assert.equal(named(parsed, "typography measured").ok, false);
+  assert.match(named(parsed, "typography measured").detail, /no match was recorded/);
+});
+
+test("a recorded match that backs the chosen face clears it", () => {
+  const { root, revision } = workspace("type-backed", {
+    geometry: {
+      ...NO_ROLES,
+      typography: {
+        roles: [
+          { role: "headings", fontName: "LATO", size: 11, source: "measured" },
+          { role: "body", fontName: "BARLOW", size: 9, source: "measured" },
+        ],
+      },
+    },
+    reference: "placeholder",
+  });
+  referenceFor(root, revision, { filled: false });
+  writeJson(path.join(revision, "typography-match.json"), {
+    schemaVersion: 1,
+    matches: [
+      { role: "headings", text: "SUMMARY", ranked: [{ rank: 1, family: "LATO" }, { rank: 2, family: "BARLOW" }] },
+      { role: "body", text: "body copy", ranked: [{ rank: 1, family: "BARLOW" }, { rank: 2, family: "LATO" }] },
+    ],
+    // The size is measured too, and by the same tool: a face without one is
+    // half an answer, and the run this came from had exactly that half.
+    sizes: [
+      { role: "headings", family: "LATO", size: 11, decisive: true },
+      { role: "body", family: "BARLOW", size: 9, decisive: true },
+    ],
+  });
+  const { status, parsed, out } = check(root);
+
+  assert.equal(status, 0, out);
+  assert.equal(named(parsed, "typography measured").ok, true);
+  assert.match(named(parsed, "typography measured").detail, /2 measured/);
+});
+
+test("a recorded match that contradicts the chosen face is held, and names the winner", () => {
+  const { root, revision } = workspace("type-contradicted", {
+    geometry: {
+      ...NO_ROLES,
+      typography: {
+        roles: [
+          { role: "headings", fontName: "PT_SERIF", source: "measured" },
+          { role: "body", fontName: "LATO", source: "assumed", why: "one family down from the heading face" },
+        ],
+      },
+    },
+    reference: "placeholder",
+  });
+  referenceFor(root, revision, { filled: false });
+  writeJson(path.join(revision, "typography-match.json"), {
+    schemaVersion: 1,
+    matches: [
+      {
+        role: "headings",
+        text: "SUMMARY",
+        ranked: ["LATO", "BARLOW", "FIRA_SANS", "OPEN_SANS", "PT_SERIF"].map((family, i) => ({ rank: i + 1, family })),
+      },
+    ],
+  });
+  const { parsed } = check(root);
+
+  assert.equal(named(parsed, "typography measured").ok, false);
+  assert.match(named(parsed, "typography measured").detail, /ranked 5 of 5/);
+  assert.match(named(parsed, "typography measured").detail, /behind LATO/);
+});
+
+test("a recording that does not parse is refused rather than read as no recording", () => {
+  // It looks like evidence from the outside, which is the one way it could do
+  // more damage than an absent file.
+  const { root, revision } = workspace("type-corrupt", {
+    geometry: {
+      ...NO_ROLES,
+      typography: { roles: [{ role: "headings", fontName: "LATO", source: "measured" }, { role: "body", fontName: "LATO", source: "measured" }] },
+    },
+    reference: "placeholder",
+  });
+  referenceFor(root, revision, { filled: false });
+  fs.writeFileSync(path.join(revision, "typography-match.json"), "{ not json");
+  const { parsed } = check(root);
+
+  assert.equal(named(parsed, "typography measured").ok, false);
+  assert.match(named(parsed, "typography measured").detail, /does not parse/);
+});
+
+test("with no reference there is nothing to match a face against, and none is demanded", () => {
+  // The same gate `fillClaimsMeasured` uses, for the same reason: a face is
+  // matched against a crop, so with no reference this would be asking for a
+  // form rather than a fact.
+  const { root } = workspace("type-no-reference", { geometry: NO_ROLES });
+  const { status, parsed, out } = check(root);
+
+  assert.equal(status, 0, out);
+  assert.match(named(parsed, "typography measured").detail, /nothing to match a face against/);
+});
+
+// A second page is a second raster. The probe read `reference.png` for every
+// container, so a card correctly measured as filled on page 2 was sampled
+// against blank ground on page 1 and refused — and the analysis could not be
+// made to pass without corrupting it.
+
+/** Both pages of a two-page reference, then the provenance that covers them. */
+function twoPageReferenceFor(root, revision, { page1, page2 }) {
+  const projectDir = path.join(root, "projects", "demo");
+  referencePng(path.join(projectDir, "reference", "reference.png"), { filled: page1 });
+  referencePng(path.join(projectDir, "reference", "reference-page-2.png"), { filled: page2 });
+  const file = path.join(revision, "visual-analysis.json");
+  writeJson(file, {
+    ...JSON.parse(fs.readFileSync(file, "utf8")),
+    provenance: computeFingerprint({ projectDir, projectId: "demo" }),
+  });
+}
+
+const PAGE_TWO_REGION = {
+  id: "footer-band",
+  label: "Footer band",
+  page: 2,
+  role: "background",
+  bounds: { x: 0, y: 0, w: 1, h: 1 },
+};
+
+test("a container on page 2 is measured against page 2", () => {
+  const { root, revision } = workspace("fill-page-two", {
+    geometry: {
+      ...GEOMETRY,
+      regions: [...GEOMETRY.regions, PAGE_TWO_REGION],
+      shapeOwnership: [CONTAINER({ region: "footer-band", fill: { present: true } })],
+    },
+  });
+  // Page 1 leaves that rectangle blank; page 2 fills it. The claim is right.
+  twoPageReferenceFor(root, revision, { page1: false, page2: true });
+
+  const { status, parsed, out } = check(root);
+  assert.equal(status, 0, out);
+  assert.equal(named(parsed, "fill claims measured").ok, true);
+  assert.match(named(parsed, "fill claims measured").detail, /1 container fill\(s\) agree/);
+});
+
+test("a page-2 container that is wrong is still refused, and the page is named", () => {
+  const { root, revision } = workspace("fill-page-two-wrong", {
+    geometry: {
+      ...GEOMETRY,
+      regions: [...GEOMETRY.regions, PAGE_TWO_REGION],
+      shapeOwnership: [CONTAINER({ region: "footer-band", fill: { present: true } })],
+    },
+  });
+  // Now page 1 is the filled one and page 2 is blank: the claim is wrong.
+  twoPageReferenceFor(root, revision, { page1: true, page2: false });
+
+  const { status, parsed } = check(root);
+  assert.equal(status, 1);
+  assert.equal(named(parsed, "fill claims measured").ok, false);
+  assert.match(named(parsed, "fill claims measured").detail, /page 2 of the reference/);
+});
+
+test("a container on a page nobody imported is left unmeasured, and said so", () => {
+  const { root, revision } = workspace("fill-page-missing", {
+    geometry: {
+      ...GEOMETRY,
+      regions: [...GEOMETRY.regions, PAGE_TWO_REGION],
+      shapeOwnership: [CONTAINER({ region: "footer-band", fill: { present: true } })],
+    },
+  });
+  // Only page 1 on disk. Judging the claim against it is what this fixes; the
+  // honest answer is that nothing was sampled.
+  referenceFor(root, revision, { filled: false });
+
+  const { status, parsed, out } = check(root);
+  assert.equal(status, 0, out);
+  assert.equal(named(parsed, "fill claims measured").ok, true);
+  assert.match(named(parsed, "fill claims measured").detail, /not sampled: page 2/);
 });

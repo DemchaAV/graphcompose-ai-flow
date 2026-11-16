@@ -26,6 +26,7 @@ public final class Probes {
             Map.entry("column-nesting", ColumnNestingProbe::new),
             Map.entry("layered-row-in-row-cell", LayeredRowInRowCellProbe::new),
             Map.entry("line-spacing", LineSpacingProbe::new),
+            Map.entry("list-continuation-indent", ListContinuationIndentProbe::new),
             Map.entry("page-enumeration", PageEnumerationProbe::new),
             Map.entry("page-margins", PageMarginProbe::new),
             Map.entry("path-coordinates", PathCoordinateProbe::new),

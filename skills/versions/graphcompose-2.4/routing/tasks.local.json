@@ -1,0 +1,235 @@
+{
+  "schemaVersion": 1,
+  "note": "Flow-owned routes for GraphCompose 2.4, merged over the bundle's routing/tasks.json by api-query. They exist because the release bundle ships five intents and the 2.4 API added features none of them reach. Anchors point at pages in THIS pack, not at the GraphCompose repository. None carries confirmedBy: no maintainer has signed these off, and api-query reports confirmed:false so a reader knows the difference.",
+  "tasks": [
+    {
+      "task": "timeline.dated-history",
+      "intent": "Lay out a dated history — roles, projects, milestones — as entries down the page with a marker per entry.",
+      "recommended": "add-timeline-with-a-leading-column",
+      "recommendedBecause": "addTimeline(Consumer<TimelineBuilder>) is the primitive for this shape, and leadingColumn(DocumentRowColumn) gives the dates their own column spec, so every entry's date starts at the same x whatever its text is. Building the same thing out of rows means re-deriving that alignment per entry, and the marker column has to be hand-measured.",
+      "alternatives": [
+        {
+          "id": "row-per-entry",
+          "useWhen": "there is no marker and no rail — a plain two-column list of date and text",
+          "tradeoffs": "one less concept, but nothing ties the entries together vertically and keepEntriesTogether() is not available, so an entry can split across a page break"
+        },
+        {
+          "id": "table",
+          "useWhen": "the history is genuinely tabular — equal columns, a header row, values to scan down",
+          "tradeoffs": "paginates per row and sizes by table rules; a marker and a connector have nowhere to live"
+        }
+      ],
+      "constraints": [
+        "an entry's leading content needs leadingColumn(...) to align across entries"
+      ],
+      "symbols": [
+        "AbstractFlowBuilder.addTimeline",
+        "TimelineBuilder.entry",
+        "TimelineBuilder.leadingColumn",
+        "TimelineBuilder.leadingGap",
+        "TimelineEntryBuilder.leading",
+        "TimelineEntryBuilder.content",
+        "TimelineEntryBuilder.marker",
+        "DocumentRowColumn.auto",
+        "DocumentRowColumn.fixed"
+      ],
+      "surfaces": ["authoring"],
+      "docs": ["skills/versions/graphcompose-2.4/timeline-and-rails.md"],
+      "verifiedAgainst": "2.4.0"
+    },
+    {
+      "task": "timeline.continuous-rail",
+      "intent": "Draw a continuous vertical line running through a timeline's markers, rather than a separate connector between each pair.",
+      "recommended": "timeline-rail",
+      "recommendedBecause": "rail(Consumer<TimelineRailBuilder>) declares one axis for the whole timeline, with stroke(DocumentStroke) for its weight and colour and from(TimelineRailEnd)/to(TimelineRailEnd) for where it starts and stops. connector(DocumentColor, double) is the older per-gap form and cannot express a line that runs past the first and last markers.",
+      "alternatives": [
+        {
+          "id": "connector-between-entries",
+          "useWhen": "the reference shows a line only BETWEEN markers, with clear space above the first and below the last",
+          "tradeoffs": "one call, but every gap is its own segment — a rail that must reach the entry bounds cannot be expressed"
+        },
+        {
+          "id": "shape-drawn-behind-the-entries",
+          "useWhen": "the line is decorative and unrelated to the entries — a page rule that happens to sit there",
+          "tradeoffs": "its length is hand-computed against the timeline's height, so it is wrong the moment an entry's text rewraps"
+        }
+      ],
+      "constraints": [
+        "TimelineRailEnd has exactly two values: ENTRY_BOUND and MARKER"
+      ],
+      "symbols": [
+        "TimelineBuilder.rail",
+        "TimelineBuilder.axisWidth",
+        "TimelineBuilder.markerOnRail",
+        "TimelineRailBuilder.stroke",
+        "TimelineRailBuilder.from",
+        "TimelineRailBuilder.to",
+        "TimelineRailEnd.ENTRY_BOUND",
+        "TimelineRailEnd.MARKER",
+        "DocumentStroke.of"
+      ],
+      "surfaces": ["authoring"],
+      "docs": ["skills/versions/graphcompose-2.4/timeline-and-rails.md"],
+      "verifiedAgainst": "2.4.0"
+    },
+    {
+      "task": "chrome.per-page-furniture",
+      "intent": "Put a header or footer on some pages but not others — no footer on the cover, \"Page 2 of 7\" on the rest.",
+      "recommended": "document-page-zone",
+      "recommendedBecause": "DocumentPageZone.header/footer(double, Function<PageContext, DocumentNode>) builds its content FROM the page it is drawn on, and the builder's appliesTo(Predicate<PageContext>) decides which pages get it at all. PageContext answers isFirst(), isLast(), number() and total(), and hands back pageNumber()/pageTotal() as nodes. DocumentHeaderFooter carries fixed strings and cannot vary per page.",
+      "alternatives": [
+        {
+          "id": "document-header-footer",
+          "useWhen": "the same text on every page, with no per-page decision",
+          "tradeoffs": "simplest, and 2.4 added fontName and reserveSpace to it, but leftText/centerText/rightText are strings fixed before the page count is known"
+        },
+        {
+          "id": "content-in-the-flow",
+          "useWhen": "the furniture is really part of the first page's design — a cover block, not a running header",
+          "tradeoffs": "flows and paginates with the content, so it cannot repeat and cannot be excluded from later pages"
+        }
+      ],
+      "constraints": [
+        "reserveSpace(boolean) decides whether the zone takes height from the flow or is drawn over it"
+      ],
+      "symbols": [
+        "SessionChromeApi.zone",
+        "DocumentPageZone.header",
+        "DocumentPageZone.footer",
+        "DocumentPageZone.builder",
+        "DocumentPageZone.DocumentPageZoneBuilder.appliesTo",
+        "DocumentPageZone.DocumentPageZoneBuilder.reserveSpace",
+        "DocumentPageZone.DocumentPageZoneBuilder.padding",
+        "PageContext.isFirst",
+        "PageContext.number",
+        "PageContext.total",
+        "PageContext.pageNumber",
+        "PageContext.pageTotal",
+        "DocumentOutputOptions.zones"
+      ],
+      "surfaces": ["authoring"],
+      "docs": ["skills/versions/graphcompose-2.4/page-zones-and-chrome.md"],
+      "verifiedAgainst": "2.4.0"
+    },
+    {
+      "task": "layout.block-that-must-not-stretch",
+      "intent": "Keep a block at its own width inside a column that is wider — a pill, a card, a signature rule.",
+      "recommended": "flow-width",
+      "recommendedBecause": "fixedWidth(double) on the flow builder sets the node's DocumentFlowWidth, which DocumentNode, SectionNode and ContainerNode all report through flowWidth(). It is a property of the node, so it survives the block being moved into another column — unlike a width derived from the parent, which has to be recomputed wherever it lands.",
+      "alternatives": [
+        {
+          "id": "row-with-a-fixed-column-and-a-spacer",
+          "useWhen": "the block's width is really a column of a larger grid",
+          "tradeoffs": "expresses the grid honestly, but adds a row whose only job is to hold one child, and the width now lives in the column spec"
+        },
+        {
+          "id": "padding-on-the-parent",
+          "useWhen": "what you actually want is inset content, not a narrower block",
+          "tradeoffs": "moves the edges rather than sizing the node: the background still spans the full column, which is usually the bug being chased"
+        }
+      ],
+      "constraints": [
+        "DocumentFlowWidth.natural() is the default; of(double) is the fixed form and isFixed() distinguishes them"
+      ],
+      "symbols": [
+        "AbstractFlowBuilder.fixedWidth",
+        "DocumentFlowWidth.of",
+        "DocumentFlowWidth.natural",
+        "DocumentFlowWidth.isFixed",
+        "DocumentNode.flowWidth",
+        "SectionNode.flowWidth",
+        "ContainerNode.flowWidth"
+      ],
+      "surfaces": ["authoring"],
+      "docs": ["skills/versions/graphcompose-2.4/flow-width-and-sizing.md"],
+      "verifiedAgainst": "2.4.0"
+    },
+    {
+      "task": "typography.letter-spacing",
+      "intent": "Track a wordmark, a small-caps label or a spaced heading wider or tighter than the font sets it.",
+      "recommended": "document-letter-spacing",
+      "recommendedBecause": "DocumentTextStyle.withLetterSpacing(DocumentLetterSpacing) puts tracking in the style, so every use of that style is tracked identically. DocumentLetterSpacing.ofFontSize(double) is relative, so the tracking scales when the type scale moves; points(double) is absolute for when it must not.",
+      "alternatives": [
+        {
+          "id": "spaces-typed-into-the-string",
+          "useWhen": "never",
+          "tradeoffs": "changes the text, breaks copy-paste and search in the PDF, and the spacing is a word gap that wraps — this is the construction the route exists to replace"
+        },
+        {
+          "id": "a-row-of-per-letter-nodes",
+          "useWhen": "the letters really are separate design elements, individually placed or coloured",
+          "tradeoffs": "total control and no text left: no wrapping, no selection, and every letter is a node to maintain"
+        }
+      ],
+      "constraints": [
+        "DocumentLetterSpacing.NONE is the unset value, and isNone() tests it"
+      ],
+      "symbols": [
+        "DocumentTextStyle.withLetterSpacing",
+        "DocumentTextStyle.letterSpacing",
+        "DocumentTextStyle.Builder.letterSpacing",
+        "DocumentLetterSpacing.points",
+        "DocumentLetterSpacing.ofFontSize",
+        "DocumentLetterSpacing.resolve",
+        "DocumentLetterSpacing.isNone"
+      ],
+      "surfaces": ["authoring"],
+      "docs": ["skills/versions/graphcompose-2.4/typography-2-4.md"],
+      "verifiedAgainst": "2.4.0"
+    },
+    {
+      "task": "list.hanging-indent",
+      "intent": "Make a wrapped list item's second line align under its text rather than under its bullet.",
+      "recommended": "list-hanging-indent",
+      "recommendedBecause": "hangingIndent(boolean) on ListBuilder is the property, and markerGap(double) sets the distance the text is offset by; ListNode reports both back. Faking it with padding applies the inset to the first line as well, which moves the marker instead of the wrap.",
+      "alternatives": [
+        {
+          "id": "row-per-item",
+          "useWhen": "the marker is a graphic rather than a glyph — an icon bullet with its own column",
+          "tradeoffs": "full control of the two columns, but the list is no longer a list: nesting, depth markers and markerFor(int, ListMarker) are gone"
+        }
+      ],
+      "constraints": [
+        "a rich marker or item goes through ofRuns(List<InlineRun>), and isRich() reports which form an item is in"
+      ],
+      "symbols": [
+        "ListBuilder.hangingIndent",
+        "ListBuilder.markerGap",
+        "ListNode.hangingIndent",
+        "ListNode.markerGap",
+        "ListItem.ofRuns",
+        "ListItem.isRich",
+        "ListMarker.ofRuns",
+        "AbstractFlowBuilder.addList"
+      ],
+      "surfaces": ["authoring"],
+      "docs": ["skills/versions/graphcompose-2.4/lists-and-inline-2-4.md"],
+      "verifiedAgainst": "2.4.0"
+    },
+    {
+      "task": "text.chip-inside-a-sentence",
+      "intent": "Highlight a token inside running text — a tag, a status word, a key on a tinted background.",
+      "recommended": "inline-styled-chip",
+      "recommendedBecause": "ParagraphBuilder.inlineStyledChip(String, DocumentTextStyle, DocumentColor) puts the chip in the text run, so it wraps with the sentence and keeps its background. A chip built as a container beside the paragraph is a sibling block: the sentence cannot flow around it.",
+      "alternatives": [
+        {
+          "id": "shape-container-beside-the-text",
+          "useWhen": "the chip is a standalone badge, on its own line or in a row of chips",
+          "tradeoffs": "full control of corner radius, stroke and padding, but it is a block — it cannot sit mid-sentence"
+        }
+      ],
+      "constraints": [
+        "the chip is one run: InlineRun.plainText(List<InlineRun>) is how the flattened text is read back"
+      ],
+      "symbols": [
+        "ParagraphBuilder.inlineStyledChip",
+        "InlineRun.plainText",
+        "InlineRun.textRuns",
+        "AbstractFlowBuilder.addParagraph"
+      ],
+      "surfaces": ["authoring"],
+      "docs": ["skills/versions/graphcompose-2.4/lists-and-inline-2-4.md"],
+      "verifiedAgainst": "2.4.0"
+    }
+  ]
+}
