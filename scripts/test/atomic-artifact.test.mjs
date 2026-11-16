@@ -150,7 +150,7 @@ test("the canonical path is never the file being written into", () => {
  * error, writes nothing, and a test asserting "no partial reads" passes for an
  * experiment that never happened.
  */
-function spawnWriter(file, { generations = 6, sizeBytes = 64 * 1024 } = {}) {
+function spawnWriter(file, { generations = 6, sizeBytes = 64 * 1024, pauseMs = 0 } = {}) {
   const child = spawn(
     process.execPath,
     [
@@ -158,7 +158,8 @@ function spawnWriter(file, { generations = 6, sizeBytes = 64 * 1024 } = {}) {
       "-e",
       `import {replaceFileAtomic} from ${JSON.stringify(pathToFileURL(path.join(repoRoot, "scripts", "lib", "atomic-write.mjs")).href)};
        const f=process.argv[1];const filler="x".repeat(${sizeBytes});
-       for(let i=1;i<=${generations};i++) replaceFileAtomic(f, JSON.stringify({generation:i,filler})+"\\n");`,
+       const pause=new Int32Array(new SharedArrayBuffer(4));
+       for(let i=1;i<=${generations};i++){replaceFileAtomic(f, JSON.stringify({generation:i,filler})+"\\n");if(${pauseMs})Atomics.wait(pause,0,0,${pauseMs});}`,
       file,
     ],
     { stdio: ["ignore", "ignore", "pipe"] },
@@ -180,7 +181,11 @@ test("a reader polling beside the writer only ever sees whole artifacts", async 
   const file = path.join(dir, "visual-analysis.json");
   fs.writeFileSync(file, `${JSON.stringify({ generation: 0 })}\n`, "utf8");
 
-  const { exited } = spawnWriter(file);
+  // The writer pauses longer than the reader's poll between generations. On a
+  // fast Linux runner six 64 KB replaces finished inside the first 20 ms gap,
+  // so the reader only ever saw generation 0 and the liveness half failed on
+  // timing, not on atomicity.
+  const { exited } = spawnWriter(file, { pauseMs: 40 });
   const seen = [];
   let running = true;
   exited.then(() => {

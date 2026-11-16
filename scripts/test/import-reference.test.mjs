@@ -256,9 +256,25 @@ test("page one of a multi-page pdf is the page that lands in reference.png", { s
 
   assert.equal(imported.width, pageOne.width, "the imported page is not page 1's size");
   assert.equal(imported.height, pageOne.height, "the imported page is not page 1's size");
+  // Not byte equality: `output.png` was rasterised when the revision was made,
+  // on whatever machine made it, and a Linux runner antialiases the same page
+  // differently — identical size, different bytes, and this failed in CI on a
+  // correct import. The question is which page it is, so it is asked as one:
+  // the imported page one must be nearer the committed page one than the
+  // imported page two is. Swap the index and the two distances swap with it.
+  const pageTwo = PNG.sync.read(fs.readFileSync(path.join(ws.project, "reference", "reference-page-2.png")));
+  const distance = (a, b) => {
+    if (a.width !== b.width || a.height !== b.height) return Number.POSITIVE_INFINITY;
+    let sum = 0;
+    for (let i = 0; i < a.data.length; i += 1) sum += Math.abs(a.data[i] - b.data[i]);
+    return sum / a.data.length;
+  };
+  const toPageOne = distance(imported, pageOne);
+  const pageTwoToPageOne = distance(pageTwo, pageOne);
   assert.ok(
-    imported.data.equals(pageOne.data),
-    "reference.png is not page 1 of the source — the page index is off again",
+    toPageOne < pageTwoToPageOne,
+    `reference.png is not page 1 of the source — the page index is off again ` +
+      `(mean channel distance to page 1: ${toPageOne.toFixed(3)}, page 2's: ${pageTwoToPageOne.toFixed(3)})`,
   );
 });
 
